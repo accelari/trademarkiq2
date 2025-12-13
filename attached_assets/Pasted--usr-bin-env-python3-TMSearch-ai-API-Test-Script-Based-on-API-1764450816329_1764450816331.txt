@@ -1,0 +1,827 @@
+#!/usr/bin/env python3
+"""
+TMSearch.ai API Test Script
+============================
+Based on API documentation v2.051
+
+Two API levels:
+1. Search API - Search trademarks by keyword
+2. Info API - Get detailed information about a single trademark
+"""
+
+import requests
+import json
+import textwrap
+from typing import Optional, Literal, TYPE_CHECKING
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from collections import defaultdict
+
+
+# Base URLs
+BASE_URL = "https://tmsearch.ai/api"
+SEARCH_URL = f"{BASE_URL}/search/"
+INFO_URL = f"{BASE_URL}/info/"
+IMAGE_BASE_URL = "https://img.tmsearch.ai/img"
+
+# Test API Key (limited: max 390 results, first 10 most relevant carved out)
+TEST_API_KEY = "TESTAPIKEY"
+
+
+@dataclass
+class ClassInfo:
+    """Detailed Nice class information"""
+    class_number: str
+    description: list[str]
+    language: str = "EN"
+
+
+@dataclass 
+class DetailedTrademarkInfo:
+    """Full trademark information from Info API"""
+    verbal: str
+    status: Optional[str]
+    submition: str
+    protection: list[str]
+    app: Optional[str]
+    reg: Optional[str]
+    owner: Optional[str]
+    attorney: Optional[str]
+    date_applied: Optional[str]
+    date_granted: Optional[str]
+    date_expiration: Optional[str]
+    classes: list[str]
+    class_details: list[ClassInfo]
+    image_url: Optional[str]
+    source_url: Optional[str]
+    
+    def format_classes_with_descriptions(self) -> str:
+        """Format all classes with their full descriptions"""
+        lines = []
+        for cls in self.class_details:
+            lines.append(f"Class {cls.class_number} ({cls.language}):")
+            for desc in cls.description:
+                # Word wrap long descriptions
+                wrapped = textwrap.fill(desc, width=70, initial_indent="    ", subsequent_indent="    ")
+                lines.append(wrapped)
+        return "\n".join(lines)
+
+
+@dataclass
+class SearchResult:
+    """Represents a single trademark search result"""
+    mid: int
+    verbal: str
+    img: Optional[str]
+    status: Literal["LIVE", "DEAD", "UNKN"]
+    classes: list[str]
+    accuracy: int
+    submition: str  # Office where submitted (WO, EU, UK, etc.)
+    protection: list[str]  # Regions where protected
+    app: Optional[str]  # Application number
+    reg: Optional[str]  # Registration number
+    date_applied: Optional[str]
+    date_granted: Optional[str]
+    date_expiration: Optional[str]
+    
+    def get_image_url(self, size: int = 210) -> Optional[str]:
+        """Get full image URL. Available sizes: 210, 500, 700"""
+        if self.img:
+            return f"{IMAGE_BASE_URL}/{size}/{self.img}"
+        return None
+    
+    def get_expiration_date(self) -> Optional[datetime]:
+        """Parse expiration date string to datetime object"""
+        if self.date_expiration:
+            try:
+                return datetime.strptime(self.date_expiration, "%Y-%m-%d")
+            except ValueError:
+                return None
+        return None
+    
+    def days_until_expiration(self) -> Optional[int]:
+        """Calculate days until expiration. Negative = already expired."""
+        exp_date = self.get_expiration_date()
+        if exp_date:
+            delta = exp_date - datetime.now()
+            return delta.days
+        return None
+    
+    def is_expiring_soon(self, months: int = 12) -> bool:
+        """Check if trademark expires within specified months"""
+        days = self.days_until_expiration()
+        if days is not None:
+            return 0 < days <= (months * 30)
+        return False
+    
+    def is_expired(self) -> bool:
+        """Check if trademark has already expired"""
+        days = self.days_until_expiration()
+        if days is not None:
+            return days < 0
+        return False
+    
+    def expiration_status(self) -> str:
+        """Get human-readable expiration status"""
+        days = self.days_until_expiration()
+        if days is None:
+            return "Unknown"
+        elif days < 0:
+            return f"EXPIRED ({abs(days)} days ago)"
+        elif days <= 90:
+            return f"⚠️ CRITICAL ({days} days)"
+        elif days <= 180:
+            return f"⚠️ URGENT ({days} days)"
+        elif days <= 365:
+            return f"⏰ SOON ({days} days)"
+        else:
+            years = days // 365
+            return f"OK ({years}+ years)"
+
+
+class TMSearchAPI:
+    """Client for TMSearch.ai API"""
+    
+    def __init__(self, api_key: str = TEST_API_KEY):
+        self.api_key = api_key
+        self.session = requests.Session()
+    
+    def search(self, keyword: str, **filters) -> dict:
+        """
+        Search trademarks by keyword.
+        
+        Args:
+            keyword: Search term (alphanumeric, supports Latin, Cyrillic, Hebrew)
+            **filters: Additional filter parameters
+            
+        Returns:
+            dict with 'total' (count) and 'result' (list of trademarks)
+        """
+        params = {
+            "keyword": keyword,
+            "api_key": self.api_key,
+            **filters
+        }
+        
+        response = self.session.get(SEARCH_URL, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    def get_info_by_number(
+        self, 
+        number: str, 
+        office: str, 
+        type_: Literal["APP", "REG"] = "APP"
+    ) -> dict:
+        """
+        Get detailed trademark information by application/registration number.
+        
+        Args:
+            number: Application or registration number
+            office: Two-letter country code (WO, EU, UK, TR, etc.)
+            type_: APP (application number) or REG (registration number)
+                   Note: Turkey only uses APP, WIPO uses REG
+                   
+        Returns:
+            Detailed trademark information including owner, attorney, classes, etc.
+        """
+        params = {
+            "number": number,
+            "office": office,
+            "type": type_,
+            "api_key": self.api_key
+        }
+        
+        response = self.session.get(INFO_URL, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    def get_info_by_mid(self, mid: int, office: str) -> dict:
+        """
+        Get detailed trademark information by internal MID.
+        
+        Note: According to docs, 'mid' is an alternative to 'number'.
+        The API requires either mid OR number, plus office.
+        
+        Args:
+            mid: Internal ID from search results
+            office: Two-letter country code (required)
+            
+        Returns:
+            Detailed trademark information
+        """
+        # Try without type parameter since mid should be sufficient
+        params = {
+            "mid": mid,
+            "office": office,
+            "api_key": self.api_key
+        }
+        
+        response = self.session.get(INFO_URL, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    def get_info_from_search_result(self, result: 'SearchResult') -> dict:
+        """
+        Get detailed info using the best available identifier from search result.
+        Tries registration number first, then application number.
+        
+        Args:
+            result: A SearchResult object from search
+            
+        Returns:
+            Detailed trademark information
+        """
+        office = result.submition
+        
+        # For WIPO, use REG type; for most others use APP
+        if result.reg and office == "WO":
+            return self.get_info_by_number(result.reg, office, "REG")
+        elif result.app:
+            return self.get_info_by_number(result.app, office, "APP")
+        elif result.reg:
+            return self.get_info_by_number(result.reg, office, "REG")
+        else:
+            raise ValueError(f"No valid identifier found for trademark mid={result.mid}")
+    
+    def get_detailed_info(self, result: 'SearchResult') -> Optional[DetailedTrademarkInfo]:
+        """
+        Get detailed trademark info with parsed class descriptions.
+        
+        Args:
+            result: A SearchResult object from search
+            
+        Returns:
+            DetailedTrademarkInfo with full class descriptions
+        """
+        try:
+            data = self.get_info_from_search_result(result)
+            
+            if "error" in data:
+                return None
+            
+            # Parse class details
+            class_details = []
+            for item in data.get("item_class", []):
+                more = item.get("more", {})
+                class_info = ClassInfo(
+                    class_number=item.get("name", ""),
+                    description=more.get("name_more", []),
+                    language=more.get("lang", "EN")
+                )
+                class_details.append(class_info)
+            
+            # Parse dates
+            date_info = data.get("date", {})
+            
+            # Build image URL
+            img_path = data.get("img")
+            image_url = f"{IMAGE_BASE_URL}/210/{img_path}" if img_path else None
+            
+            return DetailedTrademarkInfo(
+                verbal=data.get("verbal", ""),
+                status=data.get("status"),
+                submition=data.get("submition", ""),
+                protection=data.get("protection", []),
+                app=data.get("app"),
+                reg=data.get("reg"),
+                owner=data.get("owner"),
+                attorney=data.get("attorney"),
+                date_applied=self._parse_date(date_info.get("applied")),
+                date_granted=self._parse_date(date_info.get("granted")),
+                date_expiration=self._parse_date(date_info.get("expiration")),
+                classes=data.get("class", []),
+                class_details=class_details,
+                image_url=image_url,
+                source_url=data.get("url")
+            )
+            
+        except (requests.RequestException, ValueError) as e:
+            print(f"Error fetching details: {e}")
+            return None
+    
+    def get_live_with_details(
+        self, 
+        keyword: str,
+        fetch_class_descriptions: bool = True,
+        limit: Optional[int] = None
+    ) -> list[tuple[SearchResult, Optional[DetailedTrademarkInfo]]]:
+        """
+        Search for LIVE trademarks and optionally fetch full class descriptions.
+        
+        Args:
+            keyword: Search term
+            fetch_class_descriptions: If True, fetch detailed info for each result
+            limit: Max number of results to fetch details for (None = all)
+            
+        Returns:
+            List of tuples (SearchResult, DetailedTrademarkInfo or None)
+        """
+        analysis = self.search_with_expiration_analysis(keyword, only_live=True)
+        results = analysis["results"]
+        
+        if limit:
+            results = results[:limit]
+        
+        detailed_results = []
+        
+        for i, tm in enumerate(results):
+            if fetch_class_descriptions:
+                print(f"   Fetching details {i+1}/{len(results)}: {tm.verbal} ({tm.submition})...", end="\r")
+                details = self.get_detailed_info(tm)
+            else:
+                details = None
+            
+            detailed_results.append((tm, details))
+        
+        if fetch_class_descriptions:
+            print(" " * 70, end="\r")  # Clear progress line
+        
+        return detailed_results
+    
+    def parse_search_results(self, data: dict) -> tuple[int, list[SearchResult]]:
+        """Parse raw search response into SearchResult objects"""
+        total = data.get("total", 0)
+        results = []
+        
+        for item in data.get("result", []):
+            date_info = item.get("date", {})
+            
+            result = SearchResult(
+                mid=item.get("mid"),
+                verbal=item.get("verbal", ""),
+                img=item.get("img"),
+                status=item.get("status", "UNKN"),
+                classes=item.get("class", []),
+                accuracy=item.get("accuracy", 0),
+                submition=item.get("submition", ""),
+                protection=item.get("protection", []),
+                app=item.get("app"),
+                reg=item.get("reg"),
+                date_applied=self._parse_date(date_info.get("applied")),
+                date_granted=self._parse_date(date_info.get("granted")),
+                date_expiration=self._parse_date(date_info.get("expiration")),
+            )
+            results.append(result)
+        
+        return total, results
+    
+    @staticmethod
+    def _parse_date(date_int: Optional[int]) -> Optional[str]:
+        """Convert YYYYMMDD integer to ISO date string"""
+        if date_int:
+            try:
+                date_str = str(date_int)
+                return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+            except (ValueError, IndexError):
+                return None
+        return None
+    
+    def search_live(self, keyword: str, **filters) -> tuple[int, list[SearchResult]]:
+        """
+        Search and return only LIVE trademarks.
+        
+        Args:
+            keyword: Search term
+            **filters: Additional filter parameters
+            
+        Returns:
+            Tuple of (total_live_count, list of live SearchResult)
+        """
+        raw_data = self.search(keyword, **filters)
+        total, results = self.parse_search_results(raw_data)
+        
+        live_results = [r for r in results if r.status == "LIVE"]
+        return len(live_results), live_results
+    
+    def search_with_expiration_analysis(
+        self, 
+        keyword: str,
+        only_live: bool = True,
+        expiring_within_months: Optional[int] = None,
+        **filters
+    ) -> dict:
+        """
+        Search trademarks with detailed expiration analysis.
+        
+        Args:
+            keyword: Search term
+            only_live: If True, exclude DEAD/UNKN trademarks
+            expiring_within_months: If set, only return marks expiring within X months
+            **filters: Additional filter parameters
+            
+        Returns:
+            Dict with categorized results and statistics
+        """
+        raw_data = self.search(keyword, **filters)
+        total, results = self.parse_search_results(raw_data)
+        
+        # Filter by status
+        if only_live:
+            results = [r for r in results if r.status == "LIVE"]
+        
+        # Categorize by expiration urgency
+        categories = {
+            "critical": [],      # <= 90 days
+            "urgent": [],        # 91-180 days
+            "upcoming": [],      # 181-365 days
+            "safe": [],          # > 365 days
+            "unknown": [],       # No expiration date
+            "status_mismatch": [] # LIVE but already expired
+        }
+        
+        for tm in results:
+            days = tm.days_until_expiration()
+            
+            if days is None:
+                categories["unknown"].append(tm)
+            elif days < 0:
+                # Status says LIVE but expiration is in past
+                categories["status_mismatch"].append(tm)
+            elif days <= 90:
+                categories["critical"].append(tm)
+            elif days <= 180:
+                categories["urgent"].append(tm)
+            elif days <= 365:
+                categories["upcoming"].append(tm)
+            else:
+                categories["safe"].append(tm)
+        
+        # Filter by expiring_within_months if specified
+        if expiring_within_months:
+            max_days = expiring_within_months * 30
+            filtered = []
+            for tm in results:
+                days = tm.days_until_expiration()
+                if days is not None and 0 < days <= max_days:
+                    filtered.append(tm)
+            results = filtered
+        
+        # Sort results by expiration date (soonest first)
+        results_with_dates = [(r, r.days_until_expiration() or 999999) for r in results]
+        results_with_dates.sort(key=lambda x: x[1])
+        sorted_results = [r[0] for r in results_with_dates]
+        
+        return {
+            "total_found": total,
+            "total_live": len([r for r in results if r.status == "LIVE"]),
+            "results": sorted_results,
+            "categories": categories,
+            "statistics": {
+                "critical": len(categories["critical"]),
+                "urgent": len(categories["urgent"]),
+                "upcoming": len(categories["upcoming"]),
+                "safe": len(categories["safe"]),
+                "unknown": len(categories["unknown"]),
+                "status_mismatch": len(categories["status_mismatch"]),
+            }
+        }
+
+
+def print_separator(title: str = ""):
+    """Print a visual separator"""
+    print("\n" + "=" * 60)
+    if title:
+        print(f"  {title}")
+        print("=" * 60)
+
+
+def print_expiration_report(analysis: dict, keyword: str):
+    """Print a formatted expiration analysis report"""
+    print_separator(f"EXPIRATION REPORT: '{keyword}'")
+    
+    stats = analysis["statistics"]
+    print(f"\n📊 STATISTICS")
+    print(f"   Total found: {analysis['total_found']}")
+    print(f"   Total LIVE:  {analysis['total_live']}")
+    print()
+    print(f"   🔴 Critical (≤90 days):   {stats['critical']}")
+    print(f"   🟠 Urgent (91-180 days):  {stats['urgent']}")
+    print(f"   🟡 Upcoming (181-365):    {stats['upcoming']}")
+    print(f"   🟢 Safe (>1 year):        {stats['safe']}")
+    print(f"   ⚪ Unknown expiration:    {stats['unknown']}")
+    if stats['status_mismatch'] > 0:
+        print(f"   ⚠️  Status mismatch:      {stats['status_mismatch']} (LIVE but expired!)")
+    
+    # Show critical and urgent items
+    categories = analysis["categories"]
+    
+    if categories["critical"]:
+        print(f"\n🔴 CRITICAL - Action Required Immediately:")
+        print("-" * 55)
+        for tm in categories["critical"]:
+            days = tm.days_until_expiration()
+            print(f"   {tm.verbal}")
+            print(f"      Office: {tm.submition} | Classes: {', '.join(tm.classes)}")
+            print(f"      Expires: {tm.date_expiration} ({days} days)")
+            print(f"      App#: {tm.app}")
+            print()
+    
+    if categories["urgent"]:
+        print(f"\n🟠 URGENT - Plan Renewal Soon:")
+        print("-" * 55)
+        for tm in categories["urgent"]:
+            days = tm.days_until_expiration()
+            print(f"   {tm.verbal}")
+            print(f"      Office: {tm.submition} | Classes: {', '.join(tm.classes)}")
+            print(f"      Expires: {tm.date_expiration} ({days} days)")
+            print(f"      App#: {tm.app}")
+            print()
+    
+    if categories["upcoming"]:
+        print(f"\n🟡 UPCOMING - Within 1 Year:")
+        print("-" * 55)
+        for tm in categories["upcoming"][:10]:  # Limit to 10
+            days = tm.days_until_expiration()
+            print(f"   {tm.verbal} | {tm.submition} | {tm.date_expiration} ({days} days)")
+        if len(categories["upcoming"]) > 10:
+            print(f"   ... and {len(categories['upcoming']) - 10} more")
+    
+    if categories["status_mismatch"]:
+        print(f"\n⚠️  STATUS MISMATCH - Database inconsistency:")
+        print("-" * 55)
+        for tm in categories["status_mismatch"][:5]:
+            print(f"   {tm.verbal} | {tm.submition} | Status: {tm.status} but expired: {tm.date_expiration}")
+
+
+def print_detailed_trademark(tm: SearchResult, details: Optional[DetailedTrademarkInfo]):
+    """Print detailed trademark info with full class descriptions"""
+    days = tm.days_until_expiration()
+    
+    print(f"\n{'='*60}")
+    print(f"  {tm.verbal}")
+    print(f"{'='*60}")
+    print(f"  Status: {tm.status} | {tm.expiration_status()}")
+    print(f"  Office: {tm.submition} | Protection: {', '.join(tm.protection[:10])}")
+    if len(tm.protection) > 10:
+        print(f"           ... and {len(tm.protection) - 10} more countries")
+    print(f"  App#: {tm.app} | Reg#: {tm.reg}")
+    print(f"  Applied: {tm.date_applied} | Expires: {tm.date_expiration}")
+    
+    if details:
+        if details.owner:
+            print(f"\n  Owner: {details.owner}")
+        if details.attorney:
+            print(f"  Attorney: {details.attorney}")
+        if details.source_url:
+            print(f"  Source: {details.source_url}")
+        
+        if details.class_details:
+            print(f"\n  📋 CLASS DESCRIPTIONS:")
+            print(f"  {'-'*50}")
+            for cls in details.class_details:
+                print(f"\n  Class {cls.class_number} [{cls.language}]:")
+                for desc in cls.description:
+                    wrapped = textwrap.fill(
+                        desc, 
+                        width=60, 
+                        initial_indent="    ", 
+                        subsequent_indent="    "
+                    )
+                    print(wrapped)
+    else:
+        print(f"\n  Classes: {', '.join(tm.classes)}")
+        print("  (Details not available)")
+
+
+def print_live_trademarks_with_details(
+    results: list[tuple[SearchResult, Optional[DetailedTrademarkInfo]]],
+    keyword: str
+):
+    """Print all live trademarks with their class descriptions"""
+    print_separator(f"LIVE TRADEMARKS: '{keyword}' ({len(results)} results)")
+    
+    for tm, details in results:
+        print_detailed_trademark(tm, details)
+
+
+def test_search_api(api: TMSearchAPI, keyword: str = "ALTANA"):
+    """Test the search endpoint"""
+    print_separator(f"SEARCH TEST: '{keyword}'")
+    
+    try:
+        raw_data = api.search(keyword)
+        total, results = api.parse_search_results(raw_data)
+        
+        print(f"\nTotal results: {total}")
+        print(f"Results returned: {len(results)}")
+        
+        if results:
+            print("\nFirst 5 results:")
+            print("-" * 50)
+            
+            for i, tm in enumerate(results[:5], 1):
+                print(f"\n{i}. {tm.verbal}")
+                print(f"   Status: {tm.status} | Accuracy: {tm.accuracy}%")
+                print(f"   Office: {tm.submition} | Protection: {', '.join(tm.protection[:5])}")
+                print(f"   Classes: {', '.join(tm.classes)}")
+                print(f"   App#: {tm.app} | Reg#: {tm.reg}")
+                print(f"   Applied: {tm.date_applied} | Expires: {tm.date_expiration}")
+                if tm.img:
+                    print(f"   Image: {tm.get_image_url()}")
+                    
+        return raw_data, results
+        
+    except requests.RequestException as e:
+        print(f"Error: {e}")
+        return None, []
+
+
+def test_info_api_by_number(api: TMSearchAPI):
+    """Test the info endpoint with registration number"""
+    print_separator("INFO TEST (by number): WIPO Registration 1580418")
+    
+    try:
+        data = api.get_info_by_number(
+            number="1580418",
+            office="WO",
+            type_="REG"
+        )
+        
+        print("\nRaw response:")
+        print(json.dumps(data, indent=2, ensure_ascii=False)[:2000])
+        if len(json.dumps(data)) > 2000:
+            print("... (truncated)")
+            
+        return data
+        
+    except requests.RequestException as e:
+        print(f"Error: {e}")
+        return None
+
+
+def test_info_api_by_mid(api: TMSearchAPI, mid: int, office: str):
+    """Test the info endpoint with MID from search results"""
+    print_separator(f"INFO TEST (by mid): {mid} / Office: {office}")
+    
+    try:
+        data = api.get_info_by_mid(mid, office)
+        
+        print("\nRaw response:")
+        print(json.dumps(data, indent=2, ensure_ascii=False)[:2000])
+        if len(json.dumps(data)) > 2000:
+            print("... (truncated)")
+            
+        return data
+        
+    except requests.RequestException as e:
+        print(f"Error: {e}")
+        return None
+
+
+def test_info_from_search_result(api: TMSearchAPI, result: SearchResult):
+    """Test getting detailed info from a search result using app/reg number"""
+    print_separator(f"INFO TEST (from search): {result.verbal} / {result.submition}")
+    print(f"  Using: App#{result.app} / Reg#{result.reg}")
+    
+    try:
+        data = api.get_info_from_search_result(result)
+        
+        print("\nRaw response:")
+        print(json.dumps(data, indent=2, ensure_ascii=False)[:2000])
+        if len(json.dumps(data)) > 2000:
+            print("... (truncated)")
+            
+        return data
+        
+    except (requests.RequestException, ValueError) as e:
+        print(f"Error: {e}")
+        return None
+
+
+def test_turkish_trademark(api: TMSearchAPI):
+    """Test Turkish office (only APP type allowed)"""
+    print_separator("INFO TEST: Turkish Trademark")
+    
+    try:
+        data = api.get_info_by_number(
+            number="83079139",
+            office="TR",
+            type_="APP"
+        )
+        
+        print("\nRaw response:")
+        print(json.dumps(data, indent=2, ensure_ascii=False)[:1500])
+        
+        return data
+        
+    except requests.RequestException as e:
+        print(f"Error: {e}")
+        return None
+
+
+def interactive_search(api: TMSearchAPI):
+    """Interactive search mode"""
+    print_separator("INTERACTIVE MODE")
+    print("Enter keywords to search (or 'quit' to exit)")
+    
+    while True:
+        keyword = input("\nSearch keyword: ").strip()
+        
+        if keyword.lower() in ('quit', 'exit', 'q'):
+            break
+        
+        if not keyword:
+            print("Please enter a keyword")
+            continue
+        
+        raw_data, results = test_search_api(api, keyword)
+        
+        if results:
+            # Offer to get details for a specific result
+            choice = input("\nEnter result number for details (or Enter to skip): ").strip()
+            if choice.isdigit():
+                idx = int(choice) - 1
+                if 0 <= idx < len(results):
+                    test_info_from_search_result(api, results[idx])
+
+
+def main():
+    """Main entry point"""
+    print("""
+╔══════════════════════════════════════════════════════════════╗
+║           TMSearch.ai API - Live Trademarks Scanner          ║
+║                                                              ║
+║  Note: Using TEST API KEY with limitations:                  ║
+║  - Max 390 results                                           ║
+║  - First 10 most relevant results hidden                     ║
+╚══════════════════════════════════════════════════════════════╝
+    """)
+    
+    api = TMSearchAPI()
+    
+    # Run tests
+    print("\n🔍 Running trademark search with expiration analysis...\n")
+    
+    try:
+        # First show expiration overview
+        analysis = api.search_with_expiration_analysis("ALTANA", only_live=True)
+        print_expiration_report(analysis, "ALTANA")
+        
+        # Then fetch detailed class descriptions for first 5 results
+        print("\n\n📥 Fetching detailed class descriptions...")
+        detailed_results = api.get_live_with_details(
+            "ALTANA", 
+            fetch_class_descriptions=True,
+            limit=5  # Limit to 5 for demo
+        )
+        print_live_trademarks_with_details(detailed_results, "ALTANA")
+            
+    except requests.RequestException as e:
+        print(f"Error: {e}")
+    
+    print_separator("TESTS COMPLETE")
+    
+    # Offer interactive mode
+    run_interactive = input("\nRun interactive search? (y/n): ").strip().lower()
+    if run_interactive == 'y':
+        interactive_expiration_search(api)
+    
+    print("\nDone!")
+
+
+def interactive_expiration_search(api: TMSearchAPI):
+    """Interactive search with expiration analysis"""
+    print_separator("INTERACTIVE SEARCH")
+    print("Enter keywords to search (or 'quit' to exit)")
+    print("Shows only LIVE trademarks with full class descriptions")
+    
+    while True:
+        keyword = input("\nSearch keyword: ").strip()
+        
+        if keyword.lower() in ('quit', 'exit', 'q'):
+            break
+        
+        if not keyword:
+            print("Please enter a keyword")
+            continue
+        
+        try:
+            # Show expiration overview first
+            analysis = api.search_with_expiration_analysis(keyword, only_live=True)
+            print_expiration_report(analysis, keyword)
+            
+            if analysis["results"]:
+                # Ask how many to fetch details for
+                count = input(f"\nFetch class descriptions for how many? (1-{len(analysis['results'])}, Enter=5): ").strip()
+                if not count:
+                    limit = 5
+                elif count.isdigit():
+                    limit = min(int(count), len(analysis["results"]))
+                else:
+                    limit = 5
+                
+                print(f"\n📥 Fetching detailed class descriptions for {limit} trademarks...")
+                detailed_results = api.get_live_with_details(
+                    keyword,
+                    fetch_class_descriptions=True,
+                    limit=limit
+                )
+                print_live_trademarks_with_details(detailed_results, keyword)
+                        
+        except requests.RequestException as e:
+            print(f"Error: {e}")
+
+
+if __name__ == "__main__":
+    main()

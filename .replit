@@ -1,0 +1,47 @@
+modules = ["nodejs-20", "postgresql-16"]
+[agent]
+expertMode = true
+integrations = ["javascript_anthropic_ai_integrations:1.0.0"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Next.js Dev Server"
+
+[[workflows.workflow]]
+name = "Next.js Dev Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["npm", "run", "start"]
+build = ["npm", "run", "build"]
+
+[nix]
+channel = "stable-25_05"
+packages = ["glib", "nss", "nspr", "atk", "cups", "libdrm", "gtk3", "pango", "cairo", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "xorg.libxcb", "alsa-lib", "at-spi2-atk", "at-spi2-core", "expat", "libxkbcommon", "mesa", "dbus", "chromium"]
+
+[userenv]
+
+[userenv.shared]
+AUTH_SECRET = "VgUhQBYkuMidgaalFdvmoR1/FpAalYWh9MbcNwVsepc="
+NEXTAUTH_URL = "https://0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev"

@@ -1,0 +1,193 @@
+[...]Also, wir waren, du hast angefangen, du bist zuerst in Risikoanalyse gegangen, richtig?[...]Also dann bist du in Risikoanalyse
+
+ gegangen und was was schön ist, dass dieses Parton Risikoanalyse ausgeblendet ist, weil müssen alle Parameter ausgefüllt
+
+ werden[...]Aber für Benutzer ist es unklar, wenn er zum Beispiel nicht ausgefüllt hat, warum Barten immer noch nicht
+
+ abrufbar ist.Es muss irgendwie so, so ein Pop-up, so, so eine Fehlermeldung kommen: 'Bitte füllen Sie alle Felder aus' oder
+
+ irgendwas in diese Richtung.O.K., ja, ja genau.Also mir war zum Beispiel nicht klar, dass dass ich zwingend jetzt 
+
+eine Klasse auswählen muss.[...]Genau, also das muss man maximal so machen, maximal benutzerfreundlich machen
+
+ und so, wie in eine moderne Webanwendung gemacht wird.Das ist bei Risikoanalyse, auch wenn die Risikoanalyse gestartet
+
+ wurde, die ganze Risikoanalyse war auch sehr schön, aber da unten waren verschiedene Knöpfe.[...]Wurden diese Knöpfe tatsächlich
+
+ dann integriert?[...]Sind sie funktionsfähig?Wenn ja, was machen sie?Wenn nein, muss man da vielleicht das bis
+
+ zu Ende machen, damit eventuell, wenn der Nutzer irgendwas beantragt, dass ich dann die E-Mail an Info
+
+ bekomme?[...]Genau, dann waren wir bei Markenberatung und[...]Was dem Benutzer aufgefallen ist, bei Sprachmodell,
+
+ das irgendwie gendert, aber das muss ich wahrscheinlich bei Hume ändern, weil das ist prompt von Hume,
+
+ was ich abändern muss.Also, das kannst du hier nicht machen.[...]Was Was noch aufgefallen ist, hier stimmt was mit.[...]
+
+Wenn ich .[...]Ach nee, es ist noch .[...]was ich noch, was noch aufgefallen ist, bei Risikoanalyse, während er am Analysieren war,
+
+ dass man irgendwie einen Hinweis kriegt, was macht er jetzt gerade?Genau, weil weil der braucht schon ziemlich
+
+ viel Zeit.[...]Und wenn sich ein Rädchen einfach dreht, dann denkt man,[...]wahrscheinlich hat sich einfach
+
+ was aufgehängt.[...]Du weißt doch ganz genau, welche Prozesse im Hintergrund im System passiert.Ja, wahrscheinlich zuerst werden 
+
+die Daten von Registern abgeholt und das muss man dann irgendwie einfach schreiben.[...]transparent machen,
+
+ dass der sieht, es passiert was.[...]Wie zum Beispiel das Claude machst, ja, dass man tatsächlich sieht oder
+
+ dass man quasi so das Gefühl hat, man sieht, wie das Modell denkt.[...]Genau.[...]Ja, das macht dem Benutzer richtig
+
+ Spaß.[...]Also das war noch bei Risikoanalyse.[...]Bei Markenberatung, was mir aufgefallen ist, wenn ich Bericht erstelle,
+
+ das dauert dann auch ziemlich lange.Also da muss man auch auch wieder so Denkprozess zeigen.[...]was das System macht.
+
+Denk entweder Denkprozess oder oder Prozent Skala, die sich füllt oder oder irgendwie so genauso wie bei wie bei Claude
+
+ oder wie bei K.S.System.Du siehst im Hintergrund tatsächlich, was er so macht, ganz schnell.[...]Genau, was uns bei Playbooks aufgefallen
+
+ ist an sich, das ist super toll.[...]Hier sind aber leider nur[...]die Länder, nur die 3 Länder angezeigt, aber eigentlich brauche ich alle
+
+ Länder, die WIPO Mitgliedsländer sind, also Weltorganisation.[...]Man muss das aber nur so darstellen,
+
+ dass es sehr kompakt ist, sehr benutzerfreundlich und und intuitiv und[...]An sich, Playbook ist sehr schön.[...]
+
+Wenn man hier jetzt auf Wipo drauf drückt, ah ja, nee, da kann man trotzdem nicht.Jetzt würde ich jetzt erwarten,
+
+ wenn ich bei Wipo draufklicke, dass als nächster Schritt kommt: 'Bitte wählen Sie ein Land aus' und 
+
+dann kommt kommt 'ne Liste mit den ganzen Ländern, die in der Wipo drin ist.Es ist an sich Playbook ist es
+
+ irgendwie schön, aber das ist tatsächlich irgendwie so ein Play, was zu nirgendwo bringt.[...]Wir haben es uns so vorgestellt,
+
+ wenn der Benutzer zum Beispiel eine Marke anmelden möchte, dann macht er zuerst Beratung, danach Recherche,
+
+ danach Risikoanalyse und danach weiß der schon, was er anmelden möchte, wo er anmelden möchte und dann
+
+ gibt es schon Markennamen, wir quasi erstellen einen Fall und dann gibt es so eine Schritt-für-Schritt-Anleitung,
+
+ was[...]er tatsächlich jetzt bis zur Anmeldung machen muss und wenn er dann den Fall angemeldet hat, wird die Namen,
+
+ Markennummer, Markenname, Markenklasse irgendwie eingetragen.Also das ist tatsächlich so eine
+
+ Fallnummer und dann kommen auch die nächste Schritte.Was ist, wenn er Prüfungsbescheid bekommt?[...]
+
+Dann muss er eventuell diesen Bescheid hochladen können, damit das K.I.analysieren kann und als Experten,
+
+ Markenanwalt, auch Bescheidserwitterung ausarbeiten kann.[...]Oder was er, was ist, wann, wenn er Mängelbescheid bekommt
+
+ und so weiter?Oder was, was ist, wenn er, ich weiß nicht, egal, irgendwelche Bescheide, das muss ein ein professioneller
+
+ K.I.[...]Anwalt mit 40 Jahre Berufserfahrung in allen Ländern, also Markenanwalt, der muss das so ausarbeiten,
+
+ dass das Amt zufrieden ist und die Marke erfolgreich[...]eingetragen wird und das Problem gelöst ist.
+
+Ja, beim Prinzip ist das so, dass dass da einfach jetzt noch ein Schritt fehlt.Also wir haben hier die Schritt-für-Schritt-Anleitung,
+
+ die gibt erstmal nur einen Überblick, was in den verschiedenen Prozessen in welcher Reihenfolge zu tun
+
+ ist.[...]Das find ich, find ich jetzt erstmal nicht schlecht, dann hat man so ein so ein Überblick.[...]Aber das ist jetzt so ein Zwitterwesen.
+
+Ich hab nicht nur den Überblick, was zu tun ist, sondern zum Teil[...]Oder ich kann Sachen auch schon ab.[...]Marken,
+
+ ohne dass damit aber wirklich etwas passiert.Es ist einfach nur in der Überblick, dass ich jetzt irgendwas abgehakt
+
+ habe.[...]Was mir jetzt fehlt, ist ein weiterer nach Playbooks und zwischen Watchlist und Playbooks sozusagen,
+
+ ein weiterer Button, wo kommt "Ich melde meine Marke an" oder irgendwas.[...]Und der Benutzer muss auch die
+
+ Möglichkeit haben,[...]Natürlich direkt beim Amt anzumelden, dann braucht er alle Links und so weiter.
+
+Ja, die ganze Hilfe und Unterstützung mit vielleicht K.I.Unterstützung, irgendwelche Pop-ups mit Erklärungen
+
+ und wenn er Fragen hat, kriegt er sofort Antwort.Oder wenn der Benutzer faul ist und uns als Dienstleister beauftragen
+
+ möchte, dann macht er das über uns.Dann nehmen wir eine X.Gebühr, rechne was was das sein könnte und.[...]Ja,
+
+ wobei sich das ja hier schon doppelt.Also hier ist der erste Schritt bei der DPMA-Anmeldung, Markenrecherche durchführen,
+
+ unterteilt in 4 verschiedene Schritte.[...]Auf der anderen Seite haben wir ja hier auf der linken Seite 
+
+schon den Punkt Markenrecherche.[...]Also könnte ich, wenn ich jetzt eine Marke anmelden möchte und bin beim Punkt Markenrecherche
+
+ durchführen.[...]Dann kommt einfach einfach ein Button, der führt mich genau auf hier den Menüpunkt Markenrecherche
+
+ auf der Webseite und führt dann die Markenrecherche zur angegebenen Marke durch.[...]Genau, also wie,
+
+ wie, wie gesagt, alle Menüpunkte müssen natürlich flüssig ineinander irgendwie sinnvoll übergehen.[...]
+
+Alles, was auf die Seite, auch Dashboard, musst du überprüfen, alles, was auf dem Dashboard steht, muss natürlich auch richtig benannt
+
+ werden und auch[...]zu richtigen Reitern fühlen oder oder platzen.[...]Weiter, was mir unklar ist, Watchlist.
+
+Was macht Watchlist?Watchlist ist eigentlich die Überwachung, Überwachung wahrscheinlich von
+
+ Kollisionen.[...]Wie stellst du das dir vor?Normalerweise, meiner Erfahrung nach, wenn wir Kollisionen überwachen,
+
+ ah ja, ich sehe schon, du, du schreibst hier, mag ich hinzufügen.[...]Was passiert, wenn ich eine Marke hinzufüge?[...]
+
+Ist das, werden dann mehrere Marken, was wird dort hinzufügen?Namen, Marken, Nummer, Klassen, Inhalt der Klasse.[...]
+
+Außerdem, ach so, jetzt sehe ich, was da auf dem Pop-up steht.[...]Ja, berücksichtige, dass wir Markenüberwachung machen
+
+ in mindestens alle Länder.[...]die die in die WIPO Mitglieder sind.[...]Dann was, was auch komisch ist, wenn wir schon Kollisionen überwachen,
+
+ dann oder wenn wir schon die Marken anmelden, dann wahrscheinlich müssen wir auch irgendwie so eine Markenverwaltung
+
+ drin haben.[...]Wenn wir aber eine Markenverwaltung drin haben,[...]Dann können wir auch automatisch die Kollision überwachen.[...]
+
+Also irgendwie, man kann quasi Qualifikation auch einzeln überwachen, aber dann machen.Also, wie würdest du als professioneller
+
+ Anwalt, professioneller Paralegal, der sehr innovativ arbeitet, solches System anlegen, dass das nicht so doppelt gemoppelt
+
+ ist?Alles dann Reiter Team.[...]Ich glaube, das ist total überflüssig.Was soll man da eintragen?[...]Also, da,
+
+ ehrlich gesagt, du kannst es jetzt mal lassen, bitte nichts ändern.[...]Na ja, gut, das ist das ist für Kunden,
+
+ wenn wenn zum Beispiel aus einer aus einer Firma Kunden[...]jetzt mit dieser Webseite arbeiten, die in verschiedenen Rollen,
+
+ Administrator oder normale Nutzer, oder ja, aber ob das jetzt eine wirklich Rolle stimmt, oder spielt.[...]
+
+Also momentan, wenn du, wenn du da eine gute Lösung findest, die tatsächlich sinnvoll ist, innovativ und sehr intuitiv und
+
+ benutzerfreundlich, immer gern bitte implementieren.[...]Bei Experten,[...]Ich habe eine Liste von Experten,
+
+ das werde ich dir später geben.[...]Wobei, da müssen wir noch überlegen.Wenn wir natürlich Liste mit Experten
+
+ hier zur Verfügung stellen, dann können wir dasselbe auch weiter nicht vermarkten.[...]Schön wäre es,
+
+ dass dass der Benutzer entweder alles selber macht oder uns beauftragt oder[...]Genau.[...]Genau.Also, wenn er selber macht,
+
+ das ist quasi so einlo ein und wir können den einlocken, dass es ziemlich günstig ist, aber viele Leute sind faul und
+
+ gegen eine Gebühr können sie uns beauftragen.[...]Und wir können dann die Experten weiter selber beauftragen und
+
+ vertreten Vertreter dafür.[...]So.[...]Oder halt, ja.[...]Noch, noch mal jetzt zu diesen ganzen Menüpunkten links,
+
+ die ich, die ich halt[...]Toll finde das Dashboard als Übersicht, dann einfach eine Beratung in den verschiedensten Punkten.
+
+Die fand ich auch sehr gut.[...]Die Markenrecherche ist auch prima.Risikoanalyse ist auch super gemacht
+
+ und wie gesagt, da fehlt mir jetzt das Playbook.ist einfach nur sozusagen Übersicht über die, das Playbook ist so ein Twitter
+
+ Wesen über Anleitung und über tatsächlich machen und mir fehlt jetzt hier noch in der linken Seite einfach der Punkt.[...]
+
+Jetzt mach mal.Jetzt führe tatsächlich die Markenrecherche durch für meine konkrete Marke.Jetzt als nächsten Schritt:
+
+ Ich möchte anmelden, stell mir das Anmeldeformular zur Verfügung, führe mich auf die DPMA-Seite.[...]
+
+Genau, aber aber das kann er nur machen oder das kannst du nur machen, wenn bestimmte Kriterien erfüllt
+
+ sind.Ja, also wenn zum Beispiel der Benutzer macht das, macht jetzt, dann musst du sagen, zuerst müssen wir,
+
+ weiß, weiß ich, Markennamen aussuchen, wenn er das noch nicht gemacht hat oder zuerst müssen wir Kollision,
+
+ Kollision, Markenrecherche machen oder Risikoanalyse, natürlich und erst und eigentlich kann man auch nur sagen.[...]
+
+eigentlich nur, kann ich nur, wenn die Markenrecherche oder die Risikoanalyse ergeben hat, es besteht kein oder ein minimales
+
+ Risiko, dann gibt es die Möglichkeit, 'n Button weiter zu klicken und zu sagen: 'So, jetzt gehe ich wirklich zur Anmeldung.'
+
+ Oder es müsste 'ne ganz große Warnung auftauchen: 'Achtung, Sie wollen eine Marke anmelden, obwohl hohes Risiko besteht.
+
+Wollen Sie das wirklich tun?' oder irgendsowas.[...]

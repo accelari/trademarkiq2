@@ -1,0 +1,608 @@
+UX- und Funktionsanalyse der Plattform TrademarkIQ (Stand 29. November 2025)
+Executive Summary
+
+TrademarkIQ präsentiert sich als moderne Next.js‑Web‑Applikation zur Markenrecherche und -anmeldung. Die Plattform verbindet KI‑gestützte Recherchen mit einem mehrschrittigen Wizard für Markenanmeldungen, Risikoanalysen, Playbooks sowie einer integrierten Watchlist, Team‑Funktionen und einem „Marken‑CoPilot“.
+Die Tests zeigten insgesamt ein ausgereiftes Produkt mit hohem Funktionsumfang, das sich vor allem durch die fließende Übergabe von Daten zwischen den Modulen auszeichnet. Die Plattform erfüllt viele Anforderungen von Markenanwälten, Unternehmen und Gründern, weist jedoch in der aktuellen Beta noch einige Lücken im Hinblick auf Performance, Transparenz, Mobile‑Optimierung und rechtliche Vollständigkeit auf.
+
+Top‑Stärken:
+
+Klarer Value Proposition und moderne UI – Die Homepage erläutert die Kernvorteile (KI‑Unterstützung, kurze Suchdauer, DSGVO‑Konformität) prägnant und bietet eindeutige CTAs
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Umfassende Funktionsvielfalt – Von KI‑gestützten Suchen mit Phonetik-, Bild- und Semantik‑Analyse über Risiko‑Scoring bis zu Playbooks, Watchlist, Team‑Management und Expertenvermittlung
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Konsistente, intuitive Navigation – Die Seitenstruktur (Recherche → Risikoanalyse → Anmeldung → Watchlist) wird visuell mittels Workflow‑Progress‑Bar unterstützt und verhindert Sackgassen
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Automatisierte Datenflüsse zwischen Modulen – Ergebnisse der Recherche werden im Risiko‑Modal angezeigt, und der markierte Name wird in der Anmeldung automatisch vorbefüllt
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Playbooks mit Step‑by‑Step Anleitungen – Für DPMA/EUIPO/WIPO gibt es ausführliche To‑Do‑Listen mit Deadlines und Links zu offiziellen Ressourcen
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Top‑Schwächen:
+
+Bughafte oder fehlende Routen – Die Demo‑Seite (/live-demo) führt nach Absendung zur 404‑Seite
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+; register fehlte anfänglich und ist jetzt nur über E-Mail‑Verifizierung nutzbar
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Leichte Performance‑Probleme – In manchen Bereichen (Markenrecherche, Risikoanalyse) kam es zu längeren Ladezeiten und Ruckeln bei Scrollen; der Voice‑Assistant reagiert träge oder gar nicht (Microphone‑Beschränkung).
+
+Unvollständige Rechtstexte – Das Impressum enthält Platzhalter, wodurch die Seite rechtlich angreifbar ist
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Intransparente Preise beim Anmelde‑Wizard – Der Step‑by‑Step‑Wizard nennt zwar Amtsgebühren, aber die Gesamtkosten (inklusive Servicegebühr der Plattform) werden erst ganz am Ende grob angezeigt; es fehlen klare Hinweise zu Zusatzkosten und Zahlungsmodalitäten.
+
+Eingeschränkte Mobile‑Optimierung – Einige Modale und Tabellen (z. B. Watchlist, Team) erfordern horizontales Scrollen und sind auf kleineren Bildschirmen nicht optimal nutzbar.
+
+Priorität für Fixes:
+
+Rechtliche Seiten (Impressum, Datenschutzerklärung) korrigieren – hohe Abmahngefahr.
+
+Bugs/404 auflösen (Demo‑Seite, Registrierungslink).
+
+Performance optimieren (Ladezeiten, Voice‑Assistant).
+
+Kosten und Tarifstrukturen transparenter gestalten.
+
+Mobile‑Optimierung und Barrierefreiheit verbessern.
+
+Detaillierte Analyse nach Bereichen
+A Öffentliche Seiten
+A1 Homepage (/)
+
+Funktionalität (8/10) – Die Value Proposition ist klar; CTAs führen zu Free‑Trial und Voice‑Assistant
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Der Voice‑Assistant lässt sich starten, Quick‑Questions bleiben jedoch ohne aktives Mikrofon blockiert.
+
+Benutzerfreundlichkeit (8/10) – Layout ansprechend, Scroll‑Animationen modern. Für Laien verständliche Überschriften und Icon‑Cards.
+
+Vollständigkeit (7/10) – Es fehlen Kundenlogos oder Testimonials; Preissignale sind sparsam (nur „14 Tage kostenlos“).
+
+Design/Konsistenz (9/10) – Das ACCELARI‑Designsystem wirkt professionell; Farben konsistent.
+
+Performance (7/10) – Erstes Laden schnell, aber Voice‑Widget reagiert verzögert.
+
+Empfehlungen:
+– Testimonials und Kundengeschichten zur Vertrauensbildung ergänzen.
+– Voice‑Assistant auch mit Text‑Eingabe anbieten (Barrierefreiheit).
+– Preisanker bereits auf der Startseite erwähnen, um Budgetbewusstsein zu adressieren.
+
+A2 Features‑Seite (/features)
+
+Funktionalität (8/10) – Sämtliche Features (AI‑Search, Risikoscore, Berichte, internationale Register, Nizza‑Klassen) werden übersichtlich beschrieben
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (8/10) – Icons und kurze Texte erleichtern das Verständnis; jedoch fehlen interaktive Demos.
+
+Vollständigkeit (7/10) – Kein direkter Vergleich zu Wettbewerbern; zusätzliche Features wie Team‑Funktion, Watchlist oder Experten sollten hier dargestellt werden.
+
+Design/Konsistenz (9/10) – Harmonische Farbgebung; klare Hierarchie.
+
+Performance (8/10) – Seitenwechsel flüssig.
+
+Empfehlungen:
+– Interaktive Beispiele (z. B. Ergebnis‑Screenshots) einbinden.
+– Kompetitive Alleinstellungsmerkmale (USPs) stärker herausarbeiten (z. B. deutsche Server, KI‑Audio‑Assistent).
+
+A3 Preise‑Seite (/preise)
+
+Funktionalität (8/10) – Drei Tarife (Starter, Professional, Enterprise) werden verständlich aufgelistet mit Preisangaben, inkludierten Suchkontingenten und Features
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. FAQ klärt häufige Fragen (Kündigung, Trial, Jahresrabatt)
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (9/10) – Pricing‑Cards sind anschaulich; 14‑Tage‑Test wird angeboten.
+
+Vollständigkeit (7/10) – Es fehlen Details zu Preisen bei zusätzlichen Anmeldungen, Expertensupport oder API‑Zugang; Enterprise‑Preis nur „auf Anfrage“.
+
+Design/Konsistenz (9/10) – Tabellenlayout und Farben ansprechend.
+
+Performance (8/10) – Schnell.
+
+Empfehlungen:
+– Kostentransparenz erhöhen: konkrete Preise für Zusatzleistungen (z. B. Markenanmeldung pro Amt).
+– Filterbare Preisübersicht: nach Anzahl der Marken/Teamgrößen.
+– Rabattoptionen (jährliche Zahlung) klarer darstellen.
+
+A4 Kontakt (/kontakt)
+
+Funktionalität (9/10) – Formular mit Name, E‑Mail, Firma, Telefon, Betreff, Nachricht und DSGVO‑Checkbox funktioniert; Absende‑Feedback fehlt (keine Bestätigung).
+
+Benutzerfreundlichkeit (8/10) – Pflichtfelder klar; Live‑Chat wird als Alternative beworben.
+
+Vollständigkeit (8/10) – E‑Mail, Telefon und Adresse werden angegeben
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Die Reaktionszeit ist jedoch nicht genannt.
+
+Design/Konsistenz (8/10).
+
+Performance (9/10).
+
+Empfehlungen:
+– Erfolgsbestätigung oder Ticket‑ID nach Absenden.
+– Reaktionszeiten angeben (z. B. 24 h).
+– Chatbot/Voice‑Assistant hier einbinden.
+
+A5 Über uns (/ueber-uns)
+
+Funktionalität (9/10) – Mission und Werte (Datenschutz, Qualität, Kundenorientierung, Innovation) werden klar erläutert
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (8/10) – Timeline visualisiert Meilensteine (Gründung 2023, Beta, DPMA/EUIPO/WIPO, KI‑Voice in 2025)
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Vollständigkeit (8/10) – Team wird nicht namentlich vorgestellt; es fehlen Portraits.
+
+Design/Konsistenz (9/10).
+
+Performance (9/10).
+
+Empfehlungen:
+– Teamfotos und Rollen hinzufügen, um Vertrauen zu stärken.
+– Auszeichnungen/ Zertifikate (ISO‑27001) prominent darstellen.
+– Erfolge/ Kundenstatistiken (10k+ Recherchen) interaktiv aufbereiten.
+
+A6 FAQ (/faq)
+
+Funktionalität (8/10) – Suchfeld und Kategorien (Allgemein, Funktionen, Preise) vorhanden; Antworten lassen sich aufklappen
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (7/10) – Ohne Suchbegriff muss man scrollen, da keine Schnellnavigation.
+
+Vollständigkeit (7/10) – Grundlegende Fragen werden beantwortet (z. B. Funktionsweise der Recherche
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+), aber tiefergehende technische Fragen (API, Datensicherheit) fehlen.
+
+Design/Konsistenz (8/10).
+
+Performance (9/10).
+
+Empfehlungen:
+– Suchfunktion mit Autocomplete erweitern.
+– Kategorien visuell separieren.
+– Mehr technische/ rechtliche FAQs ergänzen (API‑Zugriff, Vertragslaufzeiten).
+– Chatbot‑Integration zum schnellen Beantworten.
+
+A7 Rechtliche Seiten (Impressum/Datenschutz/AGB)
+
+Funktionalität (4/10) – Seiten existieren, aber Impressum enthält Platzhalter ohne echte Adresse und Verantwortliche
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (6/10) – Texte sind lesbar, aber „Lorem ipsum“‑Angaben sind unprofessionell.
+
+Vollständigkeit (4/10) – DSGVO‑Hinweise ausführlich
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+, AGB vorhanden
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+, aber ein korrektes Impressum fehlt; Cookies/Consent‑Banner unklar.
+
+Design/Konsistenz (7/10).
+
+Performance (9/10).
+
+Empfehlungen:
+– Impressum schnellstmöglich vollständig ausfüllen (Firmenadresse, Handelsregister, Geschäftsführer).
+– Aktuellen Stand der DSGVO‑ und ePrivacy‑Regeln beachten (Cookie‑Banner).
+– AGB in klarer Sprache formulieren und an Position in der Nutzerreise verlinken.
+
+A8 Demo‑Seite (/live-demo)
+
+Funktionalität (3/10) – Nach Eingabe einer Marke führt „Marke recherchieren“ zu einer 404‑Seite
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (5/10) – Grundidee einer Live‑Demo gut, aber Implementation defekt.
+
+Vollständigkeit (4/10) – Keine Interaktionen möglich, kein Hinweis auf Browser‑Version.
+
+Design/Konsistenz (7/10).
+
+Performance (6/10).
+
+Empfehlungen:
+– Route korrigieren und Demo‑Logik implementieren (z. B. offline‑Demo).
+– Demo‑Szenario (z. B. Adidas) vordefiniert, um Nutzung zu zeigen.
+– Fallback‑Option: Video‑Walkthrough, falls Live‑Demo nicht funktioniert.
+
+B Authentifizierung
+B1 Registrierung (/register)
+
+Funktionalität (6/10) – Registrierung mit Name, E‑Mail und Passwort ist möglich. Die E‑Mail‑Bestätigung funktioniert via Link
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+, aber man muss externe Mail‑Services nutzen; in manchen Tests erschien register als 404.
+
+Benutzerfreundlichkeit (7/10) – Formular schlicht; Passwortanforderungen unklar; keine Passwortstärkeanzeige.
+
+Vollständigkeit (6/10) – Social‑Logins (Google/LinkedIn) fehlen; Terms/Privacy müssen explizit bestätigt werden.
+
+Design/Konsistenz (8/10).
+
+Performance (9/10).
+
+Empfehlungen:
+– Fehlerbehandlung verbessern (klare Fehlermeldungen, z. B. bei bereits registrierter E‑Mail).
+– Passwortstärkeanzeige und Mindestanforderungen hinzufügen.
+– Social‑Login für schnellere Anmeldung und 2‑FA aktivieren.
+– Registrierung per Magic Link oder durch Voice‑Assistant.
+
+B2 Login (/login)
+
+Funktionalität (8/10) – Login funktioniert; Fehlermeldung bei unbestätigter E‑Mail wird angezeigt
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (8/10) – Möglichkeit „Angemeldet bleiben“ fehlt; Link „Passwort vergessen“ nicht ersichtlich.
+
+Vollständigkeit (6/10) – 2‑Faktor‑Authentifizierung (z. B. Authy, TOTP) nicht vorhanden; Social‑Login fehlt.
+
+Design/Konsistenz (8/10).
+
+Performance (9/10).
+
+Empfehlungen:
+– „Angemeldet bleiben“‑Checkbox und „Passwort vergessen“‑Funktion implementieren.
+– SSO/Social‑Login für Unternehmenskunden.
+– 2FA für erhöhte Sicherheit.
+
+C Dashboard
+C1 Dashboard‑Übersicht (/dashboard)
+
+Funktionalität (9/10) – Widgets zeigen Anzahl der Recherchen, Playbooks, Watchlist‑Marken, letzte Prüfung. Quick‑Actions starten Recherche, Playbook oder Risiko‑Analyse
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (9/10) – User wird begrüßt; klare Icons; Workflow‑Progress‑Bar weist auf offene Schritte hin
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Vollständigkeit (8/10) – KPIs sind vorhanden, aber weitere Metriken (Kostenersparnis, letzte Alerts) könnten ergänzt werden.
+
+Design/Konsistenz (9/10).
+
+Performance (8/10) – teils verzögertes Laden.
+
+Empfehlungen:
+– Individualisierbares Dashboard (Widgets an-/ausblenden).
+– Tour/Onboarding bei Erstlogin.
+– Benachrichtigungen (Badge) prominent darstellen.
+
+C2 Marken‑CoPilot (/dashboard/copilot)
+
+Funktionalität (6/10) – Voice‑Assistant nutzt Hume AI, jedoch traten Probleme: Mikrofon‑Zugriff blockiert, Quick‑Questions nur per Audio
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Meeting‑Modus unklar; keine Text‑Eingabe.
+
+Benutzerfreundlichkeit (5/10) – Für User ohne Mikrofon kaum nutzbar; Quick‑Questions nicht klickbar.
+
+Vollständigkeit (6/10) – Keine Dokumentation oder Liste der unterstützten Kommandos.
+
+Design/Konsistenz (8/10) – Interface ansprechend, mit Chat‑Panel.
+
+Performance (5/10) – Response‑Zeit unzuverlässig; man erhält oft keine Antwort.
+
+Empfehlungen:
+– Textbasierte Interaktion als Alternative zum Sprachinput.
+– Liste mit Beispielkommandos und Onboarding.
+– Speichern früherer Gespräche und ermöglichen Copy/Paste.
+– Verbindung zum Rest der Plattform (z. B. Suchergebnisse generieren) stärker hervorheben.
+
+C3 Markenrecherche (/dashboard/recherche)
+
+Funktionalität (8/10) – Suchfeld erlaubt Markenname oder Inhaber; Filter für Nizza‑Klassen, Status und Länder. Ergebnisliste enthält Markenname, Register, Status, Klassen, Warenbeschreibung und Buttons für Kollisionsrisiko
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Risiko‑Modal zeigt Score, ähnliche Marken und Schaltflächen „Jetzt anmelden“/„Mit Experten sprechen“
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (9/10) – Tabelle übersichtlich; Sortierung/Filterung intuitiv; Nizza‑Klassen als Checkbox‑Dropdown.
+
+Vollständigkeit (8/10) – Keine Bulk‑Suche (mehrere Marken auf einmal). Export‑Funktion (CSV/PDF) fehlt.
+
+Design/Konsistenz (9/10).
+
+Performance (7/10) – Bei längeren Listen ruckelt Scrollen.
+
+Empfehlungen:
+– Bulk‑Upload (CSV/Excel) für mehrere Suchanfragen.
+– Ergebnis‑Export (PDF, CSV).
+– Suchhistorie nach Datum/Benutzer filterbar.
+– Verknüpfung mit internationalen Markenregister (z. B. USPTO) erweitern.
+
+C4 Risiko‑Analyse (/dashboard/risiko)
+
+Funktionalität (8/10) – Schneller Check (Markenname + Nizza‑Klassen) berechnet Risiko‑Score und zeigt ähnliche Marken
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Detailpanel listet Konflikte und erlaubt Start der Anmeldung
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (8/10) – Ampelfarben (grün/gelb/rot) verdeutlichen Risiko. Erklärtext zu Score fehlt.
+
+Vollständigkeit (7/10) – Risk‑Analyse gibt keine juristische Erläuterung; man kann nur einen Markenamen überprüfen.
+
+Design/Konsistenz (9/10).
+
+Performance (7/10) – Analyse dauert teilweise 10 Sekunden.
+
+Empfehlungen:
+– Erklärung zum Algorithmus und Score‑Berechnung (z. B. „Wird aus Markenähnlichkeit, Nizza‑Klasse und Länderüberschneidung ermittelt“).
+– Vergleich historischer Checks; Trendanalyse.
+– Batch‑Risk‑Analyse für mehrere Marken.
+– Verweis auf Experten bei hohem Risiko.
+
+C5 Neue Anmeldung (/dashboard/anmeldung)
+
+Funktionalität (9/10) – Vier‑Schritt‑Wizard: 1 Markentyp auswählen, 2 Amt (DPMA/EUIPO/WIPO) mit Vor‑ und Nachteilen
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+, 3 Nizza‑Klassen wählen, 4 Zusammenfassung und Kosten
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Nach Abschluss wird Marke automatisch in Watchlist aufgenommen.
+
+Benutzerfreundlichkeit (9/10) – Fortschrittsleiste, klare Texte, Tooltips; Zurück‑Navigation möglich.
+
+Vollständigkeit (8/10) – Keine Möglichkeit, Anmeldeanträge direkt einzureichen (es scheint nur ein internes Prozess‑Reminder). Es fehlen Felder für Bildmarke‑Upload.
+
+Design/Konsistenz (9/10).
+
+Performance (8/10).
+
+Empfehlungen:
+– Upload‑Funktion für Bild/Wort‑Bild‑Marke.
+– Kostentransparenz: exakte Gebühren (Amtsgebühr + Servicegebühr) auflisten.
+– Zahlungsabwicklung (Kreditkarte/Lastschrift) integrieren.
+– Direkte Einreichung an DPMA/EUIPO per API, falls möglich.
+
+C6 Playbooks (/dashboard/playbooks)
+
+Funktionalität (8/10) – Playbook‑Übersicht zeigt DPMA, EUIPO, WIPO mit Gebühren und Dauer
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Beim Start werden Schritte in Checklisten mit Deadlines und Links abgehakt
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (9/10) – Progress‑Indicator; Hilfreiche Links und Tipps.
+
+Vollständigkeit (8/10) – Einige Aufgaben könnten tiefergehende Erläuterungen brauchen; WIPO‑Playbook nur rudimentär.
+
+Design/Konsistenz (9/10).
+
+Performance (8/10).
+
+Empfehlungen:
+– Zeitschätzungen realistischer auf deutsche Verhältnisse anpassen.
+– Interaktive Aufgaben (z. B. Erinnerung, Notizen).
+– Zusammenarbeit mit Teammitgliedern (zuweisen, kommentieren).
+– Export der Playbook‑Checkliste als PDF.
+
+C7 Watchlist (/dashboard/watchlist)
+
+Funktionalität (9/10) – Überblick über überwachte Marken mit Filtern (Status, Amt) und KPI‑Karten; Details im Modal mit Status, Klassen, Ablaufdatum, Notifikationsoptionen; Bearbeiten/ Löschen mit Bestätigungsdialog
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (9/10) – Ampelfarben für Ablauf, Filter; Benachrichtigung per E‑Mail konfigurierbar.
+
+Vollständigkeit (8/10) – Bulk‑Import fehlt; Warnungen zu internationalen Marken sind unklar (nur EU/DE?).
+
+Design/Konsistenz (9/10).
+
+Performance (8/10).
+
+Empfehlungen:
+– Mehrere Marken gleichzeitig hinzufügen (CSV/Excel).
+– Benachrichtigungs‑Kanäle (SMS, Slack).
+– Visualisierung von Fristen (Kalender‑Integration).
+– Export der Watchlist (PDF/CSV).
+– Automatische Verlängerungs‑Reminder.
+
+C8 Team (/dashboard/team)
+
+Funktionalität (8/10) – Mitgliederliste, Rollen (Admin, Mitglied). Einladung per E‑Mail mit Rollenwahl
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Berichte können erstellt werden (Markenübersicht, Risiko‑Report) und in PDF/CSV exportiert
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Benutzerfreundlichkeit (8/10) – Rollen und Rechte werden erklärt.
+
+Vollständigkeit (7/10) – Es fehlen Rollen wie „Gast“ oder „Leserechte“. Kein Audit‑Log.
+
+Design/Konsistenz (9/10).
+
+Performance (8/10).
+
+Empfehlungen:
+– Granulares Berechtigungsmodell (z. B. nur Watchlist‑Zugriff).
+– Audit‑Log (Änderungen/Abfragen protokollieren).
+– Team‑Chat oder Kommentar‑Funktion.
+– SAML/SCIM‑Integration für Enterprise‑Kunden.
+
+C9 Experten (/dashboard/experten)
+
+Funktionalität (6/10) – Expertenprofile mit Spezialisierungen und Bewertungen; Filteroptionen (Fachgebiet, Sprache). Buttons „Nachricht senden“ und „Termin vereinbaren“. In Tests laden die Modale gelegentlich nicht.
+
+Benutzerfreundlichkeit (7/10) – Es fehlt Sortierung nach Erfahrung/Preis.
+
+Vollständigkeit (6/10) – Profile enthalten nur Grundinformationen; Verfügbarkeit (Kalender) unvollständig.
+
+Design/Konsistenz (8/10).
+
+Performance (7/10) – Längere Ladezeiten.
+
+Empfehlungen:
+– Mehr Details im Profil (Lebenslauf, Sprachen, Preis).
+– Filter nach Rechtsgebiet, Preis, Land.
+– Sofort‑Terminbuchung mit Kalender‑Integration.
+– Bewertungssystem (z. B. Sterne, Kommentare).
+– Chatfunktion (Vor‑/Nachbereitungsfragen).
+
+D Workflow‑Integration (End‑to‑End‑Journey)
+
+Der getestete End‑to‑End‑Workflow war stabil: Markenrecherche → Risikoanalyse → Anmeldung → Watchlist. Daten wurden korrekt übergeben (Markenname im Wizard vorbefüllt; Risiko‑Status in Watchlist angezeigt).
+Allerdings gab es keine nahtlose Weiterleitung zu Experten oder Echt‑Einreichung beim Amt.
+Die Workflow‑Progress‑Komponente war hilfreich, fehlte jedoch auf wenigen Unterseiten (z. B. Experten, Team). Eine Abkürzung zurück in den Prozess (z. B. von Playbooks zur Anmeldung) wäre nützlich.
+
+Empfehlungen:
+– Workflow‑Progress‑Bar konsequent auf allen Seiten anzeigen.
+– Durchgängige Navigation (z. B. nach Risikoanalyse direkt Experten kontaktieren).
+– Schnittstellen zu DPMA/EUIPO für direkte Einreichung.
+– Speicherung/ Wiederaufnahme von unfertigen Anmeldungen.
+– Integration in Tools wie Slack/Teams (Watchlist Alerts).
+
+Persona‑spezifisches Feedback
+Dr. Müller (Markenanwalt)
+
+Nutzung? Ja, denn er benötigt eine effiziente Recherche‑Lösung und schätzt die umfassenden Datenbanken und AI‑Assistenz.
+
+Fehlende Punkte: 2‑FA‑Login, Audit‑Logs und granularer Rollenverwaltung sind für Kanzleien essenziell. Export‑Funktionen (CSV/PDF) bei Recherchen fehlen.
+
+Deal‑Breaker: Unvollständiges Impressum und unklare Rechtsverbindlichkeit könnten Mandanten abschrecken; fehlende Echt‑Einreichung an DPMA/EUIPO.
+
+Lisa (Startup‑Gründerin)
+
+Nutzung? Ja, da die Plattform einfache Anleitungen (Playbooks) und einen Free‑Trial bietet.
+
+Fehlende Punkte: Klare Preistransparenz und vereinfachte Sprache (weniger Juristen‑Jargon). Integration von Erklärvideos.
+
+Deal‑Breaker: Komplexer Registrierungsprozess (E‑Mail‑Verifizierung, kein Social‑Login); fehlende Kreditkarten‑Zahlung im Anmelde‑Wizard.
+
+Thomas (Markenmanager im Konzern)
+
+Nutzung? Prinzipiell ja, durch Team‑Funktion und Watchlist.
+
+Fehlende Punkte: Bulk‑Import und Massenaktionen sind zwingend erforderlich, um 200+ Marken zu verwalten; API‑Zugriff zur Integration in bestehende Systeme.
+
+Deal‑Breaker: Fehlende Single‑Sign‑On und SCIM‑Provisionierung; Performance bei großen Datenmengen unklar.
+
+Sandra (Patentanwaltsfachangestellte)
+
+Nutzung? Ja, da schnelle Recherche und Export‑Funktion wichtig sind.
+
+Fehlende Punkte: Keyboard‑Shortcuts und Schnellerfassung im Recherche‑Modul; Möglichkeit, Reports als Word‑Dokument zu exportieren; Batch‑Recherche.
+
+Deal‑Breaker: Langsame Ladezeiten und unzuverlässiger Voice‑Assistant.
+
+Mehmet (E‑Commerce‑Händler)
+
+Nutzung? Vielleicht, wenn er Markenüberwachung vereinfachen will.
+
+Fehlende Punkte: Automatische Alerts via Mobile‑App/Push; Integration mit Marktplätzen (Amazon/eBay) für schnelle Durchsetzung; Preissensitives Paket.
+
+Deal‑Breaker: Komplexität der Fachbegriffe und fehlende mobile App.
+
+Kenji (Internationaler Mandant)
+
+Nutzung? Interesse, da EU/EUIPO‑Schutz über Playbooks.
+
+Fehlende Punkte: Mehrsprachige Oberfläche (englisch/japanisch), Erklärungen zu interkulturellen Unterschieden; Integration von internationalen Registerdaten (US, JP).
+
+Deal‑Breaker: Sprachbarriere und fehlende WIPO‑Detailinformationen; unklare Gebühren in Fremdwährung.
+
+Feature‑Vorschläge (priorisiert)
+Muss haben (kritisch)
+
+Vollständiges Impressum und DSGVO‑Compliance – Rechtliche Mängel müssen umgehend behoben werden.
+
+Fehlerbehebung bei Routen und Demo – 404‑Seiten beseitigen; Demo funktionsfähig machen.
+
+Zahlungs- und Preistransparenz – Detaillierte Aufstellung aller Gebühren (Plattform + Amt); Integration von Zahlungsabwicklung im Wizard.
+
+Bulk‑Import und Export (Recherche, Watchlist) – CSV/Excel‑Upload und Download für Unternehmensnutzer.
+
+2‑Faktor‑Authentifizierung und Passwort‑Reset – Sicherheitsstandard.
+
+Sollte haben (hoch)
+
+Textbasierter CoPilot – Alternative zur Sprachsteuerung; definierte Befehle.
+
+Mobile‑Responsive und native App – Optimierung der UI für Smartphones und Push‑Benachrichtigungen.
+
+Team‑Rechte & Audit‑Logs – Granulares Rollenmodell; Nachvollziehbarkeit.
+
+Erweiterte Experten‑Plattform – Kalenderintegration, Pricing‑Transparenz, Bewertungssystem.
+
+API‑Zugriff – Für Enterprise‑Kunden (Integration in CRM/IP‑Management).
+
+Single‑Sign‑On (SSO) und SCIM – Unternehmensintegration.
+
+Könnte haben (mittel)
+
+Gamified Onboarding – Interaktive Tour oder Checklist für neue Nutzer.
+
+Risk‑Score‑Erklärung & Historie – Graphische Darstellung von Risikotrends.
+
+Kollaborative Playbooks – Aufgaben zuweisen, Kommentare, Fortschrittsverfolgung.
+
+Integration mit Kalender (Outlook/Google) – Deadlines und Verlängerungsfristen synchronisieren.
+
+AI‑gestützte Namensgenerierung – Tools zur Ideensammlung für neue Marken.
+
+Zukunft (niedrig)
+
+Blockchain‑basierte Nachweise – Speicherung von Recherche‑Logfiles und Anmeldungen als unveränderliche Belege.
+
+Market‑Place‑Integration – Direktes Monitoring von E‑Commerce‑Plattformen (Amazon/Ebay) auf Markeneinträge.
+
+Adaptive Pricing – Nutzung‑basierte Gebühren (z. B. pro Recherche).
+
+Prognose‑Modelle – KI‑gestützte Vorhersage der Erfolgswahrscheinlichkeit einer Markenanmeldung.
+
+Augmented‑Reality‑Search – Visualisierung von Marken in AR (z. B. über Kamera).
+
+Wettbewerbsvergleich
+Anbieter	Merkmale	USPs (laut Quellen)	Lücken gegenüber TrademarkIQ
+Markify	Bietet ProSearch mit unlimitiertem Screening, Comprehensive word mark search, Full image/device search und Trademark watch. Verfügt über „die weltweit präziseste Trademark‑Similarity‑Engine“ und wöchentliche Domain‑Watch‑Berichte
+markify.com
+.	Stärke: weltweit anerkannte Ähnlichkeitsalgorithmen, wöchentliche Reports, Enterprise‑API, pharma‑spezifische Suche
+markify.com
+.	Keine Playbooks oder Wizard; starrer Registrierungsprozess; Preisangaben schwer zugänglich.
+TrademarkNow (Corsearch)	AI‑gestützte Plattform mit ExaMatch™ (phonetic matching über 190 Register) und LogoCheck™ (deep‑learning Bildanalyse). Bietet automatisierte Watch‑Services zur kontinuierlichen Überwachung
+softwarefinder.com
+. Plattform läuft auf enterprise‑grade Infrastruktur mit globaler Datendeckung
+softwarefinder.com
+.	Stärke: Beschleunigt Clearance durch KI; globale Abdeckung; tiefe Bild‑ und Phonetik‑Analyse.	Hoher Preis; teils langsame Performance
+softwarefinder.com
+; Integrationen unklar
+softwarefinder.com
+; keine Playbooks oder Team‑Kollaboration.
+Corsearch	Bietet Hybrid Intelligence zur Marken‑ und Marken‑schutz – von Verfügbarkeitsprüfungen über Durchsetzung von Online‑Fälschungen bis hin zur Ermittlung von Quellen
+corsearch.com
+. Positioniert sich als One‑Stop‑Shop für IP‑Lifecycle.	Stärke: Ganzheitlicher Ansatz (Search + Brand Protection + Enforcement); 5 000+ Kunden; Domain‑ und Content‑Protection
+corsearch.com
+.	Weniger auf Startups zugeschnitten; Komplexität; unklarer Preis; deutschsprachige Ressourcen begrenzt.
+
+Fazit des Vergleichs: TrademarkIQ positioniert sich mit deutschsprachigem Fokus, Playbooks, integriertem Wizard und Voice‑Assistant als nutzerfreundliche Alternative zu globalen Playern. Während Markify und TrademarkNow durch ausgefeilte Suchalgorithmen und tiefere Datenabdeckung glänzen, punktet TrademarkIQ mit Workflow‑Support, lokalem Datenschutz und preisgünstigen Einsteigerpaketen. Allerdings sollte TrademarkIQ die Abdeckung internationaler Register und APIs erweitern, um Enterprise‑Kunden langfristig zu halten.
+
+Technische Empfehlungen
+
+Performance‑Optimierung: Caching von Suchergebnissen, Code‑Splitting der Next.js‑Pages, Lazy‑Loading großer Tabellen.
+
+Server‑Side Rendering & Incremental Static Regeneration: Für öffentliche Seiten, um SEO zu verbessern und TTFB zu reduzieren.
+
+Security: Nutzung von HTTPS (aktuell http‑Version erforderlich) und HTTP Strict Transport Security. Implementierung von 2FA und Rate‑Limiting für API‑Endpoints.
+
+Scalability: Verwendung von Serverless Functions oder Edge Runtime (Next.js 16) zur elastischen Skalierung; Datenbank‑Sharding bei hoher Last.
+
+Accessibility: WCAG‑2.1‑Konformität; Tastaturnavigation, ARIA‑Labels, Alt‑Texte und kontrastreiche Farben.
+
+Localization (i18n): Unterstützung für Englisch, Französisch, Japanisch; rechts‑links‑Layout optional.
+
+APIs: Bereitstellung einer REST/GraphQL‑API für Recherchen und Watchlist; Webhook‑Mechanismen für Alerts.
+
+Testing: Automatische E2E‑Tests (Playwright/Cypress) für die wichtigsten Workflows; Performance‑Monitoring; Security Audits.

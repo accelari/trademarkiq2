@@ -1,0 +1,2605 @@
+# ACCELARI TrademarkIQ – Master-Prompt für Replit AI Assistant
+
+## Projekt-Übersicht
+
+Erstelle die komplette Website für **TrademarkIQ** – ein KI-gestütztes Markenrecherche-Tool von ACCELARI für den deutschen/europäischen Markt.
+
+**Produktname:** TrademarkIQ (by ACCELARI)
+**Tagline:** "Markenrecherche mit KI-Intelligenz"
+**Zielgruppe:** Deutsche KMUs, Startups, Agenturen, IP-Abteilungen
+
+Die Website soll professionell, vertrauenswürdig und modern wirken – aber NICHT wie ein typisches "AI-Startup" mit Gradient-Overload und generischen Stockfotos.
+
+---
+
+## Tech-Stack
+
+```
+Framework: Next.js 14+ (App Router)
+Styling: Vanilla CSS (basierend auf bestehendem ACCELARI-Design-System)
+Sprache: TypeScript
+Icons: Lucide React oder Custom SVGs
+Fonts: Open Sans (Primary), Montserrat (Alternative)
+Deployment: Vercel-ready
+```
+
+---
+
+## Design-System
+
+**WICHTIG:** Dieses Design basiert auf dem bestehenden ACCELARI-Stylesheet. Übernimm die Struktur und Klassen-Konventionen, aber verwende das Teal-Farbschema für TrademarkIQ als Produktfarbe.
+
+### CSS-Variablen (in :root definieren)
+
+```css
+:root {
+  /* Primary - Teal (TrademarkIQ Produktfarbe) */
+  --color-primary: #0D9488;
+  --color-primary-hover: #0F766E;
+  --color-primary-light: #14B8A6;
+  
+  /* Secondary - Blue (ACCELARI Corporate) */
+  --color-secondary: #0067b8;
+  --color-secondary-hover: #005293;
+  --color-secondary-light: #0078d4;
+  
+  /* Neutral - Grays */
+  --color-white: #fff;
+  --color-gray-50: #F9F9F9;
+  --color-gray-100: #F5F5F5;
+  --color-gray-200: #f2f2f2;
+  --color-gray-300: #E3EDF7;
+  --color-gray-400: #e6e6e6;
+  --color-gray-500: #ccc;
+  --color-gray-600: #666;
+  --color-gray-700: #5e5e5e;
+  --color-gray-800: #464646;
+  --color-gray-900: #2f2f2f;
+  --color-black: #000;
+  
+  /* Text */
+  --color-text-primary: #000;
+  --color-text-secondary: #464646;
+  --color-text-muted: #616161;
+  --color-text-link: #0067b8;
+  
+  /* Accent */
+  --color-accent-yellow: #fcd12c;
+  --color-accent-green: #25d366;
+  --color-accent-red: #DD4B39;
+  
+  /* Spacing */
+  --container-max: 1600px;
+  --container-padding: 5%;
+  --section-padding-sm: 40px;
+  --section-padding-md: 60px;
+  --section-padding-lg: 90px;
+  --section-padding-xl: 120px;
+  
+  /* Border Radius */
+  --radius-sm: 5px;
+  --radius-md: 5px;
+  --radius-lg: 5px;
+  --radius-full: 50%;
+}
+```
+
+### Font-Stack (aus bestehendem CSS)
+
+```css
+/* Global Reset - übernehmen aus ACCELARI CSS */
+html, body, div, span, ... {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  font: inherit;
+  vertical-align: baseline;
+  box-sizing: border-box;
+  font-family: 'Open Sans', 'Montserrat', "Segoe UI", SegoeUI, "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+body {
+  line-height: 1;
+}
+```
+
+### Typografie (exakte Werte aus ACCELARI)
+
+```css
+/* Headlines */
+h1 {
+  font-size: 46px;        /* Mobile: 34px */
+  line-height: 56px;      /* Mobile: 40px */
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 37px;        /* Mobile: 24px */
+  line-height: 44px;      /* Mobile: 29px */
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 24px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+h4 {
+  font-size: 24px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+h5 {
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+h6 {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+/* Body */
+p {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 400;
+}
+
+/* Small Text */
+.text-sm {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.text-xs {
+  font-size: 11px;
+  line-height: 16px;
+}
+```
+
+### Button-Klassen (ACCELARI-Stil)
+
+```css
+/* Primary Button - Teal für TrademarkIQ */
+a.s-button,
+button.s-button {
+  text-align: center;
+  line-height: 1;
+  font-weight: 600;
+  box-shadow: 0 4px 8px 0 transparent;
+  cursor: pointer;
+  overflow: hidden;
+  transition: box-shadow .2s ease-in-out, background .2s ease-in-out, border-color .2s ease-in-out;
+  vertical-align: bottom;
+  position: relative;
+  border: 2px solid transparent;
+  outline: 0;
+  min-width: 230px;
+  padding: 12px;
+  background: var(--color-primary);  /* Teal statt Blue */
+  color: #fff;
+  border-color: transparent;
+  overflow-wrap: break-word;
+  font-size: 15px;
+  max-width: 374px;
+  text-decoration: none;
+  border-radius: 5px;
+}
+
+a.s-button:hover,
+button.s-button:hover {
+  background: var(--color-primary-hover);
+  border-color: #ebebeb;
+  box-shadow: 0 4px 8px 0 rgb(0 0 0 / 20%);
+}
+
+/* Secondary Button (Outline) */
+a.s-button.s-button-two,
+button.s-button.s-button-two {
+  background: #fff;
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
+}
+
+a.s-button.s-button-two:hover,
+button.s-button.s-button-two:hover {
+  background: #ebebeb;
+  border-color: var(--color-primary-hover);
+}
+
+/* Link Button */
+a.s-link {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  letter-spacing: 0;
+  line-height: 1.3;
+  transition: none;
+  padding: 10px 3px 7px 0;
+  position: relative;
+  border: 2px solid transparent;
+  outline: 1px solid transparent;
+  outline-offset: -3px;
+  margin-left: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-primary);
+  padding-left: 0;
+  padding-right: 21px;
+  font-size: 15px;
+}
+
+a.s-link:hover {
+  text-decoration: underline;
+}
+
+a.s-link svg {
+  max-width: 11px;
+  height: auto;
+  transition: transform .4s ease;
+}
+
+a.s-link:hover svg {
+  transform: translateX(4px);
+}
+```
+
+### Container-Klassen (ACCELARI-Stil)
+
+```css
+.s-container {
+  max-width: 1600px;
+  height: 100%;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.s-container--padding {
+  padding-left: 5%;
+  padding-right: 5%;
+  max-width: calc(1600px + 10%);
+}
+
+.s-section {
+  padding-left: 20px;
+  padding-right: 20px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+@media (max-width: 1083px) {
+  .s-container--padding {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+```
+
+### Häufig verwendete Section-Klassen
+
+```css
+/* Info Section mit Background */
+.s-info-primary {
+  padding: 90px 0 101px;
+  box-sizing: border-box;
+  width: 100%;
+  padding-left: 12px;
+  padding-right: 12px;
+  background: #E3EDF7;  /* Oder Teal-Variante: rgba(13, 148, 136, 0.1) */
+}
+
+/* Banner mit Bild-Hintergrund */
+.s-banner-bg--wrapper {
+  position: relative;
+  overflow: hidden;
+  padding: 40px 5%;
+  width: 100%;
+  min-height: 400px;
+  background: #000;
+}
+
+/* Posts/Cards Grid */
+.s-posts-three--list {
+  display: flex;
+  margin-left: -12px;
+  margin-right: -12px;
+  width: calc(100% + 24px);
+}
+
+.s-posts-three--item {
+  margin-left: 12px;
+  margin-right: 12px;
+  box-sizing: border-box;
+  width: calc(100% / 3 - 24px);
+}
+
+/* Advantages/Features Grid */
+.s-advantages--list {
+  display: flex;
+  flex-wrap: wrap;
+  margin-left: -12px;
+  margin-right: -12px;
+  width: calc(100% + 24px);
+  row-gap: 24px;
+}
+
+.s-advantages--item {
+  box-sizing: border-box;
+  margin-left: 12px;
+  margin-right: 12px;
+  width: calc(100% / 3 - 24px);
+  display: flex;
+  gap: 36px;
+  align-items: flex-start;
+}
+```
+
+### Icon-Box Farben (für Features)
+
+```css
+/* Icon Boxes mit Farben */
+.s-advantages--item-icon {
+  width: 60px;
+  min-width: 60px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  background: var(--color-primary);  /* Teal als Default */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Farb-Varianten */
+.s-advantages--item-icon--teal { background-color: #0D9488; }
+.s-advantages--item-icon--blue { background-color: #0082ca; }
+.s-advantages--item-icon--green { background-color: #25d366; }
+.s-advantages--item-icon--orange { background-color: #ffac44; }
+.s-advantages--item-icon--sky { background-color: #55acee; }
+.s-advantages--item-icon--purple { background-color: #ac2bac; }
+```
+
+### Responsive Breakpoints (aus ACCELARI)
+
+```css
+/* Desktop First Breakpoints */
+@media (max-width: 1399px) { /* Large Desktop */ }
+@media (max-width: 1083px) { /* Desktop */ }
+@media (max-width: 1024px) { /* Tablet Landscape */ }
+@media (max-width: 859px)  { /* Tablet Portrait */ }
+@media (max-width: 768px)  { /* Mobile Landscape */ }
+@media (max-width: 767px)  { /* Mobile */ }
+@media (max-width: 539px)  { /* Small Mobile */ }
+@media (max-width: 480px)  { /* Extra Small */ }
+```
+
+---
+
+## Globale Komponenten
+
+**HINWEIS:** Alle Komponenten verwenden das ACCELARI-CSS-Klassensystem. Die JSX-Struktur wird mit den bestehenden CSS-Klassen kombiniert.
+
+### 1. Header/Navigation (nach ACCELARI-Vorlage)
+
+```tsx
+// components/Header.tsx
+
+<header className="s-header">
+  <div className="s-container">
+    
+    {/* Logo */}
+    <a href="/" className="s-header--logo">
+      <img src="/images/trademarkiq-logo.svg" alt="TrademarkIQ" />
+    </a>
+    
+    <div className="s-header--inner">
+      
+      {/* Desktop Menu */}
+      <ul className="s-header--menu">
+        <li><a href="/features">Features</a></li>
+        <li><a href="/preise">Preise</a></li>
+        <li><a href="/ueber-uns">Über uns</a></li>
+        <li><a href="/kontakt">Kontakt</a></li>
+        <li><a href="/faq">FAQ</a></li>
+      </ul>
+      
+      {/* Dropdown für Produkt */}
+      <div className="s-header--dropdown">
+        <span>Produkt</span>
+        <svg><!-- Chevron Down --></svg>
+      </div>
+      
+      {/* CTA Button */}
+      <a href="/demo" className="s-button" style="min-width: auto; padding: 8px 16px;">
+        Kostenlos testen
+      </a>
+      
+      {/* Mobile Menu Button */}
+      <button className="s-header--mobile-open">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      
+    </div>
+    
+  </div>
+</header>
+
+/* Custom CSS für TrademarkIQ-Header */
+.s-header {
+  padding: 0 5%;
+  height: 54px;
+  margin-bottom: 2px;
+  box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.s-header--logo img {
+  max-height: 32px;
+  width: auto;
+}
+```
+
+### 2. Footer (nach ACCELARI-Vorlage)
+
+```tsx
+// components/Footer.tsx
+
+<footer className="s-footer">
+  <div className="s-footer--container">
+    
+    {/* Navigation Grid */}
+    <div className="s-footer--navigation">
+      
+      {/* Brand Column */}
+      <div className="s-footer--navigation-item">
+        <div className="widget-title"><span>TrademarkIQ</span></div>
+        <div className="textwidget">
+          <p>KI-gestützte Markenrecherche für den deutschen Mittelstand.</p>
+          <p style="margin-top: 12px;">
+            <span>🇩🇪</span> Made & Hosted in Germany
+          </p>
+        </div>
+      </div>
+      
+      {/* Produkt */}
+      <div className="s-footer--navigation-item">
+        <div className="widget-title"><span>Produkt</span></div>
+        <ul className="s-footer--menu-custom">
+          <li><a href="/features">Features</a></li>
+          <li><a href="/preise">Preise</a></li>
+          <li><a href="/demo">Live-Demo</a></li>
+          <li><a href="/faq">FAQ</a></li>
+        </ul>
+      </div>
+      
+      {/* Unternehmen */}
+      <div className="s-footer--navigation-item">
+        <div className="widget-title"><span>Unternehmen</span></div>
+        <ul className="s-footer--menu-custom">
+          <li><a href="/ueber-uns">Über uns</a></li>
+          <li><a href="/kontakt">Kontakt</a></li>
+        </ul>
+      </div>
+      
+      {/* Rechtliches */}
+      <div className="s-footer--navigation-item">
+        <div className="widget-title"><span>Rechtliches</span></div>
+        <ul className="s-footer--menu-custom">
+          <li><a href="/impressum">Impressum</a></li>
+          <li><a href="/datenschutz">Datenschutz</a></li>
+          <li><a href="/agb">AGB</a></li>
+        </ul>
+      </div>
+      
+      {/* Social */}
+      <div className="s-footer--navigation-item">
+        <div className="widget-title"><span>Folgen</span></div>
+        <ul className="footer-social-widget">
+          <li>
+            <a href="#">
+              <svg><!-- LinkedIn Icon --></svg>
+              <span>LinkedIn</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+      
+    </div>
+    
+    {/* Copyright Bar */}
+    <div className="s-footer--copyright">
+      <span className="s-footer--copyright-txt">
+        © 2025 ACCELARI GmbH. Alle Rechte vorbehalten.
+      </span>
+      <span className="s-footer--copyright-txt">
+        TrademarkIQ ist ein Recherche-Tool und ersetzt keine Rechtsberatung.
+      </span>
+    </div>
+    
+  </div>
+</footer>
+```
+
+### 3. Button-Komponente (ACCELARI-Klassen)
+
+```tsx
+// components/ui/Button.tsx
+
+interface ButtonProps {
+  variant: 'primary' | 'secondary' | 'link';
+  href?: string;
+  children: React.ReactNode;
+  className?: string;
+}
+
+export function Button({ variant, href, children, className }: ButtonProps) {
+  const baseClass = variant === 'link' 
+    ? 's-link' 
+    : `s-button ${variant === 'secondary' ? 's-button-two' : ''}`;
+  
+  return (
+    <a href={href} className={`${baseClass} ${className || ''}`}>
+      {children}
+      {variant === 'link' && (
+        <svg width="11" height="11" viewBox="0 0 11 11">
+          <path d="M3 1l5 4.5L3 10" stroke="currentColor" fill="none"/>
+        </svg>
+      )}
+    </a>
+  );
+}
+
+/* Verwendung */
+<Button variant="primary" href="/demo">Kostenlos testen</Button>
+<Button variant="secondary" href="/preise">Alle Preise</Button>
+<Button variant="link" href="/features">Mehr erfahren</Button>
+```
+
+### 4. Section-Wrapper (ACCELARI-Struktur)
+
+```tsx
+// components/ui/Section.tsx
+
+interface SectionProps {
+  background?: 'white' | 'gray' | 'teal' | 'dark';
+  padding?: 'sm' | 'md' | 'lg' | 'xl';
+  children: React.ReactNode;
+}
+
+const backgrounds = {
+  white: '',
+  gray: 'background: #F5F5F5;',
+  teal: 'background: #0D9488; color: #fff;',
+  dark: 'background: #000; color: #fff;',
+};
+
+const paddings = {
+  sm: 'padding-top: 40px; padding-bottom: 40px;',
+  md: 'padding-top: 60px; padding-bottom: 60px;',
+  lg: 'padding-top: 90px; padding-bottom: 90px;',
+  xl: 'padding-top: 120px; padding-bottom: 120px;',
+};
+
+export function Section({ background = 'white', padding = 'lg', children }: SectionProps) {
+  return (
+    <section className="s-section" style={`${backgrounds[background]} ${paddings[padding]}`}>
+      <div className="s-container s-container--padding">
+        {children}
+      </div>
+    </section>
+  );
+}
+```
+
+### 5. Feature Card (ACCELARI-Advantages-Stil)
+
+```tsx
+// components/FeatureCard.tsx
+
+interface FeatureCardProps {
+  icon: React.ReactNode;
+  iconColor?: 'teal' | 'blue' | 'green' | 'orange' | 'sky' | 'purple';
+  title: string;
+  description: string;
+}
+
+export function FeatureCard({ icon, iconColor = 'teal', title, description }: FeatureCardProps) {
+  return (
+    <div className="s-advantages--item">
+      <div className={`s-advantages--item-icon s-advantages--item-icon--${iconColor}`}>
+        {icon}
+      </div>
+      <div className="s-advantages--item-txt">
+        <h3>{title}</h3>
+        <p>{description}</p>
+      </div>
+    </div>
+  );
+}
+```
+
+### 6. Info Banner (ACCELARI s-info-primary Stil)
+
+```tsx
+// components/InfoBanner.tsx
+
+interface InfoBannerProps {
+  title: string;
+  description?: string;
+  buttons?: React.ReactNode;
+}
+
+export function InfoBanner({ title, description, buttons }: InfoBannerProps) {
+  return (
+    <section className="s-info-primary" style="background: rgba(13, 148, 136, 0.1);">
+      <div className="s-info-primary--wrapper">
+        <div className="s-info-primary--txt">
+          <h2>{title}</h2>
+          {description && <p>{description}</p>}
+        </div>
+        {buttons && (
+          <div className="s-info-primary--btns">
+            {buttons}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+```
+
+---
+
+## Seiten-Spezifikationen
+
+**WICHTIG:** Alle Seiten verwenden die ACCELARI-CSS-Klassenstruktur. Die Komponenten folgen dem Muster aus dem bestehenden Stylesheet.
+
+---
+
+## SEITE 1: HOMEPAGE (/)
+
+### Meta
+```html
+<title>TrademarkIQ – KI-Markenrecherche in Sekunden | ACCELARI</title>
+<meta name="description" content="Finden Sie Namenskollisionen bevor Sie €5.000+ für Widersprüche zahlen. DPMA, EUIPO, WIPO durchsuchen. DSGVO-konform. Ab €49/Monat.">
+```
+
+### Struktur (mit ACCELARI-CSS-Klassen)
+
+```html
+<!-- HERO SECTION - Voller Banner -->
+<section class="s-section s-section-full">
+  <div class="s-full-banner-buttons--inner">
+    <div class="s-container s-container-1920" style="position: relative;">
+      
+      <!-- Hero Image -->
+      <picture class="s-full-banner--picture">
+        <img src="/images/hero-trademarkiq.jpg" alt="TrademarkIQ Interface">
+      </picture>
+      
+      <!-- Hero Content -->
+      <div class="s-full-banner--txt">
+        
+        <!-- Badge -->
+        <span style="display: inline-block; padding: 6px 12px; background: rgba(13,148,136,0.15); color: #0D9488; border-radius: 5px; font-size: 13px; font-weight: 600; margin-bottom: 16px;">
+          🇩🇪 Made & Hosted in Germany
+        </span>
+        
+        <h1>Markenrecherche mit <span style="color: #0D9488;">KI-Intelligenz</span></h1>
+        
+        <div class="s-full-banner--p">
+          <p>Finden Sie Namenskollisionen bevor Sie €5.000+ für Widersprüche zahlen. DPMA, EUIPO und WIPO in Sekunden durchsuchen.</p>
+        </div>
+        
+        <div class="s-full-banner--links">
+          <a href="/demo" class="s-button">Kostenlos testen</a>
+          <a href="#demo-video" class="s-button s-button-two">Demo ansehen</a>
+        </div>
+        
+        <p style="margin-top: 16px; font-size: 13px; color: #666;">
+          3 kostenlose Analysen • Keine Kreditkarte erforderlich
+        </p>
+        
+      </div>
+      
+    </div>
+  </div>
+</section>
+
+
+<!-- TRUST BAR -->
+<section style="padding: 20px 0; border-top: 1px solid #e6e6e6; border-bottom: 1px solid #e6e6e6; background: #fff;">
+  <div class="s-container s-container--padding" style="justify-content: center; gap: 48px; flex-wrap: wrap;">
+    
+    <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #464646;">
+      <svg width="20" height="20" fill="#0D9488"><!-- Checkmark --></svg>
+      60+ Millionen Marken durchsuchbar
+    </span>
+    
+    <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #464646;">
+      <svg width="20" height="20" fill="#0D9488"><!-- Checkmark --></svg>
+      DPMA • EUIPO • WIPO
+    </span>
+    
+    <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #464646;">
+      <svg width="20" height="20" fill="#0D9488"><!-- Checkmark --></svg>
+      Ergebnisse in unter 10 Sekunden
+    </span>
+    
+  </div>
+</section>
+
+
+<!-- PROBLEM SECTION -->
+<section style="padding: 90px 0; background: #fff;">
+  <div class="s-container s-container--padding" style="flex-direction: column;">
+    
+    <div style="text-align: center; margin-bottom: 48px;">
+      <h2>Markenanmeldung ohne Recherche? <span style="color: #DD4B39;">Teurer Fehler.</span></h2>
+    </div>
+    
+    <!-- Stats Grid (3 Spalten) -->
+    <div class="s-posts-three--list">
+      
+      <!-- Stat 1 -->
+      <div class="s-posts-three--item" style="background: #FEF2F2; border-left: 4px solid #DD4B39; padding: 24px; border-radius: 0 5px 5px 0;">
+        <p style="font-size: 46px; font-weight: 600; color: #DD4B39; line-height: 1;">€5.000+</p>
+        <p style="margin-top: 12px; color: #2f2f2f;">Durchschnittliche Kosten bei einer Markenkollision</p>
+      </div>
+      
+      <!-- Stat 2 -->
+      <div class="s-posts-three--item" style="background: #FEF2F2; border-left: 4px solid #DD4B39; padding: 24px; border-radius: 0 5px 5px 0;">
+        <p style="font-size: 46px; font-weight: 600; color: #DD4B39; line-height: 1;">30%</p>
+        <p style="margin-top: 12px; color: #2f2f2f;">der Markenanmeldungen scheitern an Widersprüchen</p>
+      </div>
+      
+      <!-- Stat 3 -->
+      <div class="s-posts-three--item" style="background: #FEF2F2; border-left: 4px solid #DD4B39; padding: 24px; border-radius: 0 5px 5px 0;">
+        <p style="font-size: 46px; font-weight: 600; color: #DD4B39; line-height: 1;">3-5 Tage</p>
+        <p style="margin-top: 12px; color: #2f2f2f;">Wartezeit bei klassischen professionellen Recherchen</p>
+      </div>
+      
+    </div>
+    
+    <p style="text-align: center; margin-top: 36px; font-size: 18px; color: #464646;">
+      Eine 10-Minuten-Recherche mit TrademarkIQ kann das verhindern.
+    </p>
+    
+  </div>
+</section>
+
+
+<!-- HOW IT WORKS -->
+<section style="padding: 90px 0; background: #F5F5F5;">
+  <div class="s-container s-container--padding" style="flex-direction: column;">
+    
+    <div style="text-align: center; margin-bottom: 48px;">
+      <h2>So funktioniert TrademarkIQ</h2>
+      <p style="margin-top: 12px; font-size: 18px; color: #464646;">In 4 einfachen Schritten zur Markenrecherche</p>
+    </div>
+    
+    <!-- 4-Step Process -->
+    <div style="display: flex; gap: 24px; width: 100%;">
+      
+      <!-- Step 1 -->
+      <div style="flex: 1; text-align: left;">
+        <div style="width: 48px; height: 48px; background: #0D9488; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px; margin-bottom: 16px;">1</div>
+        <h5 style="margin-bottom: 8px;">Namen eingeben</h5>
+        <p style="color: #5e5e5e;">Tippen oder sprechen Sie Ihren Wunsch-Markennamen ein.</p>
+      </div>
+      
+      <!-- Step 2 -->
+      <div style="flex: 1; text-align: left;">
+        <div style="width: 48px; height: 48px; background: #0D9488; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px; margin-bottom: 16px;">2</div>
+        <h5 style="margin-bottom: 8px;">KI analysiert</h5>
+        <p style="color: #5e5e5e;">TrademarkIQ durchsucht 60+ Millionen Marken in DPMA, EUIPO und WIPO.</p>
+      </div>
+      
+      <!-- Step 3 -->
+      <div style="flex: 1; text-align: left;">
+        <div style="width: 48px; height: 48px; background: #0D9488; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px; margin-bottom: 16px;">3</div>
+        <h5 style="margin-bottom: 8px;">Report erhalten</h5>
+        <p style="color: #5e5e5e;">Detaillierter Kollisionsbericht mit Risikoeinschätzung in Sekunden.</p>
+      </div>
+      
+      <!-- Step 4 -->
+      <div style="flex: 1; text-align: left;">
+        <div style="width: 48px; height: 48px; background: #fcd12c; color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px; margin-bottom: 16px;">4</div>
+        <h5 style="margin-bottom: 8px;">Entscheiden</h5>
+        <p style="color: #5e5e5e;">Weiter mit Anwalt zur Anmeldung oder Alternative testen.</p>
+      </div>
+      
+    </div>
+    
+    <div style="text-align: center; margin-top: 48px;">
+      <a href="/demo" class="s-button">Jetzt ausprobieren</a>
+    </div>
+    
+  </div>
+</section>
+
+
+<!-- FEATURES GRID -->
+<section class="s-advantages-icons" style="padding: 90px 0;">
+  <div class="s-container s-container--padding" style="flex-direction: column;">
+    
+    <div class="s-advantages-icons--inner">
+      <h2>Alles was Sie für die Markenrecherche brauchen</h2>
+    </div>
+    
+    <div class="s-advantages--list">
+      
+      <!-- Feature 1: Schnell -->
+      <div class="s-advantages--item">
+        <div class="s-advantages--item-icon s-advantages--item-icon--teal">
+          <svg width="28" height="28" fill="#fff"><!-- Zap/Lightning Icon --></svg>
+        </div>
+        <div class="s-advantages--item-txt">
+          <h3>Blitzschnell</h3>
+          <p>Ergebnisse in unter 10 Sekunden statt 3-5 Tagen bei klassischen Recherchen.</p>
+        </div>
+      </div>
+      
+      <!-- Feature 2: Umfassend -->
+      <div class="s-advantages--item">
+        <div class="s-advantages--item-icon s-advantages--item-icon--blue">
+          <svg width="28" height="28" fill="#fff"><!-- Search Icon --></svg>
+        </div>
+        <div class="s-advantages--item-txt">
+          <h3>Umfassend</h3>
+          <p>DPMA, EUIPO, WIPO und 190+ Länder in einer Suche abdecken.</p>
+        </div>
+      </div>
+      
+      <!-- Feature 3: Intelligent -->
+      <div class="s-advantages--item">
+        <div class="s-advantages--item-icon s-advantages--item-icon--purple">
+          <svg width="28" height="28" fill="#fff"><!-- Brain/AI Icon --></svg>
+        </div>
+        <div class="s-advantages--item-txt">
+          <h3>Intelligent</h3>
+          <p>KI erkennt phonetische, begriffliche und visuelle Ähnlichkeiten.</p>
+        </div>
+      </div>
+      
+      <!-- Feature 4: Bildmarken -->
+      <div class="s-advantages--item">
+        <div class="s-advantages--item-icon s-advantages--item-icon--orange">
+          <svg width="28" height="28" fill="#fff"><!-- Image Icon --></svg>
+        </div>
+        <div class="s-advantages--item-txt">
+          <h3>Bildmarken</h3>
+          <p>Computer Vision analysiert auch Logos und Bildmarken auf Ähnlichkeit.</p>
+        </div>
+      </div>
+      
+      <!-- Feature 5: DSGVO -->
+      <div class="s-advantages--item">
+        <div class="s-advantages--item-icon s-advantages--item-icon--green">
+          <svg width="28" height="28" fill="#fff"><!-- Shield Icon --></svg>
+        </div>
+        <div class="s-advantages--item-txt">
+          <h3>DSGVO-konform</h3>
+          <p>100% deutsches Hosting. Keine Datenübertragung in Drittländer.</p>
+        </div>
+      </div>
+      
+      <!-- Feature 6: Voice -->
+      <div class="s-advantages--item">
+        <div class="s-advantages--item-icon s-advantages--item-icon--sky">
+          <svg width="28" height="28" fill="#fff"><!-- Microphone Icon --></svg>
+        </div>
+        <div class="s-advantages--item-txt">
+          <h3>Voice-Interface</h3>
+          <p>Sprechen Sie einfach Ihren Markennamen – natürliche Sprachverarbeitung.</p>
+        </div>
+      </div>
+      
+    </div>
+    
+  </div>
+</section>
+
+
+<!-- PRICING TEASER -->
+<section style="padding: 90px 0; background: #F5F5F5;">
+  <div class="s-container s-container--padding" style="flex-direction: column;">
+    
+    <div style="text-align: center; margin-bottom: 48px;">
+      <h2>Transparent & fair</h2>
+      <p style="margin-top: 12px; font-size: 18px; color: #464646;">Professionelle Markenrecherche muss nicht teuer sein.</p>
+    </div>
+    
+    <!-- Pricing Cards (3 Spalten) -->
+    <div class="s-posts-three--list" style="max-width: 1000px; margin: 0 auto;">
+      
+      <!-- Starter -->
+      <div class="s-posts-three--item" style="background: #fff; padding: 32px; border-radius: 5px; border: 1px solid #e6e6e6;">
+        <p style="font-size: 13px; font-weight: 600; color: #666; text-transform: uppercase;">Starter</p>
+        <p style="font-size: 46px; font-weight: 600; color: #000; margin-top: 8px;">€49<span style="font-size: 15px; color: #666; font-weight: 400;">/Monat</span></p>
+        <p style="margin-top: 4px; color: #5e5e5e;">Für Gründer</p>
+        <ul style="margin-top: 24px; list-style: none; padding: 0;">
+          <li style="padding: 8px 0; font-size: 15px;">✓ 10 Analysen/Monat</li>
+          <li style="padding: 8px 0; font-size: 15px;">✓ DPMA + EUIPO</li>
+          <li style="padding: 8px 0; font-size: 15px;">✓ 1 Nutzer</li>
+        </ul>
+        <a href="/preise" class="s-button s-button-two" style="width: 100%; margin-top: 24px; min-width: auto;">Starten</a>
+      </div>
+      
+      <!-- Professional (Highlighted) -->
+      <div class="s-posts-three--item" style="background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%); padding: 32px; border-radius: 5px; color: #fff; position: relative; transform: scale(1.05); box-shadow: 0 8px 24px rgba(13,148,136,0.3);">
+        <span style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #fcd12c; color: #000; padding: 4px 12px; border-radius: 5px; font-size: 11px; font-weight: 600;">BELIEBT</span>
+        <p style="font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); text-transform: uppercase;">Professional</p>
+        <p style="font-size: 46px; font-weight: 600; margin-top: 8px;">€99<span style="font-size: 15px; color: rgba(255,255,255,0.7); font-weight: 400;">/Monat</span></p>
+        <p style="margin-top: 4px; color: rgba(255,255,255,0.8);">Beliebteste Wahl</p>
+        <ul style="margin-top: 24px; list-style: none; padding: 0;">
+          <li style="padding: 8px 0; font-size: 15px;">✓ 30 Analysen/Monat</li>
+          <li style="padding: 8px 0; font-size: 15px;">✓ DPMA + EUIPO + WIPO</li>
+          <li style="padding: 8px 0; font-size: 15px;">✓ 3 Nutzer</li>
+        </ul>
+        <a href="/preise" class="s-button" style="width: 100%; margin-top: 24px; min-width: auto; background: #fff; color: #0D9488;">Auswählen</a>
+      </div>
+      
+      <!-- Business -->
+      <div class="s-posts-three--item" style="background: #fff; padding: 32px; border-radius: 5px; border: 1px solid #e6e6e6;">
+        <p style="font-size: 13px; font-weight: 600; color: #666; text-transform: uppercase;">Business</p>
+        <p style="font-size: 46px; font-weight: 600; color: #000; margin-top: 8px;">€199<span style="font-size: 15px; color: #666; font-weight: 400;">/Monat</span></p>
+        <p style="margin-top: 4px; color: #5e5e5e;">Für Teams</p>
+        <ul style="margin-top: 24px; list-style: none; padding: 0;">
+          <li style="padding: 8px 0; font-size: 15px;">✓ Unbegrenzte Analysen</li>
+          <li style="padding: 8px 0; font-size: 15px;">✓ Globale Recherche</li>
+          <li style="padding: 8px 0; font-size: 15px;">✓ 10 Nutzer + API</li>
+        </ul>
+        <a href="/preise" class="s-button s-button-two" style="width: 100%; margin-top: 24px; min-width: auto;">Starten</a>
+      </div>
+      
+    </div>
+    
+    <p style="text-align: center; margin-top: 24px; font-size: 13px; color: #666;">
+      Alle Preise zzgl. MwSt. • Jährlich -20% • Enterprise-Lösungen verfügbar
+    </p>
+    
+    <div style="text-align: center; margin-top: 16px;">
+      <a href="/preise" class="s-link">Alle Preise ansehen <svg width="11" height="11"><path d="M3 1l5 4.5L3 10" stroke="currentColor" fill="none"/></svg></a>
+    </div>
+    
+  </div>
+</section>
+
+
+<!-- TRUST SECTION -->
+<section style="padding: 90px 0; background: #fff;">
+  <div class="s-container s-container--padding" style="flex-direction: column;">
+    
+    <div style="text-align: center; margin-bottom: 48px;">
+      <h2>Warum Unternehmen TrademarkIQ vertrauen</h2>
+    </div>
+    
+    <!-- Trust Badges (4 Spalten) -->
+    <div style="display: flex; gap: 24px; width: 100%;">
+      
+      <div style="flex: 1; text-align: center; padding: 24px;">
+        <span style="font-size: 48px;">🇩🇪</span>
+        <h5 style="margin-top: 16px; margin-bottom: 8px;">Deutsches Hosting</h5>
+        <p style="color: #5e5e5e; font-size: 13px;">Server in Deutschland, ISO 27001 zertifiziert</p>
+      </div>
+      
+      <div style="flex: 1; text-align: center; padding: 24px;">
+        <span style="font-size: 48px;">🔐</span>
+        <h5 style="margin-top: 16px; margin-bottom: 8px;">DSGVO-konform</h5>
+        <p style="color: #5e5e5e; font-size: 13px;">Keine Drittlandübertragung, volle Compliance</p>
+      </div>
+      
+      <div style="flex: 1; text-align: center; padding: 24px;">
+        <span style="font-size: 48px;">🤖</span>
+        <h5 style="margin-top: 16px; margin-bottom: 8px;">EU AI Act ready</h5>
+        <p style="color: #5e5e5e; font-size: 13px;">Transparente KI-Nutzung, zukunftssicher</p>
+      </div>
+      
+      <div style="flex: 1; text-align: center; padding: 24px;">
+        <span style="font-size: 48px;">💼</span>
+        <h5 style="margin-top: 16px; margin-bottom: 8px;">25 Jahre Erfahrung</h5>
+        <p style="color: #5e5e5e; font-size: 13px;">Gegründet von IP-Experten</p>
+      </div>
+      
+    </div>
+    
+  </div>
+</section>
+
+
+<!-- FINAL CTA -->
+<section class="s-fill-banner" style="margin-top: 0; padding: 90px 0; background: #0D9488;">
+  <div class="s-container s-container--padding" style="flex-direction: column; align-items: center;">
+    
+    <h2 style="color: #fff; text-align: center;">Bereit für Ihre erste Markenrecherche?</h2>
+    <p style="color: rgba(255,255,255,0.8); text-align: center; margin-top: 12px; font-size: 18px;">
+      3 kostenlose Analysen. Keine Kreditkarte erforderlich.
+    </p>
+    
+    <div style="margin-top: 32px;">
+      <a href="/demo" class="s-button" style="background: #fff; color: #0D9488;">Jetzt kostenlos starten</a>
+    </div>
+    
+  </div>
+</section>
+```
+
+**Responsive CSS für Homepage hinzufügen:**
+
+```css
+/* Homepage-spezifische Responsive Styles */
+@media (max-width: 1083px) {
+  .s-full-banner--txt h1 {
+    font-size: 37px;
+    line-height: 44px;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Stats Grid zu 1 Spalte */
+  .s-posts-three--list {
+    flex-direction: column;
+    gap: 24px;
+  }
+  .s-posts-three--item {
+    width: 100%;
+    margin: 0;
+  }
+  
+  /* Steps zu 2x2 oder 1 Spalte */
+  /* Trust Badges zu 2x2 */
+  
+  .s-full-banner--txt h1 {
+    font-size: 28px;
+    line-height: 34px;
+  }
+  
+  .s-advantages--item {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+```
+
+---
+
+## SEITE 2: FEATURES (/features)
+
+### Meta
+```
+title: "Features – TrademarkIQ | KI-Markenrecherche"
+description: "Alle Funktionen von TrademarkIQ: KI-Ähnlichkeitsanalyse, Multi-Datenbank-Suche, Voice-Interface, Bildmarken-Check und mehr."
+```
+
+### Struktur
+
+```tsx
+// app/features/page.tsx
+
+<>
+  <Header />
+  
+  {/* HERO */}
+  <section className="pt-16 pb-12 md:pt-24 md:pb-16 bg-gradient-to-b from-slate-50 to-white">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+      <h1 className="text-4xl md:text-5xl font-bold text-slate-900 font-serif">
+        Alles was TrademarkIQ kann
+      </h1>
+      <p className="mt-6 text-lg text-slate-600">
+        Professionelle Markenrecherche, zugänglich für jeden.
+      </p>
+    </div>
+  </section>
+  
+  {/* FEATURE SECTIONS */}
+  
+  {/* Feature 1: KI-Analyse */}
+  <section className="py-16 md:py-20 bg-white">
+    <div className="max-w-6xl mx-auto px-4 md:px-6">
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        
+        <div>
+          <Badge className="mb-4">KI-Technologie</Badge>
+          <h2 className="text-3xl font-bold text-slate-900 font-serif mb-4">
+            Intelligente Ähnlichkeitsanalyse
+          </h2>
+          <p className="text-slate-600 mb-6">
+            TrademarkIQ erkennt nicht nur identische Marken, sondern auch versteckte Kollisionsrisiken:
+          </p>
+          <ul className="space-y-3">
+            <FeatureListItem>
+              <strong>Phonetische Ähnlichkeit</strong> – "TechFlow" vs. "TekFlo"
+            </FeatureListItem>
+            <FeatureListItem>
+              <strong>Begriffliche Überschneidung</strong> – "SunEnergy" vs. "SolarPower"
+            </FeatureListItem>
+            <FeatureListItem>
+              <strong>Visuelle Ähnlichkeit</strong> – Bildmarken und Logos
+            </FeatureListItem>
+            <FeatureListItem>
+              <strong>Branchenüberschneidung</strong> – Nizza-Klassenkonflkte
+            </FeatureListItem>
+          </ul>
+        </div>
+        
+        <div className="bg-slate-100 rounded-2xl p-4">
+          <Image src="/images/feature-ai-analysis.png" alt="KI-Analyse" />
+        </div>
+        
+      </div>
+    </div>
+  </section>
+  
+  {/* Feature 2: Multi-Datenbank */}
+  <section className="py-16 md:py-20 bg-slate-50">
+    <div className="max-w-6xl mx-auto px-4 md:px-6">
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        
+        <div className="order-2 md:order-1 bg-white rounded-2xl p-4 shadow-sm">
+          <Image src="/images/feature-databases.png" alt="Datenbanken" />
+        </div>
+        
+        <div className="order-1 md:order-2">
+          <Badge className="mb-4">Globale Abdeckung</Badge>
+          <h2 className="text-3xl font-bold text-slate-900 font-serif mb-4">
+            Alle wichtigen Datenbanken
+          </h2>
+          <p className="text-slate-600 mb-6">
+            Eine Suche, alle Register – von Deutschland bis weltweit:
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <DatabaseCard name="DPMA" country="Deutschland" />
+            <DatabaseCard name="EUIPO" country="EU-Unionsmarke" />
+            <DatabaseCard name="WIPO Madrid" country="International" />
+            <DatabaseCard name="190+ Länder" country="Enterprise" />
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </section>
+  
+  {/* Feature 3: Voice Interface */}
+  <section className="py-16 md:py-20 bg-white">
+    <div className="max-w-6xl mx-auto px-4 md:px-6">
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        
+        <div>
+          <Badge className="mb-4">Sprachsteuerung</Badge>
+          <h2 className="text-3xl font-bold text-slate-900 font-serif mb-4">
+            Sprechen statt tippen
+          </h2>
+          <p className="text-slate-600 mb-6">
+            Sagen Sie einfach Ihren Markennamen – TrademarkIQ versteht Sie:
+          </p>
+          <ul className="space-y-3">
+            <FeatureListItem>Natürliche Sprachverarbeitung auf Deutsch</FeatureListItem>
+            <FeatureListItem>Ideal für schnelle Checks unterwegs</FeatureListItem>
+            <FeatureListItem>Erkennt auch schwierige Aussprachen</FeatureListItem>
+            <FeatureListItem>Funktioniert auf Desktop und Mobile</FeatureListItem>
+          </ul>
+        </div>
+        
+        <div className="bg-slate-100 rounded-2xl p-4">
+          <Image src="/images/feature-voice.png" alt="Voice Interface" />
+        </div>
+        
+      </div>
+    </div>
+  </section>
+  
+  {/* Feature 4: Reports */}
+  <section className="py-16 md:py-20 bg-slate-50">
+    <div className="max-w-6xl mx-auto px-4 md:px-6">
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        
+        <div className="order-2 md:order-1 bg-white rounded-2xl p-4 shadow-sm">
+          <Image src="/images/feature-report.png" alt="Kollisionsreport" />
+        </div>
+        
+        <div className="order-1 md:order-2">
+          <Badge className="mb-4">Detaillierte Reports</Badge>
+          <h2 className="text-3xl font-bold text-slate-900 font-serif mb-4">
+            Kollisionsreport mit Risikoeinschätzung
+          </h2>
+          <p className="text-slate-600 mb-6">
+            Verstehen Sie auf einen Blick, wo Risiken liegen:
+          </p>
+          <ul className="space-y-3">
+            <FeatureListItem>Ampel-System für schnelle Einschätzung</FeatureListItem>
+            <FeatureListItem>Konflikt-Matrix nach Nizza-Klassen</FeatureListItem>
+            <FeatureListItem>Detaillierte Einzelanalysen pro Konflikt</FeatureListItem>
+            <FeatureListItem>Export als PDF für Ihren Anwalt</FeatureListItem>
+          </ul>
+        </div>
+        
+      </div>
+    </div>
+  </section>
+  
+  {/* Feature 5: Nizza */}
+  <section className="py-16 md:py-20 bg-white">
+    <div className="max-w-6xl mx-auto px-4 md:px-6">
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        
+        <div>
+          <Badge className="mb-4">Klassifikation</Badge>
+          <h2 className="text-3xl font-bold text-slate-900 font-serif mb-4">
+            Automatische Nizza-Klassifikation
+          </h2>
+          <p className="text-slate-600 mb-6">
+            Wissen Sie nicht, in welcher Klasse Sie anmelden sollen? TrademarkIQ hilft:
+          </p>
+          <ul className="space-y-3">
+            <FeatureListItem>Beschreiben Sie Ihr Produkt in eigenen Worten</FeatureListItem>
+            <FeatureListItem>KI schlägt passende Klassen vor</FeatureListItem>
+            <FeatureListItem>Alle 45 Nizza-Klassen erklärt</FeatureListItem>
+            <FeatureListItem>Warnung bei Mehrfachklassen-Bedarf</FeatureListItem>
+          </ul>
+        </div>
+        
+        <div className="bg-slate-100 rounded-2xl p-4">
+          <Image src="/images/feature-nizza.png" alt="Nizza-Klassifikation" />
+        </div>
+        
+      </div>
+    </div>
+  </section>
+  
+  {/* Feature 6: Monitoring */}
+  <section className="py-16 md:py-20 bg-slate-50">
+    <div className="max-w-6xl mx-auto px-4 md:px-6">
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        
+        <div className="order-2 md:order-1 bg-white rounded-2xl p-4 shadow-sm">
+          <Image src="/images/feature-monitoring.png" alt="Markenüberwachung" />
+        </div>
+        
+        <div className="order-1 md:order-2">
+          <Badge className="mb-4">Professional+</Badge>
+          <h2 className="text-3xl font-bold text-slate-900 font-serif mb-4">
+            Markenüberwachung
+          </h2>
+          <p className="text-slate-600 mb-6">
+            Schützen Sie Ihre Marke auch nach der Anmeldung:
+          </p>
+          <ul className="space-y-3">
+            <FeatureListItem>Automatische Alerts bei neuen ähnlichen Marken</FeatureListItem>
+            <FeatureListItem>Wöchentliche oder monatliche Reports</FeatureListItem>
+            <FeatureListItem>Frühwarnung vor Nachahmern</FeatureListItem>
+            <FeatureListItem>Unbegrenzt im Business-Plan</FeatureListItem>
+          </ul>
+        </div>
+        
+      </div>
+    </div>
+  </section>
+  
+  {/* COMPARISON TABLE */}
+  <section className="py-16 md:py-24 bg-white">
+    <div className="max-w-6xl mx-auto px-4 md:px-6">
+      
+      <div className="text-center mb-12">
+        <h2 className="text-3xl font-bold text-slate-900 font-serif">
+          TrademarkIQ vs. Alternativen
+        </h2>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200">
+              <th className="text-left py-4 px-4"></th>
+              <th className="text-center py-4 px-4 bg-teal-50 text-teal-700 font-semibold">TrademarkIQ</th>
+              <th className="text-center py-4 px-4">TMview</th>
+              <th className="text-center py-4 px-4">Anwalt</th>
+              <th className="text-center py-4 px-4">Enterprise-Tools</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-slate-100">
+              <td className="py-3 px-4 font-medium">Preis</td>
+              <td className="py-3 px-4 text-center bg-teal-50 text-teal-700 font-semibold">Ab €49/Monat</td>
+              <td className="py-3 px-4 text-center">Kostenlos</td>
+              <td className="py-3 px-4 text-center">€300-600/Suche</td>
+              <td className="py-3 px-4 text-center">€12.000+/Jahr</td>
+            </tr>
+            <tr className="border-b border-slate-100">
+              <td className="py-3 px-4 font-medium">Geschwindigkeit</td>
+              <td className="py-3 px-4 text-center bg-teal-50">✓ Sekunden</td>
+              <td className="py-3 px-4 text-center">✓ Sekunden</td>
+              <td className="py-3 px-4 text-center">3-5 Tage</td>
+              <td className="py-3 px-4 text-center">✓ Sekunden</td>
+            </tr>
+            <tr className="border-b border-slate-100">
+              <td className="py-3 px-4 font-medium">KI-Ähnlichkeitsanalyse</td>
+              <td className="py-3 px-4 text-center bg-teal-50">✓ Vollständig</td>
+              <td className="py-3 px-4 text-center text-slate-400">✗ Keine</td>
+              <td className="py-3 px-4 text-center">✓ Manuell</td>
+              <td className="py-3 px-4 text-center">✓ Vollständig</td>
+            </tr>
+            <tr className="border-b border-slate-100">
+              <td className="py-3 px-4 font-medium">Bildmarken-Check</td>
+              <td className="py-3 px-4 text-center bg-teal-50">✓</td>
+              <td className="py-3 px-4 text-center text-slate-400">✗</td>
+              <td className="py-3 px-4 text-center">✓</td>
+              <td className="py-3 px-4 text-center">✓</td>
+            </tr>
+            <tr>
+              <td className="py-3 px-4 font-medium">Deutsches Hosting</td>
+              <td className="py-3 px-4 text-center bg-teal-50">✓</td>
+              <td className="py-3 px-4 text-center">✓ (EU)</td>
+              <td className="py-3 px-4 text-center">Variiert</td>
+              <td className="py-3 px-4 text-center text-slate-400">Oft US</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+    </div>
+  </section>
+  
+  {/* CTA */}
+  <section className="py-16 md:py-24 bg-teal-600">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+      <h2 className="text-3xl md:text-4xl font-bold text-white font-serif">
+        Überzeugt?
+      </h2>
+      <p className="mt-4 text-lg text-teal-100">
+        Testen Sie TrademarkIQ jetzt kostenlos.
+      </p>
+      <div className="mt-8">
+        <Button variant="secondary" size="lg" href="/demo">
+          Kostenlos starten
+        </Button>
+      </div>
+    </div>
+  </section>
+  
+  <Footer />
+</>
+```
+
+---
+
+## SEITE 3: PREISE (/preise)
+
+### Meta
+```
+title: "Preise – TrademarkIQ | Ab €49/Monat"
+description: "Transparente Preise für KI-Markenrecherche. Starter €49, Professional €99, Business €199. Jährlich -20%. Enterprise-Lösungen verfügbar."
+```
+
+### Struktur
+
+```tsx
+// app/preise/page.tsx
+
+<>
+  <Header />
+  
+  {/* HERO */}
+  <section className="pt-16 pb-12 md:pt-24 md:pb-16 bg-gradient-to-b from-slate-50 to-white">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+      
+      <Badge>🇩🇪 Made & Hosted in Germany</Badge>
+      
+      <h1 className="mt-6 text-4xl md:text-5xl font-bold text-slate-900 font-serif">
+        KI-Markenrecherche für jeden Bedarf
+      </h1>
+      
+      <p className="mt-6 text-lg text-slate-600">
+        Transparent, DSGVO-konform, ohne versteckte Kosten.
+      </p>
+      
+      {/* Billing Toggle */}
+      <div className="mt-8 inline-flex items-center bg-slate-100 rounded-full p-1">
+        <button 
+          className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+            billingCycle === 'monthly' 
+              ? 'bg-white text-slate-900 shadow-sm' 
+              : 'text-slate-600'
+          }`}
+          onClick={() => setBillingCycle('monthly')}
+        >
+          Monatlich
+        </button>
+        <button 
+          className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+            billingCycle === 'yearly' 
+              ? 'bg-white text-slate-900 shadow-sm' 
+              : 'text-slate-600'
+          }`}
+          onClick={() => setBillingCycle('yearly')}
+        >
+          Jährlich <span className="text-teal-600">(-20%)</span>
+        </button>
+      </div>
+      
+    </div>
+  </section>
+  
+  {/* PRICING CARDS */}
+  <section className="pb-16 md:pb-24">
+    <div className="max-w-6xl mx-auto px-4 md:px-6">
+      
+      <div className="grid md:grid-cols-4 gap-6">
+        
+        {/* STARTER */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <h3 className="font-semibold text-slate-500 text-sm">STARTER</h3>
+          <div className="mt-4 flex items-baseline gap-1">
+            <span className="text-4xl font-bold text-slate-900 font-serif">
+              €{billingCycle === 'monthly' ? '49' : '39'}
+            </span>
+            <span className="text-slate-500">/Monat</span>
+          </div>
+          {billingCycle === 'yearly' && (
+            <p className="text-xs text-slate-500 mt-1">€468 jährlich abgerechnet</p>
+          )}
+          <p className="mt-2 text-sm text-slate-600">Für Gründer & Startups</p>
+          
+          <ul className="mt-6 space-y-3">
+            <PricingFeature>10 KI-Analysen/Monat</PricingFeature>
+            <PricingFeature>DPMA + EUIPO Recherche</PricingFeature>
+            <PricingFeature>Basis-Kollisionsreport</PricingFeature>
+            <PricingFeature>Nizza-Klassifikation</PricingFeature>
+            <PricingFeature>1 Nutzer</PricingFeature>
+            <PricingFeature>E-Mail Support</PricingFeature>
+          </ul>
+          
+          <Button variant="outline" className="w-full mt-6" href="/demo">
+            Jetzt starten
+          </Button>
+        </div>
+        
+        {/* PROFESSIONAL */}
+        <div className="bg-gradient-to-b from-teal-600 to-teal-700 rounded-2xl p-6 shadow-xl text-white relative scale-105">
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+            <span className="bg-amber-400 text-amber-900 text-xs font-bold px-3 py-1 rounded-full">
+              BELIEBT
+            </span>
+          </div>
+          
+          <h3 className="font-semibold text-teal-200 text-sm">PROFESSIONAL</h3>
+          <div className="mt-4 flex items-baseline gap-1">
+            <span className="text-4xl font-bold font-serif">
+              €{billingCycle === 'monthly' ? '99' : '79'}
+            </span>
+            <span className="text-teal-200">/Monat</span>
+          </div>
+          {billingCycle === 'yearly' && (
+            <p className="text-xs text-teal-200 mt-1">€948 jährlich abgerechnet</p>
+          )}
+          <p className="mt-2 text-sm text-teal-100">Für wachsende Unternehmen</p>
+          
+          <ul className="mt-6 space-y-3">
+            <PricingFeature light>30 KI-Analysen/Monat</PricingFeature>
+            <PricingFeature light>DPMA + EUIPO + WIPO</PricingFeature>
+            <PricingFeature light>Erweiterte Ähnlichkeitsanalyse</PricingFeature>
+            <PricingFeature light>Logo/Bildmarken-Check</PricingFeature>
+            <PricingFeature light>Markenüberwachung (5 Marken)</PricingFeature>
+            <PricingFeature light>3 Nutzer</PricingFeature>
+            <PricingFeature light>Priority E-Mail Support</PricingFeature>
+          </ul>
+          
+          <Button variant="secondary" className="w-full mt-6 bg-white text-teal-700 hover:bg-teal-50" href="/demo">
+            Beliebteste Wahl
+          </Button>
+        </div>
+        
+        {/* BUSINESS */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <h3 className="font-semibold text-slate-500 text-sm">BUSINESS</h3>
+          <div className="mt-4 flex items-baseline gap-1">
+            <span className="text-4xl font-bold text-slate-900 font-serif">
+              €{billingCycle === 'monthly' ? '199' : '159'}
+            </span>
+            <span className="text-slate-500">/Monat</span>
+          </div>
+          {billingCycle === 'yearly' && (
+            <p className="text-xs text-slate-500 mt-1">€1.908 jährlich abgerechnet</p>
+          )}
+          <p className="mt-2 text-sm text-slate-600">Für Agenturen & IP-Teams</p>
+          
+          <ul className="mt-6 space-y-3">
+            <PricingFeature>Unbegrenzte KI-Analysen</PricingFeature>
+            <PricingFeature>Globale Recherche (190+ Länder)</PricingFeature>
+            <PricingFeature>Vollständige Ähnlichkeitsmatrix</PricingFeature>
+            <PricingFeature>Markenüberwachung (unbegrenzt)</PricingFeature>
+            <PricingFeature>API-Zugang</PricingFeature>
+            <PricingFeature>10 Nutzer</PricingFeature>
+            <PricingFeature>Telefon & Video Support</PricingFeature>
+          </ul>
+          
+          <Button variant="outline" className="w-full mt-6" href="/demo">
+            Business starten
+          </Button>
+        </div>
+        
+        {/* ENTERPRISE */}
+        <div className="bg-slate-900 rounded-2xl p-6 text-white">
+          <h3 className="font-semibold text-slate-400 text-sm">ENTERPRISE</h3>
+          <div className="mt-4">
+            <span className="text-3xl font-bold font-serif">Individuell</span>
+          </div>
+          <p className="mt-2 text-sm text-slate-400">Für Konzerne & IP-Abteilungen</p>
+          
+          <ul className="mt-6 space-y-3">
+            <PricingFeature light>Unbegrenzte Nutzer</PricingFeature>
+            <PricingFeature light>Dedizierter Account Manager</PricingFeature>
+            <PricingFeature light>Custom Integrationen</PricingFeature>
+            <PricingFeature light>On-Premise Option</PricingFeature>
+            <PricingFeature light>SLA 99.9% Uptime</PricingFeature>
+            <PricingFeature light>DSGVO-Audit-Report</PricingFeature>
+            <PricingFeature light>Schulungen für Ihr Team</PricingFeature>
+          </ul>
+          
+          <Button variant="outline" className="w-full mt-6 border-slate-600 text-white hover:bg-slate-800" href="/kontakt">
+            Beratung anfragen
+          </Button>
+        </div>
+        
+      </div>
+      
+    </div>
+  </section>
+  
+  {/* FAQ */}
+  <section className="py-16 md:py-24 bg-slate-50">
+    <div className="max-w-3xl mx-auto px-4 md:px-6">
+      
+      <h2 className="text-2xl md:text-3xl font-bold text-slate-900 font-serif text-center mb-12">
+        Häufige Fragen zu Preisen
+      </h2>
+      
+      <div className="space-y-4">
+        
+        <FAQItem 
+          question="Ist das Tool eine Rechtsberatung?"
+          answer="Nein. TrademarkIQ ist ein Recherche- und Informationstool. Die Ergebnisse ersetzen keine anwaltliche Beratung. Für verbindliche rechtliche Einschätzungen empfehlen wir einen Patentanwalt."
+        />
+        
+        <FAQItem 
+          question="Wo werden meine Daten gespeichert?"
+          answer="Alle Daten werden ausschließlich auf deutschen Servern (ISO 27001 zertifiziert) gespeichert. Keine Übertragung in Drittländer."
+        />
+        
+        <FAQItem 
+          question="Kann ich jederzeit kündigen?"
+          answer="Ja, alle Pläne sind monatlich kündbar. Bei Jahreszahlung erhalten Sie den Restbetrag anteilig zurück."
+        />
+        
+        <FAQItem 
+          question="Gibt es eine kostenlose Testversion?"
+          answer="Ja! Sie können 3 kostenlose Markenanalysen ohne Registrierung durchführen."
+        />
+        
+        <FAQItem 
+          question="Was passiert wenn ich mein Limit erreiche?"
+          answer="Sie können jederzeit zusätzliche Analysen für €5-10 pro Stück kaufen oder auf einen höheren Plan upgraden."
+        />
+        
+        <FAQItem 
+          question="Bieten Sie Rabatte für Startups?"
+          answer="Ja! Startups, die weniger als 2 Jahre alt sind, erhalten 30% Rabatt. Kontaktieren Sie uns mit Ihrem Handelsregisterauszug."
+        />
+        
+      </div>
+      
+    </div>
+  </section>
+  
+  {/* CTA */}
+  <section className="py-16 md:py-24 bg-white">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+      <h2 className="text-2xl md:text-3xl font-bold text-slate-900 font-serif">
+        Noch Fragen?
+      </h2>
+      <p className="mt-4 text-slate-600">
+        Wir helfen Ihnen gerne bei der Auswahl des richtigen Plans.
+      </p>
+      <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+        <Button variant="primary" href="/demo">
+          Kostenlos testen
+        </Button>
+        <Button variant="outline" href="/kontakt">
+          Beratung anfragen
+        </Button>
+      </div>
+    </div>
+  </section>
+  
+  <Footer />
+</>
+```
+
+---
+
+## SEITE 4: ÜBER UNS (/ueber-uns)
+
+### Meta
+```
+title: "Über uns – TrademarkIQ | ACCELARI GmbH"
+description: "25 Jahre IP-Erfahrung. Eine Mission: Markenrecht zugänglich machen. Lernen Sie das Team hinter TrademarkIQ kennen."
+```
+
+### Struktur
+
+```tsx
+// app/ueber-uns/page.tsx
+
+<>
+  <Header />
+  
+  {/* HERO */}
+  <section className="pt-16 pb-12 md:pt-24 md:pb-16 bg-gradient-to-b from-slate-50 to-white">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+      <h1 className="text-4xl md:text-5xl font-bold text-slate-900 font-serif">
+        Die Menschen hinter TrademarkIQ
+      </h1>
+      <p className="mt-6 text-lg text-slate-600">
+        25 Jahre IP-Erfahrung. Eine Mission: Markenrecht zugänglich machen.
+      </p>
+    </div>
+  </section>
+  
+  {/* FOUNDER SECTION */}
+  <section className="py-16 md:py-24 bg-white">
+    <div className="max-w-6xl mx-auto px-4 md:px-6">
+      
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        
+        {/* Photo */}
+        <div className="relative">
+          <div className="bg-slate-200 rounded-2xl aspect-square overflow-hidden">
+            {/* Platzhalter für Foto */}
+            <div className="w-full h-full flex items-center justify-center text-slate-400">
+              <span className="text-6xl">👤</span>
+            </div>
+          </div>
+          <div className="absolute -bottom-4 -right-4 bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            Gründer & CEO
+          </div>
+        </div>
+        
+        {/* Bio */}
+        <div>
+          <h2 className="text-3xl font-bold text-slate-900 font-serif mb-2">
+            Volodymyr Krasnykh
+          </h2>
+          <p className="text-teal-600 font-medium mb-6">
+            Gründer & Geschäftsführer
+          </p>
+          
+          <div className="prose prose-slate">
+            <p>
+              Mit 21 kam ich aus der Ukraine nach Deutschland. Ohne Geld, ohne Kontakte – 
+              aber mit dem Willen, etwas aufzubauen.
+            </p>
+            <p>
+              25 Jahre später habe ich als Trademark Paralegal bei einem DAX-Konzern und 
+              als Freelancer für führende Patentanwaltskanzleien zehntausende Markenanmeldungen 
+              begleitet. Ich habe gesehen, wie kleine Unternehmen durch vermeidbare 
+              Kollisionen €10.000+ verlieren – nur weil professionelle Recherchen zu teuer waren.
+            </p>
+            <p>
+              TrademarkIQ ist mein Versuch, das zu ändern. <strong>Gutes Markenrecht sollte nicht 
+              nur für Konzerne bezahlbar sein.</strong>
+            </p>
+          </div>
+          
+          {/* Credentials */}
+          <div className="mt-8 grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="text-teal-600">✓</span>
+              25+ Jahre IP-Erfahrung
+            </div>
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="text-teal-600">✓</span>
+              8 Sprachen fließend
+            </div>
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="text-teal-600">✓</span>
+              Trademark Paralegal (ALTANA)
+            </div>
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="text-teal-600">✓</span>
+              IP Consultant (PATENTSHIP)
+            </div>
+          </div>
+          
+          {/* LinkedIn */}
+          <div className="mt-6">
+            <a href="#" className="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700 font-medium">
+              <Linkedin className="w-5 h-5" />
+              Auf LinkedIn vernetzen
+            </a>
+          </div>
+          
+        </div>
+        
+      </div>
+      
+    </div>
+  </section>
+  
+  {/* MISSION */}
+  <section className="py-16 md:py-24 bg-teal-600 text-white">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+      
+      <h2 className="text-3xl md:text-4xl font-bold font-serif mb-6">
+        Unsere Mission
+      </h2>
+      
+      <p className="text-xl text-teal-100 leading-relaxed">
+        Wir glauben, dass jedes Unternehmen – egal wie klein – Zugang zu 
+        professioneller Markenrecherche haben sollte. TrademarkIQ macht das möglich: 
+        durch KI, die 25 Jahre Expertenwissen in Sekunden anwendbar macht.
+      </p>
+      
+    </div>
+  </section>
+  
+  {/* VALUES */}
+  <section className="py-16 md:py-24 bg-white">
+    <div className="max-w-6xl mx-auto px-4 md:px-6">
+      
+      <h2 className="text-3xl font-bold text-slate-900 font-serif text-center mb-12">
+        Unsere Werte
+      </h2>
+      
+      <div className="grid md:grid-cols-3 gap-8">
+        
+        <div className="text-center">
+          <div className="w-16 h-16 bg-teal-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">🔍</span>
+          </div>
+          <h3 className="font-semibold text-slate-900 mb-2">Transparenz</h3>
+          <p className="text-slate-600 text-sm">
+            Klare Preise, keine versteckten Kosten. Wir erklären was das Tool kann – und was nicht.
+          </p>
+        </div>
+        
+        <div className="text-center">
+          <div className="w-16 h-16 bg-teal-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">🔐</span>
+          </div>
+          <h3 className="font-semibold text-slate-900 mb-2">Datenschutz</h3>
+          <p className="text-slate-600 text-sm">
+            DSGVO-konform ist kein Marketing-Spruch, sondern unsere DNA. Deutsche Server, keine Drittlandübertragung.
+          </p>
+        </div>
+        
+        <div className="text-center">
+          <div className="w-16 h-16 bg-teal-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">💬</span>
+          </div>
+          <h3 className="font-semibold text-slate-900 mb-2">Ehrlichkeit</h3>
+          <p className="text-slate-600 text-sm">
+            Wir sind ein Recherche-Tool, keine Rechtsberatung. Bei komplexen Fällen empfehlen wir immer den Anwalt.
+          </p>
+        </div>
+        
+      </div>
+      
+    </div>
+  </section>
+  
+  {/* COMPANY INFO */}
+  <section className="py-16 md:py-24 bg-slate-50">
+    <div className="max-w-4xl mx-auto px-4 md:px-6">
+      
+      <h2 className="text-2xl font-bold text-slate-900 font-serif text-center mb-8">
+        Unternehmensinformationen
+      </h2>
+      
+      <div className="bg-white rounded-2xl p-8 shadow-sm">
+        <div className="grid md:grid-cols-2 gap-6 text-sm">
+          <div>
+            <p className="text-slate-500">Firmenname</p>
+            <p className="font-medium text-slate-900">ACCELARI GmbH</p>
+          </div>
+          <div>
+            <p className="text-slate-500">Gründung</p>
+            <p className="font-medium text-slate-900">2018</p>
+          </div>
+          <div>
+            <p className="text-slate-500">Sitz</p>
+            <p className="font-medium text-slate-900">Deutschland</p>
+          </div>
+          <div>
+            <p className="text-slate-500">Produkt</p>
+            <p className="font-medium text-slate-900">TrademarkIQ</p>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </section>
+  
+  {/* CTA */}
+  <section className="py-16 md:py-24 bg-white">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+      <h2 className="text-2xl md:text-3xl font-bold text-slate-900 font-serif">
+        Fragen? Wir freuen uns auf Ihre Nachricht.
+      </h2>
+      <div className="mt-8">
+        <Button variant="primary" size="lg" href="/kontakt">
+          Kontakt aufnehmen
+        </Button>
+      </div>
+    </div>
+  </section>
+  
+  <Footer />
+</>
+```
+
+---
+
+## SEITE 5: KONTAKT (/kontakt)
+
+### Meta
+```
+title: "Kontakt – TrademarkIQ | ACCELARI GmbH"
+description: "Kontaktieren Sie uns für Demos, Support oder Enterprise-Anfragen. E-Mail: kontakt@accelari.de"
+```
+
+### Struktur
+
+```tsx
+// app/kontakt/page.tsx
+
+<>
+  <Header />
+  
+  {/* HERO */}
+  <section className="pt-16 pb-12 md:pt-24 md:pb-16 bg-gradient-to-b from-slate-50 to-white">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+      <h1 className="text-4xl md:text-5xl font-bold text-slate-900 font-serif">
+        Sprechen Sie mit uns
+      </h1>
+      <p className="mt-6 text-lg text-slate-600">
+        Ob Demo, Support oder Partnerschaft – wir sind für Sie da.
+      </p>
+    </div>
+  </section>
+  
+  {/* CONTACT FORM & INFO */}
+  <section className="py-16 md:py-24 bg-white">
+    <div className="max-w-6xl mx-auto px-4 md:px-6">
+      
+      <div className="grid md:grid-cols-2 gap-12">
+        
+        {/* FORM */}
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 font-serif mb-6">
+            Nachricht senden
+          </h2>
+          
+          <form className="space-y-6">
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Name *
+                </label>
+                <input 
+                  type="text" 
+                  required
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  E-Mail *
+                </label>
+                <input 
+                  type="email" 
+                  required
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Unternehmen
+              </label>
+              <input 
+                type="text" 
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Betreff *
+              </label>
+              <select className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
+                <option>Allgemeine Anfrage</option>
+                <option>Demo anfragen</option>
+                <option>Enterprise-Anfrage</option>
+                <option>Support</option>
+                <option>Partnerschaft</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Nachricht *
+              </label>
+              <textarea 
+                required
+                rows={5}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+              ></textarea>
+            </div>
+            
+            <div className="flex items-start gap-2">
+              <input type="checkbox" required className="mt-1" />
+              <label className="text-sm text-slate-600">
+                Ich habe die <a href="/datenschutz" className="text-teal-600 hover:underline">Datenschutzerklärung</a> gelesen und akzeptiere sie. *
+              </label>
+            </div>
+            
+            <Button variant="primary" type="submit" className="w-full">
+              Nachricht senden
+            </Button>
+            
+          </form>
+        </div>
+        
+        {/* CONTACT INFO */}
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 font-serif mb-6">
+            Direkter Kontakt
+          </h2>
+          
+          <div className="space-y-6">
+            
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Mail className="w-5 h-5 text-teal-600" />
+              </div>
+              <div>
+                <p className="font-medium text-slate-900">E-Mail</p>
+                <a href="mailto:kontakt@accelari.de" className="text-teal-600 hover:underline">
+                  kontakt@accelari.de
+                </a>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Phone className="w-5 h-5 text-teal-600" />
+              </div>
+              <div>
+                <p className="font-medium text-slate-900">Telefon</p>
+                <p className="text-slate-600">+49 XXX XXXXXXXX</p>
+                <p className="text-sm text-slate-500">Mo-Fr 9:00-18:00</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Linkedin className="w-5 h-5 text-teal-600" />
+              </div>
+              <div>
+                <p className="font-medium text-slate-900">LinkedIn</p>
+                <a href="#" className="text-teal-600 hover:underline">
+                  Volodymyr Krasnykh
+                </a>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <MapPin className="w-5 h-5 text-teal-600" />
+              </div>
+              <div>
+                <p className="font-medium text-slate-900">Adresse</p>
+                <p className="text-slate-600">
+                  ACCELARI GmbH<br />
+                  [Straße]<br />
+                  [PLZ Stadt]<br />
+                  Deutschland
+                </p>
+              </div>
+            </div>
+            
+          </div>
+          
+          {/* FAQ Teaser */}
+          <div className="mt-12 p-6 bg-slate-50 rounded-xl">
+            <h3 className="font-semibold text-slate-900 mb-2">
+              Vielleicht finden Sie die Antwort schon hier:
+            </h3>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <a href="/faq#rechtsberatung" className="text-teal-600 hover:underline">
+                  Ist das eine Rechtsberatung?
+                </a>
+              </li>
+              <li>
+                <a href="/faq#datenschutz" className="text-teal-600 hover:underline">
+                  Wo werden meine Daten gespeichert?
+                </a>
+              </li>
+              <li>
+                <a href="/faq#kuendigung" className="text-teal-600 hover:underline">
+                  Kann ich jederzeit kündigen?
+                </a>
+              </li>
+            </ul>
+            <Button variant="ghost" size="sm" href="/faq" className="mt-4">
+              Alle FAQ ansehen →
+            </Button>
+          </div>
+          
+        </div>
+        
+      </div>
+      
+    </div>
+  </section>
+  
+  <Footer />
+</>
+```
+
+---
+
+## SEITE 6: FAQ (/faq)
+
+### Meta
+```
+title: "FAQ – TrademarkIQ | Häufige Fragen"
+description: "Antworten auf häufige Fragen zu TrademarkIQ: Funktionen, Preise, Datenschutz, rechtliche Hinweise und mehr."
+```
+
+### Struktur
+
+```tsx
+// app/faq/page.tsx
+
+<>
+  <Header />
+  
+  {/* HERO */}
+  <section className="pt-16 pb-12 md:pt-24 md:pb-16 bg-gradient-to-b from-slate-50 to-white">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+      <h1 className="text-4xl md:text-5xl font-bold text-slate-900 font-serif">
+        Häufig gestellte Fragen
+      </h1>
+      <p className="mt-6 text-lg text-slate-600">
+        Alles was Sie über TrademarkIQ wissen müssen.
+      </p>
+    </div>
+  </section>
+  
+  {/* FAQ SECTIONS */}
+  <section className="py-16 md:py-24 bg-white">
+    <div className="max-w-3xl mx-auto px-4 md:px-6">
+      
+      {/* Allgemein */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold text-slate-900 font-serif mb-6 pb-2 border-b border-slate-200">
+          Allgemein
+        </h2>
+        <div className="space-y-4">
+          <FAQItem 
+            question="Was ist TrademarkIQ?"
+            answer="TrademarkIQ ist ein KI-gestütztes Markenrecherche-Tool von ACCELARI. Es durchsucht die Datenbanken von DPMA, EUIPO und WIPO und identifiziert potenzielle Namenskollisionen mit intelligenter Ähnlichkeitsanalyse."
+          />
+          <FAQItem 
+            question="Ist TrademarkIQ eine Rechtsberatung?"
+            answer="Nein. TrademarkIQ ist ein Recherche- und Informationstool. Die Ergebnisse dienen der allgemeinen Orientierung und ersetzen keine anwaltliche Beratung. Für verbindliche rechtliche Einschätzungen empfehlen wir einen Patentanwalt oder Rechtsanwalt."
+          />
+          <FAQItem 
+            question="Für wen ist TrademarkIQ geeignet?"
+            answer="TrademarkIQ richtet sich an Gründer, Startups, KMUs, Agenturen und IP-Abteilungen, die schnell und kostengünstig prüfen möchten, ob ein Markenname verfügbar ist – bevor sie in eine professionelle Anmeldung investieren."
+          />
+          <FAQItem 
+            question="In welchen Sprachen ist das Tool verfügbar?"
+            answer="Die Benutzeroberfläche ist auf Deutsch. Das Voice-Interface versteht Deutsch, und die Suchergebnisse werden aus den Original-Datenbanken in verschiedenen Sprachen zurückgegeben."
+          />
+        </div>
+      </div>
+      
+      {/* Funktionen */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold text-slate-900 font-serif mb-6 pb-2 border-b border-slate-200">
+          Funktionen
+        </h2>
+        <div className="space-y-4">
+          <FAQItem 
+            question="Welche Datenbanken werden durchsucht?"
+            answer="TrademarkIQ durchsucht DPMA (deutsches Markenamt), EUIPO (EU-Unionsmarken), WIPO Madrid (internationale Registrierungen) und im Enterprise-Plan über 190 nationale Register weltweit."
+          />
+          <FAQItem 
+            question="Was bedeutet 'phonetische Ähnlichkeit'?"
+            answer="Phonetische Ähnlichkeit bedeutet, dass zwei Markennamen ähnlich klingen, auch wenn sie unterschiedlich geschrieben werden. Beispiel: 'TechFlow' und 'TekFlo' klingen fast identisch und könnten als verwechslungsfähig gelten."
+          />
+          <FAQItem 
+            question="Kann TrademarkIQ auch Bildmarken analysieren?"
+            answer="Ja, ab dem Professional-Plan. TrademarkIQ nutzt Computer Vision, um Logos und Bildmarken auf visuelle Ähnlichkeiten zu prüfen."
+          />
+          <FAQItem 
+            question="Was ist die Nizza-Klassifikation?"
+            answer="Die Nizza-Klassifikation ist ein internationales System zur Einteilung von Waren und Dienstleistungen in 45 Klassen. Eine Marke wird immer für bestimmte Klassen angemeldet. TrademarkIQ schlägt automatisch passende Klassen vor."
+          />
+          <FAQItem 
+            question="Wie genau ist die KI-Analyse?"
+            answer="Die KI-Analyse ist ein Screening-Tool, das potenzielle Risiken identifiziert. Sie ersetzt keine vollständige Identitäts- und Ähnlichkeitsrecherche durch einen Fachexperten, bietet aber einen schnellen ersten Überblick."
+          />
+        </div>
+      </div>
+      
+      {/* Preise */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold text-slate-900 font-serif mb-6 pb-2 border-b border-slate-200">
+          Preise & Abrechnung
+        </h2>
+        <div className="space-y-4">
+          <FAQItem 
+            question="Gibt es eine kostenlose Testversion?"
+            answer="Ja! Sie können 3 kostenlose Markenanalysen ohne Registrierung durchführen. Keine Kreditkarte erforderlich."
+          />
+          <FAQItem 
+            question="Kann ich jederzeit kündigen?"
+            answer="Ja, alle Pläne sind monatlich kündbar. Bei Jahreszahlung erhalten Sie bei vorzeitiger Kündigung den anteiligen Restbetrag zurück."
+          />
+          <FAQItem 
+            question="Was passiert wenn ich mein Limit erreiche?"
+            answer="Sie können jederzeit zusätzliche Analysen im Pay-per-Use-Modell für €5-10 pro Stück kaufen oder auf einen höheren Plan upgraden."
+          />
+          <FAQItem 
+            question="Bieten Sie Rabatte für Startups?"
+            answer="Ja! Startups, die weniger als 2 Jahre alt sind, erhalten 30% Rabatt. Kontaktieren Sie uns mit Ihrem Handelsregisterauszug."
+          />
+        </div>
+      </div>
+      
+      {/* Datenschutz */}
+      <div className="mb-12">
+        <h2 className="text-xl font-bold text-slate-900 font-serif mb-6 pb-2 border-b border-slate-200">
+          Datenschutz & Sicherheit
+        </h2>
+        <div className="space-y-4">
+          <FAQItem 
+            question="Wo werden meine Daten gespeichert?"
+            answer="Alle Daten werden ausschließlich auf deutschen Servern (ISO 27001 zertifiziert) gespeichert. Es gibt keine Datenübertragung in Drittländer außerhalb der EU."
+          />
+          <FAQItem 
+            question="Ist TrademarkIQ DSGVO-konform?"
+            answer="Ja, vollständig. Wir verarbeiten nur die für den Service notwendigen Daten, bieten Auftragsverarbeitungsverträge (AVV) an und dokumentieren alle technischen und organisatorischen Maßnahmen (TOMs)."
+          />
+          <FAQItem 
+            question="Werden meine Suchanfragen gespeichert?"
+            answer="Bei kostenlosen Nutzern werden Suchanfragen nach 30 Tagen gelöscht. Premium-Nutzer können ihre Suchhistorie im Account einsehen und jederzeit löschen."
+          />
+        </div>
+      </div>
+      
+      {/* Rechtliches */}
+      <div>
+        <h2 className="text-xl font-bold text-slate-900 font-serif mb-6 pb-2 border-b border-slate-200">
+          Rechtliches
+        </h2>
+        <div className="space-y-4">
+          <FAQItem 
+            question="Ersetzt TrademarkIQ den Markenanwalt?"
+            answer="Nein. TrademarkIQ ist ein Recherche-Tool für einen schnellen ersten Überblick. Für die eigentliche Markenanmeldung, rechtliche Bewertungen und Widerspruchsverfahren sollten Sie immer einen Patentanwalt oder Rechtsanwalt hinzuziehen."
+          />
+          <FAQItem 
+            question="Was passiert wenn ich trotz Recherche eine Kollision habe?"
+            answer="TrademarkIQ bietet keine Garantie für erfolgreiche Markenanmeldungen. Die Analyse zeigt potenzielle Risiken auf, aber die finale Entscheidung über Eintragungsfähigkeit liegt beim Markenamt bzw. bei möglichen Widerspruchsführern."
+          />
+          <FAQItem 
+            question="Kann ich mich auf die Ergebnisse verlassen?"
+            answer="Die Ergebnisse dienen als Orientierungshilfe und Screening-Tool. Für verbindliche Aussagen empfehlen wir immer die Konsultation eines Fachexperten vor der Markenanmeldung."
+          />
+        </div>
+      </div>
+      
+    </div>
+  </section>
+  
+  {/* CTA */}
+  <section className="py-16 md:py-24 bg-slate-50">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+      <h2 className="text-2xl md:text-3xl font-bold text-slate-900 font-serif">
+        Frage nicht dabei?
+      </h2>
+      <p className="mt-4 text-slate-600">
+        Wir helfen Ihnen gerne persönlich weiter.
+      </p>
+      <div className="mt-8">
+        <Button variant="primary" href="/kontakt">
+          Kontakt aufnehmen
+        </Button>
+      </div>
+    </div>
+  </section>
+  
+  <Footer />
+</>
+```
+
+---
+
+## SEITE 7: DEMO (/demo)
+
+### Meta
+```
+title: "Kostenlos testen – TrademarkIQ | 3 Analysen gratis"
+description: "Testen Sie TrademarkIQ kostenlos. 3 KI-Markenanalysen ohne Registrierung. DPMA, EUIPO, WIPO durchsuchen."
+```
+
+### Struktur
+
+```tsx
+// app/demo/page.tsx
+
+<>
+  <Header />
+  
+  {/* HERO */}
+  <section className="pt-16 pb-8 md:pt-24 md:pb-12 bg-gradient-to-b from-slate-50 to-white">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+      <Badge>3 kostenlose Analysen</Badge>
+      <h1 className="mt-6 text-4xl md:text-5xl font-bold text-slate-900 font-serif">
+        Testen Sie TrademarkIQ
+      </h1>
+      <p className="mt-6 text-lg text-slate-600">
+        Geben Sie Ihren Wunsch-Markennamen ein und sehen Sie in Sekunden, ob Kollisionen drohen.
+      </p>
+    </div>
+  </section>
+  
+  {/* EMBEDDED TOOL */}
+  <section className="py-8 md:py-12 bg-white">
+    <div className="max-w-5xl mx-auto px-4 md:px-6">
+      
+      {/* Tool Container */}
+      <div className="bg-slate-900 rounded-2xl shadow-2xl overflow-hidden">
+        {/* 
+          Hier wird das TrademarkIQ-Tool eingebettet.
+          Option 1: iFrame zu externem Tool
+          Option 2: React-Komponente direkt einbinden
+        */}
+        <div className="aspect-video flex items-center justify-center text-slate-400">
+          <p>TrademarkIQ Tool wird hier eingebettet</p>
+        </div>
+      </div>
+      
+      {/* Disclaimer */}
+      <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+        <p className="text-sm text-amber-800">
+          <strong>Hinweis:</strong> Diese Analyse dient der allgemeinen Orientierung und ersetzt keine anwaltliche Beratung. 
+          Für verbindliche rechtliche Einschätzungen wenden Sie sich bitte an einen Patentanwalt.
+        </p>
+      </div>
+      
+    </div>
+  </section>
+  
+  {/* HOW TO USE */}
+  <section className="py-16 md:py-24 bg-slate-50">
+    <div className="max-w-4xl mx-auto px-4 md:px-6">
+      
+      <h2 className="text-2xl font-bold text-slate-900 font-serif text-center mb-12">
+        So funktioniert's
+      </h2>
+      
+      <div className="grid md:grid-cols-3 gap-8">
+        
+        <div className="text-center">
+          <div className="w-12 h-12 bg-teal-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold">
+            1
+          </div>
+          <h3 className="font-semibold text-slate-900 mb-2">Namen eingeben</h3>
+          <p className="text-sm text-slate-600">
+            Tippen Sie Ihren Wunsch-Markennamen ein oder sprechen Sie ihn über das Mikrofon.
+          </p>
+        </div>
+        
+        <div className="text-center">
+          <div className="w-12 h-12 bg-teal-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold">
+            2
+          </div>
+          <h3 className="font-semibold text-slate-900 mb-2">Ergebnisse analysieren</h3>
+          <p className="text-sm text-slate-600">
+            Sehen Sie auf einen Blick, welche ähnlichen Marken existieren und wie hoch das Risiko ist.
+          </p>
+        </div>
+        
+        <div className="text-center">
+          <div className="w-12 h-12 bg-teal-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold">
+            3
+          </div>
+          <h3 className="font-semibold text-slate-900 mb-2">Entscheiden</h3>
+          <p className="text-sm text-slate-600">
+            Grünes Licht? Weiter mit dem Anwalt. Konflikte? Neuen Namen testen.
+          </p>
+        </div>
+        
+      </div>
+      
+    </div>
+  </section>
+  
+  {/* UPGRADE CTA */}
+  <section className="py-16 md:py-24 bg-teal-600">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+      <h2 className="text-3xl md:text-4xl font-bold text-white font-serif">
+        Gefällt Ihnen was Sie sehen?
+      </h2>
+      <p className="mt-4 text-lg text-teal-100">
+        Unbegrenzte Analysen ab €49/Monat.
+      </p>
+      <div className="mt-8">
+        <Button variant="secondary" size="lg" href="/preise">
+          Alle Pläne ansehen
+        </Button>
+      </div>
+    </div>
+  </section>
+  
+  <Footer />
+</>
+```
+
+---
+
+## RECHTLICHE SEITEN
+
+### SEITE 8: Impressum (/impressum)
+
+```tsx
+// app/impressum/page.tsx
+// Standard-Impressum gemäß §5 TMG
+// Muss mit echten Unternehmensdaten befüllt werden
+```
+
+### SEITE 9: Datenschutz (/datenschutz)
+
+```tsx
+// app/datenschutz/page.tsx
+// Vollständige DSGVO-konforme Datenschutzerklärung
+// MUSS von einem Anwalt erstellt/geprüft werden
+```
+
+### SEITE 10: AGB (/agb)
+
+```tsx
+// app/agb/page.tsx
+// Allgemeine Geschäftsbedingungen
+// MUSS von einem Anwalt erstellt/geprüft werden
+// Wichtig: Keine Rechtsberatung-Disclaimer einbauen
+```
+
+---
+
+## Dateistruktur
+
+```
+/app
+  /page.tsx                 # Homepage
+  /features/page.tsx
+  /preise/page.tsx
+  /ueber-uns/page.tsx
+  /kontakt/page.tsx
+  /faq/page.tsx
+  /demo/page.tsx
+  /impressum/page.tsx
+  /datenschutz/page.tsx
+  /agb/page.tsx
+  /layout.tsx               # Root Layout mit Header/Footer
+  /globals.css
+  
+/components
+  /ui
+    /Button.tsx
+    /Badge.tsx
+    /Card.tsx
+    /FAQItem.tsx
+  /Header.tsx
+  /Footer.tsx
+  /FeatureCard.tsx
+  /PricingCard.tsx
+  /TrustCard.tsx
+  
+/public
+  /images
+    /trademarkiq-screenshot.png
+    /feature-*.png
+  /favicon.ico
+  
+/lib
+  /utils.ts
+  
+tailwind.config.js
+next.config.js
+tsconfig.json
+package.json
+```
+
+---
+
+## Wichtige Hinweise für Replit AI
+
+1. **Jede Seite braucht den Disclaimer** im Footer: "TrademarkIQ ist ein Recherche-Tool und ersetzt keine Rechtsberatung."
+
+2. **Keine erfundenen Testimonials oder Nutzerzahlen** – diese Abschnitte erst aktivieren wenn echte Daten vorhanden sind.
+
+3. **DSGVO-Cookie-Banner** implementieren bevor Analytics hinzugefügt wird.
+
+4. **Alle Texte auf Deutsch**, formelle Anrede (Sie).
+
+5. **Responsive Design** – Mobile-first, alle Breakpoints testen.
+
+6. **Bilder/Screenshots** sind Platzhalter – müssen später mit echten Screenshots ersetzt werden.
+
+7. **SEO** – Jede Seite braucht individuelle meta title/description.
+
+8. **Performance** – Lazy Loading für Bilder, minimale Bundle-Größe.
+
+---
+
+## CSS-Setup
+
+### Bestehendes ACCELARI-Stylesheet verwenden
+
+Die Website basiert auf dem bestehenden ACCELARI-Design-System. Das CSS-File sollte als Basis verwendet werden mit folgenden Anpassungen für TrademarkIQ:
+
+**1. Basis-CSS importieren:**
+```css
+/* styles/globals.css */
+
+/* ACCELARI Base Styles (aus bestehendem Stylesheet) */
+@import './accelari-base.css';
+
+/* TrademarkIQ Farbschema Override */
+:root {
+  /* Primary Teal statt Blue für Buttons/Links */
+  --tiq-primary: #0D9488;
+  --tiq-primary-hover: #0F766E;
+  --tiq-primary-light: #14B8A6;
+}
+
+/* Override für Primary Buttons */
+a.s-button:not(.s-button-two),
+button.s-button:not(.s-button-two) {
+  background: var(--tiq-primary);
+}
+
+a.s-button:not(.s-button-two):hover,
+button.s-button:not(.s-button-two):hover {
+  background: var(--tiq-primary-hover);
+}
+
+a.s-button.s-button-two {
+  color: var(--tiq-primary);
+  border-color: var(--tiq-primary);
+}
+
+/* Override für Links */
+a.s-link {
+  color: var(--tiq-primary);
+}
+
+a.s-link svg path {
+  fill: var(--tiq-primary) !important;
+}
+
+/* Icon-Box Default Farbe */
+.s-advantages--item-icon {
+  background: var(--tiq-primary);
+}
+```
+
+**2. Dateistruktur:**
+```
+/styles
+  /accelari-base.css    ← Bestehendes ACCELARI-Stylesheet (komplett übernehmen)
+  /globals.css          ← Imports + TrademarkIQ Overrides
+  /trademarkiq.css      ← TrademarkIQ-spezifische Komponenten
+```
+
+**3. Wichtige CSS-Klassen aus dem bestehenden System:**
+
+| Klasse | Verwendung |
+|--------|------------|
+| `.s-container` | Haupt-Container (max-width: 1600px) |
+| `.s-container--padding` | Container mit 5% Padding |
+| `.s-section` | Section-Wrapper |
+| `.s-button` | Primary Button |
+| `.s-button.s-button-two` | Secondary/Outline Button |
+| `.s-link` | Text-Link mit Pfeil-Icon |
+| `.s-header` | Header-Komponente |
+| `.s-header--menu` | Navigation-Menü |
+| `.s-footer` | Footer-Komponente |
+| `.s-posts-three--list` | 3-Spalten-Grid |
+| `.s-posts-three--item` | Grid-Item |
+| `.s-advantages--list` | Features-Grid |
+| `.s-advantages--item` | Feature-Card |
+| `.s-info-primary` | Banner-Section mit Background |
+| `.s-fill-banner` | CTA-Banner (farbiger Hintergrund) |
+| `.s-full-banner--txt` | Hero-Text-Container |
+| `.s-seo-block` | SEO-Content (Headlines, Text) |
+
+---
+
+## Reihenfolge der Implementierung
+
+1. ✅ CSS-Setup (ACCELARI-Base + TrademarkIQ-Overrides)
+2. ✅ Globale Komponenten (Header, Footer)
+3. ✅ Homepage
+4. ✅ Preise-Seite
+5. ✅ Features-Seite
+6. ✅ Über uns
+7. ✅ Kontakt (mit funktionierendem Formular)
+8. ✅ FAQ
+9. ✅ Demo-Seite (Tool-Integration)
+10. ✅ Rechtliche Seiten (Platzhalter)
+11. ✅ Responsive Testing
+12. ✅ SEO-Optimierung
+
+---
+
+## Referenz: Farbpalette TrademarkIQ
+
+```
+Primary (Teal):
+  #0D9488 - Hauptfarbe (Buttons, Links, Akzente)
+  #0F766E - Hover-Zustand
+  #14B8A6 - Light-Variante
+
+Aus ACCELARI übernommen:
+  #0067b8 - Sekundär-Blau (Links in Texten, optional)
+  #fcd12c - Akzent-Gelb (Badges, Highlights)
+  #DD4B39 - Fehler/Warnung (Rot)
+  #25d366 - Erfolg (Grün)
+
+Grautöne:
+  #000     - Überschriften
+  #2f2f2f  - Fließtext dunkel
+  #464646  - Fließtext
+  #5e5e5e  - Fließtext hell
+  #616161  - Muted Text
+  #666     - Footer-Text
+  #F5F5F5  - Section-Background
+  #f2f2f2  - Footer-Background
+  #e6e6e6  - Borders
+  #fff     - White
+```
+
+---
+
+*Erstellt für ACCELARI GmbH / TrademarkIQ | November 2025*

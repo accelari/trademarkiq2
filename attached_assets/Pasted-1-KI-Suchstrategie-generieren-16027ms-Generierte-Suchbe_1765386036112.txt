@@ -1,0 +1,205 @@
+1. KI-Suchstrategie generieren
+16027ms
+Generierte Suchbegriffe
+almarta
+al marta
+al-marta
+allmarta
+almarda
+almarta*
+*almarta*
+almata
+almarta tech
+almarta software
+almarta solutions
+almarta communications
+elmarta
+almarta group
+almarta cloud
+Strategie-Details
+{
+  "variants": [
+    {
+      "term": "almarta",
+      "type": "exact",
+      "rationale": "Exakte Marke"
+    },
+    {
+      "term": "al marta",
+      "type": "visual",
+      "rationale": "Getrenntschreibung mit Leerzeichen"
+    },
+    {
+      "term": "al-marta",
+      "type": "visual",
+      "rationale": "Bindestrich-Variante"
+    },
+    {
+      "term": "allmarta",
+      "type": "phonetic",
+      "rationale": "Phonetische Verdopplung des 'l'"
+    },
+    {
+      "term": "almarda",
+      "type": "phonetic",
+      "rationale": "T/D-Verwechslung bei ähnlicher Aussprache"
+    },
+    {
+      "term": "almarta*",
+      "type": "root",
+      "rationale": "Wildcard für Endungen wie almartacom, almartanet"
+    },
+    {
+      "term": "*almarta*",
+      "type": "root",
+      "rationale": "Wildcard für Präfixe und Suffixe"
+    },
+    {
+      "term": "almata",
+      "type": "misspelling",
+      "rationale": "Häufiger Tippfehler durch ausgelassenes 'r'"
+    },
+    {
+      "term": "almarta tech",
+      "type": "conceptual",
+      "rationale": "Branchenbezug IT/Tech gemäß Klasse 42"
+    },
+    {
+      "term": "almarta software",
+      "type": "conceptual",
+      "rationale": "Software-Bezug für SaaS-Dienstleistungen"
+    },
+    {
+      "term": "almarta solutions",
+      "type": "conceptual",
+      "rationale": "Typische Business-Erweiterung für Klasse 35"
+    },
+    {
+      "term": "almarta communications",
+      "type": "conceptual",
+      "rationale": "Telekommunikationsbezug gemäß Klasse 38"
+    },
+    {
+      "term": "elmarta",
+      "type": "phonetic",
+      "rationale": "A/E-Verwechslung am Wortanfang"
+    },
+    {
+      "term": "almarta group",
+      "type": "conceptual",
+      "rationale": "Unternehmensgruppierung für Geschäftsführung"
+    },
+    {
+      "term": "almarta cloud",
+      "type": "conceptual",
+      "rationale": "Cloud-Computing-Bezug für IT-Services"
+    }
+  ],
+  "strategyNarrative": "Suchstrategie fokussiert auf technologie- und geschäftsbezogene Varianten passend zu den Nizza-Klassen 35/38/42. Berücksichtigt wurden typische US-Markterweiterungen wie 'tech', 'solutions' und 'cloud' sowie phonetische Ähnlichkeiten und häufige Schreibvarianten."
+}
+
+2. Ämter-Strategie (National → WIPO → EUIPO)
+8648ms
+Suchstrategie für USPTO
+WIPO-Mitglied
+1
+USPTO (US)
+Direktsuche im nationalen Amt USPTO
+2
+WIPO (WO)
+US ist WIPO-Mitglied - suche WIPO-Marken mit Designation US
+Ergebnisse pro Amt
+36
+USPTO
+3
+WIPO
+
+3. tmsearch.ai API aufrufen
+76328ms
+
+4. Eigene Ähnlichkeitsberechnung
+912ms
+Ähnlichkeitsanalyse pro Marke
+Marke	API %	Phonetik	Visuell	Gesamt	Status
+ALLMART	96%	86%	71%	80%	OK
+ALLMART	96%	86%	71%	80%	OK
+ALMAR'S	96%	71%	71%	71%	OK
+ALMAR	96%	71%	71%	71%	OK
+ALMAR	96%	71%	71%	71%	OK
+ALMAR	96%	71%	71%	71%	OK
+ALMAR	96%	71%	71%	71%	OK
+ALMAR	96%	71%	71%	71%	OK
+ALMAR	96%	71%	71%	71%	OK
+ALMAR	96%	71%	71%	71%	OK
+ALMAR	96%	71%	71%	71%	OK
+ALMAR	96%	71%	71%	71%	OK
+ALMAR	96%	71%	71%	71%	OK
+ALMAR	96%	71%	71%	71%	OK
+ALMAR	96%	71%	71%	71%	OK
+
+5. Ergebnisse filtern
+0ms
+49
+Relevant
+1
+Ausgeblendet
+combined >= 50% OR coreWordMatch
+Schwelle
+
+6. Claude-Analyse
+19491ms
+Claude Prompt
+MARKENRECHTS-ANALYSE für "almarta"
+
+Verwendete Suchbegriffe: almarta, al marta, al-marta, allmarta, almarda, almarta*, *almarta*, almata, almarta tech, almarta software, almarta solutions, almarta communications, elmarta, almarta group, almarta cloud
+
+GEFUNDENE MARKEN (20 relevant):
+- "ALLMART" | Phonetik: 86% | Visuell: 71% | Gesamt: 80% | Begründung: Hohe phonetische Ähnlichkeit: "almarta" klingt wie "allmart"
+- "ALLMART" | Phonetik: 86% | Visuell: 71% | Gesamt: 80% | Begründung: Hohe phonetische Ähnlichkeit: "almarta" klingt wie "allmart"
+- "ALMAR'S" | Phonetik: 71% | Visuell: 71% | Gesamt: 71% | Begründung: Mittlere Gesamtähnlichkeit zwischen "almarta" und "almars"
+- "ALMAR" | Phonetik: 71% | Visuell: 71% | Gesamt: 71% | Begründung: Mittlere Gesamtähnlichkeit zwischen "almarta" und "almar"
+- "ALMAR" | Phonetik: 71% | Visuell: 71% | Gesamt: 71% | Begründung: Mittlere Gesamtähnlichkeit zwischen "almarta" und "almar"
+- "ALMAR" | Phonetik: 71% | Visuell: 71% | Gesamt: 71% | Begründung: Mittlere Gesamtähnlichkeit zwischen "almarta" und "almar"
+- "ALMAR" | Phonetik: 71% | Visuell: 71% | Gesamt: 71% | Begründung: Mittlere Gesamtähnlichkeit zwischen "almarta" und "almar"
+- "ALMAR" | Phonetik: 71% | Visuell: 71% | Gesamt: 71% | Begründung: Mittlere Gesamtähnlichkeit zwischen "almarta" und "almar"
+- "ALMAR" | Phonetik: 71% | Visuell: 71% | Gesamt: 71% | Begründung: Mittlere Gesamtähnlichkeit zwischen "almarta" und "almar"
+- "ALMAR" | Phonetik: 71% | Visuell: 71% | Gesamt: 71% | Begründung: Mittlere Gesamtähnlichkeit zwischen "almarta" und "almar"
+- "ALMAR" | Phonetik: 71% | Visuell: 71% | Gesamt: 71% | Begründung: Mittlere Gesamtähnlichkeit zwischen "almarta" und "almar"
+- "ALMAR" | Phonetik: 71% | Visuell: 71% | Gesamt: 71% | Begründung: Mittlere Gesamtähnlichkeit zwischen "almarta" und "almar"
+- "ALMAR" | Phonetik: 71% | Visuell: 71% | Gesamt: 71% | Begründung: Mittlere Gesamtähnlichkeit zwischen "almarta" und "almar"
+- "ALMAR" | Phonetik: 71% | Visuell: 71% | Gesamt: 7...
+Claude Antwort
+{
+  "nameAnalysis": "Der Name 'almarta' zeigt kritische Ähnlichkeiten zu bestehenden Marken. Besonders problematisch ist die hohe phonetische Verwechslungsgefahr mit 'ALLMART' (86% Ähnlichkeit), da beide Namen sehr ähnlich klingen. Zusätzlich existieren zahlreiche 'ALMAR'-Marken, die als Wortstamm in 'almarta' enthalten sind und eine mittlere Verwechslungsgefahr darstellen.",
+  "riskAssessment": "Die Markenrecherche zeigt ein hohes Konfliktrisiko. Mit zwei 'ALLMART'-Marken bei 80% Gesamtähnlichkeit und mindestens 14 'ALMAR'-Marken bei 71% Ähnlichkeit besteht eine erhebliche Verwechslungsgefahr. Die phonetische Nähe zu 'ALLMART' ist besonders kritisch, da Verbraucher die Namen leicht verwechseln könnten. Die Vielzahl der 'ALMAR'-Registrierungen deutet auf eine starke Marktpräsenz dieses Wortstamms hin.",
+  "overallRisk": "high",
+  "recommendation": "Von der Verwendung des Namens 'almarta' wird dringend abgeraten. Die hohe Ähnlichkeit zu 'ALLMART' (80%) überschreitet die kritische Schwelle und könnte zu markenrechtlichen Abmahnungen führen. Alternative Namensvorschläge sollten entwickelt werden, die sich deutlicher von bestehenden Marken abheben. Falls 'almarta' dennoch verwendet werden soll, ist eine detaillierte markenrechtliche Prüfung durch einen Fachanwalt zwingend erforderlich.",
+  "conflicts": [
+    {
+      "name": "ALLMART",
+      "accuracy": 80,
+      "riskLevel": "high",
+      "reasoning": "Kritische phonetische Ähnlichkeit (86%) - 'almarta' und 'allmart' klingen fast identisch, hohe Verwechslungsgefahr"
+    },
+    {
+      "name": "ALMAR",
+      "accuracy": 71,
+      "riskLevel": "medium",
+      "reasoning": "Wortstamm 'ALMAR' ist in 'almarta' vollständig enthalten, multiple Registrierungen erhöhen das Konfliktpotential"
+    },
+    {
+      "name": "ALMAR'S",
+      "accuracy": 71,
+      "riskLevel": "medium",
+      "reasoning": "Mittlere Ähnlichkeit mit Possessiv-Variante, könnte in bestimmten Branchen problematisch sein"
+    }
+  ]
+}
+
+7. Finale Ergebnisse
+219
+Analysiert
+49
+Konflikte
+Hoch
+Risiko

@@ -1,0 +1,39 @@
+Bei meiner erneuten Überprüfung der gesamten Plattform habe ich alle Navigationspunkte und Schaltflächen getestet, um zu sehen, ob sie erwartungsgemäß funktionieren und sinnvolle Ergebnisse liefern. Das Ergebnis ist gemischt: Die Navigation selbst funktioniert durchweg gut, viele Buttons leiten korrekt auf die jeweiligen Unterseiten weiter, aber an mehreren Stellen sind Funktionen unvollständig oder nicht implementiert.
+
+Dashboard – Alle Schnellaktionen verlinken wie vorgesehen: „Neue Recherche“ und „Jetzt sprechen“ führen zum Marken‑CoPilot, „Playbook starten“ ruft die Playbooks auf und „Risiko prüfen“ öffnet die Risikoanalyse. Die unteren Karten („Team verwalten“, „Watchlist“, „Experten finden“) navigieren ebenfalls zur richtigen Seite
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Innerhalb der Karten gibt es jedoch keinen Fortschritts‑ oder Statushinweis; es bleibt beim reinen Link.
+
+Marken‑CoPilot – Der Start‑Button wechselt zwar den Zustand („Audio aktiviert“), aber erzeugt keine Ausgabe. Die Schnellfrage‑Chips lassen sich zwar anklicken, es passiert aber nichts – hier fehlt die eigentliche KI‑Interaktion
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Markenrecherche – Die Suchseite mit Filtern funktioniert grundsätzlich: Suchbegriffe und Filter lassen sich setzen, ein Klick auf „Filter zurücksetzen“ stellt die Liste wieder her
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Die Schaltfläche „Kollisionsrisiko prüfen“ öffnet einen Risikobericht, und von dort aus führt „Jetzt anmelden“ zur Registrierungsstrecke
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Diese Verknüpfung ist gelungen.
+
+Neue Anmeldung – Der 4‑stufige Wizard ist vollständig implementiert: Auswahl des Markentyps, Behörde, Nizza‑Klassen und Zusammenfassung; mit „Anmeldung starten“ wird die Marke zur Watchlist hinzugefügt. Alle „Weiter“-Buttons funktionieren, Pflichtfelder werden geprüft
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Playbooks – Die Playbook‑Übersicht und der Schritt‑für‑Schritt‑Wizard sind nutzbar. Tasks lassen sich abhaken, der Button „Nächster Schritt“ führt zum nächsten Abschnitt. Allerdings gibt es keinen echten Fortschrittsbalken über die gesamte Strecke, und man kann Playbooks nicht individuell anpassen.
+
+Risikoanalyse – Die Seite zeigt nur eine Übersicht (Zähler für Risiko‑Level). Der Button „Neue Recherche starten“ leitet zurück zum CoPilot, es gibt keine eigenständige Risikoprüfung
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Insofern ist die Funktionslogik nicht klar: Eine echte Risikoanalyse lässt sich dort nicht durchführen.
+
+Team – Die Liste der Teammitglieder wird korrekt geladen. Der Button „Mitglied einladen“ öffnet ein Modal für E‑Mail und Rolle; Abbrechen und Schließen funktionieren
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Die Schaltfläche „Neuen Bericht erstellen“ hat weiterhin keine Funktion. Es gibt keine Möglichkeit, Rollen zu bearbeiten oder mehrere Nutzer gleichzeitig einzuladen.
+
+Watchlist – Die Watchlist zeigt überwachte Marken. „Marke hinzufügen“ öffnet einen Dialog, der die Marke nach dem Speichern korrekt hinzufügt
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+. Filtern nach Status und Amt funktioniert jetzt, das ist eine der wenigen neuen Funktionen. „Benachrichtigungen konfigurieren“ reagiert nicht. Eine Zeile lässt sich nicht öffnen, um Details zu sehen oder Benachrichtigungen einzustellen, und auch Massenaktionen fehlen
+0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev
+.
+
+Experten – Aus vorherigen Tests (früherer Kontext) war bekannt, dass Experten-Karten zwar Details anzeigen, aber die Buttons „Termin vereinbaren“ und „Nachricht senden“ keine Reaktion zeigen. Eine Suche oder Filterung ist möglich, aber es gibt keine Funktionsfähigkeit zur Kontaktaufnahme.
+
+Fazit: Die Grundnavigation und einige Kernprozesse (Recherche, Risiko → Anmeldung → Watchlist) sind funktionsfähig. Viele Buttons sind allerdings reine Platzhalter oder nur Links, ohne dahinterliegende Logik. Wesentliche Empfehlungen wie die engere Verzahnung der Schritte, eine echte Risikoanalyse oder detaillierte Rollenverwaltung sind noch nicht umgesetzt. Die Watchlist‑Filter und der Anmeldungs‑Wizard sind positiv, aber insgesamt ist noch deutlich Luft nach oben, um die Benutzerführung zu verbessern und die Funktionalität voll auszuschöpfen.

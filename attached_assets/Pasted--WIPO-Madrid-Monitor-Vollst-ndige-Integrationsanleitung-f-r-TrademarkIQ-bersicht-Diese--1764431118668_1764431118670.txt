@@ -1,0 +1,2201 @@
+# WIPO Madrid Monitor - Vollständige Integrationsanleitung für TrademarkIQ
+
+## Übersicht
+
+Diese Anleitung beschreibt die vollständige Integration des WIPO Madrid Monitor Systems in TrademarkIQ. Das System ermöglicht:
+
+1. **Automatischen Download** von täglichen Marken-Updates via FTP
+2. **Lokale Datenbank** mit Volltextsuche für schnelle Markenrecherche
+3. **Direkte API-Abfragen** für Einzelmarken per IR-Nummer
+4. **Monitoring** von Markenänderungen und Ablaufdaten
+
+---
+
+## Teil 1: Systemarchitektur
+
+### 1.1 Gesamtübersicht
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        TRADEMARKIQ - WIPO INTEGRATION                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────┐     ┌──────────────┐     ┌──────────────────────────────┐ │
+│  │ WIPO FTP     │     │ WIPO XML API │     │ TrademarkIQ Backend          │ │
+│  │ Server       │     │ (Einzelabfr.)│     │                              │ │
+│  │              │     │              │     │  ┌────────────────────────┐  │ │
+│  │ ftpird.      │────▶│ /api/v1/     │────▶│  │ WIPOSyncService        │  │ │
+│  │ wipo.int     │     │ tmxml/data/  │     │  │ - FTP Download         │  │ │
+│  │              │     │              │     │  │ - XML Parser           │  │ │
+│  │ Tägliche     │     │ Echtzeit-    │     │  │ - DB Import            │  │ │
+│  │ ZIP-Updates  │     │ Abfrage      │     │  └──────────┬─────────────┘  │ │
+│  └──────────────┘     └──────────────┘     │             │                │ │
+│                                            │             ▼                │ │
+│                                            │  ┌────────────────────────┐  │ │
+│                                            │  │ PostgreSQL / SQLite    │  │ │
+│                                            │  │                        │  │ │
+│                                            │  │ - trademarks           │  │ │
+│                                            │  │ - trademark_classes    │  │ │
+│                                            │  │ - sync_log             │  │ │
+│                                            │  │ - FTS Index            │  │ │
+│                                            │  └──────────┬─────────────┘  │ │
+│                                            │             │                │ │
+│                                            │             ▼                │ │
+│                                            │  ┌────────────────────────┐  │ │
+│                                            │  │ REST API Endpoints     │  │ │
+│                                            │  │                        │  │ │
+│                                            │  │ GET /api/wipo/search   │  │ │
+│                                            │  │ GET /api/wipo/ir/{nr}  │  │ │
+│                                            │  │ POST /api/wipo/sync    │  │ │
+│                                            │  │ GET /api/wipo/stats    │  │ │
+│                                            │  └────────────────────────┘  │ │
+│                                            │                              │ │
+│                                            └──────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1.2 Datenfluss
+
+```
+1. TÄGLICH (automatisch via Cron/Scheduler):
+   
+   FTP Server ──▶ Download ZIP ──▶ Extrahieren ──▶ XML Parsen ──▶ DB Import
+   
+   Zeitplan: 14:00 Uhr (WIPO aktualisiert ~13:00 CET)
+   Datenmenge: 40-90 MB pro Tag
+   Marken pro Tag: 3.000-10.000 Änderungen
+
+2. ECHTZEIT (bei Benutzeranfrage):
+   
+   Benutzer ──▶ Suchanfrage ──▶ Lokale DB ──▶ Ergebnisse
+   
+   Oder für aktuelle Daten:
+   
+   Benutzer ──▶ IR-Nummer ──▶ WIPO XML API ──▶ Live-Daten
+```
+
+---
+
+## Teil 2: Datenbankschema
+
+### 2.1 Für PostgreSQL (Empfohlen für Produktion)
+
+```sql
+-- ============================================================================
+-- WIPO MADRID TRADEMARK DATABASE SCHEMA (PostgreSQL)
+-- ============================================================================
+
+-- Extension für Volltextsuche
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- Haupttabelle für Marken
+CREATE TABLE IF NOT EXISTS wipo_trademarks (
+    id SERIAL PRIMARY KEY,
+    ir_number VARCHAR(20) UNIQUE NOT NULL,
+    wo_id VARCHAR(30),
+    
+    -- Markeninformationen
+    mark_name TEXT,
+    mark_type VARCHAR(50),
+    mark_description TEXT,
+    
+    -- Inhaber
+    holder_name TEXT,
+    holder_address TEXT,
+    holder_country VARCHAR(5),
+    holder_legal_entity VARCHAR(100),
+    
+    -- Vertreter
+    representative_name TEXT,
+    representative_address TEXT,
+    representative_country VARCHAR(5),
+    
+    -- Daten
+    registration_date DATE,
+    application_date DATE,
+    expiry_date DATE,
+    priority_date DATE,
+    
+    -- Status
+    status VARCHAR(50),
+    status_code VARCHAR(20),
+    status_date DATE,
+    
+    -- Klassifikation
+    origin_country VARCHAR(5),
+    basic_registration_number VARCHAR(50),
+    nice_classes VARCHAR(100),  -- Komma-separiert: "1,5,9"
+    
+    -- Schutzländer
+    designations TEXT,  -- Komma-separiert: "DE,FR,US,CN"
+    
+    -- Waren/Dienstleistungen (mehrsprachig)
+    goods_services_en TEXT,
+    goods_services_de TEXT,
+    goods_services_fr TEXT,
+    goods_services_es TEXT,
+    
+    -- Bilder
+    image_url TEXT,
+    image_available BOOLEAN DEFAULT FALSE,
+    
+    -- Metadaten
+    source VARCHAR(20) DEFAULT 'wipo_ftp',
+    raw_xml TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Nizza-Klassen Detail-Tabelle
+CREATE TABLE IF NOT EXISTS wipo_trademark_classes (
+    id SERIAL PRIMARY KEY,
+    ir_number VARCHAR(20) REFERENCES wipo_trademarks(ir_number) ON DELETE CASCADE,
+    class_number INTEGER NOT NULL,
+    description_en TEXT,
+    description_de TEXT,
+    description_fr TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Designations (Schutzländer) Detail-Tabelle
+CREATE TABLE IF NOT EXISTS wipo_trademark_designations (
+    id SERIAL PRIMARY KEY,
+    ir_number VARCHAR(20) REFERENCES wipo_trademarks(ir_number) ON DELETE CASCADE,
+    country_code VARCHAR(5) NOT NULL,
+    country_name VARCHAR(100),
+    protection_status VARCHAR(50),
+    protection_date DATE,
+    refusal_date DATE,
+    refusal_reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Transaktionshistorie
+CREATE TABLE IF NOT EXISTS wipo_trademark_transactions (
+    id SERIAL PRIMARY KEY,
+    ir_number VARCHAR(20) REFERENCES wipo_trademarks(ir_number) ON DELETE CASCADE,
+    transaction_type VARCHAR(100),
+    transaction_code VARCHAR(20),
+    transaction_date DATE,
+    gazette_number VARCHAR(20),
+    details TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Prioritäten
+CREATE TABLE IF NOT EXISTS wipo_trademark_priorities (
+    id SERIAL PRIMARY KEY,
+    ir_number VARCHAR(20) REFERENCES wipo_trademarks(ir_number) ON DELETE CASCADE,
+    priority_country VARCHAR(5),
+    priority_number VARCHAR(50),
+    priority_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Sync-Log (welche Dateien wurden importiert)
+CREATE TABLE IF NOT EXISTS wipo_sync_log (
+    id SERIAL PRIMARY KEY,
+    filename VARCHAR(100) UNIQUE NOT NULL,
+    file_date DATE,
+    file_size BIGINT,
+    records_processed INTEGER DEFAULT 0,
+    records_inserted INTEGER DEFAULT 0,
+    records_updated INTEGER DEFAULT 0,
+    records_errors INTEGER DEFAULT 0,
+    sync_started TIMESTAMP,
+    sync_completed TIMESTAMP,
+    duration_seconds INTEGER,
+    status VARCHAR(50),
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================================
+-- INDEXES FÜR PERFORMANCE
+-- ============================================================================
+
+-- Primäre Suchindizes
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_mark_name ON wipo_trademarks(mark_name);
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_mark_name_lower ON wipo_trademarks(LOWER(mark_name));
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_mark_name_trgm ON wipo_trademarks USING gin(mark_name gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_holder_name ON wipo_trademarks(holder_name);
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_holder_name_trgm ON wipo_trademarks USING gin(holder_name gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_holder_country ON wipo_trademarks(holder_country);
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_origin_country ON wipo_trademarks(origin_country);
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_status ON wipo_trademarks(status);
+
+-- Datumsindizes
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_registration_date ON wipo_trademarks(registration_date);
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_expiry_date ON wipo_trademarks(expiry_date);
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_updated_at ON wipo_trademarks(updated_at);
+
+-- Klassenindex
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_nice_classes ON wipo_trademarks(nice_classes);
+CREATE INDEX IF NOT EXISTS idx_wipo_classes_ir ON wipo_trademark_classes(ir_number);
+CREATE INDEX IF NOT EXISTS idx_wipo_classes_number ON wipo_trademark_classes(class_number);
+
+-- Designations-Index
+CREATE INDEX IF NOT EXISTS idx_wipo_desig_ir ON wipo_trademark_designations(ir_number);
+CREATE INDEX IF NOT EXISTS idx_wipo_desig_country ON wipo_trademark_designations(country_code);
+
+-- Volltextsuche (PostgreSQL tsvector)
+ALTER TABLE wipo_trademarks ADD COLUMN IF NOT EXISTS search_vector tsvector;
+
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_search ON wipo_trademarks USING gin(search_vector);
+
+-- Trigger für automatische Aktualisierung des Suchvektors
+CREATE OR REPLACE FUNCTION wipo_trademarks_search_trigger() RETURNS trigger AS $$
+BEGIN
+    NEW.search_vector := 
+        setweight(to_tsvector('english', COALESCE(NEW.mark_name, '')), 'A') ||
+        setweight(to_tsvector('english', COALESCE(NEW.holder_name, '')), 'B') ||
+        setweight(to_tsvector('english', COALESCE(NEW.goods_services_en, '')), 'C');
+    NEW.updated_at := CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS wipo_trademarks_search_update ON wipo_trademarks;
+CREATE TRIGGER wipo_trademarks_search_update
+    BEFORE INSERT OR UPDATE ON wipo_trademarks
+    FOR EACH ROW EXECUTE FUNCTION wipo_trademarks_search_trigger();
+
+-- ============================================================================
+-- VIEWS FÜR HÄUFIGE ABFRAGEN
+-- ============================================================================
+
+-- Aktive Marken mit Ablauf in den nächsten 6 Monaten
+CREATE OR REPLACE VIEW wipo_expiring_soon AS
+SELECT 
+    ir_number,
+    mark_name,
+    holder_name,
+    holder_country,
+    expiry_date,
+    nice_classes,
+    (expiry_date - CURRENT_DATE) AS days_until_expiry
+FROM wipo_trademarks
+WHERE expiry_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '6 months'
+    AND status NOT IN ('Cancelled', 'Expired', 'Inactive')
+ORDER BY expiry_date;
+
+-- Statistik-View
+CREATE OR REPLACE VIEW wipo_statistics AS
+SELECT
+    COUNT(*) AS total_trademarks,
+    COUNT(CASE WHEN status = 'Active' OR status IS NULL THEN 1 END) AS active_trademarks,
+    COUNT(DISTINCT holder_country) AS unique_holder_countries,
+    COUNT(DISTINCT origin_country) AS unique_origin_countries,
+    MIN(registration_date) AS oldest_registration,
+    MAX(registration_date) AS newest_registration,
+    MAX(updated_at) AS last_update
+FROM wipo_trademarks;
+```
+
+### 2.2 Für SQLite (Entwicklung/Leichtgewicht)
+
+```sql
+-- ============================================================================
+-- WIPO MADRID TRADEMARK DATABASE SCHEMA (SQLite)
+-- ============================================================================
+
+-- Haupttabelle für Marken
+CREATE TABLE IF NOT EXISTS wipo_trademarks (
+    ir_number TEXT PRIMARY KEY,
+    wo_id TEXT,
+    
+    -- Markeninformationen
+    mark_name TEXT,
+    mark_type TEXT,
+    mark_description TEXT,
+    
+    -- Inhaber
+    holder_name TEXT,
+    holder_address TEXT,
+    holder_country TEXT,
+    holder_legal_entity TEXT,
+    
+    -- Vertreter
+    representative_name TEXT,
+    representative_address TEXT,
+    representative_country TEXT,
+    
+    -- Daten
+    registration_date TEXT,
+    application_date TEXT,
+    expiry_date TEXT,
+    priority_date TEXT,
+    
+    -- Status
+    status TEXT,
+    status_code TEXT,
+    status_date TEXT,
+    
+    -- Klassifikation
+    origin_country TEXT,
+    basic_registration_number TEXT,
+    nice_classes TEXT,
+    
+    -- Schutzländer
+    designations TEXT,
+    
+    -- Waren/Dienstleistungen
+    goods_services_en TEXT,
+    goods_services_de TEXT,
+    goods_services_fr TEXT,
+    goods_services_es TEXT,
+    
+    -- Bilder
+    image_url TEXT,
+    image_available INTEGER DEFAULT 0,
+    
+    -- Metadaten
+    source TEXT DEFAULT 'wipo_ftp',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Sync-Log
+CREATE TABLE IF NOT EXISTS wipo_sync_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename TEXT UNIQUE NOT NULL,
+    file_date TEXT,
+    file_size INTEGER,
+    records_processed INTEGER DEFAULT 0,
+    records_inserted INTEGER DEFAULT 0,
+    records_updated INTEGER DEFAULT 0,
+    records_errors INTEGER DEFAULT 0,
+    sync_started TEXT,
+    sync_completed TEXT,
+    duration_seconds INTEGER,
+    status TEXT,
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_mark_name ON wipo_trademarks(mark_name);
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_holder_name ON wipo_trademarks(holder_name);
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_holder_country ON wipo_trademarks(holder_country);
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_origin_country ON wipo_trademarks(origin_country);
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_status ON wipo_trademarks(status);
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_expiry_date ON wipo_trademarks(expiry_date);
+CREATE INDEX IF NOT EXISTS idx_wipo_tm_nice_classes ON wipo_trademarks(nice_classes);
+
+-- Volltext-Suche (SQLite FTS5)
+CREATE VIRTUAL TABLE IF NOT EXISTS wipo_trademarks_fts USING fts5(
+    ir_number,
+    mark_name,
+    holder_name,
+    goods_services_en,
+    goods_services_de,
+    content='wipo_trademarks',
+    content_rowid='rowid'
+);
+
+-- Trigger für FTS-Synchronisation
+CREATE TRIGGER IF NOT EXISTS wipo_tm_ai AFTER INSERT ON wipo_trademarks BEGIN
+    INSERT INTO wipo_trademarks_fts(rowid, ir_number, mark_name, holder_name, goods_services_en, goods_services_de)
+    VALUES (NEW.rowid, NEW.ir_number, NEW.mark_name, NEW.holder_name, NEW.goods_services_en, NEW.goods_services_de);
+END;
+
+CREATE TRIGGER IF NOT EXISTS wipo_tm_ad AFTER DELETE ON wipo_trademarks BEGIN
+    INSERT INTO wipo_trademarks_fts(wipo_trademarks_fts, rowid, ir_number, mark_name, holder_name, goods_services_en, goods_services_de)
+    VALUES ('delete', OLD.rowid, OLD.ir_number, OLD.mark_name, OLD.holder_name, OLD.goods_services_en, OLD.goods_services_de);
+END;
+
+CREATE TRIGGER IF NOT EXISTS wipo_tm_au AFTER UPDATE ON wipo_trademarks BEGIN
+    INSERT INTO wipo_trademarks_fts(wipo_trademarks_fts, rowid, ir_number, mark_name, holder_name, goods_services_en, goods_services_de)
+    VALUES ('delete', OLD.rowid, OLD.ir_number, OLD.mark_name, OLD.holder_name, OLD.goods_services_en, OLD.goods_services_de);
+    INSERT INTO wipo_trademarks_fts(rowid, ir_number, mark_name, holder_name, goods_services_en, goods_services_de)
+    VALUES (NEW.rowid, NEW.ir_number, NEW.mark_name, NEW.holder_name, NEW.goods_services_en, NEW.goods_services_de);
+END;
+```
+
+---
+
+## Teil 3: Python Backend-Module
+
+### 3.1 Projektstruktur
+
+```
+trademarkiq/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                      # FastAPI App
+│   ├── config.py                    # Konfiguration
+│   │
+│   ├── wipo/                        # WIPO Integration Modul
+│   │   ├── __init__.py
+│   │   ├── config.py                # WIPO-spezifische Konfiguration
+│   │   ├── models.py                # Pydantic Models
+│   │   ├── database.py              # Datenbankoperationen
+│   │   ├── ftp_client.py            # FTP Download
+│   │   ├── xml_parser.py            # XML Parsing
+│   │   ├── api_client.py            # WIPO XML API Client
+│   │   ├── sync_service.py          # Synchronisations-Service
+│   │   ├── search_service.py        # Such-Service
+│   │   └── routes.py                # API Endpoints
+│   │
+│   ├── api/
+│   │   └── v1/
+│   │       ├── __init__.py
+│   │       └── wipo.py              # WIPO API Routes
+│   │
+│   └── core/
+│       ├── __init__.py
+│       └── scheduler.py             # Cron/Scheduler für Sync
+│
+├── data/                            # Datenverzeichnis
+│   ├── downloads/                   # FTP Downloads
+│   ├── extracted/                   # Extrahierte XMLs
+│   └── wipo.db                      # SQLite DB (falls verwendet)
+│
+├── tests/
+│   └── test_wipo/
+│       ├── test_ftp.py
+│       ├── test_parser.py
+│       └── test_search.py
+│
+├── requirements.txt
+├── .env
+└── README.md
+```
+
+### 3.2 Konfiguration (config.py)
+
+```python
+# app/wipo/config.py
+"""
+WIPO Integration Konfiguration
+"""
+
+from pydantic_settings import BaseSettings
+from pathlib import Path
+from typing import Optional
+import os
+
+
+class WIPOConfig(BaseSettings):
+    """WIPO-spezifische Konfiguration."""
+    
+    # FTP-Server Einstellungen
+    FTP_HOST: str = "ftpird.wipo.int"
+    FTP_USER: str = "anonymous"
+    FTP_PASS: str = "guest"
+    FTP_DIR: str = "/wipo/madrid/monitor"
+    FTP_TIMEOUT: int = 60
+    
+    # Alternative FTP-Verzeichnisse (für Romarin-Daten)
+    FTP_DIR_ROMARIN: str = "/wipo/madrid/romarin"
+    
+    # WIPO XML API (undokumentiert, aber funktioniert)
+    XML_API_BASE: str = "https://www.wipo.int/madrid/monitor/api/v1/tmxml"
+    XML_API_TIMEOUT: int = 30
+    
+    # Lokale Pfade
+    DATA_DIR: Path = Path("./data/wipo")
+    DOWNLOAD_DIR: Path = Path("./data/wipo/downloads")
+    EXTRACT_DIR: Path = Path("./data/wipo/extracted")
+    
+    # Datenbank
+    DATABASE_URL: Optional[str] = None  # PostgreSQL: postgresql://user:pass@host/db
+    SQLITE_PATH: Path = Path("./data/wipo/wipo_madrid.db")
+    USE_POSTGRESQL: bool = False
+    
+    # Sync-Einstellungen
+    MAX_DOWNLOAD_DAYS: int = 30
+    SYNC_BATCH_SIZE: int = 1000
+    KEEP_ZIP_FILES: bool = False
+    KEEP_XML_FILES: bool = False
+    
+    # Rate Limiting für API-Anfragen
+    API_RATE_LIMIT_PER_SECOND: float = 2.0
+    
+    # Scheduler
+    SYNC_CRON_EXPRESSION: str = "0 14 * * *"  # Täglich um 14:00
+    ENABLE_AUTO_SYNC: bool = True
+    
+    class Config:
+        env_prefix = "WIPO_"
+        env_file = ".env"
+    
+    def ensure_directories(self):
+        """Erstellt notwendige Verzeichnisse."""
+        self.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        self.DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        self.EXTRACT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# Singleton-Instanz
+wipo_config = WIPOConfig()
+```
+
+### 3.3 Pydantic Models (models.py)
+
+```python
+# app/wipo/models.py
+"""
+Pydantic Models für WIPO Trademark Daten
+"""
+
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from datetime import date, datetime
+
+
+class TrademarkBase(BaseModel):
+    """Basis-Model für Marken."""
+    ir_number: str = Field(..., description="Internationale Registrierungsnummer")
+    wo_id: Optional[str] = Field(None, description="WIPO ID (Format: WO500000XXXXXXXXX)")
+    mark_name: Optional[str] = Field(None, description="Markenname/Wortlaut")
+    mark_type: Optional[str] = Field(None, description="Markentyp (Word, Figurative, Combined)")
+
+
+class TrademarkHolder(BaseModel):
+    """Inhaber-Informationen."""
+    name: Optional[str] = None
+    address: Optional[str] = None
+    country: Optional[str] = None
+    legal_entity: Optional[str] = None
+
+
+class TrademarkRepresentative(BaseModel):
+    """Vertreter-Informationen."""
+    name: Optional[str] = None
+    address: Optional[str] = None
+    country: Optional[str] = None
+
+
+class TrademarkDates(BaseModel):
+    """Datums-Informationen."""
+    registration_date: Optional[date] = None
+    application_date: Optional[date] = None
+    expiry_date: Optional[date] = None
+    priority_date: Optional[date] = None
+
+
+class TrademarkStatus(BaseModel):
+    """Status-Informationen."""
+    status: Optional[str] = None
+    status_code: Optional[str] = None
+    status_date: Optional[date] = None
+
+
+class TrademarkClassification(BaseModel):
+    """Klassifikations-Informationen."""
+    nice_classes: List[int] = Field(default_factory=list)
+    origin_country: Optional[str] = None
+    designations: List[str] = Field(default_factory=list)
+
+
+class TrademarkGoodsServices(BaseModel):
+    """Waren und Dienstleistungen."""
+    en: Optional[str] = None
+    de: Optional[str] = None
+    fr: Optional[str] = None
+    es: Optional[str] = None
+
+
+class TrademarkFull(TrademarkBase):
+    """Vollständiges Marken-Model."""
+    holder: Optional[TrademarkHolder] = None
+    representative: Optional[TrademarkRepresentative] = None
+    dates: Optional[TrademarkDates] = None
+    status: Optional[TrademarkStatus] = None
+    classification: Optional[TrademarkClassification] = None
+    goods_services: Optional[TrademarkGoodsServices] = None
+    image_url: Optional[str] = None
+    image_available: bool = False
+    source: str = "wipo_ftp"
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class TrademarkSearchResult(BaseModel):
+    """Suchergebnis-Model."""
+    ir_number: str
+    mark_name: Optional[str]
+    mark_type: Optional[str]
+    holder_name: Optional[str]
+    holder_country: Optional[str]
+    nice_classes: Optional[str]
+    status: Optional[str]
+    registration_date: Optional[str]
+    expiry_date: Optional[str]
+    relevance_score: Optional[float] = None
+
+
+class TrademarkSearchRequest(BaseModel):
+    """Such-Anfrage Model."""
+    query: Optional[str] = Field(None, description="Volltextsuche")
+    mark_name: Optional[str] = Field(None, description="Markenname (LIKE-Suche)")
+    holder_name: Optional[str] = Field(None, description="Inhabername (LIKE-Suche)")
+    nice_class: Optional[int] = Field(None, ge=1, le=45, description="Nizza-Klasse")
+    origin_country: Optional[str] = Field(None, min_length=2, max_length=2, description="Ursprungsland (ISO)")
+    holder_country: Optional[str] = Field(None, min_length=2, max_length=2, description="Inhaberland (ISO)")
+    status: Optional[str] = Field(None, description="Status-Filter")
+    expiry_from: Optional[date] = Field(None, description="Ablauf ab Datum")
+    expiry_to: Optional[date] = Field(None, description="Ablauf bis Datum")
+    limit: int = Field(100, ge=1, le=1000, description="Max. Ergebnisse")
+    offset: int = Field(0, ge=0, description="Offset für Pagination")
+
+
+class TrademarkSearchResponse(BaseModel):
+    """Such-Antwort Model."""
+    total: int
+    limit: int
+    offset: int
+    results: List[TrademarkSearchResult]
+
+
+class SyncStatus(BaseModel):
+    """Sync-Status Model."""
+    filename: str
+    file_date: str
+    status: str
+    records_processed: int
+    records_inserted: int
+    records_updated: int
+    duration_seconds: Optional[int] = None
+    error_message: Optional[str] = None
+
+
+class WIPOStats(BaseModel):
+    """Statistik-Model."""
+    total_trademarks: int
+    active_trademarks: int
+    files_synced: int
+    oldest_file: Optional[str]
+    newest_file: Optional[str]
+    last_sync: Optional[datetime]
+    by_status: dict
+    top_countries: dict
+```
+
+### 3.4 FTP Client (ftp_client.py)
+
+```python
+# app/wipo/ftp_client.py
+"""
+WIPO FTP Client für Download der täglichen Updates
+"""
+
+import logging
+from ftplib import FTP, error_perm
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+from datetime import datetime, timedelta
+import re
+
+from .config import wipo_config
+
+logger = logging.getLogger(__name__)
+
+
+class WIPOFTPClient:
+    """Client für WIPO FTP-Server."""
+    
+    def __init__(self):
+        self.config = wipo_config
+        self.ftp: Optional[FTP] = None
+        
+    def connect(self) -> bool:
+        """
+        Verbindung zum FTP-Server herstellen.
+        
+        Returns:
+            True bei Erfolg, False bei Fehler
+        """
+        try:
+            logger.info(f"Verbinde mit {self.config.FTP_HOST}...")
+            self.ftp = FTP(self.config.FTP_HOST, timeout=self.config.FTP_TIMEOUT)
+            welcome = self.ftp.login(self.config.FTP_USER, self.config.FTP_PASS)
+            logger.info(f"FTP Login erfolgreich: {welcome}")
+            
+            self.ftp.cwd(self.config.FTP_DIR)
+            logger.info(f"Verzeichnis gewechselt zu: {self.config.FTP_DIR}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"FTP Verbindungsfehler: {e}")
+            return False
+    
+    def disconnect(self):
+        """Verbindung trennen."""
+        if self.ftp:
+            try:
+                self.ftp.quit()
+                logger.info("FTP Verbindung getrennt")
+            except:
+                pass
+            self.ftp = None
+    
+    def list_available_files(self, days_back: int = 30) -> List[Dict[str, Any]]:
+        """
+        Listet verfügbare ZIP-Dateien auf.
+        
+        Args:
+            days_back: Wie viele Tage zurück suchen
+            
+        Returns:
+            Liste von Dicts mit 'filename', 'date', 'size'
+        """
+        if not self.ftp:
+            raise ConnectionError("Nicht mit FTP verbunden")
+        
+        files = []
+        file_list = []
+        
+        # Dateien auflisten
+        self.ftp.retrlines('LIST', lambda x: file_list.append(x))
+        
+        # Pattern für Dateiname: yyyymmdd.zip
+        pattern = re.compile(r'(\d{8})\.zip$')
+        cutoff_date = datetime.now() - timedelta(days=days_back)
+        
+        for line in file_list:
+            parts = line.split()
+            if len(parts) >= 9:
+                filename = parts[-1]
+                match = pattern.search(filename)
+                
+                if match:
+                    date_str = match.group(1)
+                    try:
+                        file_date = datetime.strptime(date_str, '%Y%m%d')
+                        
+                        if file_date >= cutoff_date:
+                            # Dateigröße extrahieren
+                            size = int(parts[4]) if parts[4].isdigit() else 0
+                            
+                            files.append({
+                                'filename': filename,
+                                'date': file_date,
+                                'date_str': date_str,
+                                'size': size,
+                                'size_mb': round(size / (1024 * 1024), 2)
+                            })
+                    except ValueError:
+                        continue
+        
+        # Nach Datum sortieren (älteste zuerst für chronologische Verarbeitung)
+        files.sort(key=lambda x: x['date'])
+        
+        logger.info(f"{len(files)} Dateien gefunden (letzte {days_back} Tage)")
+        return files
+    
+    def download_file(self, filename: str, target_dir: Optional[Path] = None) -> Path:
+        """
+        Lädt eine Datei herunter.
+        
+        Args:
+            filename: Name der Datei auf dem Server
+            target_dir: Zielverzeichnis (Standard: config.DOWNLOAD_DIR)
+            
+        Returns:
+            Pfad zur heruntergeladenen Datei
+        """
+        if not self.ftp:
+            raise ConnectionError("Nicht mit FTP verbunden")
+        
+        target_dir = target_dir or self.config.DOWNLOAD_DIR
+        target_dir.mkdir(parents=True, exist_ok=True)
+        
+        target_path = target_dir / filename
+        
+        # Prüfen ob bereits vorhanden
+        if target_path.exists():
+            logger.info(f"Datei existiert bereits: {filename}")
+            return target_path
+        
+        logger.info(f"Lade herunter: {filename}...")
+        
+        with open(target_path, 'wb') as f:
+            self.ftp.retrbinary(f'RETR {filename}', f.write)
+        
+        size_mb = target_path.stat().st_size / (1024 * 1024)
+        logger.info(f"Download abgeschlossen: {filename} ({size_mb:.1f} MB)")
+        
+        return target_path
+    
+    def get_file_size(self, filename: str) -> int:
+        """Gibt die Größe einer Datei zurück."""
+        if not self.ftp:
+            raise ConnectionError("Nicht mit FTP verbunden")
+        
+        try:
+            return self.ftp.size(filename)
+        except error_perm:
+            return 0
+    
+    def __enter__(self):
+        """Context Manager Entry."""
+        self.connect()
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context Manager Exit."""
+        self.disconnect()
+```
+
+### 3.5 XML Parser (xml_parser.py)
+
+```python
+# app/wipo/xml_parser.py
+"""
+XML Parser für WIPO Madrid Trademark Daten
+"""
+
+import logging
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Dict, Any, Generator, List, Optional
+import re
+import zipfile
+
+logger = logging.getLogger(__name__)
+
+
+class WIPOXMLParser:
+    """Parser für WIPO Madrid XML-Dateien."""
+    
+    # Mapping von XML-Elementen zu Feldnamen
+    FIELD_MAPPINGS = {
+        'ir_number': [
+            'InternationalRegistrationNumber',
+            'RegistrationNumber',
+            'intregn',
+            'ST13',
+            'INTREGN'
+        ],
+        'mark_name': [
+            'MarkVerbalElementText',
+            'VerbalElement',
+            'WordMarkSpecification',
+            'MarkName',
+            'MARKEN',
+            'MarkTextString'
+        ],
+        'mark_type': [
+            'MarkFeature',
+            'MarkCategory',
+            'MARKTYP'
+        ],
+        'holder_name': [
+            'HolderName',
+            'ApplicantName',
+            'OrganizationName',
+            'PersonName',
+            'NAME/NAMEL'
+        ],
+        'holder_address': [
+            'FormattedAddress',
+            'AddressLineText',
+            'PostalAddress'
+        ],
+        'holder_country': [
+            'HolderCountryCode',
+            'AddressCountryCode',
+            'CountryCode'
+        ],
+        'representative_name': [
+            'RepresentativeName',
+            'AgentName'
+        ],
+        'registration_date': [
+            'RegistrationDate',
+            'InternationalRegistrationDate',
+            'INTREGD',
+            'REGD'
+        ],
+        'application_date': [
+            'ApplicationDate',
+            'FilingDate',
+            'APPD'
+        ],
+        'expiry_date': [
+            'ExpiryDate',
+            'ExpirationDate',
+            'EXPDATE',
+            'RenewalDate'
+        ],
+        'status': [
+            'MarkCurrentStatusCode',
+            'StatusCode',
+            'Status',
+            'CURRENT'
+        ],
+        'origin_country': [
+            'OriginCountryCode',
+            'BasicRegistrationCountryCode',
+            'OO'
+        ],
+        'basic_registration_number': [
+            'BasicRegistrationNumber',
+            'BasicApplicationNumber',
+            'BASREGN'
+        ],
+        'nice_classes': [
+            'GoodsServicesClassNumber',
+            'ClassNumber',
+            'NiceClassNumber',
+            'NICCLAI'
+        ],
+        'designations': [
+            'DesignationCountryCode',
+            'ContractingPartyCode',
+            'DCPCD'
+        ],
+        'goods_services_en': [
+            'GoodsServicesDescription',
+            'GoodsServicesDescriptionText',
+            'GSTERMEN'
+        ],
+        'goods_services_de': ['GSTERMDE'],
+        'goods_services_fr': ['GSTERMFR'],
+        'goods_services_es': ['GSTERMES']
+    }
+    
+    @staticmethod
+    def extract_zip(zip_path: Path, extract_dir: Path) -> List[Path]:
+        """
+        Extrahiert eine ZIP-Datei.
+        
+        Args:
+            zip_path: Pfad zur ZIP-Datei
+            extract_dir: Zielverzeichnis
+            
+        Returns:
+            Liste der extrahierten XML-Dateien
+        """
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            zf.extractall(extract_dir)
+        
+        # XML-Dateien finden
+        xml_files = list(extract_dir.glob('**/*.xml')) + list(extract_dir.glob('**/*.XML'))
+        
+        logger.info(f"Extrahiert: {len(xml_files)} XML-Dateien aus {zip_path.name}")
+        return xml_files
+    
+    @classmethod
+    def parse_file(cls, xml_path: Path) -> Generator[Dict[str, Any], None, None]:
+        """
+        Parst eine XML-Datei und gibt Markendaten als Generator zurück.
+        
+        Args:
+            xml_path: Pfad zur XML-Datei
+            
+        Yields:
+            Dict mit Markendaten
+        """
+        try:
+            # Datei einlesen
+            with open(xml_path, 'rb') as f:
+                content = f.read()
+            
+            # Encoding erkennen
+            xml_text = None
+            for encoding in ['iso-8859-1', 'utf-8', 'windows-1252', 'latin-1']:
+                try:
+                    xml_text = content.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            if not xml_text:
+                logger.warning(f"Konnte Encoding nicht erkennen: {xml_path}")
+                return
+            
+            # XML parsen
+            try:
+                root = ET.fromstring(xml_text.encode('utf-8'))
+            except ET.ParseError as e:
+                logger.error(f"XML Parse-Fehler in {xml_path}: {e}")
+                return
+            
+            # Trademark-Elemente finden
+            trademark_elements = cls._find_trademark_elements(root)
+            
+            # Wenn keine spezifischen Elemente gefunden, Root als einzelne Marke behandeln
+            if not trademark_elements:
+                trademark_elements = [root]
+            
+            for tm_elem in trademark_elements:
+                try:
+                    data = cls._extract_trademark_data(tm_elem)
+                    if data.get('ir_number'):
+                        yield data
+                except Exception as e:
+                    logger.warning(f"Fehler beim Parsen eines Elements in {xml_path}: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Fehler beim Parsen von {xml_path}: {e}")
+    
+    @classmethod
+    def _find_trademark_elements(cls, root: ET.Element) -> List[ET.Element]:
+        """Findet alle Trademark-Elemente im XML."""
+        elements = []
+        
+        trademark_tags = [
+            'TradeMark', 'Trademark', 'TradeMarkDetails',
+            'InternationalRegistration', 'MARKGR', 'Transaction'
+        ]
+        
+        for elem in root.iter():
+            local_name = cls._get_local_name(elem.tag)
+            if local_name in trademark_tags:
+                elements.append(elem)
+        
+        return elements
+    
+    @staticmethod
+    def _get_local_name(tag: str) -> str:
+        """Extrahiert lokalen Namen aus Tag mit Namespace."""
+        if '}' in tag:
+            return tag.split('}')[1]
+        return tag
+    
+    @classmethod
+    def _find_text(cls, element: ET.Element, field_names: List[str]) -> Optional[str]:
+        """Sucht Text in Elementen mit den angegebenen Namen."""
+        for elem in element.iter():
+            local_name = cls._get_local_name(elem.tag)
+            if local_name in field_names and elem.text and elem.text.strip():
+                return elem.text.strip()
+        return None
+    
+    @classmethod
+    def _find_all_text(cls, element: ET.Element, field_names: List[str]) -> List[str]:
+        """Findet alle Texte in Elementen mit den angegebenen Namen."""
+        results = []
+        for elem in element.iter():
+            local_name = cls._get_local_name(elem.tag)
+            if local_name in field_names and elem.text and elem.text.strip():
+                results.append(elem.text.strip())
+        return list(set(results))
+    
+    @classmethod
+    def _extract_trademark_data(cls, element: ET.Element) -> Dict[str, Any]:
+        """Extrahiert alle relevanten Daten aus einem Trademark-Element."""
+        
+        data = {}
+        
+        # Einfache Felder
+        for field_name, xml_names in cls.FIELD_MAPPINGS.items():
+            if field_name in ['nice_classes', 'designations']:
+                # Mehrfachwerte
+                values = cls._find_all_text(element, xml_names)
+                if field_name == 'nice_classes':
+                    # Sortieren und als Komma-separierter String
+                    values = sorted(set(values), key=lambda x: int(x) if x.isdigit() else 0)
+                data[field_name] = ','.join(values) if values else None
+            else:
+                # Einzelwerte
+                data[field_name] = cls._find_text(element, xml_names)
+        
+        # WO-ID generieren
+        if data.get('ir_number'):
+            ir_clean = re.sub(r'\D', '', str(data['ir_number']))
+            data['wo_id'] = f"WO500000{ir_clean.zfill(9)}"
+        
+        return data
+```
+
+### 3.6 Datenbank-Service (database.py)
+
+```python
+# app/wipo/database.py
+"""
+Datenbankoperationen für WIPO Trademark Daten
+"""
+
+import logging
+from typing import Dict, Any, List, Optional, Tuple
+from datetime import datetime
+from contextlib import contextmanager
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import StaticPool
+
+from .config import wipo_config
+
+logger = logging.getLogger(__name__)
+
+
+class WIPODatabase:
+    """Datenbankmanager für WIPO Daten."""
+    
+    def __init__(self):
+        self.config = wipo_config
+        self.engine = None
+        self.SessionLocal = None
+        self._init_engine()
+    
+    def _init_engine(self):
+        """Initialisiert die Datenbank-Engine."""
+        if self.config.USE_POSTGRESQL and self.config.DATABASE_URL:
+            # PostgreSQL
+            self.engine = create_engine(
+                self.config.DATABASE_URL,
+                pool_pre_ping=True,
+                pool_size=10,
+                max_overflow=20
+            )
+            logger.info("PostgreSQL Verbindung initialisiert")
+        else:
+            # SQLite
+            self.config.SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            self.engine = create_engine(
+                f"sqlite:///{self.config.SQLITE_PATH}",
+                connect_args={"check_same_thread": False},
+                poolclass=StaticPool
+            )
+            logger.info(f"SQLite Verbindung initialisiert: {self.config.SQLITE_PATH}")
+        
+        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+    
+    @contextmanager
+    def get_session(self) -> Session:
+        """Context Manager für Datenbank-Sessions."""
+        session = self.SessionLocal()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+    
+    def init_schema(self):
+        """Initialisiert das Datenbankschema."""
+        # Schema-SQL aus separater Datei oder als String laden
+        # (Hier vereinfacht direkt im Code)
+        
+        with self.get_session() as session:
+            if self.config.USE_POSTGRESQL:
+                # PostgreSQL Schema
+                session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS wipo_trademarks (
+                        ir_number VARCHAR(20) PRIMARY KEY,
+                        wo_id VARCHAR(30),
+                        mark_name TEXT,
+                        mark_type VARCHAR(50),
+                        holder_name TEXT,
+                        holder_address TEXT,
+                        holder_country VARCHAR(5),
+                        representative_name TEXT,
+                        registration_date DATE,
+                        application_date DATE,
+                        expiry_date DATE,
+                        status VARCHAR(50),
+                        origin_country VARCHAR(5),
+                        nice_classes VARCHAR(100),
+                        designations TEXT,
+                        goods_services_en TEXT,
+                        goods_services_de TEXT,
+                        image_available BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+                
+                session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS wipo_sync_log (
+                        id SERIAL PRIMARY KEY,
+                        filename VARCHAR(100) UNIQUE,
+                        file_date DATE,
+                        file_size BIGINT,
+                        records_processed INTEGER DEFAULT 0,
+                        records_inserted INTEGER DEFAULT 0,
+                        records_updated INTEGER DEFAULT 0,
+                        sync_started TIMESTAMP,
+                        sync_completed TIMESTAMP,
+                        status VARCHAR(50),
+                        error_message TEXT
+                    )
+                """))
+                
+                # Indexes erstellen
+                session.execute(text("CREATE INDEX IF NOT EXISTS idx_wipo_mark_name ON wipo_trademarks(mark_name)"))
+                session.execute(text("CREATE INDEX IF NOT EXISTS idx_wipo_holder ON wipo_trademarks(holder_name)"))
+                session.execute(text("CREATE INDEX IF NOT EXISTS idx_wipo_country ON wipo_trademarks(holder_country)"))
+                session.execute(text("CREATE INDEX IF NOT EXISTS idx_wipo_expiry ON wipo_trademarks(expiry_date)"))
+                
+            else:
+                # SQLite Schema
+                session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS wipo_trademarks (
+                        ir_number TEXT PRIMARY KEY,
+                        wo_id TEXT,
+                        mark_name TEXT,
+                        mark_type TEXT,
+                        holder_name TEXT,
+                        holder_address TEXT,
+                        holder_country TEXT,
+                        representative_name TEXT,
+                        registration_date TEXT,
+                        application_date TEXT,
+                        expiry_date TEXT,
+                        status TEXT,
+                        origin_country TEXT,
+                        nice_classes TEXT,
+                        designations TEXT,
+                        goods_services_en TEXT,
+                        goods_services_de TEXT,
+                        image_available INTEGER DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+                
+                session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS wipo_sync_log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        filename TEXT UNIQUE,
+                        file_date TEXT,
+                        file_size INTEGER,
+                        records_processed INTEGER DEFAULT 0,
+                        records_inserted INTEGER DEFAULT 0,
+                        records_updated INTEGER DEFAULT 0,
+                        sync_started TEXT,
+                        sync_completed TEXT,
+                        status TEXT,
+                        error_message TEXT
+                    )
+                """))
+                
+                # FTS5 für Volltextsuche
+                session.execute(text("""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS wipo_trademarks_fts USING fts5(
+                        ir_number, mark_name, holder_name, goods_services_en,
+                        content='wipo_trademarks', content_rowid='rowid'
+                    )
+                """))
+        
+        logger.info("Datenbankschema initialisiert")
+    
+    def upsert_trademark(self, session: Session, data: Dict[str, Any]) -> Tuple[bool, bool]:
+        """
+        Fügt eine Marke ein oder aktualisiert sie.
+        
+        Returns:
+            Tuple (is_new, success)
+        """
+        ir_number = data.get('ir_number')
+        if not ir_number:
+            return False, False
+        
+        # Prüfen ob existiert
+        result = session.execute(
+            text("SELECT ir_number FROM wipo_trademarks WHERE ir_number = :ir"),
+            {'ir': ir_number}
+        ).fetchone()
+        
+        is_new = result is None
+        
+        if is_new:
+            # Insert
+            session.execute(text("""
+                INSERT INTO wipo_trademarks (
+                    ir_number, wo_id, mark_name, mark_type,
+                    holder_name, holder_address, holder_country,
+                    representative_name, registration_date, application_date,
+                    expiry_date, status, origin_country, nice_classes,
+                    designations, goods_services_en, goods_services_de
+                ) VALUES (
+                    :ir_number, :wo_id, :mark_name, :mark_type,
+                    :holder_name, :holder_address, :holder_country,
+                    :representative_name, :registration_date, :application_date,
+                    :expiry_date, :status, :origin_country, :nice_classes,
+                    :designations, :goods_services_en, :goods_services_de
+                )
+            """), data)
+        else:
+            # Update
+            session.execute(text("""
+                UPDATE wipo_trademarks SET
+                    wo_id = :wo_id,
+                    mark_name = :mark_name,
+                    mark_type = :mark_type,
+                    holder_name = :holder_name,
+                    holder_address = :holder_address,
+                    holder_country = :holder_country,
+                    representative_name = :representative_name,
+                    registration_date = :registration_date,
+                    application_date = :application_date,
+                    expiry_date = :expiry_date,
+                    status = :status,
+                    origin_country = :origin_country,
+                    nice_classes = :nice_classes,
+                    designations = :designations,
+                    goods_services_en = :goods_services_en,
+                    goods_services_de = :goods_services_de,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE ir_number = :ir_number
+            """), data)
+        
+        return is_new, True
+    
+    def is_file_synced(self, filename: str) -> bool:
+        """Prüft ob eine Datei bereits synchronisiert wurde."""
+        with self.get_session() as session:
+            result = session.execute(
+                text("SELECT 1 FROM wipo_sync_log WHERE filename = :f AND status = 'completed'"),
+                {'f': filename}
+            ).fetchone()
+            return result is not None
+    
+    def log_sync(self, data: Dict[str, Any]):
+        """Protokolliert einen Sync-Vorgang."""
+        with self.get_session() as session:
+            session.execute(text("""
+                INSERT OR REPLACE INTO wipo_sync_log 
+                (filename, file_date, file_size, records_processed,
+                 records_inserted, records_updated, sync_started, sync_completed, status, error_message)
+                VALUES (:filename, :file_date, :file_size, :records_processed,
+                        :records_inserted, :records_updated, :sync_started, :sync_completed, :status, :error_message)
+            """), data)
+    
+    def search(
+        self,
+        query: Optional[str] = None,
+        mark_name: Optional[str] = None,
+        holder_name: Optional[str] = None,
+        nice_class: Optional[int] = None,
+        origin_country: Optional[str] = None,
+        holder_country: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """Durchsucht die Datenbank."""
+        
+        with self.get_session() as session:
+            # Volltext-Suche (nur SQLite)
+            if query and not self.config.USE_POSTGRESQL:
+                results = session.execute(text("""
+                    SELECT t.* FROM wipo_trademarks t
+                    JOIN wipo_trademarks_fts fts ON t.rowid = fts.rowid
+                    WHERE wipo_trademarks_fts MATCH :query
+                    LIMIT :limit OFFSET :offset
+                """), {'query': query, 'limit': limit, 'offset': offset})
+                return [dict(row._mapping) for row in results]
+            
+            # Standard-Suche
+            conditions = []
+            params = {'limit': limit, 'offset': offset}
+            
+            if mark_name:
+                conditions.append("LOWER(mark_name) LIKE LOWER(:mark_name)")
+                params['mark_name'] = f"%{mark_name}%"
+            
+            if holder_name:
+                conditions.append("LOWER(holder_name) LIKE LOWER(:holder_name)")
+                params['holder_name'] = f"%{holder_name}%"
+            
+            if nice_class:
+                conditions.append("nice_classes LIKE :nice_class")
+                params['nice_class'] = f"%{nice_class}%"
+            
+            if origin_country:
+                conditions.append("origin_country = :origin_country")
+                params['origin_country'] = origin_country.upper()
+            
+            if holder_country:
+                conditions.append("holder_country = :holder_country")
+                params['holder_country'] = holder_country.upper()
+            
+            if status:
+                conditions.append("status = :status")
+                params['status'] = status
+            
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+            
+            results = session.execute(text(f"""
+                SELECT * FROM wipo_trademarks
+                WHERE {where_clause}
+                ORDER BY updated_at DESC
+                LIMIT :limit OFFSET :offset
+            """), params)
+            
+            return [dict(row._mapping) for row in results]
+    
+    def get_trademark(self, ir_number: str) -> Optional[Dict[str, Any]]:
+        """Holt eine einzelne Marke."""
+        with self.get_session() as session:
+            result = session.execute(
+                text("SELECT * FROM wipo_trademarks WHERE ir_number = :ir"),
+                {'ir': ir_number}
+            ).fetchone()
+            return dict(result._mapping) if result else None
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Gibt Statistiken zurück."""
+        with self.get_session() as session:
+            stats = {}
+            
+            # Gesamtzahl
+            result = session.execute(text("SELECT COUNT(*) as cnt FROM wipo_trademarks")).fetchone()
+            stats['total_trademarks'] = result.cnt
+            
+            # Nach Status
+            results = session.execute(text("""
+                SELECT status, COUNT(*) as cnt FROM wipo_trademarks
+                GROUP BY status ORDER BY cnt DESC
+            """))
+            stats['by_status'] = {row.status or 'Unknown': row.cnt for row in results}
+            
+            # Top Länder
+            results = session.execute(text("""
+                SELECT origin_country, COUNT(*) as cnt FROM wipo_trademarks
+                WHERE origin_country IS NOT NULL
+                GROUP BY origin_country ORDER BY cnt DESC LIMIT 10
+            """))
+            stats['top_countries'] = {row.origin_country: row.cnt for row in results}
+            
+            # Sync-Info
+            result = session.execute(text("""
+                SELECT COUNT(*) as files, 
+                       SUM(records_processed) as records,
+                       MIN(file_date) as oldest,
+                       MAX(file_date) as newest
+                FROM wipo_sync_log WHERE status = 'completed'
+            """)).fetchone()
+            
+            stats['sync'] = {
+                'files_synced': result.files or 0,
+                'records_processed': result.records or 0,
+                'oldest_file': result.oldest,
+                'newest_file': result.newest
+            }
+            
+            return stats
+
+
+# Singleton-Instanz
+wipo_db = WIPODatabase()
+```
+
+### 3.7 Sync Service (sync_service.py)
+
+```python
+# app/wipo/sync_service.py
+"""
+Synchronisations-Service für WIPO Daten
+"""
+
+import logging
+import shutil
+from datetime import datetime
+from pathlib import Path
+from typing import Optional, List, Dict, Any
+
+from .config import wipo_config
+from .ftp_client import WIPOFTPClient
+from .xml_parser import WIPOXMLParser
+from .database import wipo_db
+
+logger = logging.getLogger(__name__)
+
+
+class WIPOSyncService:
+    """Service für die Synchronisation von WIPO Daten."""
+    
+    def __init__(self):
+        self.config = wipo_config
+        self.ftp_client = WIPOFTPClient()
+        self.parser = WIPOXMLParser()
+        self.db = wipo_db
+    
+    def init(self):
+        """Initialisiert das System."""
+        self.config.ensure_directories()
+        self.db.init_schema()
+        logger.info("WIPO Sync Service initialisiert")
+    
+    def sync(
+        self,
+        days_back: Optional[int] = None,
+        force: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Führt eine vollständige Synchronisation durch.
+        
+        Args:
+            days_back: Anzahl Tage zurück (None = Config-Wert)
+            force: Auch bereits synchronisierte Dateien verarbeiten
+            
+        Returns:
+            Sync-Ergebnis mit Statistiken
+        """
+        days_back = days_back or self.config.MAX_DOWNLOAD_DAYS
+        
+        result = {
+            'started': datetime.now().isoformat(),
+            'days_back': days_back,
+            'force': force,
+            'files_processed': 0,
+            'files_skipped': 0,
+            'total_records': 0,
+            'total_inserted': 0,
+            'total_updated': 0,
+            'errors': []
+        }
+        
+        logger.info(f"Starte Sync (Tage: {days_back}, Force: {force})")
+        
+        try:
+            # FTP verbinden
+            with self.ftp_client as ftp:
+                # Verfügbare Dateien auflisten
+                available_files = ftp.list_available_files(days_back)
+                result['files_available'] = len(available_files)
+                
+                if not available_files:
+                    logger.info("Keine neuen Dateien gefunden")
+                    result['completed'] = datetime.now().isoformat()
+                    return result
+                
+                # Jede Datei verarbeiten
+                for file_info in available_files:
+                    filename = file_info['filename']
+                    
+                    # Prüfen ob bereits synchronisiert
+                    if not force and self.db.is_file_synced(filename):
+                        logger.info(f"Überspringe: {filename} (bereits synchronisiert)")
+                        result['files_skipped'] += 1
+                        continue
+                    
+                    # Datei verarbeiten
+                    file_result = self._process_file(file_info, ftp)
+                    
+                    result['files_processed'] += 1
+                    result['total_records'] += file_result.get('records_processed', 0)
+                    result['total_inserted'] += file_result.get('records_inserted', 0)
+                    result['total_updated'] += file_result.get('records_updated', 0)
+                    
+                    if file_result.get('error'):
+                        result['errors'].append({
+                            'file': filename,
+                            'error': file_result['error']
+                        })
+            
+            result['completed'] = datetime.now().isoformat()
+            result['success'] = True
+            
+            logger.info(
+                f"Sync abgeschlossen: {result['files_processed']} Dateien, "
+                f"{result['total_records']} Datensätze, "
+                f"{result['total_inserted']} neu, "
+                f"{result['total_updated']} aktualisiert"
+            )
+            
+        except Exception as e:
+            logger.error(f"Sync-Fehler: {e}")
+            result['error'] = str(e)
+            result['success'] = False
+        
+        return result
+    
+    def _process_file(
+        self,
+        file_info: Dict[str, Any],
+        ftp: WIPOFTPClient
+    ) -> Dict[str, Any]:
+        """Verarbeitet eine einzelne ZIP-Datei."""
+        
+        filename = file_info['filename']
+        sync_started = datetime.now()
+        
+        result = {
+            'filename': filename,
+            'records_processed': 0,
+            'records_inserted': 0,
+            'records_updated': 0
+        }
+        
+        try:
+            # Herunterladen
+            zip_path = ftp.download_file(filename)
+            
+            # Extrahieren
+            extract_dir = self.config.EXTRACT_DIR / filename.replace('.zip', '')
+            xml_files = self.parser.extract_zip(zip_path, extract_dir)
+            
+            logger.info(f"Verarbeite {len(xml_files)} XML-Dateien aus {filename}")
+            
+            # XML-Dateien parsen und importieren
+            with self.db.get_session() as session:
+                for xml_path in xml_files:
+                    for trademark_data in self.parser.parse_file(xml_path):
+                        result['records_processed'] += 1
+                        
+                        is_new, success = self.db.upsert_trademark(session, trademark_data)
+                        
+                        if success:
+                            if is_new:
+                                result['records_inserted'] += 1
+                            else:
+                                result['records_updated'] += 1
+                        
+                        # Regelmäßig committen
+                        if result['records_processed'] % self.config.SYNC_BATCH_SIZE == 0:
+                            session.commit()
+                            logger.info(f"  Verarbeitet: {result['records_processed']}...")
+            
+            sync_completed = datetime.now()
+            duration = (sync_completed - sync_started).total_seconds()
+            
+            # Sync protokollieren
+            self.db.log_sync({
+                'filename': filename,
+                'file_date': file_info['date_str'],
+                'file_size': file_info['size'],
+                'records_processed': result['records_processed'],
+                'records_inserted': result['records_inserted'],
+                'records_updated': result['records_updated'],
+                'sync_started': sync_started.isoformat(),
+                'sync_completed': sync_completed.isoformat(),
+                'status': 'completed',
+                'error_message': None
+            })
+            
+            logger.info(
+                f"Abgeschlossen: {filename} - "
+                f"{result['records_processed']} Datensätze in {duration:.1f}s"
+            )
+            
+            # Aufräumen
+            if not self.config.KEEP_ZIP_FILES:
+                zip_path.unlink(missing_ok=True)
+            if not self.config.KEEP_XML_FILES:
+                shutil.rmtree(extract_dir, ignore_errors=True)
+            
+        except Exception as e:
+            logger.error(f"Fehler bei {filename}: {e}")
+            result['error'] = str(e)
+            
+            self.db.log_sync({
+                'filename': filename,
+                'file_date': file_info.get('date_str'),
+                'file_size': file_info.get('size', 0),
+                'records_processed': result['records_processed'],
+                'records_inserted': result['records_inserted'],
+                'records_updated': result['records_updated'],
+                'sync_started': sync_started.isoformat(),
+                'sync_completed': datetime.now().isoformat(),
+                'status': 'error',
+                'error_message': str(e)
+            })
+        
+        return result
+
+
+# Singleton-Instanz
+wipo_sync_service = WIPOSyncService()
+```
+
+### 3.8 API Routes (routes.py)
+
+```python
+# app/wipo/routes.py
+"""
+FastAPI Routes für WIPO Integration
+"""
+
+from fastapi import APIRouter, Query, HTTPException, BackgroundTasks
+from typing import Optional
+from datetime import date
+
+from .models import (
+    TrademarkFull,
+    TrademarkSearchRequest,
+    TrademarkSearchResponse,
+    TrademarkSearchResult,
+    WIPOStats,
+    SyncStatus
+)
+from .database import wipo_db
+from .sync_service import wipo_sync_service
+from .api_client import WIPOAPIClient
+
+router = APIRouter(prefix="/wipo", tags=["WIPO Madrid"])
+
+
+@router.get("/search", response_model=TrademarkSearchResponse)
+async def search_trademarks(
+    query: Optional[str] = Query(None, description="Volltextsuche"),
+    mark_name: Optional[str] = Query(None, description="Markenname"),
+    holder_name: Optional[str] = Query(None, description="Inhaber"),
+    nice_class: Optional[int] = Query(None, ge=1, le=45, description="Nizza-Klasse"),
+    origin_country: Optional[str] = Query(None, min_length=2, max_length=2, description="Ursprungsland"),
+    holder_country: Optional[str] = Query(None, min_length=2, max_length=2, description="Inhaberland"),
+    status: Optional[str] = Query(None, description="Status"),
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0)
+):
+    """
+    Durchsucht die lokale WIPO Markendatenbank.
+    
+    Die Suche verwendet die lokal synchronisierten Daten aus dem Madrid Monitor.
+    Für Echtzeit-Daten nutze den /ir/{ir_number} Endpoint.
+    """
+    results = wipo_db.search(
+        query=query,
+        mark_name=mark_name,
+        holder_name=holder_name,
+        nice_class=nice_class,
+        origin_country=origin_country,
+        holder_country=holder_country,
+        status=status,
+        limit=limit,
+        offset=offset
+    )
+    
+    return TrademarkSearchResponse(
+        total=len(results),  # TODO: Echte Gesamtzahl ermitteln
+        limit=limit,
+        offset=offset,
+        results=[TrademarkSearchResult(**r) for r in results]
+    )
+
+
+@router.get("/ir/{ir_number}", response_model=TrademarkFull)
+async def get_trademark(
+    ir_number: str,
+    live: bool = Query(False, description="Echtzeit-Daten von WIPO abrufen")
+):
+    """
+    Ruft Details zu einer internationalen Registrierung ab.
+    
+    - Mit `live=False` (Standard): Daten aus lokaler Datenbank
+    - Mit `live=True`: Aktuelle Daten direkt von WIPO
+    """
+    if live:
+        # Echtzeit-Abfrage von WIPO
+        api_client = WIPOAPIClient()
+        data = await api_client.get_trademark(ir_number)
+        if not data:
+            raise HTTPException(status_code=404, detail=f"IR {ir_number} nicht gefunden")
+        return TrademarkFull(**data)
+    else:
+        # Lokale Datenbank
+        data = wipo_db.get_trademark(ir_number)
+        if not data:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"IR {ir_number} nicht in lokaler Datenbank. Versuche ?live=true"
+            )
+        return TrademarkFull(**data)
+
+
+@router.post("/sync")
+async def trigger_sync(
+    background_tasks: BackgroundTasks,
+    days: int = Query(7, ge=1, le=365, description="Tage zurück"),
+    force: bool = Query(False, description="Auch bereits synchronisierte Dateien")
+):
+    """
+    Startet eine Synchronisation der WIPO Daten.
+    
+    Die Synchronisation läuft im Hintergrund.
+    """
+    background_tasks.add_task(wipo_sync_service.sync, days_back=days, force=force)
+    
+    return {
+        "message": "Synchronisation gestartet",
+        "days": days,
+        "force": force
+    }
+
+
+@router.get("/stats", response_model=WIPOStats)
+async def get_stats():
+    """
+    Gibt Statistiken zur lokalen WIPO Datenbank zurück.
+    """
+    stats = wipo_db.get_stats()
+    
+    return WIPOStats(
+        total_trademarks=stats['total_trademarks'],
+        active_trademarks=stats['by_status'].get('Active', 0),
+        files_synced=stats['sync']['files_synced'],
+        oldest_file=stats['sync']['oldest_file'],
+        newest_file=stats['sync']['newest_file'],
+        last_sync=None,  # TODO
+        by_status=stats['by_status'],
+        top_countries=stats['top_countries']
+    )
+
+
+@router.get("/expiring")
+async def get_expiring_trademarks(
+    days: int = Query(180, ge=1, le=365, description="Tage bis Ablauf"),
+    holder_country: Optional[str] = Query(None, description="Filter nach Inhaberland"),
+    limit: int = Query(100, ge=1, le=1000)
+):
+    """
+    Listet Marken auf, die in den nächsten X Tagen ablaufen.
+    
+    Nützlich für Renewal-Monitoring.
+    """
+    # TODO: Implementierung
+    return {"message": "Noch nicht implementiert"}
+```
+
+---
+
+## Teil 4: Frontend-Komponenten
+
+### 4.1 React/TypeScript Types
+
+```typescript
+// types/wipo.ts
+
+export interface TrademarkSearchResult {
+  ir_number: string;
+  mark_name: string | null;
+  mark_type: string | null;
+  holder_name: string | null;
+  holder_country: string | null;
+  nice_classes: string | null;
+  status: string | null;
+  registration_date: string | null;
+  expiry_date: string | null;
+  relevance_score?: number;
+}
+
+export interface TrademarkSearchResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  results: TrademarkSearchResult[];
+}
+
+export interface TrademarkSearchParams {
+  query?: string;
+  mark_name?: string;
+  holder_name?: string;
+  nice_class?: number;
+  origin_country?: string;
+  holder_country?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface WIPOStats {
+  total_trademarks: number;
+  active_trademarks: number;
+  files_synced: number;
+  oldest_file: string | null;
+  newest_file: string | null;
+  last_sync: string | null;
+  by_status: Record<string, number>;
+  top_countries: Record<string, number>;
+}
+```
+
+### 4.2 API Client (React)
+
+```typescript
+// services/wipoApi.ts
+
+import axios from 'axios';
+import { 
+  TrademarkSearchParams, 
+  TrademarkSearchResponse,
+  WIPOStats 
+} from '../types/wipo';
+
+const API_BASE = '/api/v1/wipo';
+
+export const wipoApi = {
+  async search(params: TrademarkSearchParams): Promise<TrademarkSearchResponse> {
+    const response = await axios.get(`${API_BASE}/search`, { params });
+    return response.data;
+  },
+
+  async getTrademark(irNumber: string, live = false) {
+    const response = await axios.get(`${API_BASE}/ir/${irNumber}`, {
+      params: { live }
+    });
+    return response.data;
+  },
+
+  async getStats(): Promise<WIPOStats> {
+    const response = await axios.get(`${API_BASE}/stats`);
+    return response.data;
+  },
+
+  async triggerSync(days = 7, force = false) {
+    const response = await axios.post(`${API_BASE}/sync`, null, {
+      params: { days, force }
+    });
+    return response.data;
+  }
+};
+```
+
+---
+
+## Teil 5: Deployment & Konfiguration
+
+### 5.1 Environment Variables
+
+```bash
+# .env
+
+# Datenbank
+WIPO_USE_POSTGRESQL=true
+WIPO_DATABASE_URL=postgresql://user:password@localhost:5432/trademarkiq
+
+# Oder für SQLite:
+# WIPO_USE_POSTGRESQL=false
+# WIPO_SQLITE_PATH=./data/wipo/wipo_madrid.db
+
+# FTP Einstellungen (optional, Defaults sind korrekt)
+WIPO_FTP_HOST=ftpird.wipo.int
+WIPO_FTP_USER=anonymous
+WIPO_FTP_PASS=guest
+
+# Sync Einstellungen
+WIPO_MAX_DOWNLOAD_DAYS=30
+WIPO_SYNC_BATCH_SIZE=1000
+WIPO_ENABLE_AUTO_SYNC=true
+WIPO_SYNC_CRON_EXPRESSION=0 14 * * *
+
+# Dateien behalten (für Debugging)
+WIPO_KEEP_ZIP_FILES=false
+WIPO_KEEP_XML_FILES=false
+```
+
+### 5.2 Requirements
+
+```txt
+# requirements.txt
+
+fastapi>=0.104.0
+uvicorn>=0.24.0
+sqlalchemy>=2.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+httpx>=0.25.0
+python-multipart>=0.0.6
+apscheduler>=3.10.0
+
+# Optional für PostgreSQL
+psycopg2-binary>=2.9.0
+asyncpg>=0.29.0
+```
+
+### 5.3 Scheduler für automatischen Sync
+
+```python
+# app/core/scheduler.py
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+import logging
+
+from app.wipo.config import wipo_config
+from app.wipo.sync_service import wipo_sync_service
+
+logger = logging.getLogger(__name__)
+
+scheduler = AsyncIOScheduler()
+
+
+def setup_wipo_sync_job():
+    """Richtet den täglichen WIPO Sync-Job ein."""
+    
+    if not wipo_config.ENABLE_AUTO_SYNC:
+        logger.info("Automatischer WIPO Sync ist deaktiviert")
+        return
+    
+    # Cron-Expression parsen (z.B. "0 14 * * *" = täglich um 14:00)
+    trigger = CronTrigger.from_crontab(wipo_config.SYNC_CRON_EXPRESSION)
+    
+    scheduler.add_job(
+        func=run_wipo_sync,
+        trigger=trigger,
+        id='wipo_daily_sync',
+        name='WIPO Daily Sync',
+        replace_existing=True
+    )
+    
+    logger.info(f"WIPO Sync Job eingerichtet: {wipo_config.SYNC_CRON_EXPRESSION}")
+
+
+async def run_wipo_sync():
+    """Führt den WIPO Sync aus."""
+    logger.info("Starte geplanten WIPO Sync...")
+    
+    try:
+        result = wipo_sync_service.sync(days_back=7)
+        logger.info(f"WIPO Sync abgeschlossen: {result}")
+    except Exception as e:
+        logger.error(f"WIPO Sync Fehler: {e}")
+
+
+def start_scheduler():
+    """Startet den Scheduler."""
+    setup_wipo_sync_job()
+    scheduler.start()
+    logger.info("Scheduler gestartet")
+
+
+def shutdown_scheduler():
+    """Stoppt den Scheduler."""
+    scheduler.shutdown()
+    logger.info("Scheduler gestoppt")
+```
+
+---
+
+## Teil 6: Wichtige Hinweise
+
+### 6.1 Dateneinschränkungen
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        ⚠️ WICHTIG: DELTA-UPDATES                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Die FTP-Dateien enthalten NUR Änderungen des jeweiligen Tages!             │
+│                                                                             │
+│  Das bedeutet:                                                              │
+│  • Ohne Backfile (CHF 30.000) fehlen historische Daten                     │
+│  • Nach 30 Tagen: ~50.000 Marken                                           │
+│  • Nach 365 Tagen: ~200.000+ Marken                                        │
+│  • Madrid System hat insgesamt ~900.000+ aktive Marken                     │
+│                                                                             │
+│  Für vollständige Daten:                                                    │
+│  • Backfile kaufen: gbd@wipo.int (CHF 30.000)                              │
+│  • Oder: Kommerzielle API nutzen (Markify, Corsearch, etc.)                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 6.2 Rate Limiting
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        ⚠️ RATE LIMITS BEACHTEN                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  FTP-Server:                                                                │
+│  • Keine dokumentierten Limits, aber fair use beachten                     │
+│  • Download-Geschwindigkeit variiert (1-5 MB/s typisch)                    │
+│                                                                             │
+│  XML API (undokumentiert):                                                  │
+│  • Maximal 2 Anfragen pro Sekunde empfohlen                                │
+│  • Bei zu vielen Anfragen: temporäre IP-Sperre möglich                     │
+│  • Für Massenabfragen: lokale Datenbank verwenden                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 6.3 Rechtliche Hinweise
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        📋 RECHTLICHE HINWEISE                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. FTP-Daten sind für die Öffentlichkeit bestimmt und dürfen verwendet    │
+│     werden (siehe WIPO Terms of Service)                                   │
+│                                                                             │
+│  2. Die XML-API ist NICHT offiziell dokumentiert:                          │
+│     • Funktioniert, aber keine Garantie auf Verfügbarkeit                  │
+│     • Für Produktion: lokale Datenbank bevorzugen                          │
+│                                                                             │
+│  3. Automatische Massenabfragen über das Web-Interface sind verboten:      │
+│     • "Direct automatic querying is not permitted"                         │
+│     • Deshalb: FTP + lokale DB als Lösung                                  │
+│                                                                             │
+│  4. Für kommerzielle Nutzung:                                              │
+│     • WIPO-Daten dürfen weiterverwendet werden                             │
+│     • Quellenangabe empfohlen                                              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Teil 7: Test-Checkliste
+
+```markdown
+## Test-Checkliste für WIPO Integration
+
+### FTP-Verbindung
+- [ ] Verbindung zu ftpird.wipo.int funktioniert
+- [ ] Verzeichnis /wipo/madrid/monitor erreichbar
+- [ ] ZIP-Dateien werden korrekt aufgelistet
+- [ ] Download funktioniert (mindestens 1 Datei testen)
+
+### XML-Parser
+- [ ] ZIP-Extraktion funktioniert
+- [ ] XML-Dateien werden gefunden
+- [ ] Felder werden korrekt extrahiert:
+  - [ ] IR-Nummer
+  - [ ] Markenname
+  - [ ] Inhaber
+  - [ ] Daten (Registrierung, Ablauf)
+  - [ ] Klassen
+  - [ ] Status
+
+### Datenbank
+- [ ] Schema wird korrekt erstellt
+- [ ] Insert funktioniert
+- [ ] Update funktioniert (bei erneutem Import)
+- [ ] Suche nach Markenname funktioniert
+- [ ] Suche nach Inhaber funktioniert
+- [ ] Volltextsuche funktioniert
+- [ ] Sync-Log wird geschrieben
+
+### API Endpoints
+- [ ] GET /api/v1/wipo/search funktioniert
+- [ ] GET /api/v1/wipo/ir/{ir_number} funktioniert
+- [ ] GET /api/v1/wipo/stats funktioniert
+- [ ] POST /api/v1/wipo/sync startet Sync
+
+### Scheduler
+- [ ] Automatischer Sync wird gestartet
+- [ ] Cron-Expression wird korrekt interpretiert
+- [ ] Sync läuft im Hintergrund
+
+### Performance
+- [ ] Suche < 500ms für einfache Queries
+- [ ] Import > 100 Datensätze/Sekunde
+- [ ] Datenbank wächst wie erwartet
+```
+
+---
+
+## Zusammenfassung
+
+Diese Anleitung beschreibt die vollständige Integration des WIPO Madrid Monitor in TrademarkIQ:
+
+1. **FTP-Download**: Tägliche ZIP-Dateien von WIPO herunterladen
+2. **XML-Parsing**: Markendaten aus XML extrahieren
+3. **Datenbank**: SQLite oder PostgreSQL mit Volltextsuche
+4. **API**: FastAPI Endpoints für Suche und Abfrage
+5. **Scheduler**: Automatische tägliche Synchronisation
+
+Der Code ist modular aufgebaut und kann leicht erweitert werden.
+
+Bei Fragen: Die WIPO-Kontaktadresse für Datenkauf ist gbd@wipo.int.

@@ -1,0 +1,43 @@
+Ziel
+
+Die bestehenden Module für Markenrecherche, Risikoanalyse, Markenanmeldung und Watchlist sollen zu einem durchgängigen Workflow verzahnt werden. Nutzer sollen automatisch durch alle notwendigen Schritte geführt werden, ohne Daten doppelt eingeben zu müssen oder wichtige Prüfungen zu übersehen.
+
+Schritte zur Umsetzung
+
+Datenmodell und Kontext speichern
+
+Implementiere eine zentrale Datenstruktur (z. B. Session‑Objekt oder Nutzer‑Kontext), in der die Ergebnisse aus der Markenrecherche und Risikoanalyse persistiert werden.
+
+Wenn ein Nutzer eine Suche oder Risikoanalyse abschließt, speichere relevante Daten (Markenname, Klassen, Risikowert) in diesem Kontext.
+
+Voraussetzungsprüfung bei der Markenanmeldung
+
+Prüfe beim Start der „Neue Anmeldung“-Strecke, ob bereits eine Recherche und eine Risikoanalyse zur aktuellen Marke existieren.
+
+Falls ja, lade die gespeicherten Daten vor und zeige dem Nutzer eine Zusammenfassung mit der Option „Daten übernehmen“.
+
+Falls nicht, weise den Nutzer freundlich darauf hin, dass vor der Anmeldung eine Recherche und Risikoanalyse durchgeführt werden müssen, und biete Buttons an, um diese sofort zu starten.
+
+Nahtlose Übergänge
+
+Füge an das Ende der Risikoanalyse einen Call‑to‑Action „Jetzt anmelden“ hinzu, der direkt zur Anmeldestrecke führt und die Analyseergebnisse mitnimmt.
+
+Platziere in der Rechercheansicht einen Button „Risikoanalyse starten“, der die Marke in das Risiko-Modul überträgt.
+
+UI‑Anpassungen
+
+Ergänze Fortschrittsindikatoren, die zeigen, in welchem Schritt des Gesamtprozesses sich der Nutzer befindet (z. B. Recherche → Risikoanalyse → Anmeldung → Watchlist).
+
+Nutze Tooltips oder kleine Infotexte, um zu erklären, warum bestimmte Schritte notwendig sind (z. B. „Eine Risikoanalyse hilft, teure Konflikte zu vermeiden“).
+
+Automatisierte Übergabe an die Watchlist
+
+Nach erfolgreicher Anmeldung sollte die neue Marke automatisch zur Watchlist hinzugefügt werden, wenn der Nutzer dies bestätigt.
+
+Ermögliche dem Nutzer optional, gleich Benachrichtigungen zu konfigurieren.
+
+Testing und Qualitätssicherung
+
+Erstelle Unit‑ und Integrationstests, um sicherzustellen, dass die gespeicherten Daten korrekt zwischen den Modulen übergeben werden.
+
+Führe Usability‑Tests durch, um zu prüfen, ob Nutzer den neuen Flow verstehen und keine Schritte überspringen.

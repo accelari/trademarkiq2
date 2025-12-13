@@ -1,0 +1,128 @@
+Prompt für CareerSystem – vollständige Implementierung einer Voice‑to‑Voice‑Web‑App
+
+Du bist ein erfahrener Fullstack‑Entwickler. Deine Aufgabe ist es, eine minimalistische, moderne Web‑Applikation zu erstellen, die Humes Empathic Voice Interface (EVI) nutzt. Sie ermöglicht Nutzern, entweder per Sprache oder per Text mit einem empathischen Assistenten zu kommunizieren. Berücksichtige folgende Anforderungen und implementiere sie Schritt für Schritt:
+
+1. Projektsetup
+
+Framework und Pakete: Richte ein neues Next.js‑Projekt mit TypeScript ein. Installiere die Pakete @humeai/voice-react und hume (z. B. über pnpm i @humeai/voice-react hume)
+dev.hume.ai
+. Diese Bibliotheken abstrahieren Audioaufnahme, Websocket‑Verbindung und Wiedergabe
+dev.hume.ai
+.
+
+Struktur: Erstelle die Ordnerstruktur app für die App Router‑Variante (oder pages für Pages Router) sowie Unterordner components für Chat‑Komponenten.
+
+2. Authentifizierung und Konfiguration
+
+API‑Schlüssel: Nutze einen .env‑File zur Speicherung von HUME_API_KEY und HUME_SECRET_KEY. API‑Key und Secret erhältst du aus dem Hume‑Portal
+docingest.com
+.
+
+Token‑Strategie: Implementiere im Server‑Code eine Funktion, die mit API‑Key und Secret ein temporäres Access‑Token über den POST /oauth2-cc/token‑Endpunkt bezieht
+docingest.com
+. Schicke das Access‑Token an das Frontend, um dort die Websocket‑Verbindung aufzubauen. Tokens laufen nach 30 Minuten ab und müssen bei Bedarf erneuert werden
+docingest.com
+.
+
+EVI‑Konfiguration: Erstelle (serverseitig) eine EVI‑Config, die folgende Einstellungen enthält:
+
+Voice: Wähle eine vorgefertigte Stimme aus der Hume Voice‑Library oder nutze eine benutzerdefinierte Stimme, falls bereits vorhanden
+dev.hume.ai
+.
+
+System‑Prompt: Definiere einen empathischen Prompt, der auf sprachbasierte Antworten ausgerichtet ist. Füge Abschnitte ein wie <voice_only_response_format> (alle Antworten als gesprochene, natürlich klingende Sprache ohne Formatierungszeichen
+dev.hume.ai
+) und <respond_to_expressions> (Erläuterung, wie der Assistent auf emotionale Ausdrücke reagiert
+dev.hume.ai
+). Optional: Dynamische Variablen (z. B. Nutzername) einbinden.
+
+Language Model: Verwende Humes Standard‑Sprachmodell (hume-evi-3 oder hume-evi-4-mini) für kurze Latenz
+dev.hume.ai
+.
+
+Weitere Optionen: Aktiviere, falls benötigt, Funktionen wie Web‑Suche (eingebautes Tool) oder Quick Responses (nur EVI 3)
+dev.hume.ai
+.
+
+3. Frontend: Komponenten und State
+
+Root‑Seite (app/page.tsx):
+
+Importiere fetchAccessToken aus hume
+dev.hume.ai
+ und rufe sie serverseitig auf, um das Access‑Token mit API‑Key und Secret zu erzeugen.
+
+Lasse das Token als Prop an die Chat‑Komponente weiterreichen.
+
+Chat‑Komponente:
+
+Wrappe alle Chat‑Elemente in einen <VoiceProvider>
+dev.hume.ai
+, damit der Kontext für den useVoice‑Hook verfügbar ist.
+
+Rendere zwei Kindkomponenten: Messages und StartCall.
+
+StartCall‑Komponente:
+
+Verwende den useVoice‑Hook, um connect, disconnect und readyState zu erhalten
+dev.hume.ai
+.
+
+Implementiere einen Button mit den Beschriftungen „Sitzung starten“ / „Sitzung beenden“. Beim Klick auf „Sitzung starten“ rufst du connect() auf und übergibst das Access‑Token sowie optional die configId und Session‑Einstellungen (z. B. Voice‑ID, System‑Prompt). Beim Klick auf „Sitzung beenden“ rufst du disconnect() auf. Achte darauf, dass der Verbindungsaufbau an den Benutzer‑Klick gekoppelt ist, damit der Browser die Mikrofonfreigabe erlaubt
+dev.hume.ai
+.
+
+Messages‑Komponente:
+
+Hole das messages‑Array aus useVoice
+dev.hume.ai
+.
+
+Iteriere über alle Nachrichten und rendere:
+
+user_message: Zeige den transkribierten Text der Nutzeräußerung und optional die erkannten Emotionen in dezenter Form.
+
+assistant_message: Zeige den vom Assistenten generierten Text.
+
+Die audio_output‑Nachrichten müssen nicht manuell abgespielt werden; das übernimmt die Hume‑SDK. Stelle aber sicher, dass keine HTML‑Tags oder Formate im Text erscheinen (wegen voice‑only‑Prompt).
+
+Textnachrichten: Füge ein Texteingabefeld hinzu, damit der Nutzer auch tippen kann. Beim Absenden einer Nachricht wird eine user_message über die Websocket‑Verbindung geschickt. Nutze dazu die entsprechende Methode des Hume‑SDK (z. B. sendUserMessage oder direkt eine JSON‑Nachricht an die Websocket‑URL), sodass EVI darauf antwortet.
+
+4. Minimalistisches UI‑Design
+
+Farbschema: Weißer Hintergrund, dezente Grautöne für Chat‑blasen und Akzente. Verwende viel Weißraum und klare Abgrenzungen.
+
+Typografie: Nutze eine moderne, gut lesbare Schrift (z. B. „Inter“ oder „Roboto“). Setze unterschiedliche Schriftgrößen für Überschrift, Chat‑Text und Buttons.
+
+Layout: Zentriere den Chatbereich mit max. 600–700 px Breite. Nutze Flexbox oder CSS‑Grid. Der Start/Ende‑Button sollte gut sichtbar und farblich akzentuiert sein.
+
+Responsivität: Stelle sicher, dass die Oberfläche auf Desktop und Mobilgeräten funktioniert. Verwende relative Einheiten und Medienabfragen, um das Layout anzupassen.
+
+Barrierefreiheit: Achte auf ausreichende Farbkontraste und beschrifte Buttons sinnvoll. Integriere eine Fokus‑Outline und nutze ARIA‑Labels.
+
+5. Fehlerbehandlung und Logging
+
+Behandle Fehler beim Abrufen des Access‑Tokens (z. B. ungültige Keys) und beim Verbindungsaufbau (connect().catch()).
+
+Implementiere eine visuelle Meldung, falls die Verbindung unterbrochen wird oder wenn EVI einen Fehler meldet.
+
+Logge nützliche Ereignisse für Debugging (z. B. in der Browser‑Konsole).
+
+6. Tests und Validierung
+
+Teste die Anwendung mit verschiedenen Szenarien: reine Sprachnutzung, gemischte Eingabe, abruptes Unterbrechen, langer Dialog.
+
+Prüfe, dass die emotionalen Ausdrücke korrekt an den Prompt angehängt werden (falls im SDK sichtbar) und dass der Assistent entsprechend reagiert.
+
+7. Hinweise zum Schutz der Schlüssel
+
+Gib API‑Key und Secret nie an den Client aus; verwende eine serverseitige API‑Route zum Abrufen des Access‑Tokens.
+
+Regeneriere die Schlüssel regelmäßig über das Hume‑Portal, wenn du vermutest, dass sie kompromittiert sein könnten
+docingest.com
+.
+
+Wenn du diesen Prompt genau befolgst, setzt du eine saubere, sichere und funktionale Voice‑to‑Voice‑Web‑App um. Die Anwendung nutzt die Stärken von Humes EVI (Spracherkennung, empathische Reaktion und sofortige Audioausgabe
+dev.hume.ai
+dev.hume.ai
+) und präsentiert sie in einer modernen, klaren Oberfläche, die sowohl das gesprochene als auch das getippte Gespräch übersichtlich darstellt.

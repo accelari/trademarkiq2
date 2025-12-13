@@ -1,0 +1,471 @@
+Admin Debug-Konsole
+Detaillierte Ansicht aller API-Aufrufe und KI-Verarbeitung für: adidos
+
+Debug-Suche starten
+
+1. KI-Suchstrategie generieren
+14105ms
+Generierte Suchbegriffe
+adidos
+adidas
+addidos
+adidoss
+adi dos
+odidos
+adidos*
+*didos
+adido
+adiidos
+adidus
+adedos
+Strategie-Details
+{
+  "variants": [
+    {
+      "term": "adidos",
+      "type": "exact",
+      "rationale": "Exakte Markenbezeichnung"
+    },
+    {
+      "term": "adidas",
+      "type": "visual",
+      "rationale": "Visuell ähnlich durch minimale Buchstabenänderung (a→o)"
+    },
+    {
+      "term": "addidos",
+      "type": "misspelling",
+      "rationale": "Häufiger Tippfehler mit Doppel-d"
+    },
+    {
+      "term": "adidoss",
+      "type": "misspelling",
+      "rationale": "Typischer Tippfehler mit Doppel-s am Ende"
+    },
+    {
+      "term": "adi dos",
+      "type": "visual",
+      "rationale": "Getrennte Schreibweise, visuell ähnlich"
+    },
+    {
+      "term": "odidos",
+      "type": "phonetic",
+      "rationale": "Phonetisch ähnlich, besonders bei undeutlicher Aussprache"
+    },
+    {
+      "term": "adidos*",
+      "type": "root",
+      "rationale": "Wildcard-Suche für alle Varianten mit adidos-Stamm"
+    },
+    {
+      "term": "*didos",
+      "type": "root",
+      "rationale": "Erfasst Varianten mit beliebigem Präfix"
+    },
+    {
+      "term": "adido",
+      "type": "root",
+      "rationale": "Grundstamm ohne Plural-s"
+    },
+    {
+      "term": "adiidos",
+      "type": "misspelling",
+      "rationale": "Tippfehler mit Doppel-i"
+    },
+    {
+      "term": "adidus",
+      "type": "phonetic",
+      "rationale": "Phonetische Variante mit u statt o"
+    },
+    {
+      "term": "adedos",
+      "type": "phonetic",
+      "rationale": "Phonetische Variation der Vokale"
+    }
+  ],
+  "strategyNarrative": "Suchstrategie fokussiert auf Verwechslungsgefahr mit 'adidas', typische Tippfehler und phonetische Ähnlichkeiten. Wildcard-Suchen erfassen breite Variationen für alle Nizza-Klassen."
+}
+
+2. Ämter-Strategie (National → WIPO → EUIPO)
+2868ms
+Suchstrategie für USPTO
+WIPO-Mitglied
+1
+USPTO (US)
+Direktsuche im nationalen Amt USPTO
+2
+WIPO (WO)
+US ist WIPO-Mitglied - suche WIPO-Marken mit Designation US
+Ergebnisse pro Amt
+7
+USPTO
+3
+WIPO
+
+3. tmsearch.ai API aufrufen
+52698ms
+12
+Suchbegriffe
+54
+API-Treffer
+US
+Register
+Rohdaten (erste 10)
+[
+  {
+    "name": "ADIDAS",
+    "office": "US",
+    "applicationNumber": "87738471",
+    "registrationNumber": "5530029",
+    "niceClasses": [
+      "09",
+      "42"
+    ],
+    "status": "active",
+    "accuracy": "96",
+    "designationCountries": [
+      "US"
+    ],
+    "holder": null,
+    "searchTerm": "adidos"
+  },
+  {
+    "name": "ADIDAS",
+    "office": "US",
+    "applicationNumber": "86106708",
+    "registrationNumber": "4679762",
+    "niceClasses": [
+      "09"
+    ],
+    "status": "active",
+    "accuracy": "96",
+    "designationCountries": [
+      "US"
+    ],
+    "holder": null,
+    "searchTerm": "adidos"
+  },
+  {
+    "name": "ADIDAS",
+    "office": "US",
+    "applicationNumber": "98576667",
+    "registrationNumber": "7863660",
+    "niceClasses": [
+      "25"
+    ],
+    "status": "active",
+    "accuracy": "96",
+    "designationCountries": [
+      "US"
+    ],
+    "holder": null,
+    "searchTerm": "adidos"
+  },
+  {
+    "name": "ADUDOS",
+    "office": "US",
+    "applicationNumber": "90223952",
+    "registrationNumber": "6401094",
+    "niceClasses": [
+      "21"
+    ],
+    "status": "active",
+    "accuracy": "96",
+    "designationCountries": [
+      "US"
+    ],
+    "holder": null,
+    "searchTerm": "adidos"
+  },
+  {
+    "name": "ADIDAS",
+    "office": "US",
+    "applicationNumber": "88216187",
+    "registrationNumber": "5918280",
+    "niceClasses": [
+      "01",
+      "03",
+      "05",
+      "21"
+    ],
+    "status": "active",
+    "accuracy": "96",
+    "designationCountries": [
+      "US"
+    ],
+    "holder": null,
+    "searchTerm": "adidos"
+  },
+  {
+    "name": "ADIDAS NEO",
+    "office": "US",
+    "applicationNumber": "86648824",
+    "registrationNumber": "4863315",
+    "niceClasses": [
+      "18",
+      "25"
+    ],
+    "status": "active",
+    "accuracy": "96",
+    "designationCountries": [
+      "US"
+    ],
+    "holder": null,
+    "searchTerm": "adidos"
+  },
+  {
+    "name": "DIDOS SECRET",
+    "office": "US",
+    "applicationNumber": "86809972",
+    "registrationNumber": "4983259",
+    "niceClasses": [
+      "25"
+    ],
+    "status": "active",
+    "accuracy": "96",
+    "designationCountries": [
+      "US"
+    ],
+    "holder": null,
+    "searchTerm": "adidos"
+  },
+  {
+    "name": "adidas",
+    "office": "WO",
+    "applicationNumber": "1868374",
+    "registrationNumber": "1868374",
+    "niceClasses": [
+      "21"
+    ],
+    "status": "active",
+    "accuracy": "96",
+    "designationCountries": [
+      "CA",
+      "EG",
+      "UK",
+      "US"
+    ],
+    "holder": null,
+    "searchTerm": "adidos"
+  },
+  {
+    "name": "adidas",
+    "office": "WO",
+    "applicationNumber": "1869071",
+    "registrationNumber": "1869071",
+    "niceClasses": [
+      "27"
+    ],
+    "status": "active",
+    "accuracy": "96",
+    "designationCountries": [
+      "AE",
+      "AL",
+      "AM",
+      "AU",
+      "AZ",
+      "BA",
+      "BH",
+      "BN",
+      "BR",
+      "CA",
+      "CH",
+      "CL",
+      "CO",
+      "DZ",
+      "EG",
+      "UK",
+      "GE",
+      "ID",
+      "IL",
+      "IN",
+      "IR",
+      "IS",
+      "JP",
+      "KG",
+      "KH",
+      "KP",
+      "KZ",
+      "LA",
+      "LI",
+      "MA",
+      "MC",
+      "MD",
+      "ME",
+      "MK",
+      "MX",
+      "MY",
+      "NO",
+      "NZ",
+      "OM",
+      "PH",
+      "PK",
+      "QA",
+      "RS",
+      "SG",
+      "SM",
+      "SY",
+      "TH",
+      "TN",
+      "TR",
+      "UA",
+      "US",
+      "VN"
+    ],
+    "holder": null,
+    "searchTerm": "adidos"
+  },
+  {
+    "name": "adidas",
+    "office": "WO",
+    "applicationNumber": "1869070",
+    "registrationNumber": "1869070",
+    "niceClasses": [
+      "24"
+    ],
+    "status": "active",
+    "accuracy": "96",
+    "designationCountries": [
+      "AE",
+      "AL",
+      "AM",
+      "AU",
+      "AZ",
+      "BA",
+      "BH",
+      "BN",
+      "CA",
+      "CH",
+      "CL",
+      "CO",
+      "DZ",
+      "EG",
+      "UK",
+      "GE",
+      "IL",
+      "IN",
+      "IR",
+      "IS",
+      "JP",
+      "KG",
+      "KH",
+      "KP",
+      "KZ",
+      "LA",
+      "LI",
+      "MA",
+      "MC",
+      "MD",
+      "ME",
+      "MK",
+      "MX",
+      "MY",
+      "NZ",
+      "OM",
+      "PH",
+      "QA",
+      "RS",
+      "SG",
+      "SM",
+      "SY",
+      "TH",
+      "TN",
+      "TR",
+      "UA",
+      "US",
+      "VN"
+    ],
+    "holder": null,
+    "searchTerm": "adidos"
+  }
+]
+
+4. Eigene Ähnlichkeitsberechnung
+374ms
+Ähnlichkeitsanalyse pro Marke
+Marke	API %	Phonetik	Visuell	Gesamt	Status
+ADIDAS	96%	83%	83%	83%	OK
+ADIDAS	96%	83%	83%	83%	OK
+ADIDAS	96%	83%	83%	83%	OK
+ADUDOS	96%	83%	83%	83%	OK
+ADIDAS	96%	83%	83%	83%	OK
+ADIDAS NEO	96%	83%	83%	83%	OK
+DIDOS SECRET	96%	83%	83%	83%	OK
+adidas	96%	83%	83%	83%	OK
+adidas	96%	83%	83%	83%	OK
+adidas	96%	83%	83%	83%	OK
+ADIDAS	99%	83%	83%	83%	OK
+ADIDAS	99%	83%	83%	83%	OK
+ADIDAS	99%	83%	83%	83%	OK
+ADIDAS	99%	83%	83%	83%	OK
+ADIDAS NEO	99%	83%	83%	83%	OK
+
+5. Ergebnisse filtern
+0ms
+48
+Relevant
+2
+Ausgeblendet
+combined >= 50% OR coreWordMatch
+Schwelle
+
+6. Claude-Analyse
+17174ms
+Claude Prompt
+MARKENRECHTS-ANALYSE für "adidos "
+
+Verwendete Suchbegriffe: adidos, adidas, addidos, adidoss, adi dos, odidos, adidos*, *didos, adido, adiidos, adidus, adedos
+
+GEFUNDENE MARKEN (20 relevant):
+- "ADIDAS" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+- "ADIDAS" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+- "ADIDAS" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+- "ADUDOS" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adudos"
+- "ADIDAS" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+- "ADIDAS NEO" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+- "DIDOS SECRET" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "didos"
+- "adidas" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+- "adidas" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+- "adidas" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+- "ADIDAS" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+- "ADIDAS" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+- "ADIDAS" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+- "ADIDAS" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+- "ADIDAS NEO" | Phonetik: 83% | Visuell: 83% | Gesamt: 83% | Begründung: Kernwort-Übereinstimmung: "adidos" ≈ "adidas"
+
+WICHTIG: Ähnlichkeitswerte wurden bereits berechnet:
+...
+Claude Antwort
+{
+  "nameAnalysis": "Der Name 'adidos' weist eine extreme Ähnlichkeit zur weltbekannten Marke 'ADIDAS' auf. Mit nur einem Buchstabenaustausch ('a' zu 'o') liegt eine nahezu identische phonetische und visuelle Wiedergabe vor. Die Silbenstruktur (a-di-dos vs. a-di-das) ist identisch, was zu einer sehr hohen Verwechslungsgefahr führt. Zusätzlich wurde auch eine Ähnlichkeit zu 'ADUDOS' und 'DIDOS SECRET' festgestellt.",
+  "riskAssessment": "Die Verwendung von 'adidos' birgt ein extrem hohes rechtliches Risiko. ADIDAS ist eine der bekanntesten Sportmarken weltweit mit umfassendem Markenschutz. Die minimale Abweichung (nur ein Buchstabe) würde von Gerichten sehr wahrscheinlich als bewusste Anlehnung oder Trittbrettfahren interpretiert werden. Die 83%ige Übereinstimmung bei mehreren ADIDAS-Marken deutet auf eine klare Verwechslungsgefahr hin.",
+  "overallRisk": "high",
+  "recommendation": "Von der Verwendung des Namens 'adidos' ist dringend abzuraten. Die Ähnlichkeit zu ADIDAS ist zu offensichtlich und würde mit hoher Wahrscheinlichkeit zu markenrechtlichen Abmahnungen oder Klagen führen. Es sollte ein völlig anderer Name gewählt werden, der keine phonetischen oder visuellen Ähnlichkeiten zu bestehenden Marken, insbesondere zu ADIDAS, aufweist.",
+  "conflicts": [
+    {
+      "name": "ADIDAS",
+      "accuracy": 83,
+      "riskLevel": "high",
+      "reasoning": "Minimale Abweichung (nur 'o' statt 'a'), identische Silbenstruktur, sehr hohe Verwechslungsgefahr mit weltbekannter Marke"
+    },
+    {
+      "name": "ADUDOS",
+      "accuracy": 83,
+      "riskLevel": "high",
+      "reasoning": "Sehr ähnliche Buchstabenfolge und Klangbild, potenzielle Verwechslungsgefahr"
+    },
+    {
+      "name": "DIDOS SECRET",
+      "accuracy": 83,
+      "riskLevel": "high",
+      "reasoning": "Enthält 'didos' als Bestandteil, könnte bei bestimmten Waren/Dienstleistungen zu Konflikten führen"
+    }
+  ]
+}
+
+7. Finale Ergebnisse
+54
+Analysiert
+48
+Konflikte
+Hoch
+Risiko
