@@ -109,7 +109,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
   
   const processedPairsRef = useRef<Set<string>>(new Set());
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const hasGreetedRef = useRef(false);
 
   useImperativeHandle(ref, () => ({
     stopSession: () => {
@@ -180,16 +179,8 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       setWasConnected(true);
       setReconnectAttempts(0);
       setIsReconnecting(false);
-      
-      // Sende initiale Nachricht um Begrüßung zu triggern
-      if (!hasGreetedRef.current && !pendingQuestion) {
-        hasGreetedRef.current = true;
-        setTimeout(() => {
-          sendUserInput("Hallo");
-        }, 500);
-      }
     }
-  }, [status.value, pendingQuestion, sendUserInput]);
+  }, [status.value]);
 
   const fetchFreshToken = async (): Promise<string | null> => {
     try {
@@ -206,15 +197,9 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
     }
   };
 
-  const getValidToken = async (): Promise<string> => {
-    const freshToken = await fetchFreshToken();
-    return freshToken || accessToken;
-  };
-
   useEffect(() => {
     if (status.value === "disconnected") {
       processedPairsRef.current = new Set();
-      hasGreetedRef.current = false;
       
       if (wasConnected && inputMode === "sprache" && reconnectAttempts < MAX_RECONNECT_ATTEMPTS && !isReconnecting) {
         setIsReconnecting(true);
@@ -307,11 +292,10 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       if (status.value === "connected") {
         await disconnect();
       } else {
-        const tokenToUse = await getValidToken();
         await connect({
           auth: {
             type: "accessToken" as const,
-            value: tokenToUse,
+            value: accessToken,
           },
           hostname: "api.hume.ai",
           configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
@@ -339,11 +323,10 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       setPendingQuestion(question);
       try {
         setError(null);
-        const tokenToUse = await getValidToken();
         await connect({
           auth: {
             type: "accessToken" as const,
-            value: tokenToUse,
+            value: accessToken,
           },
           hostname: "api.hume.ai",
           configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
@@ -477,11 +460,10 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           setPendingQuestion(voiceMessage);
           try {
             setError(null);
-            const tokenToUse = await getValidToken();
             await connect({
               auth: {
                 type: "accessToken" as const,
-                value: tokenToUse,
+                value: accessToken,
               },
               hostname: "api.hume.ai",
               configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
