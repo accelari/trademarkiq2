@@ -90,22 +90,18 @@ interface TextMessage {
 }
 
 const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ accessToken, inputMode = "sprache", onMessageSent, autoStart, onAutoStartConsumed, contextMessage, onContextMessageConsumed }, ref) => {
-  const { status, connect, disconnect, sendUserInput, messages } = useVoice();
-  const [error, setError] = useState<string | null>(null);
+  const { status, connect, disconnect, sendUserInput, messages, error: humeError } = useVoice();
+  const [localError, setLocalError] = useState<string | null>(null);
   const [textMessages, setTextMessages] = useState<TextMessage[]>([]);
   const [autoStartTriggered, setAutoStartTriggered] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [contextMessageProcessed, setContextMessageProcessed] = useState(false);
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [wasConnected, setWasConnected] = useState(false);
-  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [connectionLost, setConnectionLost] = useState(false);
+  const [currentToken, setCurrentToken] = useState<string>(accessToken);
   const textChatRef = useRef<HTMLDivElement>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const MAX_RECONNECT_ATTEMPTS = 3;
-  const RECONNECT_DELAY = 2000;
   
   const processedPairsRef = useRef<Set<string>>(new Set());
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -115,12 +111,8 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       if (status.value === "connected") {
         disconnect();
       }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
       setWasConnected(false);
-      setReconnectAttempts(MAX_RECONNECT_ATTEMPTS);
+      setConnectionLost(false);
     },
     isConnected: () => status.value === "connected",
   }));
@@ -177,76 +169,69 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
   useEffect(() => {
     if (status.value === "connected") {
       setWasConnected(true);
-      setReconnectAttempts(0);
-      setIsReconnecting(false);
+      setConnectionLost(false);
+      setLocalError(null);
+      console.log("[Hume] Verbindung hergestellt");
+    } else if (status.value === "disconnected") {
+      processedPairsRef.current = new Set();
+      if (wasConnected && inputMode === "sprache") {
+        setConnectionLost(true);
+        console.log("[Hume] Verbindung unterbrochen - bitte manuell neu verbinden");
+      }
+    } else if (status.value === "error") {
+      console.error("[Hume] Verbindungsfehler:", humeError);
+      setConnectionLost(true);
     }
-  }, [status.value]);
+  }, [status.value, wasConnected, inputMode, humeError]);
 
   const fetchFreshToken = async (): Promise<string | null> => {
     try {
+      console.log("[Hume] Fordere neues Token an...");
       const response = await fetch("/api/token");
       if (!response.ok) {
-        console.error("Token-Refresh fehlgeschlagen:", response.status);
+        console.error("[Hume] Token-Refresh fehlgeschlagen:", response.status);
         return null;
       }
       const data = await response.json();
+      console.log("[Hume] Neues Token erhalten");
       return data.accessToken || null;
     } catch (err) {
-      console.error("Token-Refresh Fehler:", err);
+      console.error("[Hume] Token-Refresh Fehler:", err);
       return null;
     }
   };
 
-  useEffect(() => {
-    if (status.value === "disconnected") {
-      processedPairsRef.current = new Set();
+  const handleReconnect = async () => {
+    try {
+      setLocalError(null);
+      setConnectionLost(false);
+      console.log("[Hume] Manuelle Neuverbindung gestartet...");
       
-      if (wasConnected && inputMode === "sprache" && reconnectAttempts < MAX_RECONNECT_ATTEMPTS && !isReconnecting) {
-        setIsReconnecting(true);
-        console.log(`Auto-Reconnect Versuch ${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS}...`);
-        
-        reconnectTimeoutRef.current = setTimeout(async () => {
-          try {
-            setReconnectAttempts(prev => prev + 1);
-            
-            const freshToken = await fetchFreshToken();
-            const tokenToUse = freshToken || accessToken;
-            
-            if (freshToken) {
-              console.log("Neues Token für Reconnect erhalten");
-            } else {
-              console.log("Verwende bestehendes Token für Reconnect");
-            }
-            
-            await connect({
-              auth: {
-                type: "accessToken" as const,
-                value: tokenToUse,
-              },
-              hostname: "api.hume.ai",
-              configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
-              sessionSettings: {
-                type: "session_settings" as const,
-                systemPrompt: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Die Verbindung wurde wiederhergestellt. Sage kurz: 'Ich bin wieder da. Wo waren wir stehengeblieben?'"
-              }
-            });
-          } catch (err) {
-            console.error("Reconnect fehlgeschlagen:", err);
-            setIsReconnecting(false);
-          }
-        }, RECONNECT_DELAY);
-      } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-        setError("Verbindung unterbrochen. Bitte klicken Sie auf 'Starten' um fortzufahren.");
-        setIsReconnecting(false);
+      const freshToken = await fetchFreshToken();
+      if (freshToken) {
+        setCurrentToken(freshToken);
       }
+      const tokenToUse = freshToken || currentToken;
+      
+      await connect({
+        auth: {
+          type: "accessToken" as const,
+          value: tokenToUse,
+        },
+        hostname: "api.hume.ai",
+        configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
+        sessionSettings: {
+          type: "session_settings" as const,
+          systemPrompt: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Die Verbindung wurde wiederhergestellt. Sage kurz: 'Ich bin wieder da. Wo waren wir stehengeblieben?'"
+        }
+      });
+    } catch (err) {
+      console.error("[Hume] Reconnect fehlgeschlagen:", err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setLocalError(errorMessage || "Verbindung fehlgeschlagen.");
+      setConnectionLost(true);
     }
-    
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-    };
-  }, [status.value, wasConnected, inputMode, reconnectAttempts, isReconnecting, accessToken, connect]);
+  };
 
   useEffect(() => {
     if (status.value === "connected" && pendingQuestion) {
@@ -287,15 +272,24 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
 
   const handleToggle = async () => {
     try {
-      setError(null);
+      setLocalError(null);
+      setConnectionLost(false);
       
       if (status.value === "connected") {
         await disconnect();
+        setWasConnected(false);
       } else {
+        const freshToken = await fetchFreshToken();
+        if (freshToken) {
+          setCurrentToken(freshToken);
+        }
+        const tokenToUse = freshToken || currentToken;
+        
+        console.log("[Hume] Starte Verbindung...");
         await connect({
           auth: {
             type: "accessToken" as const,
-            value: accessToken,
+            value: tokenToUse,
           },
           hostname: "api.hume.ai",
           configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
@@ -306,9 +300,9 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
         });
       }
     } catch (err) {
-      console.error("Connection error:", err);
+      console.error("[Hume] Connection error:", err);
       const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(errorMessage || "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihre Mikrofonberechtigungen.");
+      setLocalError(errorMessage || "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihre Mikrofonberechtigungen.");
     }
   };
 
@@ -322,11 +316,19 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
     } else {
       setPendingQuestion(question);
       try {
-        setError(null);
+        setLocalError(null);
+        setConnectionLost(false);
+        
+        const freshToken = await fetchFreshToken();
+        if (freshToken) {
+          setCurrentToken(freshToken);
+        }
+        const tokenToUse = freshToken || currentToken;
+        
         await connect({
           auth: {
             type: "accessToken" as const,
-            value: accessToken,
+            value: tokenToUse,
           },
           hostname: "api.hume.ai",
           configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
@@ -336,9 +338,9 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           }
         });
       } catch (err) {
-        console.error("Connection error:", err);
+        console.error("[Hume] Connection error:", err);
         const errorMessage = err instanceof Error ? err.message : String(err);
-        setError(errorMessage || "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihre Mikrofonberechtigungen.");
+        setLocalError(errorMessage || "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihre Mikrofonberechtigungen.");
         setPendingQuestion(null);
       }
     }
@@ -357,7 +359,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
     setTextMessages(prev => [...prev, userMessage]);
     onMessageSent?.(message, "user");
     setIsLoading(true);
-    setError(null);
+    setLocalError(null);
 
     try {
       const response = await sendMessageToAPI(message);
@@ -372,8 +374,8 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       setTextMessages(prev => [...prev, assistantMessage]);
       onMessageSent?.(response, "assistant");
     } catch (err) {
-      console.error("Chat error:", err);
-      setError("Fehler bei der Kommunikation. Bitte versuchen Sie es erneut.");
+      console.error("[Hume] Chat error:", err);
+      setLocalError("Fehler bei der Kommunikation. Bitte versuchen Sie es erneut.");
     } finally {
       setIsLoading(false);
     }
@@ -442,7 +444,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
             onMessageSent?.(data.response, "assistant");
           } catch (err) {
             console.error("Context chat error:", err);
-            setError("Fehler bei der Kommunikation. Bitte versuchen Sie es erneut.");
+            setLocalError("Fehler bei der Kommunikation. Bitte versuchen Sie es erneut.");
           } finally {
             setIsLoading(false);
           }
@@ -459,11 +461,19 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
         } else {
           setPendingQuestion(voiceMessage);
           try {
-            setError(null);
+            setLocalError(null);
+            setConnectionLost(false);
+            
+            const freshToken = await fetchFreshToken();
+            if (freshToken) {
+              setCurrentToken(freshToken);
+            }
+            const tokenToUse = freshToken || currentToken;
+            
             await connect({
               auth: {
                 type: "accessToken" as const,
-                value: accessToken,
+                value: tokenToUse,
               },
               hostname: "api.hume.ai",
               configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
@@ -473,7 +483,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
               }
             });
           } catch (err) {
-            console.error("Connection error:", err);
+            console.error("[Hume] Connection error:", err);
             setPendingQuestion(null);
           }
         }
@@ -513,13 +523,15 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                   isTextMode
                     ? 'bg-white/30 text-white'
-                    : isReconnecting
-                      ? 'bg-amber-400/30 text-white animate-pulse'
+                    : connectionLost
+                      ? 'bg-red-400/30 text-white'
                       : isConnected 
                         ? 'bg-green-400/30 text-white' 
-                        : 'bg-white/20 text-white/80'
+                        : isConnecting
+                          ? 'bg-amber-400/30 text-white animate-pulse'
+                          : 'bg-white/20 text-white/80'
                 }`}>
-                  {isTextMode ? 'Text-Modus' : isReconnecting ? 'Verbinde neu...' : isConnecting ? 'Verbindet...' : isConnected ? 'Aktiv' : 'Bereit'}
+                  {isTextMode ? 'Text-Modus' : connectionLost ? 'Unterbrochen' : isConnecting ? 'Verbindet...' : isConnected ? 'Aktiv' : 'Bereit'}
                 </span>
               </div>
             </div>
@@ -605,9 +617,9 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
                 )}
               </div>
 
-              {error && (
+              {localError && (
                 <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                  {error}
+                  {localError}
                 </div>
               )}
 
@@ -690,7 +702,38 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
                 </button>
               </div>
 
-              {error && (
+              {connectionLost && (
+                <div className="w-full max-w-md p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-amber-800 mb-1">Verbindung unterbrochen</p>
+                      <p className="text-sm text-amber-700 mb-3">
+                        Die Verbindung zum Sprachassistenten wurde unterbrochen. Klicken Sie auf &quot;Neu verbinden&quot; um fortzufahren.
+                      </p>
+                      <button
+                        onClick={handleReconnect}
+                        disabled={isConnecting}
+                        className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {isConnecting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Verbinde...
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="w-4 h-4" />
+                            Neu verbinden
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {localError && !connectionLost && (
                 <div className="w-full max-w-md p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4">
                   <div className="flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
