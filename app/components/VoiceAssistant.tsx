@@ -223,6 +223,11 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
         sessionSettings: {
           type: "session_settings" as const,
           systemPrompt: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Die Verbindung wurde wiederhergestellt. Sage kurz: 'Ich bin wieder da. Wo waren wir stehengeblieben?'"
+        },
+        audioConstraints: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
         }
       });
     } catch (err) {
@@ -296,6 +301,11 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           sessionSettings: {
             type: "session_settings" as const,
             systemPrompt: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'"
+          },
+          audioConstraints: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
           }
         });
       }
@@ -335,6 +345,11 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           sessionSettings: {
             type: "session_settings" as const,
             systemPrompt: KLAUS_SYSTEM_PROMPT + `\n\nBEGRÜSSUNG: Der Benutzer hat eine Schnellfrage ausgewählt. Beginne deine Antwort mit: 'Hallo, mein Name ist Klaus. Gerne berate ich Sie zu diesem Thema.' Dann beantworte die folgende Frage: "${question}"`
+          },
+          audioConstraints: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
           }
         });
       } catch (err) {
@@ -480,6 +495,11 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
               sessionSettings: {
                 type: "session_settings" as const,
                 systemPrompt: KLAUS_SYSTEM_PROMPT + (isSystemContext ? `\n\n${contextMessage}` : `\n\nKONTEXT: ${contextMessage}`)
+              },
+              audioConstraints: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
               }
             });
           } catch (err) {

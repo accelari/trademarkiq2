@@ -1256,7 +1256,10 @@ ${notesText}`,
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         <div className="lg:col-span-2 order-1">
           {hasVoiceAssistant ? (
-            <VoiceProvider>
+            <VoiceProvider 
+              enableAudioWorklet={false}
+              onError={(err) => console.error("[Hume VoiceProvider Error]", err)}
+            >
               <VoiceAssistant 
                 ref={voiceAssistantRef}
                 accessToken={accessToken} 

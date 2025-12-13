@@ -215,7 +215,7 @@ export default function VoiceExplanation(props: VoiceExplanationProps) {
   if (!props.isOpen) return null;
 
   return (
-    <VoiceProvider>
+    <VoiceProvider enableAudioWorklet={false}>
       <VoicePlayerInner {...props} />
     </VoiceProvider>
   );
