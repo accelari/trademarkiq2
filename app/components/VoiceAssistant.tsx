@@ -174,13 +174,28 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
     };
   }, [messages, inputMode, onMessageSent]);
 
+  const hasGreetedRef = useRef(false);
+
   useEffect(() => {
     if (status.value === "connected") {
       setWasConnected(true);
       setReconnectAttempts(0);
       setIsReconnecting(false);
+
+      // Sende initiale Nachricht um Begrüßung zu triggern
+      if (!hasGreetedRef.current && !pendingQuestion) {
+        hasGreetedRef.current = true;
+        // Kurze Verzögerung damit die Verbindung stabil ist
+        setTimeout(() => {
+          sendUserInput("Hallo");
+        }, 500);
+      }
     }
-  }, [status.value]);
+
+    if (status.value === "disconnected") {
+      hasGreetedRef.current = false;
+    }
+  }, [status.value, sendUserInput, pendingQuestion]);
 
   const fetchFreshToken = async (): Promise<string | null> => {
     try {
@@ -301,7 +316,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
           sessionSettings: {
             type: "session_settings" as const,
-            systemPrompt: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'"
+            systemPrompt: KLAUS_SYSTEM_PROMPT + "\n\nWICHTIG - ERSTE NACHRICHT: Wenn der Benutzer 'Hallo' sagt oder das Gespräch beginnt, stelle dich vor mit: 'Hallo, mein Name ist Klaus, Ihr KI-Markenberater. Wie kann ich Ihnen heute bei Ihrer Marke helfen?' Halte die Begrüßung kurz und freundlich."
           }
         });
       }
