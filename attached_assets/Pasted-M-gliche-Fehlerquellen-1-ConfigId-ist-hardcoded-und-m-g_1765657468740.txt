@@ -1,0 +1,150 @@
+Mögliche Fehlerquellen
+1. ConfigId ist hardcoded und möglicherweise ungültig
+// VoiceAssistant.tsx:301
+configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3"
+
+Diese Config-ID muss im Hume Dashboard existieren. Wenn sie gelöscht oder geändert wurde, funktioniert nichts.
+
+2. Hume EVI startet NICHT automatisch mit Begrüßung
+Der systemPrompt enthält zwar die Anweisung zur Begrüßung:
+
+systemPrompt: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo...'"
+
+ABER: Hume EVI wartet auf User-Input bevor es antwortet. Die Begrüßung wird nicht automatisch ausgelöst!
+
+3. Fix: Initial Message senden
+Um die Begrüßung zu triggern, muss nach connect() eine initiale Nachricht gesendet werden:
+
+Read
+/home/user/trademarkiq2/app/components/VoiceAssistant.tsx
+Read 30 lines
+Jetzt sehe ich das Problem klar!
+
+Das Problem
+In Zeile 177-183 wird nur der Status aktualisiert wenn verbunden, aber keine initiale Nachricht gesendet:
+
+useEffect(() => {
+  if (status.value === "connected") {
+    setWasConnected(true);
+    setReconnectAttempts(0);
+    setIsReconnecting(false);
+    // ❌ FEHLT: sendUserInput() für Begrüßung!
+  }
+}, [status.value]);
+
+Die Lösung
+Nach erfolgreicher Verbindung muss eine initiale Nachricht gesendet werden, um Klaus zur Begrüßung zu bewegen:
+
+Edit
+/home/user/trademarkiq2/app/components/VoiceAssistant.tsx
+  useEffect(() => {
+
+    if (status.value === "connected") {
+
+      setWasConnected(true);
+
+      setReconnectAttempts(0);
+
+      setIsReconnecting(false);
+
+    }
+
+  }, [status.value]);
+
+  const hasGreetedRef = useRef(false);
+
+ 
+
+  useEffect(() => {
+
+    if (status.value === "connected") {
+
+      setWasConnected(true);
+
+      setReconnectAttempts(0);
+
+      setIsReconnecting(false);
+
+ 
+
+      // Sende initiale Nachricht um Begrüßung zu triggern
+
+      if (!hasGreetedRef.current && !pendingQuestion) {
+
+        hasGreetedRef.current = true;
+
+        // Kurze Verzögerung damit die Verbindung stabil ist
+
+        setTimeout(() => {
+
+Show full diff (9 more lines)
+Jetzt sollte auch der System-Prompt angepasst werden, damit Klaus auf "Hallo" richtig reagiert:
+
+Read
+/home/user/trademarkiq2/app/components/VoiceAssistant.tsx
+Read 60 lines
+Gut, der Fix ist gemacht. Jetzt passe ich noch den System-Prompt an, damit Klaus besser auf das initiale "Hallo" reagiert:
+
+Read
+/home/user/trademarkiq2/app/components/VoiceAssistant.tsx
+Read 30 lines
+Edit
+/home/user/trademarkiq2/app/components/VoiceAssistant.tsx
+          sessionSettings: {
+
+            type: "session_settings" as const,
+
+            systemPrompt: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'"
+
+            systemPrompt: KLAUS_SYSTEM_PROMPT + "\n\nWICHTIG - ERSTE NACHRICHT: Wenn der Benutzer 'Hallo' sagt oder das Gespräch beginnt, stelle dich vor mit: 'Hallo, mein Name ist Klaus, Ihr KI-Markenberater. Wie kann ich Ihnen heute bei Ihrer Marke helfen?' Halte die Begrüßung kurz und freundlich."
+
+          }
+
+Jetzt aktualisiere ich auch die anderen connect() Aufrufe für Konsistenz:
+
+Read
+/home/user/trademarkiq2/app/components/VoiceAssistant.tsx
+Read 30 lines
+Der Fix ist fertig. Lass mich die Änderungen committen:
+
+Bash
+git diff app/components/VoiceAssistant.tsx
+           }
+         });
+       }
+... +40 lines
+Bash
+git add -A && git commit -m "$(cat <<'EOF' Fix: Automatische Begrüßung durch Hume Voice Assistant - Sende initiale "Hallo" Nachricht nach Verbindungsaufbau - hasGreetedRef verhindert doppelte Begrüßungen - System-Prompt angepasst für bessere Reaktion auf "Hallo" - Reset bei Verbindungstrennung EOF )"
+[claude/review-project-structure-01W4ZyiDjjrZJCNQ56pNEnV5 cdfde8d] Fix: Automatische Begrüßung durch Hume Voice Assistant
+ 1 file changed, 17 insertions(+), 2 deletions(-)
+Bash
+git push -u origin claude/review-project-structure-01W4ZyiDjjrZJCNQ56pNEnV5
+remote: 
+To http://127.0.0.1:29758/git/accelari/trademarkiq2
+ * [new branch]      claude/review-project-structure-01W4ZyiDjjrZJCNQ56pNEnV5 -> claude/review-project-structure-01W4ZyiDjjrZJCNQ56pNEnV5
+... +4 lines
+Fix ist fertig!
+Was war das Problem?
+Hume EVI wartet auf User-Input bevor es antwortet. Die Begrüßungsanweisung im System-Prompt wurde nie ausgelöst, weil keine initiale Nachricht gesendet wurde.
+
+Was wurde geändert?
+app/components/VoiceAssistant.tsx
+
+Änderung	Beschreibung
+hasGreetedRef	Verhindert doppelte Begrüßungen
+sendUserInput("Hallo")	Sendet automatisch "Hallo" nach Verbindung
+500ms Verzögerung	Wartet bis Verbindung stabil ist
+System-Prompt	Bessere Anweisung für Reaktion auf "Hallo"
+Ablauf jetzt:
+1. User klickt "Starten"
+2. connect() → WebSocket zu Hume
+3. status === "connected"
+4. 500ms warten
+5. sendUserInput("Hallo") ← NEU!
+6. Klaus antwortet: "Hallo, mein Name ist Klaus..."
+7. Klaus hört zu
+
+Wichtig zu prüfen:
+Falls es immer noch nicht funktioniert, könnte die ConfigId im Hume Dashboard ungültig sein:
+
+configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3"

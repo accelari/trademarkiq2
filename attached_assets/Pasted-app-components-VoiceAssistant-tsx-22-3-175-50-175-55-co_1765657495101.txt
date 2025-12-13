@@ -1,0 +1,218 @@
+app/components/VoiceAssistant.tsx
++22
+-3
+
+@@ -175,50 +175,55 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({
+  }, [messages, inputMode, onMessageSent]);
+
+  useEffect(() => {
+    if (status.value === "connected") {
+      setWasConnected(true);
+      setReconnectAttempts(0);
+      setIsReconnecting(false);
+    }
+  }, [status.value]);
+
+  const fetchFreshToken = async (): Promise<string | null> => {
+    try {
+      const response = await fetch("/api/token");
+      if (!response.ok) {
+        console.error("Token-Refresh fehlgeschlagen:", response.status);
+        return null;
+      }
+      const data = await response.json();
+      return data.accessToken || null;
+    } catch (err) {
+      console.error("Token-Refresh Fehler:", err);
+      return null;
+    }
+  };
+
+  const getValidToken = async (): Promise<string | null> => {
+    const freshToken = await fetchFreshToken();
+    return freshToken || accessToken;
+  };
+
+  useEffect(() => {
+    if (status.value === "disconnected") {
+      processedPairsRef.current = new Set();
+      
+      if (wasConnected && inputMode === "sprache" && reconnectAttempts < MAX_RECONNECT_ATTEMPTS && !isReconnecting) {
+        setIsReconnecting(true);
+        console.log(`Auto-Reconnect Versuch ${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS}...`);
+        
+        reconnectTimeoutRef.current = setTimeout(async () => {
+          try {
+            setReconnectAttempts(prev => prev + 1);
+            
+            const freshToken = await fetchFreshToken();
+            const tokenToUse = freshToken || accessToken;
+            
+            if (freshToken) {
+              console.log("Neues Token für Reconnect erhalten");
+            } else {
+              console.log("Verwende bestehendes Token für Reconnect");
+            }
+            
+            await connect({
+              auth: {
+                type: "accessToken" as const,
+                value: tokenToUse,
+@@ -270,85 +275,95 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({
+      role: m.type as "user" | "assistant",
+      content: m.content
+    }));
+
+    const response = await fetch("/api/ai/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, history })
+    });
+
+    if (!response.ok) {
+      throw new Error("Fehler bei der Kommunikation mit dem Berater");
+    }
+
+    const data = await response.json();
+    return data.response;
+  };
+
+  const handleToggle = async () => {
+    try {
+      setError(null);
+      
+      if (status.value === "connected") {
+        await disconnect();
+      } else {
+        const tokenToUse = await getValidToken();
+
+        if (!tokenToUse) {
+          throw new Error("Kein gültiges Zugriffstoken verfügbar");
+        }
+
+        await connect({
+          auth: {
+            type: "accessToken" as const,
+            value: accessToken,
+            value: tokenToUse,
+          },
+          hostname: "api.hume.ai",
+          configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
+          sessionSettings: {
+            type: "session_settings" as const,
+            systemPrompt: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'"
+          }
+        });
+      }
+    } catch (err) {
+      console.error("Connection error:", err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage || "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihre Mikrofonberechtigungen.");
+    }
+  };
+
+  handleToggleRef.current = handleToggle;
+
+  const handleQuestionClick = async (question: string) => {
+    if (inputMode === "text") {
+      await handleTextMessage(question);
+    } else if (status.value === "connected") {
+      sendUserInput(question);
+    } else {
+      setPendingQuestion(question);
+      try {
+        setError(null);
+        const tokenToUse = await getValidToken();
+        if (!tokenToUse) {
+          throw new Error("Kein gültiges Zugriffstoken verfügbar");
+        }
+        await connect({
+          auth: {
+            type: "accessToken" as const,
+            value: accessToken,
+            value: tokenToUse,
+          },
+          hostname: "api.hume.ai",
+          configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
+          sessionSettings: {
+            type: "session_settings" as const,
+            systemPrompt: KLAUS_SYSTEM_PROMPT + `\n\nBEGRÜSSUNG: Der Benutzer hat eine Schnellfrage ausgewählt. Beginne deine Antwort mit: 'Hallo, mein Name ist Klaus. Gerne berate ich Sie zu diesem Thema.' Dann beantworte die folgende Frage: "${question}"`
+          }
+        });
+      } catch (err) {
+        console.error("Connection error:", err);
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setError(errorMessage || "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihre Mikrofonberechtigungen.");
+        setPendingQuestion(null);
+      }
+    }
+  };
+
+  const handleTextMessage = async (message: string) => {
+    if (isLoading) return;
+
+    const userMessage: TextMessage = {
+      id: `user-${Date.now()}`,
+      type: "user",
+      content: message,
+      timestamp: new Date(),
+@@ -438,54 +453,58 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({
+              content: data.response,
+              timestamp: new Date()
+            };
+            setTextMessages(prev => [...prev, assistantMessage]);
+            onMessageSent?.(data.response, "assistant");
+          } catch (err) {
+            console.error("Context chat error:", err);
+            setError("Fehler bei der Kommunikation. Bitte versuchen Sie es erneut.");
+          } finally {
+            setIsLoading(false);
+          }
+        } else {
+          await handleTextMessage(contextMessage);
+        }
+      } else {
+        const voiceMessage = isSystemContext 
+          ? "Ich möchte die Beratung fortsetzen, um die fehlenden Informationen zu ergänzen."
+          : contextMessage;
+          
+        if (status.value === "connected") {
+          sendUserInput(voiceMessage);
+        } else {
+          setPendingQuestion(voiceMessage);
+          try {
+            setError(null);
+            const tokenToUse = await getValidToken();
+            if (!tokenToUse) {
+              throw new Error("Kein gültiges Zugriffstoken verfügbar");
+            }
+            await connect({
+              auth: {
+                type: "accessToken" as const,
+                value: accessToken,
+                value: tokenToUse,
+              },
+              hostname: "api.hume.ai",
+              configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
+              sessionSettings: {
+                type: "session_settings" as const,
+                systemPrompt: KLAUS_SYSTEM_PROMPT + (isSystemContext ? `\n\n${contextMessage}` : `\n\nKONTEXT: ${contextMessage}`)
+              }
+            });
+          } catch (err) {
+            console.error("Connection error:", err);
+            setPendingQuestion(null);
+          }
+        }
+      }
+      onContextMessageConsumed?.();
+    };
+    
+    processContextMessage();
+  }, [contextMessage, contextMessageProcessed, isLoading, inputMode, status.value]);
+
+  useEffect(() => {
+    if (contextMessage === null) {
+      setContextMessageProcessed(false);
+    }
+  }, [contextMessage]);
