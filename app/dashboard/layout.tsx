@@ -200,8 +200,8 @@ function LeaveModal() {
   if (!showLeaveModal) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center">
-      <div className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-xl">
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center" onClick={() => setShowLeaveModal(false)}>
+      <div className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold mb-2">Ungespeicherte Änderungen</h3>
         <p className="text-gray-600 mb-4">Möchten Sie Ihre Daten speichern bevor Sie die Seite verlassen?</p>
         <div className="flex gap-3 justify-end">

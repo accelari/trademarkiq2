@@ -565,8 +565,8 @@ export default function WatchlistPage() {
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-xl w-full max-w-md shadow-xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <h3 className="font-semibold text-gray-900">Marke zur Watchlist hinzufügen</h3>
               <button
@@ -641,8 +641,8 @@ export default function WatchlistPage() {
       )}
 
       {showNotificationModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg shadow-xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4" onClick={() => setShowNotificationModal(false)}>
+          <div className="bg-white rounded-xl w-full max-w-lg shadow-xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-primary/10 rounded-lg">
@@ -793,8 +793,8 @@ export default function WatchlistPage() {
       )}
 
       {showDetailModal && selectedItem && editedItem && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white rounded-xl w-full sm:max-w-2xl shadow-xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4" onClick={() => { setShowDetailModal(false); setSelectedItem(null); setEditMode(false); }}>
+          <div className="bg-white rounded-xl w-full sm:max-w-2xl shadow-xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-gray-100 sticky top-0 bg-white">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${
@@ -1394,8 +1394,8 @@ export default function WatchlistPage() {
       )}
 
       {showDeleteConfirm && selectedItem && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-xl">
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="bg-white rounded-xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="p-5">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-red-100 rounded-lg">
