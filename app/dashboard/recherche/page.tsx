@@ -43,6 +43,7 @@ import {
   Star,
 } from "lucide-react";
 import WorkflowProgress from "@/app/components/WorkflowProgress";
+import ConsultationsModal from "@/app/components/ConsultationsModal";
 import { NICE_CLASSES, getPopularClasses, formatClassLabel } from "@/lib/nice-classes";
 import { useUnsavedData } from "@/app/contexts/UnsavedDataContext";
 
@@ -1552,6 +1553,7 @@ export default function RecherchePage() {
   const [currentCaseNumber, setCurrentCaseNumber] = useState<string | null>(null);
   
   const [showConsultationsModal, setShowConsultationsModal] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([]);
   const [isDeepSearch, setIsDeepSearch] = useState(false);
@@ -1655,6 +1657,27 @@ export default function RecherchePage() {
   const handleOpenConsultationsModal = useCallback(() => {
     mutateConsultations();
     setShowConsultationsModal(true);
+  }, [mutateConsultations]);
+
+  const handleDeleteConsultation = useCallback(async (id: string) => {
+    setDeletingId(id);
+    try {
+      let endpoint: string;
+      if (id.startsWith("case-")) {
+        const caseId = id.replace("case-", "");
+        endpoint = `/api/cases/${caseId}`;
+      } else {
+        endpoint = `/api/consultations/${id}`;
+      }
+      const res = await fetch(endpoint, { method: "DELETE" });
+      if (res.ok) {
+        mutateConsultations();
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+    } finally {
+      setDeletingId(null);
+    }
   }, [mutateConsultations]);
 
   useEffect(() => {
@@ -3314,204 +3337,15 @@ export default function RecherchePage() {
         </div>
       )}
 
-      {showConsultationsModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowConsultationsModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-gradient-to-r from-primary to-teal-600 px-6 py-5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <FolderOpen className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">Meine Markenfälle</h2>
-                  <p className="text-white/80 text-sm">
-                    {consultations.length} gespeicherte Fälle
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowConsultationsModal(false)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-              >
-                <X className="w-6 h-6 text-white" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4">
-              {consultations.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
-                    <FileText className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Noch keine Markenfälle
-                  </h3>
-                  <p className="text-gray-500 max-w-xs">
-                    Starten Sie eine Beratung oder führen Sie eine Recherche durch.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {consultations.map((consultation: any) => {
-                    const journeySteps = ["beratung", "recherche", "risikoanalyse", "anmeldung", "watchlist"];
-                    const stepLabels: Record<string, string> = {
-                      beratung: "Beratung",
-                      recherche: "Recherche",
-                      risikoanalyse: "Risiko",
-                      anmeldung: "Anmeldung",
-                      watchlist: "Watchlist",
-                    };
-                    const getStepStatus = (stepName: string) => {
-                      const step = consultation.caseSteps?.find((s: any) => s.step === stepName);
-                      if (!step) return "pending";
-                      if (step.skippedAt || step.status === "skipped") return "skipped";
-                      if (step.completedAt || step.status === "completed") return "completed";
-                      if (step.status === "in_progress") return "in_progress";
-                      return "pending";
-                    };
-                    
-                    return (
-                      <div
-                        key={consultation.id}
-                        className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow cursor-pointer"
-                        onClick={() => {
-                          setShowConsultationsModal(false);
-                          if (consultation.caseId) {
-                            router.push(`/dashboard/risikoanalyse?caseId=${consultation.caseId}`);
-                          }
-                        }}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900">
-                              {consultation.trademarkName 
-                                ? `Marke "${consultation.trademarkName}"${consultation.countries?.length ? ` - ${consultation.countries.join(", ")}` : ""}`
-                                : "Markenberatung"
-                              }
-                            </h4>
-                            <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                              <Clock className="w-4 h-4" />
-                              <span>
-                                {new Date(consultation.createdAt).toLocaleDateString("de-DE", {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                              {consultation.duration && (
-                                <>
-                                  <span>·</span>
-                                  <span>{Math.floor(consultation.duration / 60)}:{String(consultation.duration % 60).padStart(2, "0")}</span>
-                                </>
-                              )}
-                            </div>
-                            {consultation.caseNumber && (
-                              <span className="inline-block mt-2 px-2 py-0.5 bg-primary/10 text-primary text-xs font-mono rounded">
-                                {consultation.caseNumber}
-                              </span>
-                            )}
-                            
-                            {consultation.caseNumber && (
-                              <div className="mt-3">
-                                <div className="flex flex-wrap gap-2">
-                                  {journeySteps.map((step) => {
-                                    const status = getStepStatus(step);
-                                    const statusStyles = status === "completed" 
-                                      ? "bg-green-100 text-green-700 border-green-200" 
-                                      : status === "skipped"
-                                      ? "bg-gray-100 text-gray-400 border-gray-200 line-through"
-                                      : status === "in_progress"
-                                      ? "bg-primary/10 text-primary border-primary/30"
-                                      : "bg-gray-50 text-gray-500 border-gray-200";
-                                    const statusIcon = status === "completed" 
-                                      ? <Check className="w-3 h-3" />
-                                      : status === "skipped"
-                                      ? <span className="text-[10px]">⊘</span>
-                                      : null;
-                                    return (
-                                      <div
-                                        key={step}
-                                        className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border ${statusStyles}`}
-                                      >
-                                        {statusIcon}
-                                        <span>{stepLabels[step]}</span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                                <p className="text-xs text-gray-400 mt-2">
-                                  {journeySteps.filter(s => getStepStatus(s) === "completed").length} von {journeySteps.length} Schritten abgeschlossen
-                                </p>
-                              </div>
-                            )}
-                            
-                            {consultation.caseId && (
-                              <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                                {(() => {
-                                  const nextStep = journeySteps.find((s, i) => i > 0 && getStepStatus(s) !== "completed" && getStepStatus(s) !== "skipped");
-                                  const stepRoutes: Record<string, string> = {
-                                    recherche: `/dashboard/recherche?caseId=${consultation.caseId}`,
-                                    risikoanalyse: `/dashboard/risikoanalyse?caseId=${consultation.caseId}`,
-                                    anmeldung: `/dashboard/anmeldung?caseId=${consultation.caseId}`,
-                                    watchlist: `/dashboard/watchlist?caseId=${consultation.caseId}`,
-                                  };
-                                  return (
-                                    <>
-                                      {nextStep && (
-                                        <button
-                                          onClick={() => {
-                                            setShowConsultationsModal(false);
-                                            router.push(stepRoutes[nextStep]);
-                                          }}
-                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors"
-                                        >
-                                          Weiter: {stepLabels[nextStep]}
-                                          <ArrowRight className="w-3.5 h-3.5" />
-                                        </button>
-                                      )}
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (confirm("Möchten Sie diesen Fall wirklich löschen?")) {
-                                try {
-                                  await fetch(`/api/consultations/${consultation.id}`, { method: "DELETE" });
-                                  window.location.reload();
-                                } catch (err) {
-                                  console.error("Delete error:", err);
-                                }
-                              }
-                            }}
-                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 border-t border-gray-100 bg-gray-50">
-              <button
-                onClick={() => setShowConsultationsModal(false)}
-                className="w-full px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-medium"
-              >
-                Schließen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConsultationsModal
+        isOpen={showConsultationsModal}
+        onClose={() => setShowConsultationsModal(false)}
+        consultations={consultations}
+        isLoading={false}
+        onDelete={handleDeleteConsultation}
+        deletingId={deletingId}
+        onNavigate={(path) => router.push(path)}
+      />
     </div>
   );
 }
