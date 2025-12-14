@@ -2066,6 +2066,16 @@ export default function RecherchePage() {
       setShowSaveSearchDialog(false);
       setResultsSaved(true);
       
+      if (aiAnalysis?.conflicts && aiAnalysis.conflicts.length > 0) {
+        sessionStorage.setItem('risikoanalyse_conflicts', JSON.stringify({
+          conflicts: aiAnalysis.conflicts,
+          markenname: searchQuery,
+          laender: selectedLaender,
+          klassen: aiSelectedClasses,
+          analysis: aiAnalysis.analysis,
+        }));
+      }
+      
       router.push(`/dashboard/risiko?markenname=${encodeURIComponent(searchQuery)}&conflicts=${aiAnalysis?.conflicts?.length || 0}&laender=${selectedLaender.join(',')}&klassen=${aiSelectedClasses.join(',')}&case=${responseData.case?.caseNumber}`);
     } catch (error) {
       console.error("Error saving search:", error);
@@ -2132,6 +2142,17 @@ export default function RecherchePage() {
     
     if (activeCaseId) {
       setResultsSaved(true);
+      
+      if (aiAnalysis?.conflicts && aiAnalysis.conflicts.length > 0) {
+        sessionStorage.setItem('risikoanalyse_conflicts', JSON.stringify({
+          conflicts: aiAnalysis.conflicts,
+          markenname: searchQuery,
+          laender: selectedLaender,
+          klassen: aiSelectedClasses,
+          analysis: aiAnalysis.analysis,
+        }));
+      }
+      
       router.push(`/dashboard/risiko?markenname=${encodeURIComponent(searchQuery)}&conflicts=${aiAnalysis?.conflicts?.length || 0}&laender=${selectedLaender.join(',')}&klassen=${aiSelectedClasses.join(',')}&case=${activeCaseId}`);
     } else {
       setShowSaveSearchDialog(true);

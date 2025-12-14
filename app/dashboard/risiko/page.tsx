@@ -660,6 +660,7 @@ function RisikoPageContent() {
     const markennameParam = searchParams.get("markenname");
     const laenderParam = searchParams.get("laender");
     const klassenParam = searchParams.get("klassen");
+    const conflictsParam = searchParams.get("conflicts");
     
     if (markennameParam) setMarkenname(markennameParam);
     if (laenderParam) setSelectedLaender(laenderParam.split(",").filter(Boolean));
@@ -667,6 +668,78 @@ function RisikoPageContent() {
     
     if (caseParam) {
       setCaseId(caseParam);
+    }
+    
+    const storedData = sessionStorage.getItem('risikoanalyse_conflicts');
+    if (storedData && conflictsParam && parseInt(conflictsParam) > 0) {
+      try {
+        const parsed = JSON.parse(storedData);
+        sessionStorage.removeItem('risikoanalyse_conflicts');
+        
+        const conflictAnalyses: ExpertConflictAnalysis[] = parsed.conflicts.map((c: any) => ({
+          conflictId: c.id || c.applicationNumber || Math.random().toString(),
+          conflictName: c.name,
+          conflictHolder: c.holder || "Unbekannt",
+          conflictClasses: c.classes || [],
+          conflictOffice: c.register || "DE",
+          similarity: c.accuracy || 0,
+          legalAssessment: c.reasoning || "Keine detaillierte Bewertung verfügbar.",
+          oppositionRisk: c.riskLevel === "high" ? 85 : c.riskLevel === "medium" ? 55 : 25,
+          consequences: c.riskLevel === "high" 
+            ? "Bei einer Anmeldung besteht ein hohes Risiko eines Widerspruchs durch den Inhaber dieser älteren Marke. Ein Rechtsstreit könnte zu erheblichen Kosten und einer Zurückweisung der Anmeldung führen."
+            : c.riskLevel === "medium"
+            ? "Ein Widerspruch ist möglich. Die Ähnlichkeit könnte bei identischen Waren/Dienstleistungen zu Problemen führen."
+            : "Das Risiko eines erfolgreichen Widerspruchs ist gering, aber eine Beobachtung wird empfohlen.",
+          solutions: c.riskLevel === "high" ? [
+            {
+              type: "name_modification" as const,
+              title: "Namen anpassen",
+              description: "Modifizieren Sie den Markennamen, um die Ähnlichkeit zu reduzieren",
+              suggestedValue: `${parsed.markenname || markennameParam}+`,
+              successProbability: 75,
+              effort: "low" as const,
+              reasoning: "Eine Namensänderung kann die Verwechslungsgefahr erheblich reduzieren.",
+            },
+            {
+              type: "class_change" as const,
+              title: "Andere Nizza-Klassen wählen",
+              description: "Vermeiden Sie überlappende Waren/Dienstleistungsklassen",
+              suggestedValue: "Alternative Klassen prüfen",
+              successProbability: 60,
+              effort: "medium" as const,
+              reasoning: "Eine Einschränkung der Klassen kann das Konfliktpotenzial reduzieren.",
+            },
+          ] : [],
+        }));
+        
+        const overallRisk = parsed.analysis?.overallRisk || 
+          (conflictAnalyses.some(c => c.oppositionRisk > 70) ? "high" : 
+           conflictAnalyses.some(c => c.oppositionRisk > 40) ? "medium" : "low");
+        
+        setExpertAnalysis({
+          success: true,
+          trademarkName: parsed.markenname || markennameParam || "",
+          overallRisk: overallRisk as "high" | "medium" | "low",
+          conflictAnalyses,
+          bestOverallSolution: conflictAnalyses.length > 0 && conflictAnalyses[0].solutions.length > 0 
+            ? conflictAnalyses[0].solutions[0] 
+            : null,
+          summary: parsed.analysis?.recommendation || 
+            `Die Analyse hat ${conflictAnalyses.length} potenzielle Konflikte identifiziert. ${
+              overallRisk === "high" 
+                ? "Es wird empfohlen, den Markennamen anzupassen oder rechtliche Beratung einzuholen."
+                : overallRisk === "medium"
+                ? "Eine sorgfältige Prüfung wird empfohlen."
+                : "Die Marke scheint weitgehend frei von Konflikten zu sein."
+            }`,
+        });
+      } catch (e) {
+        console.error("Error parsing stored conflicts:", e);
+        if (caseParam) {
+          loadExpertAnalysis(caseParam);
+        }
+      }
+    } else if (caseParam) {
       loadExpertAnalysis(caseParam);
     }
   }, [searchParams]);
