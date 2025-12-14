@@ -1107,6 +1107,8 @@ ${notesText}`,
         content,
         type
       }];
+      // Synchron die Ref aktualisieren, um Race Conditions zu vermeiden
+      meetingNotesRef.current = newNotes;
       console.log("[CopilotClient] meetingNotes updated, new length:", newNotes.length);
       return newNotes;
     });
