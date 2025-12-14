@@ -90,7 +90,7 @@ interface TextMessage {
 }
 
 const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ accessToken, inputMode = "sprache", onMessageSent, autoStart, onAutoStartConsumed, contextMessage, onContextMessageConsumed }, ref) => {
-  const { status, connect, disconnect, sendUserInput, messages } = useVoice();
+  const { status, connect, disconnect, sendUserInput, sendSessionSettings, messages } = useVoice();
   const [error, setError] = useState<string | null>(null);
   const [textMessages, setTextMessages] = useState<TextMessage[]>([]);
   const [autoStartTriggered, setAutoStartTriggered] = useState(false);
@@ -101,6 +101,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [wasConnected, setWasConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const textChatRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -179,8 +180,16 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       setWasConnected(true);
       setReconnectAttempts(0);
       setIsReconnecting(false);
+      
+      if (pendingPrompt) {
+        console.log("Sende SessionSettings mit Klaus-Prompt...");
+        sendSessionSettings({
+          systemPrompt: pendingPrompt
+        });
+        setPendingPrompt(null);
+      }
     }
-  }, [status.value]);
+  }, [status.value, pendingPrompt, sendSessionSettings]);
 
   const fetchFreshToken = async (): Promise<string | null> => {
     try {
@@ -218,6 +227,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
               console.log("Verwende bestehendes Token für Reconnect");
             }
             
+            setPendingPrompt(KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Die Verbindung wurde wiederhergestellt. Sage kurz: 'Ich bin wieder da. Wo waren wir stehengeblieben?'");
             await connect({
               auth: {
                 type: "accessToken" as const,
@@ -225,12 +235,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
               },
               hostname: "api.hume.ai",
               configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
-              sessionSettings: {
-                type: "session_settings" as const,
-                prompt: {
-                  text: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Die Verbindung wurde wiederhergestellt. Sage kurz: 'Ich bin wieder da. Wo waren wir stehengeblieben?'"
-                }
-              }
             });
           } catch (err) {
             console.error("Reconnect fehlgeschlagen:", err);
@@ -294,6 +298,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       if (status.value === "connected") {
         await disconnect();
       } else {
+        setPendingPrompt(KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'");
         await connect({
           auth: {
             type: "accessToken" as const,
@@ -301,12 +306,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           },
           hostname: "api.hume.ai",
           configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
-          sessionSettings: {
-            type: "session_settings" as const,
-            prompt: {
-              text: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'"
-            }
-          }
         });
       }
     } catch (err) {
@@ -327,6 +326,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       setPendingQuestion(question);
       try {
         setError(null);
+        setPendingPrompt(KLAUS_SYSTEM_PROMPT + `\n\nBEGRÜSSUNG: Der Benutzer hat eine Schnellfrage ausgewählt. Beginne deine Antwort mit: 'Hallo, mein Name ist Klaus. Gerne berate ich Sie zu diesem Thema.' Dann beantworte die folgende Frage: "${question}"`);
         await connect({
           auth: {
             type: "accessToken" as const,
@@ -334,12 +334,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           },
           hostname: "api.hume.ai",
           configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
-          sessionSettings: {
-            type: "session_settings" as const,
-            prompt: {
-              text: KLAUS_SYSTEM_PROMPT + `\n\nBEGRÜSSUNG: Der Benutzer hat eine Schnellfrage ausgewählt. Beginne deine Antwort mit: 'Hallo, mein Name ist Klaus. Gerne berate ich Sie zu diesem Thema.' Dann beantworte die folgende Frage: "${question}"`
-            }
-          }
         });
       } catch (err) {
         console.error("Connection error:", err);
@@ -466,6 +460,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           setPendingQuestion(voiceMessage);
           try {
             setError(null);
+            setPendingPrompt(KLAUS_SYSTEM_PROMPT + (isSystemContext ? `\n\n${contextMessage}` : `\n\nKONTEXT: ${contextMessage}`));
             await connect({
               auth: {
                 type: "accessToken" as const,
@@ -473,12 +468,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
               },
               hostname: "api.hume.ai",
               configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
-              sessionSettings: {
-                type: "session_settings" as const,
-                prompt: {
-                  text: KLAUS_SYSTEM_PROMPT + (isSystemContext ? `\n\n${contextMessage}` : `\n\nKONTEXT: ${contextMessage}`)
-                }
-              }
             });
           } catch (err) {
             console.error("Connection error:", err);
