@@ -46,7 +46,17 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { status, extractedData, researchData } = body;
+    const { 
+      status, 
+      extractedData, 
+      researchData,
+      title,
+      summary,
+      transcript,
+      sessionProtocol,
+      duration,
+      mode 
+    } = body;
 
     const existing = await db.query.consultations.findFirst({
       where: and(
@@ -75,13 +85,22 @@ export async function PATCH(
     const newStatus = status || 
       (updatedExtractedData.isComplete ? "ready_for_research" : "draft");
 
+    const updateData: Record<string, any> = {
+      status: newStatus,
+      extractedData: updatedExtractedData,
+      updatedAt: new Date(),
+    };
+
+    if (title !== undefined) updateData.title = title;
+    if (summary !== undefined) updateData.summary = summary;
+    if (transcript !== undefined) updateData.transcript = transcript;
+    if (sessionProtocol !== undefined) updateData.sessionProtocol = sessionProtocol;
+    if (duration !== undefined) updateData.duration = duration;
+    if (mode !== undefined) updateData.mode = mode;
+
     const [updated] = await db
       .update(consultations)
-      .set({
-        status: newStatus,
-        extractedData: updatedExtractedData,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(
         and(
           eq(consultations.id, id),
