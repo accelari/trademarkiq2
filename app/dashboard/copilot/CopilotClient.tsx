@@ -120,8 +120,20 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
   // Global UnsavedDataContext integration for sidebar navigation interception
   const { 
     setHasUnsavedData: setGlobalHasUnsavedData, 
-    setOnSaveBeforeLeave 
+    setOnSaveBeforeLeave,
+    setCheckUnsavedDataRef
   } = useUnsavedData();
+
+  // Register ref-based check function for real-time detection (fixes race condition)
+  useEffect(() => {
+    const checkUnsavedData = () => {
+      const hasNotes = meetingNotesRef.current.length > 1;
+      console.log("[CopilotClient] Ref check - meetingNotesRef.length:", meetingNotesRef.current.length, "| hasNotes:", hasNotes);
+      return hasNotes && !savedSuccessfully && !sessionAnalyzed;
+    };
+    setCheckUnsavedDataRef(checkUnsavedData);
+    return () => setCheckUnsavedDataRef(null);
+  }, [setCheckUnsavedDataRef, savedSuccessfully, sessionAnalyzed]);
 
   // Sync local hasUnsavedData with global context
   useEffect(() => {
@@ -1759,7 +1771,7 @@ ${notesText}`,
                                           Beratung nachholen
                                         </button>
                                       )}
-                                      {isIncomplete ? (
+                                      {isIncomplete && (
                                         <button
                                           onClick={() => {
                                             setShowConsultationsModal(false);
@@ -1770,7 +1782,8 @@ ${notesText}`,
                                           <MessageCircle className="w-3.5 h-3.5" />
                                           Beratung fortsetzen
                                         </button>
-                                      ) : nextStep && nextStep !== "beratung" && (
+                                      )}
+                                      {nextStep && nextStep !== "beratung" && (
                                         <button
                                           onClick={() => {
                                             setShowConsultationsModal(false);
@@ -1783,7 +1796,7 @@ ${notesText}`,
                                         </button>
                                       )}
                                       
-                                      {!isIncomplete && journeySteps.slice(1).filter(s => getStepStatus(s) !== "completed").length > 1 && (
+                                      {journeySteps.slice(1).filter(s => getStepStatus(s) !== "completed").length > 1 && (
                                         <div className="flex gap-1">
                                           {journeySteps.slice(1).filter(s => s !== nextStep && getStepStatus(s) !== "completed").slice(0, 2).map(step => (
                                             <button

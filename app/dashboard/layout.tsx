@@ -58,12 +58,15 @@ function Sidebar({
   const { 
     hasUnsavedData, 
     setPendingNavigation, 
-    setShowLeaveModal 
+    setShowLeaveModal,
+    checkUnsavedDataRef
   } = useUnsavedData();
 
   const handleNavClick = (e: React.MouseEvent, href: string) => {
-    console.log("[Sidebar] Navigation click to:", href, "| hasUnsavedData:", hasUnsavedData, "| pathname:", pathname);
-    if (hasUnsavedData && pathname !== href) {
+    const refCheck = checkUnsavedDataRef.current?.() ?? false;
+    const shouldBlock = hasUnsavedData || refCheck;
+    console.log("[Sidebar] Navigation click to:", href, "| hasUnsavedData:", hasUnsavedData, "| refCheck:", refCheck, "| shouldBlock:", shouldBlock, "| pathname:", pathname);
+    if (shouldBlock && pathname !== href) {
       e.preventDefault();
       setPendingNavigation(href);
       setShowLeaveModal(true);

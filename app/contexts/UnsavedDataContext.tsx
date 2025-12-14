@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback, useRef, MutableRefObject } from "react";
 
 interface UnsavedDataContextType {
   hasUnsavedData: boolean;
@@ -10,6 +10,8 @@ interface UnsavedDataContextType {
   setShowLeaveModal: (value: boolean) => void;
   onSaveBeforeLeave: (() => Promise<void>) | null;
   setOnSaveBeforeLeave: (fn: (() => Promise<void>) | null) => void;
+  checkUnsavedDataRef: MutableRefObject<(() => boolean) | null>;
+  setCheckUnsavedDataRef: (fn: (() => boolean) | null) => void;
 }
 
 const UnsavedDataContext = createContext<UnsavedDataContextType | null>(null);
@@ -19,9 +21,14 @@ export function UnsavedDataProvider({ children }: { children: ReactNode }) {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [onSaveBeforeLeave, setOnSaveBeforeLeaveState] = useState<(() => Promise<void>) | null>(null);
+  const checkUnsavedDataRef = useRef<(() => boolean) | null>(null);
 
   const setOnSaveBeforeLeave = useCallback((fn: (() => Promise<void>) | null) => {
     setOnSaveBeforeLeaveState(() => fn);
+  }, []);
+
+  const setCheckUnsavedDataRef = useCallback((fn: (() => boolean) | null) => {
+    checkUnsavedDataRef.current = fn;
   }, []);
 
   return (
@@ -29,7 +36,8 @@ export function UnsavedDataProvider({ children }: { children: ReactNode }) {
       hasUnsavedData, setHasUnsavedData,
       pendingNavigation, setPendingNavigation,
       showLeaveModal, setShowLeaveModal,
-      onSaveBeforeLeave, setOnSaveBeforeLeave
+      onSaveBeforeLeave, setOnSaveBeforeLeave,
+      checkUnsavedDataRef, setCheckUnsavedDataRef
     }}>
       {children}
     </UnsavedDataContext.Provider>
