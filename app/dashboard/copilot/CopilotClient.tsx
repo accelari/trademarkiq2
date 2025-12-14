@@ -150,77 +150,6 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     setGlobalHasUnsavedData(hasUnsavedData);
   }, [hasUnsavedData, setGlobalHasUnsavedData, meetingNotes.length, savedSuccessfully, sessionAnalyzed]);
 
-  // Set up save callback for sidebar navigation
-  useEffect(() => {
-    const saveBeforeLeave = async () => {
-      if (meetingNotes.length > 1) {
-        // Generate summary and save consultation
-        const notesText = meetingNotes
-          .filter(n => n.type !== "system")
-          .map(n => `${n.type === "user" ? "Frage" : "Antwort"}: ${n.content}`)
-          .join("\n\n");
-
-        try {
-          // Generate a quick summary
-          const summaryResponse = await fetch("/api/ai/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: `Erstelle eine kurze Zusammenfassung (3-5 Sätze) dieser Markenberatung auf Deutsch. Gib NUR die Zusammenfassung zurück.\n\nGespräch:\n${notesText}`,
-              history: []
-            })
-          });
-
-          let summary = "Markenberatung - automatisch gespeichert";
-          if (summaryResponse.ok) {
-            const summaryData = await summaryResponse.json();
-            summary = summaryData.response?.trim() || summary;
-          }
-
-          const sessionProtocol = meetingNotes
-            .map(n => {
-              const time = n.timestamp.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-              const role = n.type === "user" ? "BENUTZER" : n.type === "assistant" ? "BERATER" : "SYSTEM";
-              return `[${time}] ${role}: ${n.content}`;
-            })
-            .join("\n");
-
-          // Save consultation
-          const response = await fetch("/api/consultations", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: `Markenberatung - ${new Date().toLocaleDateString("de-DE")}`,
-              summary,
-              transcript: notesText,
-              sessionProtocol,
-              duration: meetingDurationSeconds,
-              mode: inputMode,
-              caseId: catchUpCaseId || currentCaseId || null,
-              sendEmail: false
-            })
-          });
-
-          if (response.ok) {
-            setSavedSuccessfully(true);
-          }
-        } catch (error) {
-          console.error("Error saving consultation before leave:", error);
-        }
-      }
-    };
-
-    if (hasUnsavedData) {
-      setOnSaveBeforeLeave(saveBeforeLeave);
-    } else {
-      setOnSaveBeforeLeave(null);
-    }
-    
-    return () => {
-      setOnSaveBeforeLeave(null);
-    };
-  }, [hasUnsavedData, meetingNotes, meetingDurationSeconds, inputMode, catchUpCaseId, currentCaseId, setOnSaveBeforeLeave]);
-
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedData) {
@@ -240,6 +169,131 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     }
   }, []);
 
+  const runConsultationAnalysisAndSave = useCallback(async (): Promise<{
+    success: boolean;
+    extractedData?: { trademarkName: string | null; countries: string[]; niceClasses: number[] };
+  }> => {
+    if (meetingNotesRef.current.length <= 1) return { success: false };
+    
+    stopVoiceSession();
+    
+    const currentNotes = meetingNotesRef.current;
+    const notesText = currentNotes
+      .filter(n => n.type !== "system")
+      .map(n => `${n.type === "user" ? "Frage" : "Antwort"}: ${n.content}`)
+      .join("\n\n");
+
+    const sessionProtocol = currentNotes
+      .map(n => {
+        const time = n.timestamp.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+        const role = n.type === "user" ? "BENUTZER" : n.type === "assistant" ? "BERATER" : "SYSTEM";
+        return `[${time}] ${role}: ${n.content}`;
+      })
+      .join("\n");
+
+    let extractedData = { trademarkName: null as string | null, countries: [] as string[], niceClasses: [] as number[] };
+    try {
+      const analysisResponse = await fetch("/api/ai/analyze-consultation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingNotes: notesText })
+      });
+      
+      if (analysisResponse.ok) {
+        const data = await analysisResponse.json();
+        extractedData = {
+          trademarkName: data.result?.trademarkName || null,
+          countries: data.result?.targetCountries || [],
+          niceClasses: (data.result?.niceClasses || []).map((c: string) => parseInt(c)).filter((c: number) => !isNaN(c))
+        };
+      }
+    } catch (e) {
+      console.error("Analysis error:", e);
+    }
+
+    let summary = `Markenberatung - ${new Date().toLocaleDateString("de-DE")}`;
+    try {
+      const summaryResponse = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Erstelle eine kurze Zusammenfassung (3-5 Sätze) dieser Markenberatung auf Deutsch. Gib NUR die Zusammenfassung zurück.\n\nGespräch:\n${notesText}`,
+          history: []
+        })
+      });
+      if (summaryResponse.ok) {
+        const summaryData = await summaryResponse.json();
+        summary = summaryData.response?.trim() || summary;
+      }
+    } catch (e) {}
+
+    const title = extractedData.trademarkName 
+      ? `Marke "${extractedData.trademarkName}"` 
+      : `Markenberatung - ${new Date().toLocaleDateString("de-DE")}`;
+
+    const caseId = catchUpCaseId || currentCaseId;
+    try {
+      const response = await fetch("/api/consultations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          summary,
+          transcript: notesText,
+          sessionProtocol,
+          duration: meetingDurationSeconds,
+          mode: inputModeRef.current,
+          extractedData,
+          caseId,
+          sendEmail: false
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (caseId) {
+          await fetch("/api/cases/save-decisions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              caseId,
+              consultationId: data.consultation?.id,
+              trademarkName: extractedData.trademarkName,
+              countries: extractedData.countries,
+              niceClasses: extractedData.niceClasses
+            })
+          });
+          
+          if (extractedData.trademarkName) {
+            await fetch(`/api/cases/${caseId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ trademarkName: extractedData.trademarkName })
+            });
+          }
+        }
+        
+        setSavedSuccessfully(true);
+        return { success: true, extractedData };
+      }
+    } catch (e) {
+      console.error("Save error:", e);
+    }
+    
+    return { success: false };
+  }, [meetingDurationSeconds, catchUpCaseId, currentCaseId, stopVoiceSession]);
+
+  // Set up save callback for sidebar navigation (must be after runConsultationAnalysisAndSave definition)
+  useEffect(() => {
+    if (hasUnsavedData) {
+      setOnSaveBeforeLeave(runConsultationAnalysisAndSave);
+    } else {
+      setOnSaveBeforeLeave(null);
+    }
+    return () => setOnSaveBeforeLeave(null);
+  }, [hasUnsavedData, runConsultationAnalysisAndSave, setOnSaveBeforeLeave]);
+
   useEffect(() => {
     return () => {
       if (voiceAssistantRef.current) {
@@ -250,6 +304,7 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
 
   const handleNavigationWithCheck = (path: string) => {
     if (hasUnsavedData) {
+      stopVoiceSession();
       setPendingNavigation(path);
       setShowLeaveModal(true);
     } else {
@@ -269,7 +324,22 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
 
   const confirmLeaveAndSave = async () => {
     setShowLeaveModal(false);
-    await generateMeetingSummary();
+    setIsAnalyzing(true);
+    setToast({ message: "Analysiere und speichere Beratung...", visible: true });
+    
+    const result = await runConsultationAnalysisAndSave();
+    
+    setIsAnalyzing(false);
+    
+    if (result.success) {
+      setToast({ message: "Beratung erfolgreich gespeichert!", visible: true });
+      if (pendingNavigation) {
+        router.push(pendingNavigation);
+        setPendingNavigation(null);
+      }
+    } else {
+      setToast({ message: "Fehler beim Speichern", visible: true });
+    }
   };
 
   useEffect(() => {
@@ -1699,6 +1769,35 @@ ${notesText}`,
                       {formatDate(selectedConsultation.createdAt)} · {formatDuration(selectedConsultation.duration)}
                     </p>
                   </div>
+                  {(selectedConsultation.trademarkName || (selectedConsultation.countries && selectedConsultation.countries.length > 0) || (selectedConsultation.niceClasses && selectedConsultation.niceClasses.length > 0)) && (
+                    <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 mb-4">
+                      <h4 className="text-sm font-semibold text-teal-800 mb-3 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        Extrahierte Informationen
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        {selectedConsultation.trademarkName && (
+                          <div className="flex justify-between">
+                            <span className="text-teal-700">Markenname:</span>
+                            <span className="font-medium text-teal-900">"{selectedConsultation.trademarkName}"</span>
+                          </div>
+                        )}
+                        {selectedConsultation.countries && selectedConsultation.countries.length > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-teal-700">Zielländer:</span>
+                            <span className="font-medium text-teal-900">{selectedConsultation.countries.join(", ")}</span>
+                          </div>
+                        )}
+                        {selectedConsultation.niceClasses && selectedConsultation.niceClasses.length > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-teal-700">Nizza-Klassen:</span>
+                            <span className="font-medium text-teal-900">{selectedConsultation.niceClasses.join(", ")}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {selectedConsultation.summary && (
                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 mb-4">
                       <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
