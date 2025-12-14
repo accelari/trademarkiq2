@@ -35,6 +35,12 @@ export async function GET(request: NextRequest) {
       const searchData = (c.events?.find((e: any) => e.eventType === "created")?.eventData as any)?.searchData;
       const extractedData = linkedConsultation?.extractedData as any;
       
+      // Berechne Vollständigkeit basierend auf tatsächlichen Daten
+      const trademarkName = c.trademarkName || extractedData?.trademarkName;
+      const countries = extractedData?.countries || searchData?.countries || [];
+      const niceClasses = extractedData?.niceClasses || searchData?.classes || [];
+      const isComplete = !!(trademarkName && trademarkName.trim().length > 0 && countries.length > 0 && niceClasses.length > 0);
+      
       return {
         id: `case-${c.id}`,
         userId: c.userId,
@@ -46,12 +52,12 @@ export async function GET(request: NextRequest) {
         sessionProtocol: linkedConsultation?.sessionProtocol || null,
         duration: linkedConsultation?.duration || null,
         mode: linkedConsultation?.mode || "recherche",
-        status: linkedConsultation?.status || "completed",
+        status: isComplete ? (linkedConsultation?.status || "ready_for_research") : "draft",
         extractedData: {
-          trademarkName: c.trademarkName || extractedData?.trademarkName,
-          countries: extractedData?.countries || searchData?.countries || [],
-          niceClasses: extractedData?.niceClasses || searchData?.classes || [],
-          isComplete: true,
+          trademarkName,
+          countries,
+          niceClasses,
+          isComplete,
         },
         emailSent: linkedConsultation?.emailSent || false,
         emailSentAt: linkedConsultation?.emailSentAt || null,

@@ -1679,13 +1679,19 @@ ${notesText}`,
                             <h4 className="font-medium text-gray-900 hover:text-primary transition-colors">
                               {consultation.title}
                             </h4>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <p className="text-sm text-gray-500">
                                 {formatDate(consultation.createdAt)} · {formatDuration(consultation.duration)}
                               </p>
                               {consultation.caseNumber && (
                                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
                                   {consultation.caseNumber}
+                                </span>
+                              )}
+                              {consultation.extractedData && !(consultation.extractedData as any).isComplete && (
+                                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  Unvollständig
                                 </span>
                               )}
                             </div>
@@ -1736,6 +1742,9 @@ ${notesText}`,
                                     watchlist: `/dashboard/watchlist?caseId=${consultation.caseId}`,
                                   };
                                   
+                                  // Prüfe ob die Beratung unvollständig ist
+                                  const isIncomplete = consultation.extractedData && !(consultation.extractedData as any).isComplete;
+                                  
                                   return (
                                     <>
                                       {beratungStatus === "skipped" && (
@@ -1750,7 +1759,18 @@ ${notesText}`,
                                           Beratung nachholen
                                         </button>
                                       )}
-                                      {nextStep && nextStep !== "beratung" && (
+                                      {isIncomplete ? (
+                                        <button
+                                          onClick={() => {
+                                            setShowConsultationsModal(false);
+                                            router.push(`/dashboard/copilot?catchUpCase=${consultation.caseId}`);
+                                          }}
+                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors"
+                                        >
+                                          <MessageCircle className="w-3.5 h-3.5" />
+                                          Beratung fortsetzen
+                                        </button>
+                                      ) : nextStep && nextStep !== "beratung" && (
                                         <button
                                           onClick={() => {
                                             setShowConsultationsModal(false);
@@ -1763,7 +1783,7 @@ ${notesText}`,
                                         </button>
                                       )}
                                       
-                                      {journeySteps.slice(1).filter(s => getStepStatus(s) !== "completed").length > 1 && (
+                                      {!isIncomplete && journeySteps.slice(1).filter(s => getStepStatus(s) !== "completed").length > 1 && (
                                         <div className="flex gap-1">
                                           {journeySteps.slice(1).filter(s => s !== nextStep && getStepStatus(s) !== "completed").slice(0, 2).map(step => (
                                             <button
