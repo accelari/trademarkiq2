@@ -227,7 +227,9 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
               configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
               sessionSettings: {
                 type: "session_settings" as const,
-                systemPrompt: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Die Verbindung wurde wiederhergestellt. Sage kurz: 'Ich bin wieder da. Wo waren wir stehengeblieben?'"
+                prompt: {
+                  text: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Die Verbindung wurde wiederhergestellt. Sage kurz: 'Ich bin wieder da. Wo waren wir stehengeblieben?'"
+                }
               }
             });
           } catch (err) {
@@ -301,7 +303,9 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
           sessionSettings: {
             type: "session_settings" as const,
-            systemPrompt: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'"
+            prompt: {
+              text: KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'"
+            }
           }
         });
       }
@@ -332,7 +336,9 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
           sessionSettings: {
             type: "session_settings" as const,
-            systemPrompt: KLAUS_SYSTEM_PROMPT + `\n\nBEGRÜSSUNG: Der Benutzer hat eine Schnellfrage ausgewählt. Beginne deine Antwort mit: 'Hallo, mein Name ist Klaus. Gerne berate ich Sie zu diesem Thema.' Dann beantworte die folgende Frage: "${question}"`
+            prompt: {
+              text: KLAUS_SYSTEM_PROMPT + `\n\nBEGRÜSSUNG: Der Benutzer hat eine Schnellfrage ausgewählt. Beginne deine Antwort mit: 'Hallo, mein Name ist Klaus. Gerne berate ich Sie zu diesem Thema.' Dann beantworte die folgende Frage: "${question}"`
+            }
           }
         });
       } catch (err) {
@@ -469,7 +475,9 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
               configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
               sessionSettings: {
                 type: "session_settings" as const,
-                systemPrompt: KLAUS_SYSTEM_PROMPT + (isSystemContext ? `\n\n${contextMessage}` : `\n\nKONTEXT: ${contextMessage}`)
+                prompt: {
+                  text: KLAUS_SYSTEM_PROMPT + (isSystemContext ? `\n\n${contextMessage}` : `\n\nKONTEXT: ${contextMessage}`)
+                }
               }
             });
           } catch (err) {
