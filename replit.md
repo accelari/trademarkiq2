@@ -21,7 +21,7 @@ The application is built with Next.js 16 (App Router) and TypeScript, utilizing 
 ### Key Features
 - **Markenberatung (Voice CoPilot)**: AI-powered voice/text assistant (Hume AI + Claude). Always-on session tracking with timer. "Meine Markenfälle" popup accessible from multiple pages to view/manage all trademark cases. AI-generated summaries with Markdown formatting. One-click save functionality.
   - **Conversation Continuity**: When resuming an incomplete consultation, the assistant receives full context from prior sessions (summary, extracted data, missing fields)
-  - **Automatic Decision Persistence**: Extracted trademark data (name, countries, Nice classes) is automatically saved to caseDecisions when consultations are saved
+  - **Automatic Decision Persistence**: Extracted trademark data (name, countries, Nice classes) is automatically saved to caseDecisions when consultations are saved. Follow-up consultations update existing decisions (upsert), and the case's updatedAt timestamp is refreshed to show when data was last modified.
   - **Research Prefill**: When navigating to Recherche, forms are automatically prefilled with consultation data; missing fields are highlighted with a link back to continue the consultation
 - **Markenrecherche**: AI-powered trademark search with `tmsearch.ai` integration, including accuracy scores, office badges, and detailed modals. Features include:
   - World-class international search strategy generation using Claude Opus 4.1
