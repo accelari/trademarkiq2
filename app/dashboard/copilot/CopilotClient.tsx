@@ -45,6 +45,12 @@ interface Consultation {
   countries?: string[];
   niceClasses?: number[];
   caseSteps?: CaseStep[];
+  extractedData?: {
+    trademarkName?: string;
+    countries?: string[];
+    niceClasses?: number[];
+    isComplete?: boolean;
+  };
 }
 
 const topicLabels: Record<string, string> = {
@@ -748,171 +754,30 @@ Alle wichtigen Informationen sind bereits vorhanden. Der Kunde kann zur Recherch
 
     try {
       if (!savedSuccessfully && meetingNotes.length > 1) {
-        const classesArray = classes.split(",").map(c => parseInt(c.trim())).filter(c => !isNaN(c));
-        
-        const countriesArray = countries.split(",").map(c => {
-          const normalized = c.trim().toUpperCase();
-          const countryCodeMap: Record<string, string> = {
-            "USA": "US", "UNITED STATES": "US", "VEREINIGTE STAATEN": "US", "AMERIKA": "US",
-            "DEUTSCHLAND": "DE", "GERMANY": "DE", "BRD": "DE",
-            "EUROPA": "EU", "EM": "EU", "EUROPEAN UNION": "EU", "EUROPÄISCHE UNION": "EU",
-            "UK": "GB", "UNITED KINGDOM": "GB", "GROSSBRITANNIEN": "GB", "ENGLAND": "GB",
-            "SCHWEIZ": "CH", "SWITZERLAND": "CH", "SUISSE": "CH",
-            "ÖSTERREICH": "AT", "AUSTRIA": "AT",
-            "FRANKREICH": "FR", "FRANCE": "FR",
-            "ITALIEN": "IT", "ITALY": "IT", "ITALIA": "IT",
-            "SPANIEN": "ES", "SPAIN": "ES", "ESPAÑA": "ES",
-            "NIEDERLANDE": "NL", "NETHERLANDS": "NL", "HOLLAND": "NL",
-            "CHINA": "CN", "JAPAN": "JP", "KOREA": "KR", "SÜDKOREA": "KR",
-            "INDIEN": "IN", "INDIA": "IN", "BRASILIEN": "BR", "BRAZIL": "BR",
-            "KANADA": "CA", "CANADA": "CA", "AUSTRALIEN": "AU", "AUSTRALIA": "AU",
-            "WIPO": "WO", "INTERNATIONAL": "WO", "WELTWEIT": "WO",
-          };
-          return countryCodeMap[normalized] || normalized;
-        });
-        
-        const title = `Marke "${trademark}" - ${countriesArray.join(", ")}`;
-        
-        const transcript = meetingNotes
-          .filter(n => n.type !== "system")
-          .map(n => `${n.type === "user" ? "Frage" : "Antwort"}: ${n.content}`)
-          .join("\n\n");
-
-        const sessionProtocol = meetingNotes
-          .map(n => {
-            const time = n.timestamp.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-            const role = n.type === "user" ? "BENUTZER" : n.type === "assistant" ? "BERATER" : "SYSTEM";
-            return `[${time}] ${role}: ${n.content}`;
-          })
-          .join("\n");
-
-        const extractedData = {
-          trademarkName: trademark,
-          countries: countriesArray,
-          niceClasses: classesArray,
-        };
-
-        let summaryToSave = meetingSummary;
-        if (!summaryToSave) {
-          try {
-            const summaryResponse = await fetch("/api/ai/chat", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                message: `Erstelle eine kurze Zusammenfassung (3-5 Sätze) dieser Markenberatung auf Deutsch. Fokussiere auf: Was wurde besprochen, welche Marke, welche Länder und Klassen. Gib NUR die Zusammenfassung zurück.\n\nGespräch:\n${transcript}`,
-                history: []
-              })
-            });
-            if (summaryResponse.ok) {
-              const summaryData = await summaryResponse.json();
-              summaryToSave = summaryData.response?.trim() || `Beratung zu Marke "${trademark}" für ${countriesArray.join(", ")} in Klassen ${classesArray.join(", ")}.`;
-            } else {
-              summaryToSave = `Beratung zu Marke "${trademark}" für ${countriesArray.join(", ")} in Klassen ${classesArray.join(", ")}.`;
-            }
-          } catch {
-            summaryToSave = `Beratung zu Marke "${trademark}" für ${countriesArray.join(", ")} in Klassen ${classesArray.join(", ")}.`;
-          }
-        }
-
-        const response = await fetch("/api/consultations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            summary: summaryToSave,
-            transcript,
-            sessionProtocol,
-            duration: meetingDurationSeconds,
-            mode: inputMode,
-            extractedData,
-            sendEmail: false
-          })
-        });
-
-        if (response.ok) {
-          const consultationData = await response.json();
-          const consultationId = consultationData.consultation?.id;
-
-          if (consultationId) {
-            if (catchUpCaseId) {
-              const catchUpResponse = await fetch(`/api/cases/${catchUpCaseId}/catch-up-beratung`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  consultationId,
-                  summary: summaryToSave,
-                  extractedData: {
-                    trademarkName: trademark,
-                    countries: countriesArray,
-                    niceClasses: classesArray,
-                  }
-                })
-              });
-
-              if (catchUpResponse.ok) {
-                const catchUpData = await catchUpResponse.json();
-                
-                await fetch("/api/cases/save-decisions", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    caseId: catchUpCaseId,
-                    consultationId,
-                    trademarkName: trademark,
-                    countries: countriesArray,
-                    niceClasses: classesArray,
-                  })
-                });
-                
-                setToast({ message: `Beratung für ${catchUpData.caseNumber || catchUpCaseInfo?.caseNumber} nachgeholt!`, visible: true });
-                setShowAnalysisModal(false);
-                setCatchUpCaseId(null);
-                setCatchUpCaseInfo(null);
-                router.push(`/dashboard/recherche?caseId=${catchUpCaseId}`);
-                return;
-              }
-            } else {
-              const caseResponse = await fetch("/api/cases", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  consultationId,
-                  trademarkName: trademark,
-                })
-              });
-
-              if (caseResponse.ok) {
-                const caseData = await caseResponse.json();
-                const caseId = caseData.case?.id;
-                const caseNumber = caseData.case?.caseNumber;
-
-                if (caseId) {
-                  await fetch("/api/cases/save-decisions", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      caseId,
-                      consultationId,
-                      trademarkName: trademark,
-                      countries: countriesArray,
-                      niceClasses: classesArray,
-                    })
-                  });
-
-                  setToast({ message: `Bericht ${caseNumber} erstellt!`, visible: true });
-                  setShowAnalysisModal(false);
-                  router.push(`/dashboard/recherche?caseId=${caseId}`);
-                  return;
-                }
-              }
-            }
-          }
+        const result = await runConsultationAnalysisAndSave();
+        if (!result.success) {
+          console.warn("Failed to save consultation, continuing with navigation");
         }
       }
 
-      const params = new URLSearchParams({ trademark, classes, countries });
-      setShowAnalysisModal(false);
-      router.push(`/dashboard/recherche?${params.toString()}`);
+      const targetCaseId = catchUpCaseId || currentCaseId;
+      
+      if (targetCaseId) {
+        const message = catchUpCaseId 
+          ? `Beratung für ${catchUpCaseInfo?.caseNumber} gespeichert!`
+          : `Bericht erstellt!`;
+        setToast({ message, visible: true });
+        setShowAnalysisModal(false);
+        if (catchUpCaseId) {
+          setCatchUpCaseId(null);
+          setCatchUpCaseInfo(null);
+        }
+        router.push(`/dashboard/recherche?caseId=${targetCaseId}`);
+      } else {
+        const params = new URLSearchParams({ trademark, classes, countries });
+        setShowAnalysisModal(false);
+        router.push(`/dashboard/recherche?${params.toString()}`);
+      }
     } catch (error) {
       console.error("Navigation error:", error);
       const params = new URLSearchParams({ trademark, classes, countries });

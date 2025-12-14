@@ -8,8 +8,8 @@ interface UnsavedDataContextType {
   setPendingNavigation: (path: string | null) => void;
   showLeaveModal: boolean;
   setShowLeaveModal: (value: boolean) => void;
-  onSaveBeforeLeave: (() => Promise<void>) | null;
-  setOnSaveBeforeLeave: (fn: (() => Promise<void>) | null) => void;
+  onSaveBeforeLeave: (() => Promise<unknown>) | null;
+  setOnSaveBeforeLeave: (fn: (() => Promise<unknown>) | null) => void;
   checkUnsavedDataRef: MutableRefObject<(() => boolean) | null>;
   setCheckUnsavedDataRef: (fn: (() => boolean) | null) => void;
 }
@@ -20,10 +20,10 @@ export function UnsavedDataProvider({ children }: { children: ReactNode }) {
   const [hasUnsavedData, setHasUnsavedData] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
-  const [onSaveBeforeLeave, setOnSaveBeforeLeaveState] = useState<(() => Promise<void>) | null>(null);
+  const [onSaveBeforeLeave, setOnSaveBeforeLeaveState] = useState<(() => Promise<unknown>) | null>(null);
   const checkUnsavedDataRef = useRef<(() => boolean) | null>(null);
 
-  const setOnSaveBeforeLeave = useCallback((fn: (() => Promise<void>) | null) => {
+  const setOnSaveBeforeLeave = useCallback((fn: (() => Promise<unknown>) | null) => {
     setOnSaveBeforeLeaveState(() => fn);
   }, []);
 
