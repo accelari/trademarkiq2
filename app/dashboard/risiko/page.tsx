@@ -31,6 +31,7 @@ import {
   ExternalLink,
   Bookmark,
   User,
+  MessageCircle,
 } from "lucide-react";
 import WorkflowProgress from "@/app/components/WorkflowProgress";
 import { NICE_CLASSES, formatClassLabel } from "@/lib/nice-classes";
@@ -394,7 +395,10 @@ function ClassComplianceCard({ recommendation }: { recommendation: ClassRecommen
                 {status.label}
               </span>
             </div>
-            <p className="text-sm text-gray-600">{recommendation.className}</p>
+            <p className="text-sm font-medium text-gray-700">{recommendation.className}</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {NICE_CLASSES.find(c => c.id === recommendation.classNumber)?.description || recommendation.className}
+            </p>
           </div>
           {isExpanded ? (
             <ChevronUp className="w-5 h-5 text-gray-400" />
@@ -1163,7 +1167,7 @@ function RisikoPageContent() {
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Nächste Schritte</h3>
-            <div className="grid md:grid-cols-3 gap-3">
+            <div className="grid md:grid-cols-2 gap-3">
               <a
                 href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`}
                 className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
@@ -1173,19 +1177,11 @@ function RisikoPageContent() {
               </a>
               
               <a
-                href="/dashboard/watchlist"
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
-              >
-                <Bookmark className="w-5 h-5" />
-                Zur Watchlist
-              </a>
-              
-              <a
-                href="/dashboard/experten"
+                href="/dashboard/copilot"
                 className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors"
               >
-                <Handshake className="w-5 h-5" />
-                Mit Experten sprechen
+                <MessageCircle className="w-5 h-5" />
+                Chatberatung
               </a>
             </div>
           </div>
