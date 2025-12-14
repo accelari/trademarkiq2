@@ -100,7 +100,16 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [catchUpCaseId, setCatchUpCaseId] = useState<string | null>(null);
-  const [catchUpCaseInfo, setCatchUpCaseInfo] = useState<{ caseNumber: string; trademarkName: string } | null>(null);
+  const [catchUpCaseInfo, setCatchUpCaseInfo] = useState<{ 
+    caseNumber: string; 
+    trademarkName: string;
+    previousSummary?: string;
+    extractedData?: {
+      trademarkName?: string;
+      countries?: string[];
+      niceClasses?: number[];
+    };
+  } | null>(null);
   const [showInsufficientInfoModal, setShowInsufficientInfoModal] = useState(false);
   const [insufficientInfoData, setInsufficientInfoData] = useState<{
     extractedData: { trademarkName: string; countries: string[]; niceClasses: number[] };
@@ -281,11 +290,65 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
         .then(res => res.json())
         .then(data => {
           if (data.case) {
+            const lastConsultation = data.case.consultations?.[0];
+            const extractedData = lastConsultation?.extractedData as {
+              trademarkName?: string;
+              countries?: string[];
+              niceClasses?: number[];
+            } | undefined;
+            
+            const trademarkName = data.case.trademarkName || extractedData?.trademarkName || "Unbekannt";
+            const countries = extractedData?.countries || [];
+            const niceClasses = extractedData?.niceClasses || [];
+            const previousSummary = lastConsultation?.summary || "";
+            
             setCatchUpCaseInfo({
               caseNumber: data.case.caseNumber,
-              trademarkName: data.case.trademarkName || "Unbekannt"
+              trademarkName,
+              previousSummary,
+              extractedData: {
+                trademarkName: extractedData?.trademarkName,
+                countries,
+                niceClasses,
+              }
             });
-            setContextMessage(`Sie holen die Beratung für Fall ${data.case.caseNumber} (${data.case.trademarkName || "Unbekannt"}) nach.`);
+            
+            const missingInfo: string[] = [];
+            if (!extractedData?.trademarkName) missingInfo.push("Markenname");
+            if (!countries.length) missingInfo.push("Zielländer");
+            if (!niceClasses.length) missingInfo.push("Nizza-Klassen");
+            
+            let systemContext = `[SYSTEM-KONTEXT]
+Dies ist eine Fortsetzung einer vorherigen Beratung für Fall ${data.case.caseNumber}.`;
+
+            if (previousSummary) {
+              systemContext += `
+
+VORHERIGE BERATUNG:
+${previousSummary}`;
+            }
+
+            systemContext += `
+
+BEREITS BEKANNT:
+- Markenname: ${extractedData?.trademarkName || "(noch nicht festgelegt)"}
+- Länder: ${countries.length > 0 ? countries.join(", ") : "(noch nicht festgelegt)"}
+- Nizza-Klassen: ${niceClasses.length > 0 ? niceClasses.join(", ") : "(noch nicht festgelegt)"}`;
+
+            if (missingInfo.length > 0) {
+              systemContext += `
+
+FEHLENDE INFORMATIONEN:
+${missingInfo.map(info => `- ${info} muss noch bestimmt werden`).join("\n")}
+
+Bitte führe das Gespräch fort und hilf dem Kunden, die fehlenden Informationen zu ergänzen.`;
+            } else {
+              systemContext += `
+
+Alle wichtigen Informationen sind bereits vorhanden. Der Kunde kann zur Recherche fortfahren oder weitere Details besprechen.`;
+            }
+            
+            setContextMessage(systemContext);
           }
         })
         .catch(err => console.error("Error fetching case info:", err));
@@ -330,6 +393,70 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
       }]);
     }
   }, [meetingStartTime]);
+
+  // Update meeting notes with context when catching up on a case
+  useEffect(() => {
+    if (catchUpCaseInfo && meetingNotes.length === 1 && meetingNotes[0]?.content === "Beratung gestartet") {
+      const contextNote: MeetingNote = {
+        id: `system-context-${Date.now()}`,
+        timestamp: new Date(),
+        type: "system",
+        content: `Fortsetzung der Beratung für Fall ${catchUpCaseInfo.caseNumber}${catchUpCaseInfo.trademarkName && catchUpCaseInfo.trademarkName !== "Unbekannt" ? ` (Marke: ${catchUpCaseInfo.trademarkName})` : ""}`
+      };
+      
+      const detailNotes: MeetingNote[] = [];
+      
+      if (catchUpCaseInfo.previousSummary) {
+        detailNotes.push({
+          id: `system-summary-${Date.now()}`,
+          timestamp: new Date(),
+          type: "system",
+          content: `Vorherige Beratung: ${catchUpCaseInfo.previousSummary}`
+        });
+      }
+      
+      const extracted = catchUpCaseInfo.extractedData;
+      const knownInfo: string[] = [];
+      const missingInfo: string[] = [];
+      
+      if (extracted?.trademarkName) {
+        knownInfo.push(`Markenname: ${extracted.trademarkName}`);
+      } else {
+        missingInfo.push("Markenname");
+      }
+      
+      if (extracted?.countries && extracted.countries.length > 0) {
+        knownInfo.push(`Länder: ${extracted.countries.join(", ")}`);
+      } else {
+        missingInfo.push("Zielländer");
+      }
+      
+      if (extracted?.niceClasses && extracted.niceClasses.length > 0) {
+        knownInfo.push(`Nizza-Klassen: ${extracted.niceClasses.join(", ")}`);
+      } else {
+        missingInfo.push("Nizza-Klassen");
+      }
+      
+      if (knownInfo.length > 0 || missingInfo.length > 0) {
+        let statusContent = "";
+        if (knownInfo.length > 0) {
+          statusContent += `Bereits bekannt: ${knownInfo.join(" | ")}`;
+        }
+        if (missingInfo.length > 0) {
+          statusContent += statusContent ? ` | Noch offen: ${missingInfo.join(", ")}` : `Noch offen: ${missingInfo.join(", ")}`;
+        }
+        
+        detailNotes.push({
+          id: `system-status-${Date.now()}`,
+          timestamp: new Date(),
+          type: "system",
+          content: statusContent
+        });
+      }
+      
+      setMeetingNotes([contextNote, ...detailNotes]);
+    }
+  }, [catchUpCaseInfo, meetingNotes]);
 
   useEffect(() => {
     if (meetingStartTime) {
@@ -654,6 +781,19 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
 
               if (catchUpResponse.ok) {
                 const catchUpData = await catchUpResponse.json();
+                
+                await fetch("/api/cases/save-decisions", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    caseId: catchUpCaseId,
+                    consultationId,
+                    trademarkName: trademark,
+                    countries: countriesArray,
+                    niceClasses: classesArray,
+                  })
+                });
+                
                 setToast({ message: `Beratung für ${catchUpData.caseNumber || catchUpCaseInfo?.caseNumber} nachgeholt!`, visible: true });
                 setShowAnalysisModal(false);
                 setCatchUpCaseId(null);

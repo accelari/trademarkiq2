@@ -27,6 +27,10 @@ export async function GET(
         events: {
           orderBy: (events, { desc }) => [desc(events.createdAt)],
         },
+        consultations: {
+          orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
+          limit: 1,
+        },
       },
     });
 

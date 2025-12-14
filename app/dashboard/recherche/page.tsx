@@ -1481,6 +1481,7 @@ interface PrefillData {
   niceClasses: number[];
   source: "consultation" | "previous_search";
   date?: string;
+  missingFields?: string[];
 }
 
 export default function RecherchePage() {
@@ -1689,6 +1690,16 @@ export default function RecherchePage() {
         .then((data) => {
           if (data.success && data.prefill) {
             const prefill = data.prefill;
+            
+            const missingFields: string[] = [];
+            const hasTrademarkName = prefill.trademarkNames?.length > 0 || prefill.trademarkName;
+            const hasCountries = prefill.countries?.length > 0;
+            const hasNiceClasses = prefill.niceClasses?.length > 0;
+            
+            if (!hasTrademarkName) missingFields.push("Markenname");
+            if (!hasCountries) missingFields.push("Länder");
+            if (!hasNiceClasses) missingFields.push("Nizza-Klassen");
+            
             setPrefillData({
               trademarkName: prefill.trademarkName,
               trademarkNames: prefill.trademarkNames || [],
@@ -1698,6 +1709,7 @@ export default function RecherchePage() {
               date: data.decisions?.[0]?.extractedAt
                 ? new Date(data.decisions[0].extractedAt).toLocaleDateString("de-DE")
                 : undefined,
+              missingFields: missingFields.length > 0 ? missingFields : undefined,
             });
 
             if (prefill.trademarkNames?.length > 0) {
@@ -2362,10 +2374,33 @@ export default function RecherchePage() {
 
       <div className={!isAdmin || adminTab === 'user' ? '' : 'hidden'}>
           {prefillData && (
-            <PrefillBanner
-              source={prefillData.source}
-              date={prefillData.date}
-            />
+            <div className="space-y-3">
+              <PrefillBanner
+                source={prefillData.source}
+                date={prefillData.date}
+              />
+              {prefillData.missingFields && prefillData.missingFields.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-amber-800 font-medium">
+                      Fehlende Informationen aus der Beratung
+                    </p>
+                    <p className="text-sm text-amber-700 mt-1">
+                      Diese Felder fehlen noch: {prefillData.missingFields.join(", ")}
+                    </p>
+                    <a
+                      href={`/dashboard/copilot?catchUpCase=${caseId}`}
+                      className="inline-flex items-center gap-1 text-sm text-amber-800 font-medium mt-2 hover:text-amber-900 transition-colors underline"
+                    >
+                      Beratung fortsetzen →
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {prefillLoading && (
