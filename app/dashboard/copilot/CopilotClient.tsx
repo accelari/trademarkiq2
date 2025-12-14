@@ -101,6 +101,12 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [catchUpCaseId, setCatchUpCaseId] = useState<string | null>(null);
   const [catchUpCaseInfo, setCatchUpCaseInfo] = useState<{ caseNumber: string; trademarkName: string } | null>(null);
+  const [showInsufficientInfoModal, setShowInsufficientInfoModal] = useState(false);
+  const [insufficientInfoData, setInsufficientInfoData] = useState<{
+    extractedData: { trademarkName: string; countries: string[]; niceClasses: number[] };
+    caseId: string | null;
+    caseNumber: string | null;
+  } | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const meetingNotesRef = useRef<MeetingNote[]>([]);
   const inputModeRef = useRef<"sprache" | "text">("sprache");
@@ -963,6 +969,21 @@ ${notesText}`,
             setCatchUpCaseInfo(null);
 
             if (navigateToRecherche) {
+              // Intelligente Prüfung: Hat die Beratung genug Informationen für die Recherche?
+              const hasTrademarkName = extractedData.trademarkName && extractedData.trademarkName.trim().length > 0;
+              
+              if (!hasTrademarkName) {
+                // Nicht genug Informationen - Modal zeigen
+                setInsufficientInfoData({
+                  extractedData,
+                  caseId: catchUpCaseId,
+                  caseNumber: catchUpCaseInfo?.caseNumber || null
+                });
+                setShowSummaryModal(false);
+                setShowInsufficientInfoModal(true);
+                return;
+              }
+              
               setShowSummaryModal(false);
               router.push(`/dashboard/recherche?caseId=${catchUpCaseId}`);
               return;
@@ -1000,6 +1021,21 @@ ${notesText}`,
               });
 
               if (navigateToRecherche) {
+                // Intelligente Prüfung: Hat die Beratung genug Informationen für die Recherche?
+                const hasTrademarkName = extractedData.trademarkName && extractedData.trademarkName.trim().length > 0;
+                
+                if (!hasTrademarkName) {
+                  // Nicht genug Informationen - Modal zeigen
+                  setInsufficientInfoData({
+                    extractedData,
+                    caseId,
+                    caseNumber
+                  });
+                  setShowSummaryModal(false);
+                  setShowInsufficientInfoModal(true);
+                  return;
+                }
+                
                 setShowSummaryModal(false);
                 router.push(`/dashboard/recherche?caseId=${caseId}`);
                 return;
@@ -1014,6 +1050,23 @@ ${notesText}`,
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleContinueConsultation = () => {
+    // Schließe das Modal und bleibe auf der Beratungsseite mit bestehendem Kontext
+    setShowInsufficientInfoModal(false);
+    setInsufficientInfoData(null);
+    // Setze savedSuccessfully zurück, damit der Benutzer weiter arbeiten kann
+    setSavedSuccessfully(false);
+    // Schließe auch das Summary-Modal falls es noch offen ist
+    setShowSummaryModal(false);
+  };
+
+  const handleJustSave = () => {
+    // Nur speichern ohne Weiterleitung - bereits gespeichert, also nur Modal schließen
+    setShowInsufficientInfoModal(false);
+    setInsufficientInfoData(null);
+    setToast({ message: "Beratung wurde gespeichert. Sie können später zur Recherche wechseln.", visible: true });
   };
 
   const handleNewSession = () => {
@@ -1992,6 +2045,78 @@ ${notesText}`,
                 className="w-full px-5 py-2.5 text-gray-500 hover:text-gray-700 transition-colors text-sm"
               >
                 Abbrechen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInsufficientInfoModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl">
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Info className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Unvollständige Beratung</h2>
+                  <p className="text-white/80 text-sm">Informationen für Recherche fehlen</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-5">
+              <p className="text-gray-600 mb-4">
+                Die Beratung wurde gespeichert, enthält aber noch <strong>keinen Markennamen</strong>. 
+                Für eine sinnvolle Markenrecherche werden mindestens folgende Informationen benötigt:
+              </p>
+              
+              <div className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-100 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className={insufficientInfoData?.extractedData.trademarkName ? "text-green-500" : "text-amber-500"}>
+                    {insufficientInfoData?.extractedData.trademarkName ? "✓" : "○"}
+                  </span>
+                  <span className="text-sm text-gray-700">
+                    Markenname {insufficientInfoData?.extractedData.trademarkName ? `(${insufficientInfoData.extractedData.trademarkName})` : "(fehlt)"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={insufficientInfoData?.extractedData.countries?.length ? "text-green-500" : "text-gray-400"}>
+                    {insufficientInfoData?.extractedData.countries?.length ? "✓" : "○"}
+                  </span>
+                  <span className="text-sm text-gray-700">
+                    Zielländer {insufficientInfoData?.extractedData.countries?.length ? `(${insufficientInfoData.extractedData.countries.join(", ")})` : "(optional)"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={insufficientInfoData?.extractedData.niceClasses?.length ? "text-green-500" : "text-gray-400"}>
+                    {insufficientInfoData?.extractedData.niceClasses?.length ? "✓" : "○"}
+                  </span>
+                  <span className="text-sm text-gray-700">
+                    Nizza-Klassen {insufficientInfoData?.extractedData.niceClasses?.length ? `(${insufficientInfoData.extractedData.niceClasses.join(", ")})` : "(optional)"}
+                  </span>
+                </div>
+              </div>
+              
+              <p className="text-sm text-gray-500">
+                Sie können die Beratung fortsetzen, um die fehlenden Informationen zu klären, oder später zur Recherche wechseln.
+              </p>
+            </div>
+            
+            <div className="border-t border-gray-100 p-4 bg-gray-50 flex flex-col gap-2">
+              <button
+                onClick={handleContinueConsultation}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors font-medium"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Beratung fortsetzen
+              </button>
+              <button
+                onClick={handleJustSave}
+                className="w-full px-5 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors font-medium"
+              >
+                Nur speichern (ohne Recherche)
               </button>
             </div>
           </div>
