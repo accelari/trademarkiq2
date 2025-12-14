@@ -429,6 +429,15 @@ function ClassComplianceCard({ recommendation }: { recommendation: ClassRecommen
               <h5 className="text-sm font-semibold text-gray-700 mb-2">Amtskonforme Formulierung</h5>
               <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
                 <p className="text-sm text-teal-800">{recommendation.amtskonformeFormulierung}</p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(recommendation.amtskonformeFormulierung);
+                  }}
+                  className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white text-xs font-medium rounded-lg hover:bg-teal-700 transition-colors"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  Übernehmen
+                </button>
               </div>
             </div>
           )}
@@ -690,24 +699,48 @@ function RisikoPageContent() {
             : c.riskLevel === "medium"
             ? "Ein Widerspruch ist möglich. Die Ähnlichkeit könnte bei identischen Waren/Dienstleistungen zu Problemen führen."
             : "Das Risiko eines erfolgreichen Widerspruchs ist gering, aber eine Beobachtung wird empfohlen.",
-          solutions: c.riskLevel === "high" ? [
+          solutions: c.riskLevel === "high" || c.riskLevel === "medium" ? [
             {
               type: "name_modification" as const,
-              title: "Namen anpassen",
-              description: "Modifizieren Sie den Markennamen, um die Ähnlichkeit zu reduzieren",
-              suggestedValue: `${parsed.markenname || markennameParam}+`,
-              successProbability: 75,
+              title: "Wortmarke mit Alternativname",
+              description: "Registrieren Sie eine leicht modifizierte Wortmarke, die dennoch Ihre Markenidentität bewahrt",
+              suggestedValue: (() => {
+                const name = parsed.markenname || markennameParam || "Marke";
+                const variants = [`${name}is`, `${name}o`, `Neo${name}`, `${name}X`, `i${name}`, `${name}Pro`];
+                return variants[Math.floor(Math.random() * variants.length)];
+              })(),
+              successProbability: 80,
               effort: "low" as const,
-              reasoning: "Eine Namensänderung kann die Verwechslungsgefahr erheblich reduzieren.",
+              reasoning: "Eine kreative Namensvariation kann die Verwechslungsgefahr erheblich reduzieren, während der Wiedererkennungswert erhalten bleibt.",
+            },
+            {
+              type: "mark_type" as const,
+              title: "Wort-Bild-Marke registrieren",
+              description: "Kombinieren Sie Ihren Markennamen mit einem einzigartigen Logo oder Designelement",
+              suggestedValue: "Logo + Schriftzug als kombinierte Marke anmelden",
+              successProbability: 75,
+              effort: "medium" as const,
+              reasoning: "Eine Wort-Bild-Marke hat einen größeren Schutzumfang durch das visuelle Element und reduziert die Verwechslungsgefahr mit reinen Wortmarken.",
             },
             {
               type: "class_change" as const,
-              title: "Andere Nizza-Klassen wählen",
-              description: "Vermeiden Sie überlappende Waren/Dienstleistungsklassen",
-              suggestedValue: "Alternative Klassen prüfen",
-              successProbability: 60,
-              effort: "medium" as const,
-              reasoning: "Eine Einschränkung der Klassen kann das Konfliktpotenzial reduzieren.",
+              title: "Klassenbeschränkung",
+              description: "Beschränken Sie Ihre Anmeldung auf Nizza-Klassen, die nicht mit der Konfliktmarke überlappen",
+              suggestedValue: c.conflictClasses?.length > 0 
+                ? `Klassen ${c.conflictClasses.join(", ")} meiden und alternative Klassen wählen`
+                : "Nur konfliktfreie Klassen für Ihre Anmeldung auswählen",
+              successProbability: 70,
+              effort: "low" as const,
+              reasoning: "Durch Vermeidung überlappender Waren- und Dienstleistungsklassen kann das Konfliktpotenzial vollständig eliminiert werden.",
+            },
+            {
+              type: "coexistence" as const,
+              title: "Koexistenzvereinbarung",
+              description: "Schließen Sie eine Vereinbarung mit dem Inhaber der älteren Marke ab",
+              suggestedValue: `Koexistenzvereinbarung mit ${c.holder || "dem Markeninhaber"} aushandeln`,
+              successProbability: c.accuracy < 80 ? 65 : 45,
+              effort: "high" as const,
+              reasoning: "Bei ähnlichen, aber nicht identischen Marken kann eine Koexistenzvereinbarung beide Parteien rechtlich absichern und Konflikte vermeiden.",
             },
           ] : [],
         }));
@@ -1086,6 +1119,13 @@ function RisikoPageContent() {
               <Tag className="w-5 h-5" />
               Waren & Dienstleistungen
             </button>
+            <a
+              href="/dashboard/copilot"
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold transition-colors bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+            >
+              <MessageCircle className="w-5 h-5" />
+              Beratung
+            </a>
           </div>
 
           {activeTab === "conflicts" && (
@@ -1240,21 +1280,13 @@ function RisikoPageContent() {
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Nächste Schritte</h3>
-            <div className="grid md:grid-cols-2 gap-3">
+            <div className="flex justify-center">
               <a
                 href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
               >
                 <CheckCircle className="w-5 h-5" />
                 Marke anmelden
-              </a>
-              
-              <a
-                href="/dashboard/copilot"
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors"
-              >
-                <MessageCircle className="w-5 h-5" />
-                Chatberatung
               </a>
             </div>
           </div>
