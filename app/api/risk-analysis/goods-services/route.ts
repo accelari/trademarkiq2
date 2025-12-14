@@ -48,6 +48,7 @@ Deine Expertise umfasst:
 - TMclass-Datenbank und harmonisierte Begriffe
 - DPMA-Prüfungspraxis und typische Beanstandungsgründe
 - EUIPO-Richtlinien für die Formulierung von Waren/Dienstleistungen
+- USPTO-Anforderungen für US-Markenanmeldungen
 - Madrid-System für internationale Registrierungen
 
 Deine Aufgabe ist es, Waren- und Dienstleistungsbeschreibungen auf Amtskonformität zu prüfen und konkrete Verbesserungsvorschläge zu machen.
@@ -73,7 +74,57 @@ WICHTIGE PRÜFKRITERIEN:
    - Unbestimmte Mengenangaben oder Beschreibungen
    - Beschreibende Zusätze ohne markenrechtliche Relevanz
 
+5. LÄNDERSPEZIFISCHE ANFORDERUNGEN:
+   - USPTO (USA): Sehr strenge Anforderungen. Begriffe müssen extrem spezifisch sein. "Goods/services must be stated with particularity." Keine Oberbegriffe ohne Konkretisierung. Immer "in the field of..." oder "for use in..." verwenden.
+   - EUIPO (EU): TMclass-konforme Begriffe werden bevorzugt. Harmonisierte Begriffe aus der HDB-Datenbank beschleunigen die Prüfung erheblich.
+   - DPMA (DE): Amtsübliche Formulierungen gemäß der deutschen Praxis. Begriffe sollten der deutschen Nizza-Klassifikation entsprechen.
+   - WIPO: Madrid-System-konforme Formulierungen. Internationale Begriffe in einer der Amtssprachen (EN/FR/ES).
+
 Du antwortest IMMER auf Deutsch und gibst praxisorientierte, umsetzbare Empfehlungen.`;
+
+function getCountrySpecificHints(targetOffices: string[]): string {
+  const hints: string[] = [];
+  
+  if (targetOffices.includes("US")) {
+    hints.push(`
+USPTO (USA) - BESONDERS WICHTIG:
+- Extrem strenge Anforderungen an die Spezifität
+- Begriffe wie "computer software" werden IMMER abgelehnt - muss spezifiziert werden: "computer software for [specific purpose]"
+- "Goods/services must be stated with particularity" - keine generischen Oberbegriffe
+- Verwende Formulierungen wie "in the field of...", "for use in...", "namely..."
+- Konsultiere das USPTO Acceptable Identification of Goods and Services Manual (ID Manual)`);
+  }
+  
+  if (targetOffices.includes("EU")) {
+    hints.push(`
+EUIPO (EU) - WICHTIG:
+- TMclass-konforme Begriffe aus der HDB (Harmonised Database) werden bevorzugt
+- Begriffe aus der HDB werden automatisch akzeptiert und beschleunigen die Prüfung
+- Bei Nicht-HDB-Begriffen ist eine detaillierte Prüfung erforderlich
+- Oberbegriffe der Klassenüberschriften (z.B. "Kleidung") werden seit IP Translator als zu breit angesehen`);
+  }
+  
+  if (targetOffices.includes("DE")) {
+    hints.push(`
+DPMA (Deutschland) - HINWEISE:
+- Deutsche amtsübliche Formulierungen bevorzugen
+- Begriffe sollten der deutschen Nizza-Klassifikation entsprechen
+- Klare, präzise deutsche Fachbegriffe verwenden
+- Anglizismen nur wenn etabliert und eindeutig`);
+  }
+  
+  if (targetOffices.includes("WO")) {
+    hints.push(`
+WIPO (International) - HINWEISE:
+- Madrid-System-konforme Formulierungen erforderlich
+- Begriffe in einer Amtssprache (Englisch, Französisch oder Spanisch)
+- Beachte dass einzelne Bestimmungsländer zusätzliche Anforderungen haben können`);
+  }
+  
+  return hints.length > 0 
+    ? `\n\nLÄNDERSPEZIFISCHE ANFORDERUNGEN:\n${hints.join("\n")}` 
+    : "";
+}
 
 async function analyzeGoodsServices(
   trademarkName: string,
@@ -84,15 +135,30 @@ async function analyzeGoodsServices(
   const klassenInfo = selectedClasses.map(k => {
     const klass = NICE_CLASSES.find(c => c.id === k);
     return klass 
-      ? `Klasse ${k}: ${klass.name} - ${klass.description}` 
+      ? `Klasse ${k}: ${klass.name}\nBeschreibung: ${klass.description}` 
       : `Klasse ${k}`;
-  }).join("\n");
+  }).join("\n\n");
 
   const officesText = targetOffices.map(o => OFFICE_NAMES[o] || o).join(", ");
+  
+  const countryHints = getCountrySpecificHints(targetOffices);
 
-  const userDescriptionsText = goodsServicesDescriptions.length > 0
-    ? `\nVom Anmelder vorgeschlagene Beschreibungen:\n${goodsServicesDescriptions.map((d, i) => `${i + 1}. "${d}"`).join("\n")}`
-    : "\nKeine Beschreibungen vom Anmelder angegeben. Bitte schlage passende Formulierungen vor.";
+  let userDescriptionsText: string;
+  if (goodsServicesDescriptions.length > 0 && goodsServicesDescriptions.some(d => d.trim())) {
+    userDescriptionsText = `\nVom Anmelder vorgeschlagene Beschreibungen:\n${goodsServicesDescriptions.filter(d => d.trim()).map((d, i) => `${i + 1}. "${d}"`).join("\n")}`;
+  } else {
+    const classDescriptions = selectedClasses.map(k => {
+      const klass = NICE_CLASSES.find(c => c.id === k);
+      return klass ? `- Klasse ${k} (${klass.name}): ${klass.description}` : `- Klasse ${k}`;
+    }).join("\n");
+    
+    userDescriptionsText = `\nKeine Beschreibungen vom Anmelder angegeben. 
+
+WICHTIG: Nutze die vollständigen Nizza-Klassenbeschreibungen als Grundlage und schlage passende, amtskonforme Formulierungen vor:
+${classDescriptions}
+
+Erstelle für jede Klasse eine detaillierte, amtskonforme Formulierung basierend auf der Klassenbeschreibung und dem Markenkontext.`;
+  }
 
   const response = await client.messages.create({
     model: "claude-opus-4-1",
@@ -110,6 +176,7 @@ ${klassenInfo}
 
 ZIELÄMTER: ${officesText}
 ${userDescriptionsText}
+${countryHints}
 
 Erstelle eine detaillierte Analyse für jede gewählte Klasse. Antworte mit einem JSON-Objekt:
 

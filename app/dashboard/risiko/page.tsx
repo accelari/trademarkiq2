@@ -867,30 +867,13 @@ function RisikoPageContent() {
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-3">
             <Scale className="w-8 h-8 text-teal-600" />
-            Experten-Risikoanalyse
+            KI-Risikoanalyse
           </h1>
           <p className="text-gray-600 mt-1">
             Detaillierte Konfliktanalyse mit konkreten Lösungsvorschlägen
           </p>
         </div>
         
-        <div className="flex gap-2">
-          <button
-            onClick={handleDownloadReport}
-            disabled={!expertAnalysis}
-            className="flex items-center gap-2 px-4 py-2 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <FileDown className="w-4 h-4" />
-            PDF herunterladen
-          </button>
-          <a
-            href="/dashboard/experten"
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-          >
-            <User className="w-4 h-4" />
-            Experten kontaktieren
-          </a>
-        </div>
       </div>
 
       {isLoadingFromCase && (
@@ -959,17 +942,16 @@ function RisikoPageContent() {
 
       {expertAnalysis && (
         <>
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 text-white">
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
             <div className="flex flex-col lg:flex-row items-center gap-8">
-              <div className="flex items-center gap-6">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shadow-xl">
-                  <Scale className="w-12 h-12 text-white" />
+              <div className="text-center lg:text-left">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                    <Scale className="w-5 h-5 text-teal-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">KI-Risikoanalyse</h2>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold">Dr. Klaus Weinberg</h2>
-                  <p className="text-teal-300">Ihr Markenexperte</p>
-                  <p className="text-sm text-gray-400 mt-1">25+ Jahre Erfahrung • DPMA, EUIPO, WIPO</p>
-                </div>
+                <p className="text-gray-600 text-sm">Automatisierte Konfliktanalyse</p>
               </div>
               
               <div className="flex-1 flex items-center justify-center">
@@ -980,16 +962,16 @@ function RisikoPageContent() {
               </div>
               
               <div className="text-center lg:text-right">
-                <div className="text-4xl font-bold text-white mb-2">"{markenname}"</div>
-                <p className="text-gray-300">
+                <div className="text-3xl font-bold text-gray-900 mb-2">"{markenname}"</div>
+                <p className="text-gray-600">
                   {(expertAnalysis.conflictAnalyses || []).length} Konflikte analysiert
                 </p>
               </div>
             </div>
             
             {expertAnalysis.summary && (
-              <div className="mt-6 pt-6 border-t border-slate-700">
-                <p className="text-gray-300 italic">"{expertAnalysis.summary}"</p>
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <p className="text-gray-700 italic">"{expertAnalysis.summary}"</p>
               </div>
             )}
           </div>
@@ -1159,20 +1141,6 @@ function RisikoPageContent() {
                     ))}
                   </div>
                   
-                  <div className="bg-white rounded-2xl border border-gray-200 p-6 text-center">
-                    <Building2 className="w-12 h-12 text-teal-600 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900">Professionelle Klassifizierungsberatung</h3>
-                    <p className="text-gray-600 mt-2 max-w-lg mx-auto">
-                      Unsere Experten helfen Ihnen bei der optimalen Formulierung Ihres Waren- und Dienstleistungsverzeichnisses.
-                    </p>
-                    <a
-                      href="/dashboard/klassifizierung"
-                      className="inline-flex items-center gap-2 mt-4 px-6 py-3 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-700 transition-colors"
-                    >
-                      Zur Klassifizierungs-Beratung
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  </div>
                 </>
               ) : (
                 <div className="bg-white rounded-2xl p-8 text-center border border-gray-100">
@@ -1233,7 +1201,7 @@ function RisikoPageContent() {
             Experten-Risikoanalyse
           </h3>
           <p className="text-gray-600 max-w-lg mx-auto mb-6">
-            Erhalten Sie eine detaillierte juristische Einschätzung Ihrer Marke durch unseren KI-Experten Dr. Klaus Weinberg, 
+            Erhalten Sie eine detaillierte Einschätzung Ihrer Marke durch unsere KI-gestützte Analyse, 
             inklusive konkreter Lösungsvorschläge für potenzielle Konflikte.
           </p>
           <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">

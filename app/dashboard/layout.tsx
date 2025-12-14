@@ -7,7 +7,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { 
   LayoutDashboard, 
   Mic, 
-  ClipboardList, 
   BarChart3, 
   Users, 
   Bell, 
@@ -29,7 +28,6 @@ const baseNavigation = [
   { name: "Markenberatung", href: "/dashboard/copilot", icon: Mic },
   { name: "Markenrecherche", href: "/dashboard/recherche", icon: Search },
   { name: "Risiko-Analyse", href: "/dashboard/risiko", icon: BarChart3 },
-  { name: "Klassifizierung", href: "/dashboard/klassifizierung", icon: ClipboardList },
   { name: "Markenanmeldung", href: "/dashboard/anmeldung", icon: FileText },
   { name: "Playbooks", href: "/dashboard/playbooks", icon: FileText },
   { name: "Watchlist", href: "/dashboard/watchlist", icon: Bell },
