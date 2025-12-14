@@ -218,6 +218,20 @@ export const consultations = pgTable("consultations", {
   statusIdx: index("consultation_status_idx").on(table.status),
 }));
 
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  consultationId: varchar("consultation_id", { length: 255 }).notNull().references(() => consultations.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: varchar("role", { length: 50 }).notNull(),
+  content: text("content").notNull(),
+  messageType: varchar("message_type", { length: 50 }).default("text"),
+  emotionData: jsonb("emotion_data").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  consultationIdx: index("chat_message_consultation_idx").on(table.consultationId),
+  createdAtIdx: index("chat_message_created_at_idx").on(table.createdAt),
+}));
+
 export const trademarkCases = pgTable("trademark_cases", {
   id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
   caseNumber: varchar("case_number", { length: 50 }).unique().notNull(),
@@ -308,9 +322,15 @@ export const alertsRelations = relations(alerts, ({ one }) => ({
   user: one(users, { fields: [alerts.userId], references: [users.id] }),
 }));
 
-export const consultationsRelations = relations(consultations, ({ one }) => ({
+export const consultationsRelations = relations(consultations, ({ one, many }) => ({
   user: one(users, { fields: [consultations.userId], references: [users.id] }),
   case: one(trademarkCases, { fields: [consultations.caseId], references: [trademarkCases.id] }),
+  messages: many(chatMessages),
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  consultation: one(consultations, { fields: [chatMessages.consultationId], references: [consultations.id] }),
+  user: one(users, { fields: [chatMessages.userId], references: [users.id] }),
 }));
 
 export const trademarkCasesRelations = relations(trademarkCases, ({ one, many }) => ({
@@ -360,3 +380,5 @@ export type CaseDecision = typeof caseDecisions.$inferSelect;
 export type NewCaseDecision = typeof caseDecisions.$inferInsert;
 export type CaseEvent = typeof caseEvents.$inferSelect;
 export type NewCaseEvent = typeof caseEvents.$inferInsert;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type NewChatMessage = typeof chatMessages.$inferInsert;

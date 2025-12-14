@@ -117,32 +117,41 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, summary, transcript, sessionProtocol, duration, mode, extractedData, sendEmail } = body;
+    const { title, summary, transcript, sessionProtocol, duration, mode, extractedData, sendEmail, status, caseId } = body;
 
-    if (!title || !summary) {
-      return NextResponse.json(
-        { error: "Titel und Zusammenfassung erforderlich" },
-        { status: 400 }
-      );
-    }
+    // Use default title if not provided (for in-progress consultations)
+    const consultationTitle = title || `Beratung ${new Date().toLocaleDateString("de-DE")}`;
+    
+    // Summary can be empty for in-progress consultations
+    const consultationSummary = summary || "";
+
+    console.log("[Consultations API] Creating consultation:", { 
+      title: consultationTitle, 
+      hasSummary: !!consultationSummary,
+      status,
+      caseId,
+      userId: session.user.id
+    });
 
     const isComplete = extractedData?.trademarkName && 
                        extractedData?.countries?.length > 0 && 
                        extractedData?.niceClasses?.length > 0;
     
-    const consultationStatus = isComplete ? "ready_for_research" : "draft";
+    // Use provided status (e.g. "in_progress") or determine based on completeness
+    const consultationStatus = status || (isComplete ? "ready_for_research" : "draft");
 
     const [newConsultation] = await db
       .insert(consultations)
       .values({
         userId: session.user.id,
-        title,
-        summary,
+        title: consultationTitle,
+        summary: consultationSummary,
         transcript,
         sessionProtocol,
         duration: duration || 0,
         mode: mode || "text",
         status: consultationStatus,
+        caseId: caseId || null,
         extractedData: {
           ...extractedData,
           isComplete,
@@ -150,6 +159,8 @@ export async function POST(request: NextRequest) {
         emailSent: false,
       })
       .returning();
+    
+    console.log("[Consultations API] Consultation created:", newConsultation.id, "caseId:", newConsultation.caseId);
 
     if (sendEmail && session.user.email) {
       try {
@@ -169,7 +180,7 @@ export async function POST(request: NextRequest) {
         await resend.emails.send({
           from: "TrademarkIQ <beratung@mail.accelari.com>",
           to: session.user.email,
-          subject: `Ihre Markenberatung: ${title}`,
+          subject: `Ihre Markenberatung: ${consultationTitle}`,
           html: `
             <!DOCTYPE html>
             <html>
@@ -215,8 +226,8 @@ export async function POST(request: NextRequest) {
                     </div>
                   </div>
                   <div class="summary">
-                    <h2>${title}</h2>
-                    ${summary.split('\n').map((line: string) => `<p>${line}</p>`).join('')}
+                    <h2>${consultationTitle}</h2>
+                    ${consultationSummary.split('\n').map((line: string) => `<p>${line}</p>`).join('')}
                   </div>
                 </div>
                 <div class="footer">

@@ -101,10 +101,12 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [catchUpCaseId, setCatchUpCaseId] = useState<string | null>(null);
   const [catchUpCaseInfo, setCatchUpCaseInfo] = useState<{ caseNumber: string; trademarkName: string } | null>(null);
+  const [currentConsultationId, setCurrentConsultationId] = useState<string | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const meetingNotesRef = useRef<MeetingNote[]>([]);
   const inputModeRef = useRef<"sprache" | "text">("sprache");
   const voiceAssistantRef = useRef<VoiceAssistantHandle>(null);
+  const sessionAnalyzedRef = useRef(false);
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -158,21 +160,40 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
             })
             .join("\n");
 
-          // Save consultation
-          const response = await fetch("/api/consultations", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: `Markenberatung - ${new Date().toLocaleDateString("de-DE")}`,
-              summary,
-              transcript: notesText,
-              sessionProtocol,
-              duration: meetingDurationSeconds,
-              mode: inputMode,
-              caseId: catchUpCaseId || currentCaseId || null,
-              sendEmail: false
-            })
-          });
+          // Save or update consultation
+          let response;
+          if (currentConsultationId) {
+            // Update existing consultation
+            response = await fetch(`/api/consultations/${currentConsultationId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: `Markenberatung - ${new Date().toLocaleDateString("de-DE")}`,
+                summary,
+                transcript: notesText,
+                sessionProtocol,
+                duration: meetingDurationSeconds,
+                mode: inputMode,
+                status: "completed"
+              })
+            });
+          } else {
+            // Create new consultation
+            response = await fetch("/api/consultations", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: `Markenberatung - ${new Date().toLocaleDateString("de-DE")}`,
+                summary,
+                transcript: notesText,
+                sessionProtocol,
+                duration: meetingDurationSeconds,
+                mode: inputMode,
+                caseId: catchUpCaseId || currentCaseId || null,
+                sendEmail: false
+              })
+            });
+          }
 
           if (response.ok) {
             setSavedSuccessfully(true);
@@ -192,7 +213,7 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     return () => {
       setOnSaveBeforeLeave(null);
     };
-  }, [hasUnsavedData, meetingNotes, meetingDurationSeconds, inputMode, catchUpCaseId, currentCaseId, setOnSaveBeforeLeave]);
+  }, [hasUnsavedData, meetingNotes, meetingDurationSeconds, inputMode, catchUpCaseId, currentCaseId, currentConsultationId, setOnSaveBeforeLeave]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -313,6 +334,78 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     }
   }, [meetingStartTime]);
 
+  // Create initial consultation when meeting starts for real-time message saving
+  // Also handles catch-up sessions by creating a consultation linked to the existing case
+  useEffect(() => {
+    const createOrFetchConsultation = async () => {
+      // Skip if no meeting started or already have a consultation
+      if (!meetingStartTime || currentConsultationId) {
+        console.log("[CopilotClient] createOrFetchConsultation skipped:", { meetingStartTime: !!meetingStartTime, currentConsultationId });
+        return;
+      }
+
+      try {
+        // For catch-up sessions, create a consultation linked to the existing case
+        if (catchUpCaseId) {
+          console.log("[CopilotClient] Creating consultation for catch-up case:", catchUpCaseId);
+          const response = await fetch("/api/consultations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: `Nachholberatung ${new Date().toLocaleDateString("de-DE")}`,
+              summary: "",
+              duration: 0,
+              mode: inputMode,
+              status: "in_progress",
+              caseId: catchUpCaseId
+            })
+          });
+          const data = await response.json();
+          if (response.ok) {
+            const consultationId = data.consultation?.id;
+            console.log("[CopilotClient] Catch-up consultation created:", consultationId, "Full response:", data);
+            if (consultationId) {
+              setCurrentConsultationId(consultationId);
+            } else {
+              console.error("[CopilotClient] Catch-up consultation created but no ID in response:", data);
+            }
+          } else {
+            console.error("[CopilotClient] Failed to create catch-up consultation:", response.status, data);
+          }
+        } else {
+          // Normal session - create new consultation
+          console.log("[CopilotClient] Creating new consultation for normal session");
+          const response = await fetch("/api/consultations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: `Beratung ${new Date().toLocaleDateString("de-DE")}`,
+              summary: "",
+              duration: 0,
+              mode: inputMode,
+              status: "in_progress"
+            })
+          });
+          const data = await response.json();
+          if (response.ok) {
+            const consultationId = data.consultation?.id;
+            console.log("[CopilotClient] Consultation created with ID:", consultationId, "Full response:", data);
+            if (consultationId) {
+              setCurrentConsultationId(consultationId);
+            } else {
+              console.error("[CopilotClient] Consultation created but no ID in response:", data);
+            }
+          } else {
+            console.error("[CopilotClient] Failed to create consultation:", response.status, data);
+          }
+        }
+      } catch (error) {
+        console.error("[CopilotClient] Error in createOrFetchConsultation:", error);
+      }
+    };
+    createOrFetchConsultation();
+  }, [meetingStartTime, currentConsultationId, catchUpCaseId, inputMode]);
+
   useEffect(() => {
     if (meetingStartTime) {
       timerRef.current = setInterval(() => {
@@ -331,13 +424,10 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     };
   }, [meetingStartTime]);
 
-  // Beim Verlassen der Seite: Sitzung analysieren falls noch nicht geschehen
-  const sessionAnalyzedRef = useRef(false);
-  
+  // Keep sessionAnalyzedRef in sync with state
   useEffect(() => {
     sessionAnalyzedRef.current = sessionAnalyzed;
   }, [sessionAnalyzed]);
-
 
   // Automatisch einen neuen Case erstellen beim Start einer Beratung
   // NICHT wenn catchUpCaseId gesetzt ist (Beratung nachholen)
@@ -917,25 +1007,49 @@ ${notesText}`,
         };
       }
 
-      const response = await fetch("/api/consultations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          summary: meetingSummary,
-          transcript,
-          sessionProtocol,
-          duration: meetingDurationSeconds,
-          mode: inputMode,
-          extractedData,
-          sendEmail: false
-        })
-      });
+      let response;
+      let consultationId = currentConsultationId;
+      
+      if (currentConsultationId) {
+        // Update existing consultation with PATCH
+        response = await fetch(`/api/consultations/${currentConsultationId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            summary: meetingSummary,
+            transcript,
+            sessionProtocol,
+            duration: meetingDurationSeconds,
+            mode: inputMode,
+            extractedData,
+            status: "completed"
+          })
+        });
+      } else {
+        // Create new consultation with POST
+        response = await fetch("/api/consultations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            summary: meetingSummary,
+            transcript,
+            sessionProtocol,
+            duration: meetingDurationSeconds,
+            mode: inputMode,
+            extractedData,
+            sendEmail: false
+          })
+        });
+      }
 
       if (!response.ok) throw new Error("Fehler beim Speichern");
 
       const consultationData = await response.json();
-      const consultationId = consultationData.consultation?.id;
+      if (!currentConsultationId) {
+        consultationId = consultationData.consultation?.id;
+      }
       const consultationStatus = consultationData.consultation?.status;
 
       setSavedSuccessfully(true);
@@ -1031,10 +1145,12 @@ ${notesText}`,
     setMeetingDuration("00:00");
     setMeetingDurationSeconds(0);
     setSessionAnalyzed(false);
+    setCurrentConsultationId(null);
   };
 
-  const handleMessageSent = (content: string, type: "user" | "assistant") => {
+  const handleMessageSent = async (content: string, type: "user" | "assistant") => {
     console.log("[CopilotClient] handleMessageSent called:", type, content.substring(0, 50));
+    console.log("[CopilotClient] Current consultation ID for message:", currentConsultationId);
     setMeetingNotes(prev => {
       const newNotes = [...prev, {
         id: `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1045,6 +1161,31 @@ ${notesText}`,
       console.log("[CopilotClient] meetingNotes updated, new length:", newNotes.length);
       return newNotes;
     });
+    
+    // Save message to database if we have a consultation
+    if (currentConsultationId) {
+      console.log("[CopilotClient] Saving message to consultation:", currentConsultationId);
+      try {
+        const response = await fetch(`/api/consultations/${currentConsultationId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            role: type === "user" ? "user" : "assistant",
+            content,
+            messageType: inputMode === "sprache" ? "voice" : "text"
+          })
+        });
+        if (response.ok) {
+          console.log("[CopilotClient] Message saved successfully to consultation:", currentConsultationId);
+        } else {
+          console.error("[CopilotClient] Failed to save message:", response.status);
+        }
+      } catch (error) {
+        console.error("[CopilotClient] Error saving message:", error);
+      }
+    } else {
+      console.log("[CopilotClient] No consultation ID available, message not persisted to database");
+    }
   };
 
   const formatDuration = (seconds: number | null) => {

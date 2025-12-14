@@ -18,7 +18,8 @@ import {
   ChevronRight,
   Loader2,
   Search,
-  FileText
+  FileText,
+  MessageSquare
 } from "lucide-react";
 import { useEffect } from "react";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
@@ -27,6 +28,7 @@ import { UnsavedDataProvider, useUnsavedData } from "@/app/contexts/UnsavedDataC
 const baseNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Markenberatung", href: "/dashboard/copilot", icon: Mic },
+  { name: "Chat-Verlauf", href: "/dashboard/chat-historie", icon: MessageSquare },
   { name: "Markenrecherche", href: "/dashboard/recherche", icon: Search },
   { name: "Risiko-Analyse", href: "/dashboard/risiko", icon: BarChart3 },
   { name: "Markenanmeldung", href: "/dashboard/anmeldung", icon: FileText },
