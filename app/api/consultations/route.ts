@@ -167,6 +167,33 @@ export async function POST(request: NextRequest) {
         .update(trademarkCases)
         .set(updateData)
         .where(eq(trademarkCases.id, validatedCaseId));
+
+      // Mark "beratung" step as completed
+      const existingBeratungStep = await db.query.caseSteps.findFirst({
+        where: and(
+          eq(caseSteps.caseId, validatedCaseId),
+          eq(caseSteps.step, "beratung")
+        ),
+      });
+
+      if (existingBeratungStep) {
+        // Update existing step to completed
+        await db
+          .update(caseSteps)
+          .set({
+            status: "completed",
+            completedAt: new Date(),
+          })
+          .where(eq(caseSteps.id, existingBeratungStep.id));
+      } else {
+        // Create new step as completed
+        await db.insert(caseSteps).values({
+          caseId: validatedCaseId,
+          step: "beratung",
+          status: "completed",
+          completedAt: new Date(),
+        });
+      }
     }
 
     if (sendEmail && session.user.email) {

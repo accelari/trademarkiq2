@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   MessageCircle,
   ArrowRight,
+  ChevronDown,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
@@ -102,6 +103,7 @@ export default function ConsultationsModal({
   onNavigate,
 }: ConsultationsModalProps) {
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
+  const [rechercheExpanded, setRechercheExpanded] = useState(false);
 
   const handleClose = () => {
     setSelectedConsultation(null);
@@ -164,35 +166,6 @@ export default function ConsultationsModal({
                   )}
                 </div>
               </div>
-              {(selectedConsultation.trademarkName || (selectedConsultation.countries && selectedConsultation.countries.length > 0) || (selectedConsultation.niceClasses && selectedConsultation.niceClasses.length > 0)) && (
-                <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 mb-4">
-                  <h4 className="text-sm font-semibold text-teal-800 mb-3 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    Extrahierte Informationen
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    {selectedConsultation.trademarkName && (
-                      <div className="flex justify-between">
-                        <span className="text-teal-700">Markenname:</span>
-                        <span className="font-medium text-teal-900">"{selectedConsultation.trademarkName}"</span>
-                      </div>
-                    )}
-                    {selectedConsultation.countries && selectedConsultation.countries.length > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-teal-700">Zielländer:</span>
-                        <span className="font-medium text-teal-900">{selectedConsultation.countries.join(", ")}</span>
-                      </div>
-                    )}
-                    {selectedConsultation.niceClasses && selectedConsultation.niceClasses.length > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-teal-700">Nizza-Klassen:</span>
-                        <span className="font-medium text-teal-900">{selectedConsultation.niceClasses.join(", ")}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
               {selectedConsultation.summary && (
                 <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 mb-4">
                   <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -221,65 +194,145 @@ export default function ConsultationsModal({
                   </ReactMarkdown>
                 </div>
               )}
+
+              {(selectedConsultation.trademarkName || (selectedConsultation.countries && selectedConsultation.countries.length > 0) || (selectedConsultation.niceClasses && selectedConsultation.niceClasses.length > 0)) && (
+                <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 mb-4">
+                  <h4 className="text-sm font-semibold text-teal-800 mb-3 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Extrahierte Informationen
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    {selectedConsultation.trademarkName && (
+                      <div className="flex justify-between">
+                        <span className="text-teal-700">Markenname:</span>
+                        <span className="font-medium text-teal-900">"{selectedConsultation.trademarkName}"</span>
+                      </div>
+                    )}
+                    {selectedConsultation.countries && selectedConsultation.countries.length > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-teal-700">Zielländer:</span>
+                        <span className="font-medium text-teal-900">{selectedConsultation.countries.join(", ")}</span>
+                      </div>
+                    )}
+                    {selectedConsultation.niceClasses && selectedConsultation.niceClasses.length > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-teal-700">Nizza-Klassen:</span>
+                        <span className="font-medium text-teal-900">{selectedConsultation.niceClasses.join(", ")}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               
               {(() => {
                 const rechercheStep = selectedConsultation.caseSteps?.find(s => s.step === "recherche" && (s.status === "completed" || s.completedAt));
                 if (!rechercheStep) return null;
                 const meta = rechercheStep.metadata || {};
+                const conflicts = meta.conflicts || [];
                 return (
-                  <div className="bg-blue-50 rounded-xl p-5 border border-blue-100 mb-4">
-                    <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
-                      <Search className="w-4 h-4" />
-                      Recherche-Ergebnisse
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                      {meta.searchQuery && (
-                        <div className="flex justify-between">
-                          <span className="text-blue-700">Suchbegriff:</span>
-                          <span className="font-medium text-blue-900">"{meta.searchQuery}"</span>
-                        </div>
-                      )}
-                      {meta.resultsCount !== undefined && (
-                        <div className="flex justify-between">
-                          <span className="text-blue-700">Ergebnisse analysiert:</span>
-                          <span className="font-medium text-blue-900">{meta.resultsCount}</span>
-                        </div>
-                      )}
-                      {meta.conflictsCount !== undefined && (
-                        <div className="flex justify-between">
-                          <span className="text-blue-700">Konflikte gefunden:</span>
-                          <span className={`font-medium ${meta.conflictsCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                            {meta.conflictsCount}
+                  <div className="bg-blue-50 rounded-xl border border-blue-100 mb-4 overflow-hidden">
+                    <button
+                      onClick={() => setRechercheExpanded(!rechercheExpanded)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-blue-100/50 transition-colors"
+                    >
+                      <h4 className="text-sm font-semibold text-blue-800 flex items-center gap-2">
+                        <Search className="w-4 h-4" />
+                        Recherche-Ergebnisse
+                        {meta.conflictsCount !== undefined && (
+                          <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${meta.conflictsCount > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                            {meta.conflictsCount} Konflikte
                           </span>
+                        )}
+                      </h4>
+                      <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform ${rechercheExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {rechercheExpanded && (
+                      <div className="px-4 pb-4 space-y-3">
+                        <div className="space-y-2 text-sm">
+                          {meta.searchQuery && (
+                            <div className="flex justify-between">
+                              <span className="text-blue-700">Suchbegriff:</span>
+                              <span className="font-medium text-blue-900">"{meta.searchQuery}"</span>
+                            </div>
+                          )}
+                          {meta.resultsCount !== undefined && (
+                            <div className="flex justify-between">
+                              <span className="text-blue-700">Ergebnisse analysiert:</span>
+                              <span className="font-medium text-blue-900">{meta.resultsCount}</span>
+                            </div>
+                          )}
+                          {meta.countries && meta.countries.length > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-blue-700">Länder:</span>
+                              <span className="font-medium text-blue-900">{meta.countries.join(", ")}</span>
+                            </div>
+                          )}
+                          {meta.classes && meta.classes.length > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-blue-700">Nizza-Klassen:</span>
+                              <span className="font-medium text-blue-900">{meta.classes.join(", ")}</span>
+                            </div>
+                          )}
+                          {rechercheStep.completedAt && (
+                            <div className="flex justify-between pt-2 border-t border-blue-200 mt-2">
+                              <span className="text-blue-700">Durchgeführt am:</span>
+                              <span className="font-medium text-blue-900">
+                                {new Date(rechercheStep.completedAt).toLocaleDateString("de-DE", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {meta.countries && meta.countries.length > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-blue-700">Länder:</span>
-                          <span className="font-medium text-blue-900">{meta.countries.join(", ")}</span>
-                        </div>
-                      )}
-                      {meta.classes && meta.classes.length > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-blue-700">Nizza-Klassen:</span>
-                          <span className="font-medium text-blue-900">{meta.classes.join(", ")}</span>
-                        </div>
-                      )}
-                      {rechercheStep.completedAt && (
-                        <div className="flex justify-between pt-2 border-t border-blue-200 mt-2">
-                          <span className="text-blue-700">Durchgeführt am:</span>
-                          <span className="font-medium text-blue-900">
-                            {new Date(rechercheStep.completedAt).toLocaleDateString("de-DE", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                        
+                        {conflicts.length > 0 && (
+                          <div className="mt-4 pt-3 border-t border-blue-200">
+                            <h5 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                              <AlertTriangle className="w-4 h-4 text-red-500" />
+                              Gefundene Konflikte ({conflicts.length})
+                            </h5>
+                            <div className="space-y-2">
+                              {conflicts.map((conflict: any, index: number) => (
+                                <div key={index} className="bg-white rounded-lg p-3 border border-blue-200">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1">
+                                      <p className="font-medium text-gray-900">{conflict.name}</p>
+                                      {conflict.owner && (
+                                        <p className="text-xs text-gray-600 mt-0.5">Inhaber: {conflict.owner}</p>
+                                      )}
+                                    </div>
+                                    {conflict.similarity !== undefined && (
+                                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                        conflict.similarity >= 80 ? 'bg-red-100 text-red-700' :
+                                        conflict.similarity >= 60 ? 'bg-amber-100 text-amber-700' :
+                                        'bg-yellow-100 text-yellow-700'
+                                      }`}>
+                                        {conflict.similarity}%
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap gap-2 mt-2 text-xs">
+                                    {conflict.office && (
+                                      <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{conflict.office}</span>
+                                    )}
+                                    {conflict.classes && conflict.classes.length > 0 && (
+                                      <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                                        Klassen: {conflict.classes.join(", ")}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
