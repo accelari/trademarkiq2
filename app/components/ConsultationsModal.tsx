@@ -32,6 +32,7 @@ interface Consultation {
   duration: number | null;
   mode: string;
   createdAt: string;
+  updatedAt?: string;
   caseId?: string | null;
   caseNumber?: string | null;
   trademarkName?: string | null;
@@ -156,9 +157,12 @@ export default function ConsultationsModal({
               </button>
               <div className="mb-4">
                 <h3 className="font-semibold text-gray-900 text-lg">{selectedConsultation.title}</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  {formatDate(selectedConsultation.createdAt)} · {formatDuration(selectedConsultation.duration)}
-                </p>
+                <div className="text-sm text-gray-500 mt-1 space-y-0.5">
+                  <p>Erstellt: {formatDate(selectedConsultation.createdAt)} · {formatDuration(selectedConsultation.duration)}</p>
+                  {selectedConsultation.updatedAt && selectedConsultation.updatedAt !== selectedConsultation.createdAt && (
+                    <p className="text-primary font-medium">Aktualisiert: {formatDate(selectedConsultation.updatedAt)}</p>
+                  )}
+                </div>
               </div>
               {(selectedConsultation.trademarkName || (selectedConsultation.countries && selectedConsultation.countries.length > 0) || (selectedConsultation.niceClasses && selectedConsultation.niceClasses.length > 0)) && (
                 <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 mb-4">
@@ -308,7 +312,10 @@ export default function ConsultationsModal({
                         </h4>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <p className="text-sm text-gray-500">
-                            {formatDate(consultation.createdAt)} · {formatDuration(consultation.duration)}
+                            {consultation.updatedAt && consultation.updatedAt !== consultation.createdAt 
+                              ? `Aktualisiert: ${formatDate(consultation.updatedAt)}`
+                              : formatDate(consultation.createdAt)
+                            } · {formatDuration(consultation.duration)}
                           </p>
                           {consultation.caseNumber && (
                             <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { consultations, trademarkCases, caseSteps } from "@/db/schema";
+import { consultations, trademarkCases, caseSteps, caseDecisions } from "@/db/schema";
 import { desc, eq, isNull, and, notInArray } from "drizzle-orm";
 import { Resend } from "resend";
 
@@ -18,10 +18,14 @@ export async function GET(request: NextRequest) {
     // Lade alle Cases des Benutzers mit ihren verknüpften Consultations
     const userCases = await db.query.trademarkCases.findMany({
       where: eq(trademarkCases.userId, session.user.id),
-      orderBy: [desc(trademarkCases.createdAt)],
+      orderBy: [desc(trademarkCases.updatedAt)], // Sort by updatedAt to show recently updated first
       with: {
         steps: true,
         events: true,
+        decisions: {
+          orderBy: [desc(caseDecisions.extractedAt)],
+          limit: 1,
+        },
         consultations: {
           orderBy: [desc(consultations.createdAt)],
           limit: 1,
@@ -32,13 +36,18 @@ export async function GET(request: NextRequest) {
     // Transformiere Cases in das erwartete Format
     const casesAsConsultations = userCases.map((c) => {
       const linkedConsultation = c.consultations?.[0];
+      const latestDecision = (c as any).decisions?.[0];
       const searchData = (c.events?.find((e: any) => e.eventType === "created")?.eventData as any)?.searchData;
       const extractedData = linkedConsultation?.extractedData as any;
       
-      // Berechne Vollständigkeit basierend auf tatsächlichen Daten
-      const trademarkName = c.trademarkName || extractedData?.trademarkName;
-      const countries = extractedData?.countries || searchData?.countries || [];
-      const niceClasses = extractedData?.niceClasses || searchData?.classes || [];
+      // Use latest decision data if available, otherwise fall back to extracted/search data
+      const trademarkName = c.trademarkName || latestDecision?.trademarkNames?.[0] || extractedData?.trademarkName;
+      const countries = latestDecision?.countries?.length > 0 
+        ? latestDecision.countries 
+        : (extractedData?.countries || searchData?.countries || []);
+      const niceClasses = latestDecision?.niceClasses?.length > 0 
+        ? latestDecision.niceClasses 
+        : (extractedData?.niceClasses || searchData?.classes || []);
       const isComplete = !!(trademarkName && trademarkName.trim().length > 0 && countries.length > 0 && niceClasses.length > 0);
       
       return {
@@ -65,9 +74,9 @@ export async function GET(request: NextRequest) {
         updatedAt: c.updatedAt,
         caseId: c.id,
         caseNumber: c.caseNumber,
-        trademarkName: c.trademarkName,
-        countries: extractedData?.countries || searchData?.countries || [],
-        niceClasses: extractedData?.niceClasses || searchData?.classes || [],
+        trademarkName: trademarkName,
+        countries: countries,
+        niceClasses: niceClasses,
         caseSteps: c.steps?.map((step) => ({
           step: step.step,
           status: step.status,
@@ -94,7 +103,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, summary, transcript, sessionProtocol, duration, mode, extractedData, sendEmail } = body;
+    const { title, summary, transcript, sessionProtocol, duration, mode, extractedData, sendEmail, caseId } = body;
 
     if (!title || !summary) {
       return NextResponse.json(
@@ -108,6 +117,20 @@ export async function POST(request: NextRequest) {
                        extractedData?.niceClasses?.length > 0;
     
     const consultationStatus = isComplete ? "ready_for_research" : "draft";
+
+    // Verify caseId belongs to user if provided
+    let validatedCaseId: string | null = null;
+    if (caseId) {
+      const existingCase = await db.query.trademarkCases.findFirst({
+        where: and(
+          eq(trademarkCases.id, caseId),
+          eq(trademarkCases.userId, session.user.id)
+        ),
+      });
+      if (existingCase) {
+        validatedCaseId = caseId;
+      }
+    }
 
     const [newConsultation] = await db
       .insert(consultations)
@@ -125,8 +148,26 @@ export async function POST(request: NextRequest) {
           isComplete,
         },
         emailSent: false,
+        caseId: validatedCaseId,
       })
       .returning();
+
+    // Update trademarkCase if caseId was provided
+    if (validatedCaseId) {
+      const updateData: Record<string, any> = {
+        updatedAt: new Date(),
+      };
+      
+      // Update trademarkName if extracted
+      if (extractedData?.trademarkName) {
+        updateData.trademarkName = extractedData.trademarkName;
+      }
+      
+      await db
+        .update(trademarkCases)
+        .set(updateData)
+        .where(eq(trademarkCases.id, validatedCaseId));
+    }
 
     if (sendEmail && session.user.email) {
       try {
