@@ -20,7 +20,6 @@ The application is built with Next.js 16 (App Router) and TypeScript, utilizing 
 
 ### Key Features
 - **Markenberatung (Voice CoPilot)**: AI-powered voice/text assistant (Hume AI + Claude). Always-on session tracking with timer. "Meine Markenfälle" popup accessible from multiple pages to view/manage all trademark cases. AI-generated summaries with Markdown formatting. One-click save functionality.
-  - **Chat-Historie**: Real-time message persistence - every message is saved to the database immediately. Accessible via "Chat-Verlauf" in sidebar. Shows all past consultations with full conversation history. Messages stored in `chatMessages` table linked to consultations.
 - **Markenrecherche**: AI-powered trademark search with `tmsearch.ai` integration, including accuracy scores, office badges, and detailed modals. Features include:
   - World-class international search strategy generation using Claude Opus 4.1
   - Multilingual phonetic analysis (EN, DE, FR, ES, ZH, JP, KR, AR)
@@ -79,7 +78,7 @@ A comprehensive 5-step journey system tracks user progress through the trademark
 - **Timeline UI**: Horizontal progress indicator shown across journey pages
 
 ### Database Schema
-The database schema includes tables for `users`, `organizations`, `memberships`, `invitations`, `searches`, `playbooks`, `watchlistItems`, `alerts`, `experts`, `expertContacts`, `trademarkApplications`, `consultations`, `chatMessages`, `trademarkCases`, `caseSteps`, `caseDecisions`, and `caseEvents`, supporting multi-tenancy and comprehensive journey tracking.
+The database schema includes tables for `users`, `organizations`, `memberships`, `invitations`, `searches`, `playbooks`, `watchlistItems`, `alerts`, `experts`, `expertContacts`, `trademarkApplications`, `consultations`, `trademarkCases`, `caseSteps`, `caseDecisions`, and `caseEvents`, supporting multi-tenancy and comprehensive journey tracking.
 
 ## External Dependencies
 - **Hume AI**: For the Empathic Voice Interface and voice assistant functionalities.
