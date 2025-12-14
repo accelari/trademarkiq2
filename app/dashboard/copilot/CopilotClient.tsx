@@ -383,14 +383,15 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
               trademarkName,
               previousSummary,
               extractedData: {
-                trademarkName: extractedData?.trademarkName,
+                trademarkName: data.case.trademarkName || extractedData?.trademarkName,
                 countries,
                 niceClasses,
               }
             });
             
             const missingInfo: string[] = [];
-            if (!extractedData?.trademarkName) missingInfo.push("Markenname");
+            const hasTrademarkName = data.case.trademarkName || extractedData?.trademarkName;
+            if (!hasTrademarkName) missingInfo.push("Markenname");
             if (!countries.length) missingInfo.push("Zielländer");
             if (!niceClasses.length) missingInfo.push("Nizza-Klassen");
             
@@ -404,10 +405,19 @@ VORHERIGE BERATUNG:
 ${previousSummary}`;
             }
 
+            const knownTrademarkName = data.case.trademarkName || extractedData?.trademarkName;
+            console.log("[CopilotClient] catchUpCase context:", {
+              caseTrademarkName: data.case.trademarkName,
+              extractedTrademarkName: extractedData?.trademarkName,
+              knownTrademarkName,
+              countries,
+              niceClasses
+            });
+            
             systemContext += `
 
 BEREITS BEKANNT:
-- Markenname: ${extractedData?.trademarkName || "(noch nicht festgelegt)"}
+- Markenname: ${knownTrademarkName || "(noch nicht festgelegt)"}
 - Länder: ${countries.length > 0 ? countries.join(", ") : "(noch nicht festgelegt)"}
 - Nizza-Klassen: ${niceClasses.length > 0 ? niceClasses.join(", ") : "(noch nicht festgelegt)"}`;
 

@@ -182,7 +182,15 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       setIsReconnecting(false);
       
       if (pendingPrompt) {
-        console.log("Sende SessionSettings mit Klaus-Prompt...");
+        const hasContext = pendingPrompt.includes("[SYSTEM-KONTEXT");
+        console.log("Sende SessionSettings mit Klaus-Prompt...", hasContext ? "(mit Catch-Up Kontext)" : "(Standard)");
+        if (hasContext) {
+          console.log("Context-Prompt wird gesendet, enthält:", 
+            pendingPrompt.includes("Markenname:") ? "Markenname" : "kein Markenname",
+            pendingPrompt.includes("Länder:") ? "Länder" : "keine Länder",
+            pendingPrompt.includes("Nizza-Klassen:") ? "Nizza-Klassen" : "keine Nizza-Klassen"
+          );
+        }
         sendSessionSettings({
           systemPrompt: pendingPrompt
         });
@@ -455,12 +463,24 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           : contextMessage;
           
         if (status.value === "connected") {
+          if (isSystemContext) {
+            console.log("Voice connected: Updating session settings with catch-up context...");
+            const updatedPrompt = KLAUS_SYSTEM_PROMPT + `\n\n${contextMessage}\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt (z.B. den Markennamen) und frage dann nach den noch fehlenden Informationen.`;
+            sendSessionSettings({
+              systemPrompt: updatedPrompt
+            });
+          }
           sendUserInput(voiceMessage);
         } else {
           setPendingQuestion(voiceMessage);
           try {
             setError(null);
-            setPendingPrompt(KLAUS_SYSTEM_PROMPT + (isSystemContext ? `\n\n${contextMessage}` : `\n\nKONTEXT: ${contextMessage}`));
+            let fullPrompt = KLAUS_SYSTEM_PROMPT + (isSystemContext ? `\n\n${contextMessage}` : `\n\nKONTEXT: ${contextMessage}`);
+            if (isSystemContext) {
+              fullPrompt += `\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt (z.B. den Markennamen falls bekannt) und frage dann nach den noch fehlenden Informationen.`;
+            }
+            console.log("Voice connecting with context:", isSystemContext ? "SYSTEM-KONTEXT" : "regular context");
+            setPendingPrompt(fullPrompt);
             await connect({
               auth: {
                 type: "accessToken" as const,
