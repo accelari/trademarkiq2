@@ -68,7 +68,27 @@ export async function POST(request: NextRequest) {
         }
       }
       if (step === "recherche" && completeRecherche) {
-        return { caseId: newCase.id, step, status: "completed" as const, startedAt: nowDate, completedAt: nowDate, skippedAt: null };
+        const rechercheMetadata = searchData ? {
+          searchQuery: searchData.query,
+          resultsCount: searchData.totalAnalyzed || 0,
+          conflictsCount: searchData.conflictsCount || 0,
+          countries: searchData.countries || [],
+          classes: searchData.classes || [],
+          searchedAt: nowDate.toISOString(),
+          searchTermsUsed: searchData.searchTermsUsed || [],
+          totalResultsAnalyzed: searchData.totalAnalyzed || 0,
+          conflicts: searchData.conflicts || [],
+          aiAnalysis: searchData.aiAnalysis || null,
+        } : null;
+        return { 
+          caseId: newCase.id, 
+          step, 
+          status: "completed" as const, 
+          startedAt: nowDate, 
+          completedAt: nowDate, 
+          skippedAt: null,
+          metadata: rechercheMetadata,
+        };
       }
       return { caseId: newCase.id, step, status: "pending" as const, startedAt: null, completedAt: null, skippedAt: null };
     });
