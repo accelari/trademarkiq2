@@ -1645,12 +1645,17 @@ export default function RecherchePage() {
     };
   }, [hasUnsavedData, caseId, currentCaseNumber, activeSearchQuery, searchQuery, aiAnalysis, selectedLaender, aiSelectedClasses, setOnSaveBeforeLeave]);
   
-  const { data: consultationsData } = useSWR(
+  const { data: consultationsData, mutate: mutateConsultations } = useSWR(
     session?.user?.id ? "/api/consultations" : null,
     fetcher,
     { refreshInterval: 30000 }
   );
   const consultations = consultationsData?.consultations || [];
+  
+  const handleOpenConsultationsModal = useCallback(() => {
+    mutateConsultations();
+    setShowConsultationsModal(true);
+  }, [mutateConsultations]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -2434,7 +2439,7 @@ export default function RecherchePage() {
               </a>
             </div>
             <button
-              onClick={() => setShowConsultationsModal(true)}
+              onClick={handleOpenConsultationsModal}
               className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
             >
               <FolderOpen className="w-5 h-5 text-primary" />
