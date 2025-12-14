@@ -372,6 +372,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const MAX_CLASSES = 8;
+    let classesToAnalyze = validClasses;
+    let wasLimited = false;
+    
+    if (validClasses.length > MAX_CLASSES) {
+      classesToAnalyze = validClasses.slice(0, MAX_CLASSES);
+      wasLimited = true;
+    }
+
     const descriptions = Array.isArray(goodsServicesDescriptions) 
       ? goodsServicesDescriptions.filter(d => typeof d === "string" && d.trim())
       : [];
@@ -382,10 +391,16 @@ export async function POST(request: NextRequest) {
 
     const analysis = await analyzeGoodsServices(
       trademarkName.trim(),
-      validClasses,
+      classesToAnalyze,
       descriptions,
       offices
     );
+    
+    if (wasLimited) {
+      analysis.warnings.unshift(
+        `Die Analyse wurde auf ${MAX_CLASSES} von ${validClasses.length} Klassen begrenzt, um die Bearbeitungszeit zu verkürzen. Bitte wählen Sie für eine detailliertere Analyse weniger Klassen aus.`
+      );
+    }
 
     return NextResponse.json(analysis);
   } catch (error: any) {

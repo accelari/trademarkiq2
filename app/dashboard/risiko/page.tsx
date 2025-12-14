@@ -116,7 +116,7 @@ function AnimatedRiskScore({ score, risk }: { score: number; risk: "high" | "med
     switch (risk) {
       case "high": return { ring: "stroke-red-500", text: "text-red-600", bg: "bg-red-50", label: "Hohes Risiko" };
       case "medium": return { ring: "stroke-orange-500", text: "text-orange-600", bg: "bg-orange-50", label: "Mittleres Risiko" };
-      case "low": return { ring: "stroke-green-500", text: "text-green-600", bg: "bg-green-50", label: "Niedriges Risiko" };
+      case "low": return { ring: "stroke-teal-500", text: "text-teal-600", bg: "bg-teal-50", label: "Niedriges Risiko" };
     }
   };
   
@@ -154,14 +154,14 @@ function OppositionRiskBar({ risk }: { risk: number }) {
   const getColor = () => {
     if (risk > 70) return "bg-red-500";
     if (risk > 40) return "bg-orange-500";
-    return "bg-green-500";
+    return "bg-teal-500";
   };
   
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm">
         <span className="text-gray-600">Widerspruchsrisiko</span>
-        <span className={`font-bold ${risk > 70 ? 'text-red-600' : risk > 40 ? 'text-orange-600' : 'text-green-600'}`}>
+        <span className={`font-bold ${risk > 70 ? 'text-red-600' : risk > 40 ? 'text-orange-600' : 'text-teal-600'}`}>
           {risk}%
         </span>
       </div>
@@ -177,7 +177,7 @@ function OppositionRiskBar({ risk }: { risk: number }) {
 
 function EffortBadge({ effort }: { effort: "low" | "medium" | "high" }) {
   const config = {
-    low: { label: "Gering", bg: "bg-green-100", text: "text-green-700" },
+    low: { label: "Gering", bg: "bg-teal-100", text: "text-teal-700" },
     medium: { label: "Mittel", bg: "bg-orange-100", text: "text-orange-700" },
     high: { label: "Hoch", bg: "bg-red-100", text: "text-red-700" },
   };
@@ -231,7 +231,7 @@ function SolutionCard({
         <div className="flex items-center gap-2">
           <span className="text-gray-500">Erfolg:</span>
           <span className={`font-bold ${
-            solution.successProbability > 70 ? 'text-green-600' : 
+            solution.successProbability > 70 ? 'text-teal-600' : 
             solution.successProbability > 40 ? 'text-orange-600' : 'text-red-600'
           }`}>{solution.successProbability}%</span>
         </div>
@@ -272,7 +272,7 @@ function ConflictCard({
   const getRiskStyles = () => {
     if (conflict.oppositionRisk > 70) return { bg: "bg-red-50", border: "border-red-200", badge: "bg-red-100 text-red-700" };
     if (conflict.oppositionRisk > 40) return { bg: "bg-orange-50", border: "border-orange-200", badge: "bg-orange-100 text-orange-700" };
-    return { bg: "bg-green-50", border: "border-green-200", badge: "bg-green-100 text-green-700" };
+    return { bg: "bg-teal-50", border: "border-teal-200", badge: "bg-teal-100 text-teal-700" };
   };
   
   const styles = getRiskStyles();
@@ -370,7 +370,7 @@ function ClassComplianceCard({ recommendation }: { recommendation: ClassRecommen
   
   const getStatusConfig = () => {
     if (recommendation.isCompliant) {
-      return { icon: <CheckCircle className="w-5 h-5" />, label: "Konform", bg: "bg-green-50", border: "border-green-200", text: "text-green-700" };
+      return { icon: <CheckCircle className="w-5 h-5" />, label: "Konform", bg: "bg-teal-50", border: "border-teal-200", text: "text-teal-700" };
     }
     if (recommendation.issues.length <= 2) {
       return { icon: <AlertTriangle className="w-5 h-5" />, label: "Verbesserungsbedarf", bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-700" };
@@ -427,8 +427,8 @@ function ClassComplianceCard({ recommendation }: { recommendation: ClassRecommen
           {recommendation.amtskonformeFormulierung && (
             <div>
               <h5 className="text-sm font-semibold text-gray-700 mb-2">Amtskonforme Formulierung</h5>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-sm text-green-800">{recommendation.amtskonformeFormulierung}</p>
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
+                <p className="text-sm text-teal-800">{recommendation.amtskonformeFormulierung}</p>
               </div>
             </div>
           )}
@@ -1091,22 +1091,22 @@ function RisikoPageContent() {
           {activeTab === "conflicts" && (
             <div className="space-y-4">
               {expertAnalysis.bestOverallSolution && (
-                <div className="bg-gradient-to-r from-green-50 to-teal-50 border border-green-200 rounded-2xl p-6">
+                <div className="bg-gradient-to-r from-teal-50 to-teal-100 border border-teal-200 rounded-2xl p-6">
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-green-600 flex items-center justify-center text-white">
+                    <div className="w-12 h-12 rounded-xl bg-teal-600 flex items-center justify-center text-white">
                       <Lightbulb className="w-6 h-6" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-green-800">Beste Gesamtlösung</h3>
-                      <p className="text-green-700 mt-1">{expertAnalysis.bestOverallSolution.title}</p>
-                      <p className="text-sm text-green-600 mt-2">{expertAnalysis.bestOverallSolution.description}</p>
+                      <h3 className="text-lg font-semibold text-teal-800">Beste Gesamtlösung</h3>
+                      <p className="text-teal-700 mt-1">{expertAnalysis.bestOverallSolution.title}</p>
+                      <p className="text-sm text-teal-600 mt-2">{expertAnalysis.bestOverallSolution.description}</p>
                       {expertAnalysis.bestOverallSolution.suggestedValue && (
-                        <div className="mt-3 bg-white rounded-lg p-3 border border-green-200">
-                          <span className="font-medium text-green-800">{expertAnalysis.bestOverallSolution.suggestedValue}</span>
+                        <div className="mt-3 bg-white rounded-lg p-3 border border-teal-200">
+                          <span className="font-medium text-teal-800">{expertAnalysis.bestOverallSolution.suggestedValue}</span>
                         </div>
                       )}
                       <div className="flex items-center gap-4 mt-3 text-sm">
-                        <span className="text-green-600">
+                        <span className="text-teal-600">
                           Erfolgswahrscheinlichkeit: <strong>{expertAnalysis.bestOverallSolution.successProbability}%</strong>
                         </span>
                         <EffortBadge effort={expertAnalysis.bestOverallSolution.effort} />
@@ -1114,7 +1114,7 @@ function RisikoPageContent() {
                       {expertAnalysis.bestOverallSolution.type === "name_modification" && expertAnalysis.bestOverallSolution.suggestedValue && (
                         <button
                           onClick={() => handleAdoptAlternative(expertAnalysis.bestOverallSolution!.suggestedValue)}
-                          className="mt-4 flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                          className="mt-4 flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
                         >
                           <ArrowRight className="w-4 h-4" />
                           Alternative übernehmen → neue Recherche
@@ -1126,10 +1126,10 @@ function RisikoPageContent() {
               )}
 
               {(expertAnalysis.conflictAnalyses || []).length === 0 ? (
-                <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center">
-                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-green-800">Keine Konflikte gefunden!</h3>
-                  <p className="text-green-700 mt-2">
+                <div className="bg-teal-50 border border-teal-200 rounded-2xl p-8 text-center">
+                  <CheckCircle className="w-16 h-16 text-teal-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-teal-800">Keine Konflikte gefunden!</h3>
+                  <p className="text-teal-700 mt-2">
                     Die Marke "{markenname}" scheint frei von relevanten Kollisionen zu sein.
                   </p>
                 </div>
@@ -1164,14 +1164,14 @@ function RisikoPageContent() {
                 <>
                   <div className={`rounded-2xl p-6 ${
                     goodsAnalysis.overallCompliance === "compliant" 
-                      ? "bg-green-50 border border-green-200" 
+                      ? "bg-teal-50 border border-teal-200" 
                       : goodsAnalysis.overallCompliance === "needs_improvement"
                         ? "bg-orange-50 border border-orange-200"
                         : "bg-red-50 border border-red-200"
                   }`}>
                     <div className="flex items-center gap-4">
                       {goodsAnalysis.overallCompliance === "compliant" ? (
-                        <CheckCircle className="w-10 h-10 text-green-600" />
+                        <CheckCircle className="w-10 h-10 text-teal-600" />
                       ) : goodsAnalysis.overallCompliance === "needs_improvement" ? (
                         <AlertTriangle className="w-10 h-10 text-orange-600" />
                       ) : (
@@ -1179,7 +1179,7 @@ function RisikoPageContent() {
                       )}
                       <div>
                         <h3 className={`text-lg font-semibold ${
-                          goodsAnalysis.overallCompliance === "compliant" ? "text-green-800" :
+                          goodsAnalysis.overallCompliance === "compliant" ? "text-teal-800" :
                           goodsAnalysis.overallCompliance === "needs_improvement" ? "text-orange-800" : "text-red-800"
                         }`}>
                           {goodsAnalysis.overallCompliance === "compliant" 
@@ -1189,7 +1189,7 @@ function RisikoPageContent() {
                               : "Erhebliche Überarbeitung erforderlich"}
                         </h3>
                         <p className={`text-sm mt-1 ${
-                          goodsAnalysis.overallCompliance === "compliant" ? "text-green-700" :
+                          goodsAnalysis.overallCompliance === "compliant" ? "text-teal-700" :
                           goodsAnalysis.overallCompliance === "needs_improvement" ? "text-orange-700" : "text-red-700"
                         }`}>
                           {goodsAnalysis.classRecommendations.filter(c => c.isCompliant).length} von {goodsAnalysis.classRecommendations.length} Klassen konform
@@ -1243,7 +1243,7 @@ function RisikoPageContent() {
             <div className="grid md:grid-cols-2 gap-3">
               <a
                 href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
               >
                 <CheckCircle className="w-5 h-5" />
                 Marke anmelden
