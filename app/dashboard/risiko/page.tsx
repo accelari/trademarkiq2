@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-  BarChart3,
+  Scale,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -13,74 +13,81 @@ import {
   Globe,
   Tag,
   Sparkles,
-  Volume2,
   Mail,
-  FilePlus,
-  Eye,
+  FileDown,
   ChevronDown,
+  ChevronUp,
   Check,
   X,
   Lightbulb,
   Handshake,
+  MapPin,
+  Pencil,
+  ArrowRight,
+  ShieldAlert,
+  Gavel,
+  Building2,
+  FileText,
+  ExternalLink,
+  Bookmark,
+  User,
 } from "lucide-react";
 import WorkflowProgress from "@/app/components/WorkflowProgress";
 import { NICE_CLASSES, formatClassLabel } from "@/lib/nice-classes";
-import dynamic from "next/dynamic";
 
-const VoiceExplanation = dynamic(() => import("./VoiceExplanation"), { ssr: false });
-
-interface DimensionalScore {
-  phonetic: number;
-  visual: number;
-  conceptual: number;
-  industry: number;
-}
-
-interface ConflictingMark {
-  id: string;
-  name: string;
-  register: string;
-  holder: string;
-  classes: number[];
-  accuracy: number;
-  riskLevel: "high" | "medium" | "low";
+interface Solution {
+  type: "name_modification" | "class_change" | "mark_type" | "geographic" | "coexistence";
+  title: string;
+  description: string;
+  suggestedValue: string;
+  successProbability: number;
+  effort: "low" | "medium" | "high";
   reasoning: string;
 }
 
-interface ConflictByOffice {
-  office: string;
-  officeName: string;
-  count: number;
-  highRisk: number;
-  mediumRisk: number;
-  lowRisk: number;
-  conflicts: ConflictingMark[];
+interface ExpertConflictAnalysis {
+  conflictId: string;
+  conflictName: string;
+  conflictHolder: string;
+  conflictClasses: number[];
+  conflictOffice: string;
+  similarity: number;
+  legalAssessment: string;
+  oppositionRisk: number;
+  consequences: string;
+  solutions: Solution[];
 }
 
-interface AlternativeName {
-  name: string;
-  riskScore: number;
-  reasoning: string;
-}
-
-interface RiskAnalysis {
+interface ExpertAnalysisResponse {
   success: boolean;
-  overallScore: number;
+  trademarkName: string;
   overallRisk: "high" | "medium" | "low";
-  dimensionalScores: DimensionalScore;
-  analysis: {
-    phonetic: string;
-    visual: string;
-    conceptual: string;
-    industry: string;
-    summary: string;
-    recommendation: string;
-  };
-  conflictsByOffice: ConflictByOffice[];
-  totalConflicts: number;
-  alternatives: AlternativeName[];
-  searchTermsUsed: string[];
-  totalResultsAnalyzed: number;
+  conflictAnalyses: ExpertConflictAnalysis[];
+  bestOverallSolution: Solution | null;
+  summary: string;
+}
+
+interface SuggestedTerm {
+  term: string;
+  source: "TMclass" | "DPMA" | "EUIPO" | "Expert";
+  confidence: number;
+}
+
+interface ClassRecommendation {
+  classNumber: number;
+  className: string;
+  userDescription?: string;
+  isCompliant: boolean;
+  issues: string[];
+  suggestedTerms: SuggestedTerm[];
+  amtskonformeFormulierung: string;
+}
+
+interface GoodsServicesAnalysis {
+  success: boolean;
+  classRecommendations: ClassRecommendation[];
+  overallCompliance: "compliant" | "needs_improvement" | "non_compliant";
+  warnings: string[];
 }
 
 const LAENDER_OPTIONS = [
@@ -93,12 +100,22 @@ const LAENDER_OPTIONS = [
   { value: "AT", label: "Österreich (ÖPA)" },
 ];
 
-function ScoreCircle({ score, risk }: { score: number; risk: "high" | "medium" | "low" }) {
+const OFFICE_NAMES: Record<string, string> = {
+  "DE": "DPMA (Deutschland)",
+  "EU": "EUIPO (EU)",
+  "WO": "WIPO (International)",
+  "US": "USPTO (USA)",
+  "GB": "UKIPO (UK)",
+  "CH": "IGE (Schweiz)",
+  "AT": "ÖPA (Österreich)",
+};
+
+function AnimatedRiskScore({ score, risk }: { score: number; risk: "high" | "medium" | "low" }) {
   const getColor = () => {
     switch (risk) {
-      case "high": return { ring: "stroke-red-500", text: "text-red-600", bg: "bg-red-50" };
-      case "medium": return { ring: "stroke-orange-500", text: "text-orange-600", bg: "bg-orange-50" };
-      case "low": return { ring: "stroke-green-500", text: "text-green-600", bg: "bg-green-50" };
+      case "high": return { ring: "stroke-red-500", text: "text-red-600", bg: "bg-red-50", label: "Hohes Risiko" };
+      case "medium": return { ring: "stroke-orange-500", text: "text-orange-600", bg: "bg-orange-50", label: "Mittleres Risiko" };
+      case "low": return { ring: "stroke-green-500", text: "text-green-600", bg: "bg-green-50", label: "Niedriges Risiko" };
     }
   };
   
@@ -107,129 +124,336 @@ function ScoreCircle({ score, risk }: { score: number; risk: "high" | "medium" |
   const offset = circumference - (score / 100) * circumference;
 
   return (
-    <div className={`relative inline-flex items-center justify-center w-40 h-40 ${colors.bg} rounded-full`}>
-      <svg className="absolute w-full h-full -rotate-90">
-        <circle
-          cx="80"
-          cy="80"
-          r="54"
-          stroke="currentColor"
-          strokeWidth="12"
-          fill="none"
-          className="text-gray-200"
-        />
-        <circle
-          cx="80"
-          cy="80"
-          r="54"
-          strokeWidth="12"
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          className={colors.ring}
-          style={{ transition: "stroke-dashoffset 1s ease-in-out" }}
-        />
-      </svg>
-      <div className="text-center z-10">
-        <span className={`text-4xl font-bold ${colors.text}`}>{score}%</span>
+    <div className={`relative inline-flex flex-col items-center justify-center`}>
+      <div className={`relative w-36 h-36 ${colors.bg} rounded-full flex items-center justify-center`}>
+        <svg className="absolute w-full h-full -rotate-90">
+          <circle cx="72" cy="72" r="54" stroke="currentColor" strokeWidth="10" fill="none" className="text-gray-200" />
+          <circle
+            cx="72"
+            cy="72"
+            r="54"
+            strokeWidth="10"
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            className={`${colors.ring} transition-all duration-1000 ease-out`}
+          />
+        </svg>
+        <div className="text-center z-10">
+          <span className={`text-3xl font-bold ${colors.text}`}>{score}%</span>
+        </div>
       </div>
+      <span className={`mt-3 text-sm font-semibold ${colors.text}`}>{colors.label}</span>
     </div>
   );
 }
 
-function DimensionBar({ label, score, icon }: { label: string; score: number; icon: React.ReactNode }) {
+function OppositionRiskBar({ risk }: { risk: number }) {
   const getColor = () => {
-    if (score > 60) return "bg-red-500";
-    if (score > 30) return "bg-orange-500";
+    if (risk > 70) return "bg-red-500";
+    if (risk > 40) return "bg-orange-500";
     return "bg-green-500";
   };
   
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-gray-700">
-          {icon}
-          <span>{label}</span>
-        </div>
-        <span className={`text-sm font-semibold ${score > 60 ? 'text-red-600' : score > 30 ? 'text-orange-600' : 'text-green-600'}`}>
-          {score}%
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-gray-600">Widerspruchsrisiko</span>
+        <span className={`font-bold ${risk > 70 ? 'text-red-600' : risk > 40 ? 'text-orange-600' : 'text-green-600'}`}>
+          {risk}%
         </span>
       </div>
-      <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+      <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
         <div 
-          className={`h-full ${getColor()} rounded-full transition-all duration-1000`}
-          style={{ width: `${score}%` }}
+          className={`h-full ${getColor()} rounded-full transition-all duration-1000 ease-out`}
+          style={{ width: `${risk}%` }}
         />
       </div>
     </div>
   );
 }
 
-function ConflictCard({ conflict }: { conflict: ConflictingMark }) {
+function EffortBadge({ effort }: { effort: "low" | "medium" | "high" }) {
+  const config = {
+    low: { label: "Gering", bg: "bg-green-100", text: "text-green-700" },
+    medium: { label: "Mittel", bg: "bg-orange-100", text: "text-orange-700" },
+    high: { label: "Hoch", bg: "bg-red-100", text: "text-red-700" },
+  };
+  const { label, bg, text } = config[effort];
+  return <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${bg} ${text}`}>{label}</span>;
+}
+
+function SolutionTypeIcon({ type }: { type: Solution["type"] }) {
+  const icons = {
+    name_modification: <Pencil className="w-5 h-5" />,
+    class_change: <Tag className="w-5 h-5" />,
+    mark_type: <FileText className="w-5 h-5" />,
+    geographic: <MapPin className="w-5 h-5" />,
+    coexistence: <Handshake className="w-5 h-5" />,
+  };
+  return icons[type] || <Lightbulb className="w-5 h-5" />;
+}
+
+function SolutionCard({ 
+  solution, 
+  onAdopt, 
+  laender, 
+  klassen 
+}: { 
+  solution: Solution; 
+  onAdopt?: (name: string) => void;
+  laender: string[];
+  klassen: number[];
+}) {
+  const isNameModification = solution.type === "name_modification";
+  
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center text-teal-600">
+          <SolutionTypeIcon type={solution.type} />
+        </div>
+        <div className="flex-1">
+          <h5 className="font-semibold text-gray-900">{solution.title}</h5>
+          <p className="text-sm text-gray-600 mt-1">{solution.description}</p>
+        </div>
+      </div>
+      
+      {solution.suggestedValue && (
+        <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 mb-3">
+          <p className="text-sm font-medium text-teal-800">{solution.suggestedValue}</p>
+        </div>
+      )}
+      
+      <div className="flex items-center justify-between text-sm mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500">Erfolg:</span>
+          <span className={`font-bold ${
+            solution.successProbability > 70 ? 'text-green-600' : 
+            solution.successProbability > 40 ? 'text-orange-600' : 'text-red-600'
+          }`}>{solution.successProbability}%</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500">Aufwand:</span>
+          <EffortBadge effort={solution.effort} />
+        </div>
+      </div>
+      
+      <p className="text-xs text-gray-500 mb-3">{solution.reasoning}</p>
+      
+      {isNameModification && solution.suggestedValue && onAdopt && (
+        <button
+          onClick={() => onAdopt(solution.suggestedValue)}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
+        >
+          <ArrowRight className="w-4 h-4" />
+          Übernehmen → neue Recherche
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ConflictCard({ 
+  conflict, 
+  laender, 
+  klassen,
+  onAdoptAlternative 
+}: { 
+  conflict: ExpertConflictAnalysis;
+  laender: string[];
+  klassen: number[];
+  onAdoptAlternative: (name: string) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
   const getRiskStyles = () => {
-    switch (conflict.riskLevel) {
-      case "high": return { bg: "bg-red-50", border: "border-red-200", badge: "bg-red-100 text-red-700" };
-      case "medium": return { bg: "bg-orange-50", border: "border-orange-200", badge: "bg-orange-100 text-orange-700" };
-      case "low": return { bg: "bg-green-50", border: "border-green-200", badge: "bg-green-100 text-green-700" };
-    }
+    if (conflict.oppositionRisk > 70) return { bg: "bg-red-50", border: "border-red-200", badge: "bg-red-100 text-red-700" };
+    if (conflict.oppositionRisk > 40) return { bg: "bg-orange-50", border: "border-orange-200", badge: "bg-orange-100 text-orange-700" };
+    return { bg: "bg-green-50", border: "border-green-200", badge: "bg-green-100 text-green-700" };
   };
   
   const styles = getRiskStyles();
-  const emoji = conflict.riskLevel === "high" ? "🔴" : conflict.riskLevel === "medium" ? "🟡" : "🟢";
+  const emoji = conflict.oppositionRisk > 70 ? "🔴" : conflict.oppositionRisk > 40 ? "🟡" : "🟢";
 
   return (
-    <div className={`${styles.bg} border ${styles.border} rounded-xl p-4`}>
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <h4 className="font-semibold text-gray-900">{conflict.name}</h4>
-        <span className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${styles.badge}`}>
-          {emoji} {conflict.accuracy}%
-        </span>
-      </div>
-      <p className="text-sm text-gray-600 mb-2">{conflict.holder}</p>
-      <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-2">
-        <span className="flex items-center gap-1">
-          <Globe className="w-3 h-3" />
-          {conflict.register}
-        </span>
-        <span className="flex items-center gap-1">
-          <Tag className="w-3 h-3" />
-          Klassen: {conflict.classes.join(", ") || "-"}
-        </span>
-      </div>
-      <p className="text-sm text-gray-700">{conflict.reasoning}</p>
-    </div>
-  );
-}
-
-function AlternativeCard({ alternative, onCheck }: { alternative: AlternativeName; onCheck: (name: string) => void }) {
-  return (
-    <div className="bg-green-50 border border-green-200 rounded-xl p-4 hover:border-green-300 transition-colors">
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <h4 className="font-semibold text-green-800 text-lg">{alternative.name}</h4>
-        <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-green-600 text-white">
-          {alternative.riskScore}%
-        </span>
-      </div>
-      <p className="text-sm text-green-700 mb-3">{alternative.reasoning}</p>
+    <div className={`${styles.bg} border ${styles.border} rounded-2xl overflow-hidden transition-all duration-300`}>
       <button
-        onClick={() => onCheck(alternative.name)}
-        className="flex items-center gap-2 text-sm font-medium text-green-700 hover:text-green-800"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full p-5 text-left"
       >
-        <Search className="w-4 h-4" />
-        Diese Marke prüfen
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h4 className="text-lg font-semibold text-gray-900">{conflict.conflictName}</h4>
+              <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${styles.badge}`}>
+                {emoji} {conflict.similarity}% Ähnlichkeit
+              </span>
+            </div>
+            <p className="text-sm text-gray-600 mb-2">{conflict.conflictHolder}</p>
+            <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <Globe className="w-3.5 h-3.5" />
+                {OFFICE_NAMES[conflict.conflictOffice] || conflict.conflictOffice}
+              </span>
+              {conflict.conflictClasses.length > 0 && (
+                <span className="flex items-center gap-1">
+                  <Tag className="w-3.5 h-3.5" />
+                  Klassen: {conflict.conflictClasses.join(", ")}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isExpanded ? (
+              <ChevronUp className="w-5 h-5 text-gray-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-gray-400" />
+            )}
+          </div>
+        </div>
       </button>
+      
+      {isExpanded && (
+        <div className="border-t border-gray-200 bg-white p-5 space-y-5">
+          <div>
+            <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <Gavel className="w-4 h-4 text-teal-600" />
+              Rechtliche Einschätzung
+            </h5>
+            <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
+              {conflict.legalAssessment}
+            </p>
+          </div>
+          
+          <OppositionRiskBar risk={conflict.oppositionRisk} />
+          
+          <div>
+            <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-red-500" />
+              Konsequenzen bei Kollision
+            </h5>
+            <p className="text-sm text-gray-700 bg-red-50 border border-red-100 rounded-lg p-3">
+              {conflict.consequences}
+            </p>
+          </div>
+          
+          {conflict.solutions.length > 0 && (
+            <div>
+              <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <Lightbulb className="w-4 h-4 text-yellow-500" />
+                Lösungsvorschläge ({conflict.solutions.length})
+              </h5>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {conflict.solutions.map((solution, idx) => (
+                  <SolutionCard 
+                    key={idx} 
+                    solution={solution} 
+                    onAdopt={onAdoptAlternative}
+                    laender={laender}
+                    klassen={klassen}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function LandSelector({ 
-  selectedLaender, 
-  onToggle 
-}: { 
-  selectedLaender: string[]; 
-  onToggle: (land: string) => void;
-}) {
+function ClassComplianceCard({ recommendation }: { recommendation: ClassRecommendation }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  const getStatusConfig = () => {
+    if (recommendation.isCompliant) {
+      return { icon: <CheckCircle className="w-5 h-5" />, label: "Konform", bg: "bg-green-50", border: "border-green-200", text: "text-green-700" };
+    }
+    if (recommendation.issues.length <= 2) {
+      return { icon: <AlertTriangle className="w-5 h-5" />, label: "Verbesserungsbedarf", bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-700" };
+    }
+    return { icon: <XCircle className="w-5 h-5" />, label: "Nicht konform", bg: "bg-red-50", border: "border-red-200", text: "text-red-700" };
+  };
+  
+  const status = getStatusConfig();
+
+  return (
+    <div className={`${status.bg} border ${status.border} rounded-2xl overflow-hidden`}>
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full p-5 text-left"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-lg font-bold text-gray-900">Klasse {recommendation.classNumber}</span>
+              <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${status.bg} ${status.text}`}>
+                {status.icon}
+                {status.label}
+              </span>
+            </div>
+            <p className="text-sm text-gray-600">{recommendation.className}</p>
+          </div>
+          {isExpanded ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </div>
+      </button>
+      
+      {isExpanded && (
+        <div className="border-t border-gray-200 bg-white p-5 space-y-4">
+          {recommendation.issues.length > 0 && (
+            <div>
+              <h5 className="text-sm font-semibold text-gray-700 mb-2">Probleme</h5>
+              <ul className="space-y-1">
+                {recommendation.issues.map((issue, idx) => (
+                  <li key={idx} className="text-sm text-red-700 flex items-start gap-2">
+                    <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    {issue}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {recommendation.amtskonformeFormulierung && (
+            <div>
+              <h5 className="text-sm font-semibold text-gray-700 mb-2">Amtskonforme Formulierung</h5>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-sm text-green-800">{recommendation.amtskonformeFormulierung}</p>
+              </div>
+            </div>
+          )}
+          
+          {recommendation.suggestedTerms.length > 0 && (
+            <div>
+              <h5 className="text-sm font-semibold text-gray-700 mb-2">TMclass-Begriffe</h5>
+              <div className="flex flex-wrap gap-2">
+                {recommendation.suggestedTerms.map((term, idx) => (
+                  <span 
+                    key={idx} 
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-teal-100 text-teal-800 rounded-full text-xs font-medium"
+                    title={`Quelle: ${term.source}, Konfidenz: ${Math.round(term.confidence * 100)}%`}
+                  >
+                    <Bookmark className="w-3 h-3" />
+                    {term.term}
+                    <span className="text-teal-600 ml-1">({term.source})</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LandSelector({ selectedLaender, onToggle }: { selectedLaender: string[]; onToggle: (land: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -276,18 +500,11 @@ function LandSelector({
         <div className="absolute top-full mt-2 left-0 right-0 z-30 bg-white rounded-xl shadow-xl border-2 border-teal-200 overflow-hidden">
           <div className="max-h-[280px] overflow-y-auto">
             {LAENDER_OPTIONS.map(option => (
-              <label
-                key={option.value}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer"
-              >
+              <label key={option.value} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer">
                 <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                  selectedLaender.includes(option.value) 
-                    ? 'bg-teal-500 border-teal-500' 
-                    : 'border-gray-300'
+                  selectedLaender.includes(option.value) ? 'bg-teal-500 border-teal-500' : 'border-gray-300'
                 }`}>
-                  {selectedLaender.includes(option.value) && (
-                    <Check className="w-3.5 h-3.5 text-white" />
-                  )}
+                  {selectedLaender.includes(option.value) && <Check className="w-3.5 h-3.5 text-white" />}
                 </div>
                 <input
                   type="checkbox"
@@ -300,10 +517,7 @@ function LandSelector({
             ))}
           </div>
           <div className="p-3 border-t bg-gray-50">
-            <button
-              onClick={() => setIsOpen(false)}
-              className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg font-medium"
-            >
+            <button onClick={() => setIsOpen(false)} className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg font-medium">
               Fertig
             </button>
           </div>
@@ -313,13 +527,7 @@ function LandSelector({
   );
 }
 
-function ClassSelector({
-  selectedClasses,
-  onToggle,
-}: {
-  selectedClasses: number[];
-  onToggle: (classNum: number) => void;
-}) {
+function ClassSelector({ selectedClasses, onToggle }: { selectedClasses: number[]; onToggle: (classNum: number) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -335,8 +543,7 @@ function ClassSelector({
   }, []);
 
   const filteredClasses = NICE_CLASSES.filter(
-    c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-         c.id.toString().includes(searchTerm)
+    c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.id.toString().includes(searchTerm)
   );
 
   return (
@@ -384,18 +591,11 @@ function ClassSelector({
           </div>
           <div className="max-h-[280px] overflow-y-auto">
             {filteredClasses.map(cls => (
-              <label
-                key={cls.id}
-                className="flex items-start gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer"
-              >
+              <label key={cls.id} className="flex items-start gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer">
                 <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                  selectedClasses.includes(cls.id) 
-                    ? 'bg-teal-500 border-teal-500' 
-                    : 'border-gray-300'
+                  selectedClasses.includes(cls.id) ? 'bg-teal-500 border-teal-500' : 'border-gray-300'
                 }`}>
-                  {selectedClasses.includes(cls.id) && (
-                    <Check className="w-3.5 h-3.5 text-white" />
-                  )}
+                  {selectedClasses.includes(cls.id) && <Check className="w-3.5 h-3.5 text-white" />}
                 </div>
                 <input
                   type="checkbox"
@@ -417,10 +617,7 @@ function ClassSelector({
             >
               Alle entfernen
             </button>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg font-medium text-sm"
-            >
+            <button onClick={() => setIsOpen(false)} className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg font-medium text-sm">
               Fertig
             </button>
           </div>
@@ -430,34 +627,162 @@ function ClassSelector({
   );
 }
 
-export default function RisikoPage() {
+function RisikoPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
-
-  const [markenname, setMarkenname] = useState("");
-  const [selectedLaender, setSelectedLaender] = useState<string[]>(["DE", "EU", "WO"]);
-  const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
+  const searchParams = useSearchParams();
   
+  const [activeTab, setActiveTab] = useState<"conflicts" | "goods">("conflicts");
+  const [markenname, setMarkenname] = useState("");
+  const [selectedLaender, setSelectedLaender] = useState<string[]>(["DE", "EU"]);
+  const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
+  const [caseId, setCaseId] = useState<string | null>(null);
+  
+  const [isLoadingFromCase, setIsLoadingFromCase] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisStep, setAnalysisStep] = useState(0);
-  const [analysis, setAnalysis] = useState<RiskAnalysis | null>(null);
+  const [expertAnalysis, setExpertAnalysis] = useState<ExpertAnalysisResponse | null>(null);
+  const [goodsAnalysis, setGoodsAnalysis] = useState<GoodsServicesAnalysis | null>(null);
+  const [isLoadingGoods, setIsLoadingGoods] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  
-  const [showVoiceExplanation, setShowVoiceExplanation] = useState(false);
-  const [expandedOffice, setExpandedOffice] = useState<string | null>(null);
-  
-  const [isRequestingAnalysis, setIsRequestingAnalysis] = useState(false);
-  const [showRequestPopup, setShowRequestPopup] = useState(false);
-  const [requestSuccess, setRequestSuccess] = useState(false);
-  
-  const isFormComplete = markenname.trim() && selectedLaender.length > 0 && selectedClasses.length > 0;
-
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
     }
   }, [status, router]);
+
+  useEffect(() => {
+    const caseParam = searchParams.get("case");
+    const markennameParam = searchParams.get("markenname");
+    const laenderParam = searchParams.get("laender");
+    const klassenParam = searchParams.get("klassen");
+    
+    if (markennameParam) setMarkenname(markennameParam);
+    if (laenderParam) setSelectedLaender(laenderParam.split(",").filter(Boolean));
+    if (klassenParam) setSelectedClasses(klassenParam.split(",").map(Number).filter(n => !isNaN(n)));
+    
+    if (caseParam) {
+      setCaseId(caseParam);
+      loadExpertAnalysis(caseParam);
+    }
+  }, [searchParams]);
+  
+  const loadExpertAnalysis = async (caseIdToLoad: string) => {
+    setIsLoadingFromCase(true);
+    setError(null);
+    
+    try {
+      const response = await fetch("/api/risk-analysis/expert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: caseIdToLoad }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Analyse fehlgeschlagen");
+      }
+      
+      setExpertAnalysis(data);
+      if (data.trademarkName) setMarkenname(data.trademarkName);
+    } catch (err: any) {
+      setError(err.message || "Fehler beim Laden der Analyse");
+    } finally {
+      setIsLoadingFromCase(false);
+    }
+  };
+  
+  const loadGoodsServicesAnalysis = async () => {
+    if (!markenname.trim() || selectedClasses.length === 0) {
+      setError("Bitte geben Sie einen Markennamen und mindestens eine Klasse an.");
+      return;
+    }
+    
+    setIsLoadingGoods(true);
+    setError(null);
+    
+    try {
+      const response = await fetch("/api/risk-analysis/goods-services", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trademarkName: markenname.trim(),
+          selectedClasses,
+          goodsServicesDescriptions: [],
+          targetOffices: selectedLaender,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Analyse fehlgeschlagen");
+      }
+      
+      setGoodsAnalysis(data);
+    } catch (err: any) {
+      setError(err.message || "Fehler beim Laden der W&D-Analyse");
+    } finally {
+      setIsLoadingGoods(false);
+    }
+  };
+  
+  const handleManualAnalysis = async () => {
+    if (!markenname.trim() || selectedLaender.length === 0 || selectedClasses.length === 0) {
+      setError("Bitte füllen Sie alle Felder aus.");
+      return;
+    }
+    
+    setIsAnalyzing(true);
+    setError(null);
+    
+    try {
+      const response = await fetch("/api/ai/risk-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          markenname: markenname.trim(),
+          klassen: selectedClasses,
+          laender: selectedLaender,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Analyse fehlgeschlagen");
+      }
+      
+      const mockExpertResponse: ExpertAnalysisResponse = {
+        success: true,
+        trademarkName: markenname,
+        overallRisk: data.overallRisk,
+        conflictAnalyses: data.conflictsByOffice?.flatMap((office: any) => 
+          office.conflicts?.map((c: any) => ({
+            conflictId: c.id,
+            conflictName: c.name,
+            conflictHolder: c.holder || "Unbekannt",
+            conflictClasses: c.classes || [],
+            conflictOffice: office.office,
+            similarity: c.accuracy || 0,
+            legalAssessment: c.reasoning || "Keine Bewertung verfügbar",
+            oppositionRisk: c.riskLevel === "high" ? 80 : c.riskLevel === "medium" ? 50 : 20,
+            consequences: "Möglicher Widerspruch gegen Ihre Markenanmeldung.",
+            solutions: [],
+          })) || []
+        ) || [],
+        bestOverallSolution: null,
+        summary: data.analysis?.summary || "Analyse abgeschlossen.",
+      };
+      
+      setExpertAnalysis(mockExpertResponse);
+    } catch (err: any) {
+      setError(err.message || "Ein Fehler ist aufgetreten.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const toggleLand = (land: string) => {
     setSelectedLaender(prev => 
@@ -470,123 +795,60 @@ export default function RisikoPage() {
       prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls]
     );
   };
+  
+  const handleAdoptAlternative = (newName: string) => {
+    const params = new URLSearchParams();
+    params.set("q", newName);
+    if (selectedLaender.length > 0) params.set("laender", selectedLaender.join(","));
+    if (selectedClasses.length > 0) params.set("klassen", selectedClasses.join(","));
+    router.push(`/dashboard/recherche?${params.toString()}`);
+  };
 
-  const ANALYSIS_STEPS = [
-    { id: 1, label: "Verbindung zu Markenregistern...", icon: "🔗" },
-    { id: 2, label: "Durchsuche DPMA, EUIPO, WIPO...", icon: "🔍" },
-    { id: 3, label: "Sammle ähnliche Marken...", icon: "📥" },
-    { id: 4, label: "KI analysiert phonetische Ähnlichkeit...", icon: "🔊" },
-    { id: 5, label: "KI analysiert visuelle Ähnlichkeit...", icon: "👁️" },
-    { id: 6, label: "KI analysiert konzeptuelle Ähnlichkeit...", icon: "💭" },
-    { id: 7, label: "Bewerte Branchenrelevanz...", icon: "🏢" },
-    { id: 8, label: "Berechne Gesamtrisiko...", icon: "📊" },
-    { id: 9, label: "Generiere Alternativvorschläge...", icon: "💡" },
-    { id: 10, label: "Erstelle Bericht...", icon: "📝" },
-  ];
-
-  const handleAnalyze = async () => {
-    if (!markenname.trim()) {
-      setError("Bitte geben Sie einen Markennamen ein.");
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setAnalysisStep(1);
-    setError(null);
-    setAnalysis(null);
-
-    // Starte Schritt-Animation parallel zur API-Anfrage
-    const stepInterval = setInterval(() => {
-      setAnalysisStep(prev => {
-        if (prev >= ANALYSIS_STEPS.length) {
-          clearInterval(stepInterval);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 2000);
-
+  const handleDownloadReport = async () => {
+    if (!expertAnalysis) return;
+    
     try {
-      const response = await fetch("/api/ai/risk-analysis", {
+      const response = await fetch("/api/risk-analysis/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          markenname: markenname.trim(),
-          klassen: selectedClasses,
-          laender: selectedLaender,
+          caseId: caseId || undefined,
+          analysisData: expertAnalysis,
         }),
       });
 
-      const data = await response.json();
-
-      clearInterval(stepInterval);
-      setAnalysisStep(ANALYSIS_STEPS.length);
-
       if (!response.ok) {
-        throw new Error(data.error || "Analyse fehlgeschlagen");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Download fehlgeschlagen");
       }
 
-      setAnalysis(data);
-    } catch (err: any) {
-      clearInterval(stepInterval);
-      setError(err.message || "Ein Fehler ist aufgetreten.");
-    } finally {
-      setIsAnalyzing(false);
-      setAnalysisStep(0);
-    }
-  };
-
-
-  const handleCheckAlternative = (name: string) => {
-    setMarkenname(name);
-    setAnalysis(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const handleRequestAnalysis = async () => {
-    setIsRequestingAnalysis(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/recherche-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          markenname: markenname.trim(),
-          laender: selectedLaender,
-          klassen: selectedClasses,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Fehler beim Senden der Anfrage");
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get("Content-Disposition");
+      let filename = "Markenrechts-Expertenbericht.txt";
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match) filename = match[1];
       }
 
-      setRequestSuccess(true);
-      setShowRequestPopup(true);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsRequestingAnalysis(false);
+      console.error("Download error:", err);
+      setError(err.message || "Fehler beim Herunterladen des Berichts");
     }
   };
-
-  const getRiskLabel = (risk: "high" | "medium" | "low") => {
-    switch (risk) {
-      case "high": return "Hohes Risiko";
-      case "medium": return "Mittleres Risiko";
-      case "low": return "Niedriges Risiko";
-    }
-  };
-
-  const getRiskEmoji = (risk: "high" | "medium" | "low") => {
-    switch (risk) {
-      case "high": return "🔴";
-      case "medium": return "🟡";
-      case "low": return "🟢";
-    }
+  
+  const getOverallRiskScore = () => {
+    const conflicts = expertAnalysis?.conflictAnalyses || [];
+    if (!expertAnalysis || conflicts.length === 0) return 0;
+    const avgRisk = conflicts.reduce((sum, c) => sum + c.oppositionRisk, 0) / conflicts.length;
+    return Math.round(avgRisk);
   };
 
   if (status === "loading") {
@@ -604,428 +866,341 @@ export default function RisikoPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-3">
-            <BarChart3 className="w-8 h-8 text-teal-600" />
-            Risiko-Analyse
+            <Scale className="w-8 h-8 text-teal-600" />
+            Experten-Risikoanalyse
           </h1>
           <p className="text-gray-600 mt-1">
-            Tiefgehende Multi-Dimensionale Risikoprüfung mit KI
+            Detaillierte Konfliktanalyse mit konkreten Lösungsvorschlägen
           </p>
         </div>
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="grid md:grid-cols-3 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Markenname</label>
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                value={markenname}
-                onChange={(e) => setMarkenname(e.target.value)}
-                placeholder="z.B. Altana, TechFlow, BioNova..."
-                className="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 text-lg"
-              />
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Zielländer</label>
-            <LandSelector selectedLaender={selectedLaender} onToggle={toggleLand} />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Nizza-Klassen</label>
-            <ClassSelector selectedClasses={selectedClasses} onToggle={toggleClass} />
-          </div>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
-            {error}
-          </div>
-        )}
-
-        <button
-          onClick={handleAnalyze}
-          disabled={isAnalyzing || !markenname.trim() || selectedLaender.length === 0 || selectedClasses.length === 0}
-          className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-lg shadow-lg"
-        >
-          {isAnalyzing ? (
-            <>
-              <Loader2 className="w-6 h-6 animate-spin" />
-              Analysiere Multi-Dimensional...
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-6 h-6" />
-              Risiko-Analyse starten
-            </>
-          )}
-        </button>
         
-        {/* Transparente Analyse-Schritte */}
-        {isAnalyzing && analysisStep > 0 && (
-          <div className="mt-6 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl border border-teal-200 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-teal-600 rounded-full flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white animate-pulse" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-teal-900">KI-Analyse läuft...</h4>
-                <p className="text-sm text-teal-600">Bitte warten Sie einen Moment</p>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              {ANALYSIS_STEPS.map((step, index) => {
-                const isActive = analysisStep === step.id;
-                const isCompleted = analysisStep > step.id;
-                const isPending = analysisStep < step.id;
-                
-                return (
-                  <div 
-                    key={step.id}
-                    className={`flex items-center gap-3 p-2 rounded-lg transition-all duration-300 ${
-                      isActive ? 'bg-white shadow-sm border border-teal-200' :
-                      isCompleted ? 'opacity-60' : 'opacity-40'
-                    }`}
-                  >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg ${
-                      isCompleted ? 'bg-teal-100' :
-                      isActive ? 'bg-teal-600 animate-pulse' : 'bg-gray-100'
-                    }`}>
-                      {isCompleted ? (
-                        <Check className="w-4 h-4 text-teal-600" />
-                      ) : isActive ? (
-                        <span className="animate-bounce">{step.icon}</span>
-                      ) : (
-                        <span className="text-gray-400 text-sm">{step.icon}</span>
-                      )}
-                    </div>
-                    <span className={`text-sm font-medium ${
-                      isActive ? 'text-teal-900' :
-                      isCompleted ? 'text-teal-600' : 'text-gray-400'
-                    }`}>
-                      {step.label}
-                    </span>
-                    {isActive && (
-                      <Loader2 className="w-4 h-4 animate-spin text-teal-600 ml-auto" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            
-            <div className="mt-4 pt-4 border-t border-teal-200">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-teal-600">Fortschritt</span>
-                <span className="font-medium text-teal-900">{Math.round((analysisStep / ANALYSIS_STEPS.length) * 100)}%</span>
-              </div>
-              <div className="mt-2 h-2 bg-teal-100 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-teal-500 to-cyan-500 transition-all duration-500"
-                  style={{ width: `${(analysisStep / ANALYSIS_STEPS.length) * 100}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Fehlermeldung wenn Felder leer */}
-        {!isAnalyzing && (!markenname.trim() || selectedLaender.length === 0 || selectedClasses.length === 0) && (
-          <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-amber-800">Bitte füllen Sie alle Felder aus:</p>
-                <ul className="mt-2 text-sm text-amber-700 space-y-1">
-                  {!markenname.trim() && (
-                    <li className="flex items-center gap-2">
-                      <XCircle className="w-4 h-4" />
-                      Markenname eingeben
-                    </li>
-                  )}
-                  {selectedLaender.length === 0 && (
-                    <li className="flex items-center gap-2">
-                      <XCircle className="w-4 h-4" />
-                      Mindestens ein Zielland auswählen
-                    </li>
-                  )}
-                  {selectedClasses.length === 0 && (
-                    <li className="flex items-center gap-2">
-                      <XCircle className="w-4 h-4" />
-                      Mindestens eine Nizza-Klasse auswählen
-                    </li>
-                  )}
-                </ul>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-4 pt-4 border-t border-gray-100">
+        <div className="flex gap-2">
           <button
-            onClick={handleRequestAnalysis}
-            disabled={!isFormComplete || isRequestingAnalysis}
-            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleDownloadReport}
+            disabled={!expertAnalysis}
+            className="flex items-center gap-2 px-4 py-2 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isRequestingAnalysis ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Anfrage wird gesendet...
-              </>
-            ) : (
-              <>
-                <Mail className="w-5 h-5" />
-                Gründliche Risiko-Analyse anfordern
-              </>
-            )}
+            <FileDown className="w-4 h-4" />
+            PDF herunterladen
           </button>
-          <p className="text-xs text-gray-500 text-center mt-2">
-            Unsere Experten erstellen einen detaillierten Bericht und kontaktieren Sie per E-Mail
-          </p>
+          <a
+            href="/dashboard/experten"
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+          >
+            <User className="w-4 h-4" />
+            Experten kontaktieren
+          </a>
         </div>
       </div>
 
-      {showRequestPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowRequestPopup(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-white font-semibold text-lg">Anfrage gesendet!</h3>
-                  <p className="text-white/80 text-sm">Wir haben Ihre Anfrage erhalten</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="bg-teal-50 rounded-xl p-4 mb-6">
-                <h4 className="font-semibold text-teal-800 mb-2">Was passiert jetzt?</h4>
-                <ul className="text-sm text-teal-700 space-y-2">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <span>Unsere Experten führen eine gründliche Recherche durch</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <span>Sie erhalten einen detaillierten Bericht per E-Mail</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <span>Bei Fragen stehen wir Ihnen zur Verfügung</span>
-                  </li>
-                </ul>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                <h5 className="font-medium text-gray-700 mb-2">Ihre Anfrage:</h5>
-                <p className="text-sm text-gray-600">
-                  <strong>Marke:</strong> {markenname}<br />
-                  <strong>Länder:</strong> {selectedLaender.join(", ")}<br />
-                  <strong>Klassen:</strong> {selectedClasses.length > 0 ? selectedClasses.map(c => `Klasse ${c}`).join(", ") : "Alle"}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowRequestPopup(false)}
-                className="w-full px-6 py-3 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-700 transition-colors"
-              >
-                Verstanden
-              </button>
-            </div>
+      {isLoadingFromCase && (
+        <div className="bg-teal-50 border border-teal-200 rounded-2xl p-6 flex items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+          <div>
+            <h3 className="font-semibold text-teal-900">Daten werden aus Recherche übernommen...</h3>
+            <p className="text-sm text-teal-700">Die Konfliktanalyse wird vorbereitet</p>
           </div>
         </div>
       )}
 
-      {analysis && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <div className="flex flex-col lg:flex-row items-center gap-8">
-              <div className="text-center">
-                <ScoreCircle score={analysis.overallScore} risk={analysis.overallRisk} />
-                <p className="mt-4 text-xl font-bold" style={{
-                  color: analysis.overallRisk === "high" ? "#dc2626" : 
-                         analysis.overallRisk === "medium" ? "#d97706" : "#059669"
-                }}>
-                  {getRiskEmoji(analysis.overallRisk)} {getRiskLabel(analysis.overallRisk)}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {analysis.totalResultsAnalyzed} Marken analysiert • {analysis.totalConflicts} Konflikte
-                </p>
-              </div>
-              
-              <div className="flex-1 w-full space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Multi-Dimensionale Bewertung</h3>
-                <DimensionBar 
-                  label="Phonetisch (Klang)" 
-                  score={analysis.dimensionalScores.phonetic}
-                  icon={<Volume2 className="w-4 h-4 text-gray-500" />}
-                />
-                <DimensionBar 
-                  label="Visuell (Schriftbild)" 
-                  score={analysis.dimensionalScores.visual}
-                  icon={<Eye className="w-4 h-4 text-gray-500" />}
-                />
-                <DimensionBar 
-                  label="Konzeptuell (Bedeutung)" 
-                  score={analysis.dimensionalScores.conceptual}
-                  icon={<Lightbulb className="w-4 h-4 text-gray-500" />}
-                />
-                <DimensionBar 
-                  label="Branchenbezogen" 
-                  score={analysis.dimensionalScores.industry}
-                  icon={<Tag className="w-4 h-4 text-gray-500" />}
+      {!caseId && !expertAnalysis && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="grid md:grid-cols-3 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Markenname</label>
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={markenname}
+                  onChange={(e) => setMarkenname(e.target.value)}
+                  placeholder="z.B. TechFlow, BioNova..."
+                  className="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500"
                 />
               </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Zielländer</label>
+              <LandSelector selectedLaender={selectedLaender} onToggle={toggleLand} />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nizza-Klassen</label>
+              <ClassSelector selectedClasses={selectedClasses} onToggle={toggleClass} />
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Globe className="w-5 h-5 text-teal-600" />
-              Konflikte nach Markenregister
-            </h3>
-            
-            <div className="grid md:grid-cols-3 gap-4 mb-6">
-              {analysis.conflictsByOffice.map(office => (
-                <button
-                  key={office.office}
-                  onClick={() => setExpandedOffice(expandedOffice === office.office ? null : office.office)}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${
-                    office.count === 0 
-                      ? 'border-green-200 bg-green-50' 
-                      : office.highRisk > 0 
-                        ? 'border-red-200 bg-red-50 hover:border-red-300' 
-                        : 'border-orange-200 bg-orange-50 hover:border-orange-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-gray-900">{office.office}</span>
-                    <span className={`text-2xl font-bold ${
-                      office.count === 0 ? 'text-green-600' : 
-                      office.highRisk > 0 ? 'text-red-600' : 'text-orange-600'
-                    }`}>
-                      {office.count === 0 ? '🟢' : office.highRisk > 0 ? '🔴' : '🟡'} {office.count}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600">{office.officeName}</p>
-                  {office.count > 0 && (
-                    <div className="flex gap-2 mt-2 text-xs">
-                      {office.highRisk > 0 && <span className="text-red-600">{office.highRisk} hoch</span>}
-                      {office.mediumRisk > 0 && <span className="text-orange-600">{office.mediumRisk} mittel</span>}
-                      {office.lowRisk > 0 && <span className="text-green-600">{office.lowRisk} niedrig</span>}
-                    </div>
-                  )}
-                </button>
-              ))}
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+              {error}
             </div>
+          )}
 
-            {expandedOffice && (
-              <div className="border-t pt-4">
-                <h4 className="font-semibold text-gray-900 mb-3">
-                  Konflikte in {analysis.conflictsByOffice.find(o => o.office === expandedOffice)?.officeName}
-                </h4>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {analysis.conflictsByOffice
-                    .find(o => o.office === expandedOffice)
-                    ?.conflicts.slice(0, 6).map((conflict, idx) => (
-                      <ConflictCard key={idx} conflict={conflict} />
-                    ))
-                  }
+          <button
+            onClick={handleManualAnalysis}
+            disabled={isAnalyzing || !markenname.trim() || selectedLaender.length === 0 || selectedClasses.length === 0}
+            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="w-6 h-6 animate-spin" />
+                Analysiere...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-6 h-6" />
+                Experten-Analyse starten
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {expertAnalysis && (
+        <>
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 text-white">
+            <div className="flex flex-col lg:flex-row items-center gap-8">
+              <div className="flex items-center gap-6">
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shadow-xl">
+                  <Scale className="w-12 h-12 text-white" />
                 </div>
+                <div>
+                  <h2 className="text-2xl font-bold">Dr. Klaus Weinberg</h2>
+                  <p className="text-teal-300">Ihr Markenexperte</p>
+                  <p className="text-sm text-gray-400 mt-1">25+ Jahre Erfahrung • DPMA, EUIPO, WIPO</p>
+                </div>
+              </div>
+              
+              <div className="flex-1 flex items-center justify-center">
+                <AnimatedRiskScore 
+                  score={getOverallRiskScore()} 
+                  risk={expertAnalysis.overallRisk} 
+                />
+              </div>
+              
+              <div className="text-center lg:text-right">
+                <div className="text-4xl font-bold text-white mb-2">"{markenname}"</div>
+                <p className="text-gray-300">
+                  {(expertAnalysis.conflictAnalyses || []).length} Konflikte analysiert
+                </p>
+              </div>
+            </div>
+            
+            {expertAnalysis.summary && (
+              <div className="mt-6 pt-6 border-t border-slate-700">
+                <p className="text-gray-300 italic">"{expertAnalysis.summary}"</p>
               </div>
             )}
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">📋 Zusammenfassung</h3>
-              <p className="text-gray-700 mb-4">{analysis.analysis.summary}</p>
-              
-              <div className={`p-4 rounded-xl ${
-                analysis.overallRisk === "high" ? "bg-red-50 border border-red-200" :
-                analysis.overallRisk === "medium" ? "bg-orange-50 border border-orange-200" :
-                "bg-green-50 border border-green-200"
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab("conflicts")}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold transition-colors ${
+                activeTab === "conflicts"
+                  ? "bg-teal-600 text-white"
+                  : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <Gavel className="w-5 h-5" />
+              Konfliktanalyse
+              <span className={`ml-2 px-2 py-0.5 rounded-full text-sm ${
+                activeTab === "conflicts" ? "bg-teal-700" : "bg-gray-100"
               }`}>
-                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  Empfehlung
-                </h4>
-                <p className="text-sm">{analysis.analysis.recommendation}</p>
-              </div>
-            </div>
+                {(expertAnalysis.conflictAnalyses || []).length}
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("goods");
+                if (!goodsAnalysis && !isLoadingGoods) {
+                  loadGoodsServicesAnalysis();
+                }
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold transition-colors ${
+                activeTab === "goods"
+                  ? "bg-teal-600 text-white"
+                  : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <Tag className="w-5 h-5" />
+              Waren & Dienstleistungen
+            </button>
+          </div>
 
-            {analysis.alternatives.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Lightbulb className="w-5 h-5 text-green-600" />
-                  Alternative Markenvorschläge
-                </h3>
-                <div className="space-y-3">
-                  {analysis.alternatives.slice(0, 3).map((alt, idx) => (
-                    <AlternativeCard 
+          {activeTab === "conflicts" && (
+            <div className="space-y-4">
+              {expertAnalysis.bestOverallSolution && (
+                <div className="bg-gradient-to-r from-green-50 to-teal-50 border border-green-200 rounded-2xl p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-green-600 flex items-center justify-center text-white">
+                      <Lightbulb className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-green-800">Beste Gesamtlösung</h3>
+                      <p className="text-green-700 mt-1">{expertAnalysis.bestOverallSolution.title}</p>
+                      <p className="text-sm text-green-600 mt-2">{expertAnalysis.bestOverallSolution.description}</p>
+                      {expertAnalysis.bestOverallSolution.suggestedValue && (
+                        <div className="mt-3 bg-white rounded-lg p-3 border border-green-200">
+                          <span className="font-medium text-green-800">{expertAnalysis.bestOverallSolution.suggestedValue}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4 mt-3 text-sm">
+                        <span className="text-green-600">
+                          Erfolgswahrscheinlichkeit: <strong>{expertAnalysis.bestOverallSolution.successProbability}%</strong>
+                        </span>
+                        <EffortBadge effort={expertAnalysis.bestOverallSolution.effort} />
+                      </div>
+                      {expertAnalysis.bestOverallSolution.type === "name_modification" && expertAnalysis.bestOverallSolution.suggestedValue && (
+                        <button
+                          onClick={() => handleAdoptAlternative(expertAnalysis.bestOverallSolution!.suggestedValue)}
+                          className="mt-4 flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                          Alternative übernehmen → neue Recherche
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {(expertAnalysis.conflictAnalyses || []).length === 0 ? (
+                <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center">
+                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-green-800">Keine Konflikte gefunden!</h3>
+                  <p className="text-green-700 mt-2">
+                    Die Marke "{markenname}" scheint frei von relevanten Kollisionen zu sein.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Analysierte Konflikte ({(expertAnalysis.conflictAnalyses || []).length})
+                  </h3>
+                  {(expertAnalysis.conflictAnalyses || []).map((conflict, idx) => (
+                    <ConflictCard 
                       key={idx} 
-                      alternative={alt} 
-                      onCheck={handleCheckAlternative}
+                      conflict={conflict}
+                      laender={selectedLaender}
+                      klassen={selectedClasses}
+                      onAdoptAlternative={handleAdoptAlternative}
                     />
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">🔍 Detaillierte Analyse</h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                  <Volume2 className="w-4 h-4 text-teal-600" />
-                  Phonetische Analyse
-                </h4>
-                <p className="text-sm text-gray-700">{analysis.analysis.phonetic}</p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-teal-600" />
-                  Visuelle Analyse
-                </h4>
-                <p className="text-sm text-gray-700">{analysis.analysis.visual}</p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                  <Lightbulb className="w-4 h-4 text-teal-600" />
-                  Konzeptuelle Analyse
-                </h4>
-                <p className="text-sm text-gray-700">{analysis.analysis.conceptual}</p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-teal-600" />
-                  Branchenanalyse
-                </h4>
-                <p className="text-sm text-gray-700">{analysis.analysis.industry}</p>
-              </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {activeTab === "goods" && (
+            <div className="space-y-4">
+              {isLoadingGoods ? (
+                <div className="bg-white rounded-2xl p-8 text-center border border-gray-100">
+                  <Loader2 className="w-12 h-12 animate-spin text-teal-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900">W&D-Analyse wird erstellt...</h3>
+                  <p className="text-gray-600 mt-2">Prüfe Waren- und Dienstleistungsverzeichnis auf Amtskonformität</p>
+                </div>
+              ) : goodsAnalysis ? (
+                <>
+                  <div className={`rounded-2xl p-6 ${
+                    goodsAnalysis.overallCompliance === "compliant" 
+                      ? "bg-green-50 border border-green-200" 
+                      : goodsAnalysis.overallCompliance === "needs_improvement"
+                        ? "bg-orange-50 border border-orange-200"
+                        : "bg-red-50 border border-red-200"
+                  }`}>
+                    <div className="flex items-center gap-4">
+                      {goodsAnalysis.overallCompliance === "compliant" ? (
+                        <CheckCircle className="w-10 h-10 text-green-600" />
+                      ) : goodsAnalysis.overallCompliance === "needs_improvement" ? (
+                        <AlertTriangle className="w-10 h-10 text-orange-600" />
+                      ) : (
+                        <XCircle className="w-10 h-10 text-red-600" />
+                      )}
+                      <div>
+                        <h3 className={`text-lg font-semibold ${
+                          goodsAnalysis.overallCompliance === "compliant" ? "text-green-800" :
+                          goodsAnalysis.overallCompliance === "needs_improvement" ? "text-orange-800" : "text-red-800"
+                        }`}>
+                          {goodsAnalysis.overallCompliance === "compliant" 
+                            ? "Alle Waren & Dienstleistungen sind amtskonform"
+                            : goodsAnalysis.overallCompliance === "needs_improvement"
+                              ? "Einige Formulierungen benötigen Verbesserung"
+                              : "Erhebliche Überarbeitung erforderlich"}
+                        </h3>
+                        <p className={`text-sm mt-1 ${
+                          goodsAnalysis.overallCompliance === "compliant" ? "text-green-700" :
+                          goodsAnalysis.overallCompliance === "needs_improvement" ? "text-orange-700" : "text-red-700"
+                        }`}>
+                          {goodsAnalysis.classRecommendations.filter(c => c.isCompliant).length} von {goodsAnalysis.classRecommendations.length} Klassen konform
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {goodsAnalysis.warnings.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Wichtige Hinweise:</h4>
+                        <ul className="space-y-1">
+                          {goodsAnalysis.warnings.map((warning, idx) => (
+                            <li key={idx} className="text-sm text-gray-600 flex items-start gap-2">
+                              <AlertTriangle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                              {warning}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {goodsAnalysis.classRecommendations.map((rec, idx) => (
+                      <ClassComplianceCard key={idx} recommendation={rec} />
+                    ))}
+                  </div>
+                  
+                  <div className="bg-white rounded-2xl border border-gray-200 p-6 text-center">
+                    <Building2 className="w-12 h-12 text-teal-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900">Professionelle Klassifizierungsberatung</h3>
+                    <p className="text-gray-600 mt-2 max-w-lg mx-auto">
+                      Unsere Experten helfen Ihnen bei der optimalen Formulierung Ihres Waren- und Dienstleistungsverzeichnisses.
+                    </p>
+                    <a
+                      href="/dashboard/klassifizierung"
+                      className="inline-flex items-center gap-2 mt-4 px-6 py-3 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-700 transition-colors"
+                    >
+                      Zur Klassifizierungs-Beratung
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <div className="bg-white rounded-2xl p-8 text-center border border-gray-100">
+                  <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900">Keine W&D-Analyse verfügbar</h3>
+                  <p className="text-gray-600 mt-2">
+                    Bitte stellen Sie sicher, dass Markenname und Klassen ausgewählt sind.
+                  </p>
+                  <button
+                    onClick={loadGoodsServicesAnalysis}
+                    disabled={!markenname.trim() || selectedClasses.length === 0}
+                    className="mt-4 px-6 py-3 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50"
+                  >
+                    W&D-Analyse starten
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Nächste Schritte</h3>
-            <div className="grid md:grid-cols-4 gap-3">
-              <button
-                onClick={() => setShowVoiceExplanation(true)}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors"
-              >
-                <Volume2 className="w-5 h-5" />
-                Risiko erklären
-              </button>
-              
+            <div className="grid md:grid-cols-3 gap-3">
               <a
                 href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`}
                 className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
               >
-                <FilePlus className="w-5 h-5" />
+                <CheckCircle className="w-5 h-5" />
                 Marke anmelden
               </a>
               
@@ -1033,7 +1208,7 @@ export default function RisikoPage() {
                 href="/dashboard/watchlist"
                 className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
               >
-                <Eye className="w-5 h-5" />
+                <Bookmark className="w-5 h-5" />
                 Zur Watchlist
               </a>
               
@@ -1046,54 +1221,49 @@ export default function RisikoPage() {
               </a>
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      {!analysis && !isAnalyzing && (
+      {!expertAnalysis && !isLoadingFromCase && !isAnalyzing && (
         <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
           <div className="w-20 h-20 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <BarChart3 className="w-10 h-10 text-teal-600" />
+            <Scale className="w-10 h-10 text-teal-600" />
           </div>
           <h3 className="text-xl font-semibold text-gray-900 mb-3">
-            Multi-Dimensionale Risikoprüfung
+            Experten-Risikoanalyse
           </h3>
           <p className="text-gray-600 max-w-lg mx-auto mb-6">
-            Geben Sie oben einen Markennamen ein, um eine tiefgehende Analyse zu starten.
-            Wir prüfen phonetische, visuelle, konzeptuelle und branchenbezogene Risiken.
+            Erhalten Sie eine detaillierte juristische Einschätzung Ihrer Marke durch unseren KI-Experten Dr. Klaus Weinberg, 
+            inklusive konkreter Lösungsvorschläge für potenzielle Konflikte.
           </p>
           <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
             <span className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full">
-              <Volume2 className="w-4 h-4 text-teal-600" />
-              Phonetisch
-            </span>
-            <span className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full">
-              <Eye className="w-4 h-4 text-teal-600" />
-              Visuell
+              <Gavel className="w-4 h-4 text-teal-600" />
+              Rechtliche Einschätzung
             </span>
             <span className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full">
               <Lightbulb className="w-4 h-4 text-teal-600" />
-              Konzeptuell
+              Lösungsvorschläge
             </span>
             <span className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full">
               <Tag className="w-4 h-4 text-teal-600" />
-              Branchenbezogen
+              W&D-Prüfung
             </span>
           </div>
         </div>
       )}
-
-      {analysis && (
-        <VoiceExplanation
-          isOpen={showVoiceExplanation}
-          onClose={() => setShowVoiceExplanation(false)}
-          summary={analysis.analysis.summary}
-          recommendation={analysis.analysis.recommendation}
-          overallScore={analysis.overallScore}
-          overallRisk={analysis.overallRisk}
-          markenname={markenname}
-          totalConflicts={analysis.totalConflicts}
-        />
-      )}
     </div>
+  );
+}
+
+export default function RisikoPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+      </div>
+    }>
+      <RisikoPageContent />
+    </Suspense>
   );
 }
