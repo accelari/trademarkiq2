@@ -27,7 +27,7 @@ export default function VoiceAssistantSection({
         </div>
 
         {hasVoiceAssistant ? (
-          <VoiceProvider enableAudioWorklet={false}>
+          <VoiceProvider>
             <VoiceAssistant accessToken={accessToken} />
           </VoiceProvider>
         ) : (

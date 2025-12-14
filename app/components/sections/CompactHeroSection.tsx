@@ -47,7 +47,7 @@ export default function CompactHeroSection({
         </div>
 
         {hasVoiceAssistant ? (
-          <VoiceProvider enableAudioWorklet={false}>
+          <VoiceProvider>
             <VoiceAssistant accessToken={accessToken} />
           </VoiceProvider>
         ) : (
