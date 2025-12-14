@@ -14,80 +14,54 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
     }
 
-    const userConsultations = await db.query.consultations.findMany({
-      where: eq(consultations.userId, session.user.id),
-      orderBy: [desc(consultations.createdAt)],
-      with: {
-        case: {
-          with: {
-            steps: true,
-          },
-        },
-      },
-    });
-
-    const consultationsWithCaseData = userConsultations.map((c) => ({
-      ...c,
-      caseId: c.case?.id || null,
-      caseNumber: c.case?.caseNumber || null,
-      trademarkName: c.case?.trademarkName || null,
-      countries: (c.extractedData as any)?.countries || [],
-      niceClasses: (c.extractedData as any)?.niceClasses || [],
-      caseSteps: c.case?.steps?.map((step) => ({
-        step: step.step,
-        status: step.status,
-        completedAt: step.completedAt,
-        skippedAt: step.skippedAt,
-        skipReason: step.skipReason,
-        metadata: step.metadata || {},
-      })) || [],
-    }));
-
-    const caseIdsWithConsultations = userConsultations
-      .filter((c) => c.caseId)
-      .map((c) => c.caseId as string);
-
-    const standaloneCases = await db.query.trademarkCases.findMany({
-      where: caseIdsWithConsultations.length > 0
-        ? and(
-            eq(trademarkCases.userId, session.user.id),
-            notInArray(trademarkCases.id, caseIdsWithConsultations)
-          )
-        : eq(trademarkCases.userId, session.user.id),
+    // Variante 2: Nur Cases anzeigen, nicht einzelne Consultations
+    // Lade alle Cases des Benutzers mit ihren verknüpften Consultations
+    const userCases = await db.query.trademarkCases.findMany({
+      where: eq(trademarkCases.userId, session.user.id),
       orderBy: [desc(trademarkCases.createdAt)],
       with: {
         steps: true,
         events: true,
+        consultations: {
+          orderBy: [desc(consultations.createdAt)],
+          limit: 1,
+        },
       },
     });
 
-    const standaloneCasesAsPseudoConsultations = standaloneCases.map((c) => {
+    // Transformiere Cases in das erwartete Format
+    const casesAsConsultations = userCases.map((c) => {
+      const linkedConsultation = c.consultations?.[0];
       const searchData = (c.events?.find((e: any) => e.eventType === "created")?.eventData as any)?.searchData;
+      const extractedData = linkedConsultation?.extractedData as any;
+      
       return {
         id: `case-${c.id}`,
         userId: c.userId,
-        title: c.trademarkName ? `Marke "${c.trademarkName}"` : "Markenrecherche",
-        summary: "",
-        transcript: null,
-        sessionProtocol: null,
-        duration: null,
-        mode: "recherche",
-        status: "completed",
+        title: c.trademarkName 
+          ? `Marke "${c.trademarkName}"` 
+          : linkedConsultation?.title || "Markenrecherche",
+        summary: linkedConsultation?.summary || "",
+        transcript: linkedConsultation?.transcript || null,
+        sessionProtocol: linkedConsultation?.sessionProtocol || null,
+        duration: linkedConsultation?.duration || null,
+        mode: linkedConsultation?.mode || "recherche",
+        status: linkedConsultation?.status || "completed",
         extractedData: {
-          trademarkName: c.trademarkName,
-          countries: searchData?.countries || [],
-          niceClasses: searchData?.classes || [],
+          trademarkName: c.trademarkName || extractedData?.trademarkName,
+          countries: extractedData?.countries || searchData?.countries || [],
+          niceClasses: extractedData?.niceClasses || searchData?.classes || [],
           isComplete: true,
         },
-        emailSent: false,
-        emailSentAt: null,
+        emailSent: linkedConsultation?.emailSent || false,
+        emailSentAt: linkedConsultation?.emailSentAt || null,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
         caseId: c.id,
         caseNumber: c.caseNumber,
         trademarkName: c.trademarkName,
-        countries: searchData?.countries || [],
-        niceClasses: searchData?.classes || [],
+        countries: extractedData?.countries || searchData?.countries || [],
+        niceClasses: extractedData?.niceClasses || searchData?.classes || [],
         caseSteps: c.steps?.map((step) => ({
           step: step.step,
           status: step.status,
@@ -99,10 +73,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const allConsultations = [...consultationsWithCaseData, ...standaloneCasesAsPseudoConsultations]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    return NextResponse.json({ consultations: allConsultations });
+    return NextResponse.json({ consultations: casesAsConsultations });
   } catch (error) {
     console.error("Error fetching consultations:", error);
     return NextResponse.json({ error: "Fehler beim Laden" }, { status: 500 });
