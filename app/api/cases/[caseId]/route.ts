@@ -2,7 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { trademarkCases, caseEvents, consultations } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
+
+function isUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
+function isCaseNumber(str: string): boolean {
+  const caseNumberRegex = /^TM-\d{4,}-\d+$/i;
+  return caseNumberRegex.test(str);
+}
 
 export async function GET(
   request: NextRequest,
@@ -16,23 +26,66 @@ export async function GET(
 
     const { caseId } = await params;
 
-    const caseData = await db.query.trademarkCases.findFirst({
-      where: and(
-        eq(trademarkCases.id, caseId),
-        eq(trademarkCases.userId, session.user.id)
-      ),
-      with: {
-        steps: true,
-        decisions: true,
-        events: {
-          orderBy: (events, { desc }) => [desc(events.createdAt)],
+    let caseData;
+    
+    if (isUUID(caseId)) {
+      caseData = await db.query.trademarkCases.findFirst({
+        where: and(
+          eq(trademarkCases.id, caseId),
+          eq(trademarkCases.userId, session.user.id)
+        ),
+        with: {
+          steps: true,
+          decisions: true,
+          events: {
+            orderBy: (events, { desc }) => [desc(events.createdAt)],
+          },
+          consultations: {
+            orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
+            limit: 1,
+          },
         },
-        consultations: {
-          orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
-          limit: 1,
+      });
+    } else if (isCaseNumber(caseId)) {
+      caseData = await db.query.trademarkCases.findFirst({
+        where: and(
+          eq(trademarkCases.caseNumber, caseId),
+          eq(trademarkCases.userId, session.user.id)
+        ),
+        with: {
+          steps: true,
+          decisions: true,
+          events: {
+            orderBy: (events, { desc }) => [desc(events.createdAt)],
+          },
+          consultations: {
+            orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
+            limit: 1,
+          },
         },
-      },
-    });
+      });
+    } else {
+      caseData = await db.query.trademarkCases.findFirst({
+        where: and(
+          or(
+            eq(trademarkCases.id, caseId),
+            eq(trademarkCases.caseNumber, caseId)
+          ),
+          eq(trademarkCases.userId, session.user.id)
+        ),
+        with: {
+          steps: true,
+          decisions: true,
+          events: {
+            orderBy: (events, { desc }) => [desc(events.createdAt)],
+          },
+          consultations: {
+            orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
+            limit: 1,
+          },
+        },
+      });
+    }
 
     if (!caseData) {
       return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
