@@ -712,6 +712,21 @@ function RisikoPageContent() {
   const [isLoadingToken, setIsLoadingToken] = useState(false);
   const [autoStartVoice, setAutoStartVoice] = useState(false);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
+  const technicalDetailsRef = useRef<HTMLDivElement>(null);
+  
+  const RISK_QUICK_QUESTIONS = [
+    "Was bedeutet das Risiko für mich?",
+    "Erkläre mir den Hauptkonflikt",
+    "Welche Alternative empfiehlst du?",
+    "Kann ich die Marke trotzdem anmelden?"
+  ];
+  
+  const scrollToTechnicalDetails = () => {
+    setShowTechnicalDetails(true);
+    setTimeout(() => {
+      technicalDetailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
   
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -1206,9 +1221,6 @@ WICHTIG:
             <MessageCircle className="w-8 h-8 text-teal-600" />
             Risikoberatung
           </h1>
-          <p className="text-gray-600 mt-1">
-            Ihr persönlicher Markenberater erklärt Ihnen die Ergebnisse
-          </p>
         </div>
       </div>
 
@@ -1279,35 +1291,51 @@ WICHTIG:
       {expertAnalysis && (
         <>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-6">
-              <div className="flex items-center justify-between mb-4">
+            <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-5">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                    <User className="w-6 h-6" />
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                    <User className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-semibold">Klaus, Ihr Markenberater</h2>
-                    <p className="text-teal-100 text-sm">erklärt Ihnen die Ergebnisse für "{markenname}"</p>
+                    <h2 className="text-lg font-semibold">Klaus erklärt: "{markenname}"</h2>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 text-sm">
-                  <span className="px-3 py-1 bg-white/20 rounded-full">
-                    {(expertAnalysis?.conflictAnalyses || []).length} Konflikte
-                  </span>
-                  <span className={`px-3 py-1 rounded-full ${
-                    expertAnalysis.overallRisk === "high" ? "bg-red-500/80" :
-                    expertAnalysis.overallRisk === "medium" ? "bg-orange-500/80" : "bg-green-500/80"
-                  }`}>
-                    {expertAnalysis.overallRisk === "high" ? "Hohes Risiko" :
-                     expertAnalysis.overallRisk === "medium" ? "Mittleres Risiko" : "Niedriges Risiko"}
-                  </span>
-                </div>
+                
+                <button 
+                  onClick={scrollToTechnicalDetails}
+                  className="relative flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                  title="Details anzeigen"
+                >
+                  <div className="relative w-12 h-12">
+                    <svg className="w-full h-full -rotate-90">
+                      <circle cx="24" cy="24" r="20" stroke="white" strokeOpacity="0.3" strokeWidth="4" fill="none" />
+                      <circle
+                        cx="24"
+                        cy="24"
+                        r="20"
+                        strokeWidth="4"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeDasharray={2 * Math.PI * 20}
+                        strokeDashoffset={2 * Math.PI * 20 - (getOverallRiskScore() / 100) * 2 * Math.PI * 20}
+                        className={`${
+                          expertAnalysis.overallRisk === "high" ? "stroke-red-400" :
+                          expertAnalysis.overallRisk === "medium" ? "stroke-orange-400" : "stroke-green-400"
+                        } transition-all duration-1000`}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xs font-bold text-white">{getOverallRiskScore()}%</span>
+                    </div>
+                  </div>
+                </button>
               </div>
               
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center gap-2 mt-4">
                 <button
                   onClick={() => setInputMode("sprache")}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
                     inputMode === "sprache" 
                       ? "bg-white text-teal-700" 
                       : "bg-white/20 text-white hover:bg-white/30"
@@ -1318,7 +1346,7 @@ WICHTIG:
                 </button>
                 <button
                   onClick={() => setInputMode("text")}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
                     inputMode === "text" 
                       ? "bg-white text-teal-700" 
                       : "bg-white/20 text-white hover:bg-white/30"
@@ -1330,30 +1358,32 @@ WICHTIG:
               </div>
             </div>
             
-            <div className="p-6" style={{ minHeight: "400px" }}>
+            <div className="p-4">
               {isLoadingToken ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
-                  <span className="ml-3 text-gray-600">Verbindung wird hergestellt...</span>
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+                  <span className="ml-3 text-gray-600 text-sm">Verbindung wird hergestellt...</span>
                 </div>
               ) : accessToken ? (
                 <VoiceProvider>
                   <VoiceAssistant 
                     accessToken={accessToken} 
                     inputMode={inputMode}
-                    autoStart={autoStartVoice}
+                    autoStart={inputMode === "sprache"}
                     onAutoStartConsumed={() => setAutoStartVoice(false)}
                     contextMessage={generateAdvisorPrompt()}
+                    customQuestions={RISK_QUICK_QUESTIONS}
+                    embedded={true}
                   />
                 </VoiceProvider>
               ) : (
-                <div className="flex items-center justify-center py-16">
+                <div className="flex items-center justify-center py-12">
                   <div className="text-center text-gray-500">
-                    <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-orange-400" />
-                    <p>Verbindung zum Berater konnte nicht hergestellt werden.</p>
+                    <AlertTriangle className="w-10 h-10 mx-auto mb-3 text-orange-400" />
+                    <p className="text-sm">Verbindung zum Berater konnte nicht hergestellt werden.</p>
                     <button 
                       onClick={() => window.location.reload()}
-                      className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+                      className="mt-3 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm"
                     >
                       Erneut versuchen
                     </button>
@@ -1394,7 +1424,7 @@ WICHTIG:
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div ref={technicalDetailsRef} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
             <button
               onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
               className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-gray-50 transition-colors"

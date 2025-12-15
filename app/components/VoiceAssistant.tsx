@@ -80,6 +80,8 @@ interface VoiceAssistantProps {
   onAutoStartConsumed?: () => void;
   contextMessage?: string | null;
   onContextMessageConsumed?: () => void;
+  customQuestions?: string[];
+  embedded?: boolean;
 }
 
 interface TextMessage {
@@ -89,7 +91,7 @@ interface TextMessage {
   timestamp: Date;
 }
 
-const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ accessToken, inputMode = "sprache", onMessageSent, autoStart, onAutoStartConsumed, contextMessage, onContextMessageConsumed }, ref) => {
+const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ accessToken, inputMode = "sprache", onMessageSent, autoStart, onAutoStartConsumed, contextMessage, onContextMessageConsumed, customQuestions, embedded = false }, ref) => {
   const { status, connect, disconnect, sendUserInput, sendSessionSettings, messages } = useVoice();
   const [error, setError] = useState<string | null>(null);
   const [textMessages, setTextMessages] = useState<TextMessage[]>([]);
@@ -657,87 +659,137 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
             </div>
           ) : (
             <div className="p-6 flex flex-col items-center">
-              {!isConnected && !isConnecting && (
-                <div className="w-full max-w-md mb-6">
-                  <div className="bg-gray-50 rounded-xl px-6 py-4 border border-gray-100 text-center">
-                    <p className="text-sm font-medium text-gray-700 mb-1">Hallo! Ich bin Ihr KI-Markenberater.</p>
-                    <p className="text-sm text-gray-600">
-                      Klicken Sie auf &quot;Starten&quot; oder wählen Sie eine Schnellfrage.
-                    </p>
-                  </div>
-                </div>
-              )}
-              
-              <div className="relative mb-6">
-                {isConnected && (
-                  <>
-                    <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: '2s' }} />
-                    <div className="absolute -inset-6 rounded-full border border-primary/30 animate-pulse" style={{ animationDuration: '3s' }} />
-                  </>
-                )}
-                
-                <button
-                  onClick={handleToggle}
-                  disabled={isConnecting}
-                  data-tour="start-button"
-                  className={`
-                    relative w-32 h-32 rounded-full flex items-center justify-center
-                    transition-all duration-300 shadow-lg font-semibold text-base
-                    ${isConnected 
-                      ? 'bg-primary text-white hover:bg-primary-hover' 
-                      : 'bg-gray-100 text-primary border-2 border-primary hover:bg-primary/10'
-                    }
-                    ${isConnecting ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl'}
-                  `}
-                  aria-label={isConnected ? "Sitzung beenden" : "Sitzung starten"}
-                >
-                  {isConnecting ? (
-                    <span className="text-sm">Lädt...</span>
-                  ) : isConnected ? (
-                    <div className="flex flex-col items-center gap-1">
-                      <MicOff className="w-8 h-8" />
-                      <span className="text-sm">Beenden</span>
+              {autoStart && (isConnected || isConnecting) ? (
+                <>
+                  <div className="w-full flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      {isConnected && (
+                        <div className="relative">
+                          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+                          <div className="absolute inset-0 w-3 h-3 bg-green-500 rounded-full animate-ping" />
+                        </div>
+                      )}
+                      <span className={`text-sm font-medium ${isConnected ? 'text-green-600' : 'text-gray-500'}`}>
+                        {isConnecting ? 'Verbindet...' : isReconnecting ? 'Verbindet neu...' : 'Aktive Sprachsitzung'}
+                      </span>
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-1">
-                      <Mic className="w-8 h-8" />
-                      <span className="text-sm">Starten</span>
+                    {isConnected && (
+                      <button
+                        onClick={handleToggle}
+                        className="px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5"
+                      >
+                        <MicOff className="w-4 h-4" />
+                        Beenden
+                      </button>
+                    )}
+                  </div>
+                  
+                  {error && (
+                    <div className="w-full p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4 text-sm text-amber-700">
+                      {error}
                     </div>
                   )}
-                </button>
-              </div>
 
-              {error && (
-                <div className="w-full max-w-md p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-amber-800 mb-1">Mikrofon nicht verfügbar</p>
-                      <p className="text-sm text-amber-700 mb-3">
-                        Wir konnten nicht auf Ihr Mikrofon zugreifen. Sie können entweder die Berechtigung in Ihrem Browser erlauben oder Ihre Frage direkt eintippen.
-                      </p>
-                      <div className="flex items-center gap-2 text-sm text-primary font-medium">
-                        <ArrowUpRight className="w-4 h-4" />
-                        <span>Wechseln Sie oben zum &quot;Tippen&quot;-Modus</span>
+                  <div className="w-full border-t border-gray-200 pt-4">
+                    <Messages />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {!isConnected && !isConnecting && (
+                    <div className="w-full max-w-md mb-6">
+                      <div className="bg-gray-50 rounded-xl px-6 py-4 border border-gray-100 text-center">
+                        <p className="text-sm font-medium text-gray-700 mb-1">Hallo! Ich bin Ihr KI-Markenberater.</p>
+                        <p className="text-sm text-gray-600">
+                          Klicken Sie auf &quot;Starten&quot; oder wählen Sie eine Schnellfrage.
+                        </p>
                       </div>
                     </div>
+                  )}
+                  
+                  <div className="relative mb-6">
+                    {isConnected && (
+                      <>
+                        <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: '2s' }} />
+                        <div className="absolute -inset-6 rounded-full border border-primary/30 animate-pulse" style={{ animationDuration: '3s' }} />
+                      </>
+                    )}
+                    
+                    <button
+                      onClick={handleToggle}
+                      disabled={isConnecting}
+                      data-tour="start-button"
+                      className={`
+                        relative w-32 h-32 rounded-full flex items-center justify-center
+                        transition-all duration-300 shadow-lg font-semibold text-base
+                        ${isConnected 
+                          ? 'bg-primary text-white hover:bg-primary-hover' 
+                          : 'bg-gray-100 text-primary border-2 border-primary hover:bg-primary/10'
+                        }
+                        ${isConnecting ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl'}
+                      `}
+                      aria-label={isConnected ? "Sitzung beenden" : "Sitzung starten"}
+                    >
+                      {isConnecting ? (
+                        <span className="text-sm">Lädt...</span>
+                      ) : isConnected ? (
+                        <div className="flex flex-col items-center gap-1">
+                          <MicOff className="w-8 h-8" />
+                          <span className="text-sm">Beenden</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-1">
+                          <Mic className="w-8 h-8" />
+                          <span className="text-sm">Starten</span>
+                        </div>
+                      )}
+                    </button>
                   </div>
-                </div>
-              )}
 
-              <div className="w-full border-t border-gray-200 pt-4">
-                <Messages />
-              </div>
+                  {error && (
+                    <div className="w-full max-w-md p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-amber-800 mb-1">Mikrofon nicht verfügbar</p>
+                          <p className="text-sm text-amber-700 mb-3">
+                            Wir konnten nicht auf Ihr Mikrofon zugreifen. Sie können entweder die Berechtigung in Ihrem Browser erlauben oder Ihre Frage direkt eintippen.
+                          </p>
+                          <div className="flex items-center gap-2 text-sm text-primary font-medium">
+                            <ArrowUpRight className="w-4 h-4" />
+                            <span>Wechseln Sie oben zum &quot;Tippen&quot;-Modus</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="w-full border-t border-gray-200 pt-4">
+                    <Messages />
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
 
-        <div className="xl:col-span-2">
+        {!embedded && (
+          <div className="xl:col-span-2">
+            <QuickQuestions 
+              onQuestionClick={handleQuestionClick}
+              customQuestions={customQuestions}
+            />
+          </div>
+        )}
+      </div>
+      {embedded && customQuestions && customQuestions.length > 0 && (
+        <div className="mt-4">
           <QuickQuestions 
             onQuestionClick={handleQuestionClick}
+            customQuestions={customQuestions}
           />
         </div>
-      </div>
+      )}
     </div>
   );
 });

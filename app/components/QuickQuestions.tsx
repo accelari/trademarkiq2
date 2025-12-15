@@ -2,6 +2,7 @@
 
 interface QuickQuestionsProps {
   onQuestionClick: (question: string) => void;
+  customQuestions?: string[];
 }
 
 const RESEARCH_CATEGORIES = [
@@ -41,7 +42,28 @@ const RESEARCH_CATEGORIES = [
   },
 ];
 
-export default function QuickQuestions({ onQuestionClick }: QuickQuestionsProps) {
+export default function QuickQuestions({ onQuestionClick, customQuestions }: QuickQuestionsProps) {
+  if (customQuestions && customQuestions.length > 0) {
+    return (
+      <div className="bg-gray-50 rounded-xl p-4 border border-gray-200" data-tour="quick-questions">
+        <h4 className="text-sm font-semibold text-gray-700 mb-3">
+          Schnellfragen
+        </h4>
+        <div className="flex flex-wrap gap-2">
+          {customQuestions.map((question, idx) => (
+            <button
+              key={idx}
+              onClick={() => onQuestionClick(question)}
+              className="text-sm py-2 px-3 rounded-lg transition-all duration-200 border bg-white hover:bg-primary/10 text-gray-700 hover:text-primary border-gray-200 hover:border-primary/30 cursor-pointer"
+            >
+              {question}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-sm shadow-sm p-5 border border-gray-200 h-full" data-tour="quick-questions">
       <h3 className="text-base font-semibold text-gray-900 mb-4">
