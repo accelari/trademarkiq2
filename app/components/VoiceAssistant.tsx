@@ -308,24 +308,28 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       if (status.value === "connected") {
         await disconnect();
       } else {
-        const isSystemContext = contextMessage?.startsWith("[SYSTEM-KONTEXT");
-        const isRisikoberatung = contextMessage?.includes("Risikoberatung");
-        
-        let prompt: string;
-        if (contextMessage && isSystemContext) {
-          prompt = KLAUS_SYSTEM_PROMPT + `\n\n${contextMessage}`;
-          if (isRisikoberatung) {
-            prompt += `\n\nAUFGABE: Präsentiere sofort die Risikoanalyse. Beginne mit dem Markennamen, dem Gesamtrisiko, nenne die wichtigsten Konflikte und gib deine Empfehlung. Sei konkret und hilfreich.`;
-            setPendingQuestion("Bitte präsentiere mir die Risikoanalyse für meine Marke.");
+        if (!pendingPrompt) {
+          const isSystemContext = contextMessage?.startsWith("[SYSTEM-KONTEXT");
+          const isRisikoberatung = contextMessage?.includes("Risikoberatung");
+          
+          let prompt: string;
+          if (contextMessage && isSystemContext) {
+            prompt = KLAUS_SYSTEM_PROMPT + `\n\n${contextMessage}`;
+            if (isRisikoberatung) {
+              prompt += `\n\nAUFGABE: Präsentiere sofort die Risikoanalyse. Beginne mit dem Markennamen, dem Gesamtrisiko, nenne die wichtigsten Konflikte und gib deine Empfehlung. Sei konkret und hilfreich.`;
+              setPendingQuestion("Bitte präsentiere mir die Risikoanalyse für meine Marke.");
+            } else {
+              prompt += `\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt und frage dann nach den noch fehlenden Informationen.`;
+              setPendingQuestion("Ich möchte die Beratung fortsetzen.");
+            }
           } else {
-            prompt += `\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt und frage dann nach den noch fehlenden Informationen.`;
-            setPendingQuestion("Ich möchte die Beratung fortsetzen.");
+            prompt = KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'";
           }
-        } else {
-          prompt = KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'";
+          
+          setPendingPrompt(prompt);
         }
         
-        setPendingPrompt(prompt);
+        console.log("Voice connecting via user click, pendingPrompt ready:", !!pendingPrompt, "pendingQuestion:", pendingQuestion);
         await connect({
           auth: {
             type: "accessToken" as const,
@@ -495,7 +499,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
         }
         sendUserInput(voiceMessage);
         onContextMessageConsumed?.();
-      } else if (status.value === "disconnected" && !autoStart) {
+      } else if (status.value === "disconnected") {
         setContextMessageProcessed(true);
         
         const voiceMessage = isRisikoberatung
@@ -511,20 +515,8 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
         } else if (isSystemContext) {
           fullPrompt += `\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt und frage dann nach den noch fehlenden Informationen.`;
         }
-        console.log("Voice connecting with context (no autoStart):", isRisikoberatung ? "RISIKOBERATUNG" : "SYSTEM-KONTEXT");
+        console.log("Voice context prepared (waiting for user click):", isRisikoberatung ? "RISIKOBERATUNG" : "SYSTEM-KONTEXT");
         setPendingPrompt(fullPrompt);
-        
-        connect({
-          auth: {
-            type: "accessToken" as const,
-            value: accessToken,
-          },
-          hostname: "api.hume.ai",
-          configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
-        }).catch(err => {
-          console.error("Connection error:", err);
-          setPendingQuestion(null);
-        });
         
         onContextMessageConsumed?.();
       }
@@ -732,12 +724,24 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
                 <>
                   {!isConnected && !isConnecting && (
                     <div className="w-full max-w-md mb-6">
-                      <div className="bg-gray-50 rounded-xl px-6 py-4 border border-gray-100 text-center">
-                        <p className="text-sm font-medium text-gray-700 mb-1">Hallo! Ich bin Ihr KI-Markenberater.</p>
-                        <p className="text-sm text-gray-600">
-                          Klicken Sie auf &quot;Starten&quot; oder wählen Sie eine Schnellfrage.
-                        </p>
-                      </div>
+                      {pendingPrompt ? (
+                        <div className="bg-primary/10 rounded-xl px-6 py-4 border border-primary/30 text-center">
+                          <div className="flex items-center justify-center gap-2 mb-2">
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                            <p className="text-sm font-semibold text-primary">Kontext bereit</p>
+                          </div>
+                          <p className="text-sm text-gray-700">
+                            Klicken Sie auf &quot;Starten&quot;, um Ihre personalisierte Beratung zu beginnen.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 rounded-xl px-6 py-4 border border-gray-100 text-center">
+                          <p className="text-sm font-medium text-gray-700 mb-1">Hallo! Ich bin Ihr KI-Markenberater.</p>
+                          <p className="text-sm text-gray-600">
+                            Klicken Sie auf &quot;Starten&quot; oder wählen Sie eine Schnellfrage.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                   
