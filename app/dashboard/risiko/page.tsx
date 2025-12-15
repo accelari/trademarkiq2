@@ -664,8 +664,134 @@ function RisikoPageContent() {
     }
   }, [status, router]);
 
+  const loadCaseDataAndAnalysis = async (caseIdToLoad: string) => {
+    setIsLoadingFromCase(true);
+    setError(null);
+    
+    try {
+      const caseRes = await fetch(`/api/cases/${caseIdToLoad}`);
+      if (!caseRes.ok) {
+        throw new Error("Fall nicht gefunden");
+      }
+      
+      const caseData = await caseRes.json();
+      const caseRecord = caseData.case;
+      
+      if (caseRecord?.trademarkName) {
+        setMarkenname(caseRecord.trademarkName);
+      }
+      
+      if (caseRecord?.decisions && caseRecord.decisions.length > 0) {
+        const sortedDecisions = [...caseRecord.decisions].sort((a: any, b: any) => 
+          new Date(b.extractedAt || 0).getTime() - new Date(a.extractedAt || 0).getTime()
+        );
+        const latestDecision = sortedDecisions[0];
+        if (latestDecision.countries && latestDecision.countries.length > 0) {
+          setSelectedLaender(latestDecision.countries);
+        }
+        if (latestDecision.niceClasses && latestDecision.niceClasses.length > 0) {
+          setSelectedClasses(latestDecision.niceClasses);
+        }
+      }
+      
+      const rechercheStep = caseRecord?.steps?.find((s: any) => s.step === "recherche");
+      const stepConflicts = rechercheStep?.metadata?.analysis?.conflicts || rechercheStep?.metadata?.conflicts || [];
+      if (stepConflicts.length > 0) {
+        const conflicts = stepConflicts;
+        const tmName = rechercheStep?.metadata?.trademarkName || caseRecord.trademarkName || "";
+        
+        const conflictAnalyses: ExpertConflictAnalysis[] = conflicts.map((c: any) => ({
+          conflictId: c.id || c.applicationNumber || Math.random().toString(),
+          conflictName: c.name,
+          conflictHolder: c.holder || "Unbekannt",
+          conflictClasses: c.classes || [],
+          conflictOffice: c.register || "DE",
+          similarity: c.accuracy || 0,
+          legalAssessment: c.reasoning || "Keine detaillierte Bewertung verfügbar.",
+          oppositionRisk: c.riskLevel === "high" ? 85 : c.riskLevel === "medium" ? 55 : 25,
+          consequences: c.riskLevel === "high" 
+            ? "Bei einer Anmeldung besteht ein hohes Risiko eines Widerspruchs durch den Inhaber dieser älteren Marke."
+            : c.riskLevel === "medium"
+            ? "Ein Widerspruch ist möglich. Die Ähnlichkeit könnte bei identischen Waren/Dienstleistungen zu Problemen führen."
+            : "Das Risiko eines erfolgreichen Widerspruchs ist gering, aber eine Beobachtung wird empfohlen.",
+          solutions: c.riskLevel === "high" || c.riskLevel === "medium" ? [
+            {
+              type: "name_modification" as const,
+              title: "Wortmarke mit Alternativname",
+              description: "Registrieren Sie eine leicht modifizierte Wortmarke",
+              suggestedValue: `${tmName}is`,
+              successProbability: 80,
+              effort: "low" as const,
+              reasoning: "Eine kreative Namensvariation kann die Verwechslungsgefahr erheblich reduzieren.",
+            },
+            {
+              type: "mark_type" as const,
+              title: "Wort-Bild-Marke registrieren",
+              description: "Kombinieren Sie Ihren Markennamen mit einem einzigartigen Logo",
+              suggestedValue: "Logo + Schriftzug als kombinierte Marke anmelden",
+              successProbability: 75,
+              effort: "medium" as const,
+              reasoning: "Eine Wort-Bild-Marke reduziert die Verwechslungsgefahr mit reinen Wortmarken.",
+            },
+            {
+              type: "class_change" as const,
+              title: "Klassenbeschränkung",
+              description: "Beschränken Sie Ihre Anmeldung auf konfliktfreie Nizza-Klassen",
+              suggestedValue: "Nur konfliktfreie Klassen für Ihre Anmeldung auswählen",
+              successProbability: 70,
+              effort: "low" as const,
+              reasoning: "Durch Vermeidung überlappender Klassen kann das Konfliktpotenzial eliminiert werden.",
+            },
+          ] : [],
+        }));
+        
+        const overallRisk = conflictAnalyses.some(c => c.oppositionRisk > 70) ? "high" : 
+          conflictAnalyses.some(c => c.oppositionRisk > 40) ? "medium" : "low";
+        
+        setExpertAnalysis({
+          success: true,
+          trademarkName: tmName,
+          overallRisk: overallRisk as "high" | "medium" | "low",
+          conflictAnalyses,
+          bestOverallSolution: conflictAnalyses.length > 0 && conflictAnalyses[0].solutions.length > 0 
+            ? conflictAnalyses[0].solutions[0] 
+            : null,
+          summary: `Die Analyse hat ${conflictAnalyses.length} potenzielle Konflikte identifiziert. ${
+            overallRisk === "high" 
+              ? "Es wird empfohlen, den Markennamen anzupassen oder rechtliche Beratung einzuholen."
+              : overallRisk === "medium"
+              ? "Eine sorgfältige Prüfung wird empfohlen."
+              : "Die Marke scheint weitgehend frei von Konflikten zu sein."
+          }`,
+        });
+        
+        if (tmName) setMarkenname(tmName);
+        setIsLoadingFromCase(false);
+        return;
+      }
+      
+      const response = await fetch("/api/risk-analysis/expert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: caseIdToLoad }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setExpertAnalysis(data);
+        if (data.trademarkName) setMarkenname(data.trademarkName);
+      }
+    } catch (err: any) {
+      console.error("Error loading case data:", err);
+      setError("Fehler beim Laden der Falldaten");
+    } finally {
+      setIsLoadingFromCase(false);
+    }
+  };
+
   useEffect(() => {
-    const caseParam = searchParams.get("case");
+    const caseIdParam = searchParams.get("caseId") || searchParams.get("case");
     const markennameParam = searchParams.get("markenname");
     const laenderParam = searchParams.get("laender");
     const klassenParam = searchParams.get("klassen");
@@ -675,8 +801,10 @@ function RisikoPageContent() {
     if (laenderParam) setSelectedLaender(laenderParam.split(",").filter(Boolean));
     if (klassenParam) setSelectedClasses(klassenParam.split(",").map(Number).filter(n => !isNaN(n)));
     
-    if (caseParam) {
-      setCaseId(caseParam);
+    if (caseIdParam) {
+      setCaseId(caseIdParam);
+      loadCaseDataAndAnalysis(caseIdParam);
+      return;
     }
     
     const storedData = sessionStorage.getItem('risikoanalyse_conflicts');
@@ -768,12 +896,7 @@ function RisikoPageContent() {
         });
       } catch (e) {
         console.error("Error parsing stored conflicts:", e);
-        if (caseParam) {
-          loadExpertAnalysis(caseParam);
-        }
       }
-    } else if (caseParam) {
-      loadExpertAnalysis(caseParam);
     }
   }, [searchParams]);
   
