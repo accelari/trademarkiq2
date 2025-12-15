@@ -645,8 +645,8 @@ function RisikoPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  const [activeTab, setActiveTab] = useState<"conflicts" | "goods">("conflicts");
   const [markenname, setMarkenname] = useState("");
+  const [isGoodsExpanded, setIsGoodsExpanded] = useState(false);
   const [selectedLaender, setSelectedLaender] = useState<string[]>(["DE", "EU"]);
   const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
   const [caseId, setCaseId] = useState<string | null>(null);
@@ -1209,197 +1209,179 @@ function RisikoPageContent() {
             )}
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab("conflicts")}
-              className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold transition-colors ${
-                activeTab === "conflicts"
-                  ? "bg-teal-600 text-white"
-                  : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <Gavel className="w-5 h-5" />
-              Konfliktanalyse
-              <span className={`ml-2 px-2 py-0.5 rounded-full text-sm ${
-                activeTab === "conflicts" ? "bg-teal-700" : "bg-gray-100"
-              }`}>
-                {(expertAnalysis.conflictAnalyses || []).length}
-              </span>
-            </button>
+          <div className="space-y-4">
+            {expertAnalysis.bestOverallSolution && (
+              <div className="bg-gradient-to-r from-teal-50 to-teal-100 border border-teal-200 rounded-2xl p-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-teal-600 flex items-center justify-center text-white">
+                    <Lightbulb className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-teal-800">Beste Gesamtlösung</h3>
+                    <p className="text-teal-700 mt-1">{expertAnalysis.bestOverallSolution.title}</p>
+                    <p className="text-sm text-teal-600 mt-2">{expertAnalysis.bestOverallSolution.description}</p>
+                    {expertAnalysis.bestOverallSolution.suggestedValue && (
+                      <div className="mt-3 bg-white rounded-lg p-3 border border-teal-200">
+                        <span className="font-medium text-teal-800">{expertAnalysis.bestOverallSolution.suggestedValue}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-4 mt-3 text-sm">
+                      <span className="text-teal-600">
+                        Erfolgswahrscheinlichkeit: <strong>{expertAnalysis.bestOverallSolution.successProbability}%</strong>
+                      </span>
+                      <EffortBadge effort={expertAnalysis.bestOverallSolution.effort} />
+                    </div>
+                    {expertAnalysis.bestOverallSolution.type === "name_modification" && expertAnalysis.bestOverallSolution.suggestedValue && (
+                      <button
+                        onClick={() => handleAdoptAlternative(expertAnalysis.bestOverallSolution!.suggestedValue)}
+                        className="mt-4 flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                      >
+                        <ArrowRight className="w-4 h-4" />
+                        Alternative übernehmen → neue Recherche
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {(expertAnalysis.conflictAnalyses || []).length === 0 ? (
+              <div className="bg-teal-50 border border-teal-200 rounded-2xl p-8 text-center">
+                <CheckCircle className="w-16 h-16 text-teal-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-teal-800">Keine Konflikte gefunden!</h3>
+                <p className="text-teal-700 mt-2">
+                  Die Marke "{markenname}" scheint frei von relevanten Kollisionen zu sein.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Analysierte Konflikte ({(expertAnalysis.conflictAnalyses || []).length})
+                </h3>
+                {(expertAnalysis.conflictAnalyses || []).map((conflict, idx) => (
+                  <ConflictCard 
+                    key={idx} 
+                    conflict={conflict}
+                    laender={selectedLaender}
+                    klassen={selectedClasses}
+                    onAdoptAlternative={handleAdoptAlternative}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
             <button
               onClick={() => {
-                setActiveTab("goods");
-                if (!goodsAnalysis && !isLoadingGoods) {
+                setIsGoodsExpanded(!isGoodsExpanded);
+                if (!isGoodsExpanded && !goodsAnalysis && !isLoadingGoods) {
                   loadGoodsServicesAnalysis();
                 }
               }}
-              className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold transition-colors ${
-                activeTab === "goods"
-                  ? "bg-teal-600 text-white"
-                  : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-              }`}
+              className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-gray-50 transition-colors"
             >
-              <Tag className="w-5 h-5" />
-              Waren & Dienstleistungen
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                  <Tag className="w-5 h-5 text-teal-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Erweiterte Details: Waren & Dienstleistungen</h3>
+                  <p className="text-sm text-gray-500">Diese Faktoren beeinflussen das Risiko maßgeblich</p>
+                </div>
+              </div>
+              {isGoodsExpanded ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
             </button>
-            <a
-              href="/dashboard/copilot"
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold transition-colors bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-            >
-              <MessageCircle className="w-5 h-5" />
-              Beratung
-            </a>
-          </div>
-
-          {activeTab === "conflicts" && (
-            <div className="space-y-4">
-              {expertAnalysis.bestOverallSolution && (
-                <div className="bg-gradient-to-r from-teal-50 to-teal-100 border border-teal-200 rounded-2xl p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-teal-600 flex items-center justify-center text-white">
-                      <Lightbulb className="w-6 h-6" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-teal-800">Beste Gesamtlösung</h3>
-                      <p className="text-teal-700 mt-1">{expertAnalysis.bestOverallSolution.title}</p>
-                      <p className="text-sm text-teal-600 mt-2">{expertAnalysis.bestOverallSolution.description}</p>
-                      {expertAnalysis.bestOverallSolution.suggestedValue && (
-                        <div className="mt-3 bg-white rounded-lg p-3 border border-teal-200">
-                          <span className="font-medium text-teal-800">{expertAnalysis.bestOverallSolution.suggestedValue}</span>
+            
+            {isGoodsExpanded && (
+              <div className="border-t border-gray-200 p-5 space-y-4">
+                {isLoadingGoods ? (
+                  <div className="bg-gray-50 rounded-xl p-8 text-center">
+                    <Loader2 className="w-12 h-12 animate-spin text-teal-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900">W&D-Analyse wird erstellt...</h3>
+                    <p className="text-gray-600 mt-2">Prüfe Waren- und Dienstleistungsverzeichnis auf Amtskonformität</p>
+                  </div>
+                ) : goodsAnalysis ? (
+                  <>
+                    <div className={`rounded-2xl p-6 ${
+                      goodsAnalysis.overallCompliance === "compliant" 
+                        ? "bg-teal-50 border border-teal-200" 
+                        : goodsAnalysis.overallCompliance === "needs_improvement"
+                          ? "bg-orange-50 border border-orange-200"
+                          : "bg-red-50 border border-red-200"
+                    }`}>
+                      <div className="flex items-center gap-4">
+                        {goodsAnalysis.overallCompliance === "compliant" ? (
+                          <CheckCircle className="w-10 h-10 text-teal-600" />
+                        ) : goodsAnalysis.overallCompliance === "needs_improvement" ? (
+                          <AlertTriangle className="w-10 h-10 text-orange-600" />
+                        ) : (
+                          <XCircle className="w-10 h-10 text-red-600" />
+                        )}
+                        <div>
+                          <h3 className={`text-lg font-semibold ${
+                            goodsAnalysis.overallCompliance === "compliant" ? "text-teal-800" :
+                            goodsAnalysis.overallCompliance === "needs_improvement" ? "text-orange-800" : "text-red-800"
+                          }`}>
+                            {goodsAnalysis.overallCompliance === "compliant" 
+                              ? "Alle Waren & Dienstleistungen sind amtskonform"
+                              : goodsAnalysis.overallCompliance === "needs_improvement"
+                                ? "Einige Formulierungen benötigen Verbesserung"
+                                : "Erhebliche Überarbeitung erforderlich"}
+                          </h3>
+                          <p className={`text-sm mt-1 ${
+                            goodsAnalysis.overallCompliance === "compliant" ? "text-teal-700" :
+                            goodsAnalysis.overallCompliance === "needs_improvement" ? "text-orange-700" : "text-red-700"
+                          }`}>
+                            {goodsAnalysis.classRecommendations.filter(c => c.isCompliant).length} von {goodsAnalysis.classRecommendations.length} Klassen konform
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {goodsAnalysis.warnings.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-2">Wichtige Hinweise:</h4>
+                          <ul className="space-y-1">
+                            {goodsAnalysis.warnings.map((warning, idx) => (
+                              <li key={idx} className="text-sm text-gray-600 flex items-start gap-2">
+                                <AlertTriangle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                                {warning}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       )}
-                      <div className="flex items-center gap-4 mt-3 text-sm">
-                        <span className="text-teal-600">
-                          Erfolgswahrscheinlichkeit: <strong>{expertAnalysis.bestOverallSolution.successProbability}%</strong>
-                        </span>
-                        <EffortBadge effort={expertAnalysis.bestOverallSolution.effort} />
-                      </div>
-                      {expertAnalysis.bestOverallSolution.type === "name_modification" && expertAnalysis.bestOverallSolution.suggestedValue && (
-                        <button
-                          onClick={() => handleAdoptAlternative(expertAnalysis.bestOverallSolution!.suggestedValue)}
-                          className="mt-4 flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-                        >
-                          <ArrowRight className="w-4 h-4" />
-                          Alternative übernehmen → neue Recherche
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {(expertAnalysis.conflictAnalyses || []).length === 0 ? (
-                <div className="bg-teal-50 border border-teal-200 rounded-2xl p-8 text-center">
-                  <CheckCircle className="w-16 h-16 text-teal-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-teal-800">Keine Konflikte gefunden!</h3>
-                  <p className="text-teal-700 mt-2">
-                    Die Marke "{markenname}" scheint frei von relevanten Kollisionen zu sein.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Analysierte Konflikte ({(expertAnalysis.conflictAnalyses || []).length})
-                  </h3>
-                  {(expertAnalysis.conflictAnalyses || []).map((conflict, idx) => (
-                    <ConflictCard 
-                      key={idx} 
-                      conflict={conflict}
-                      laender={selectedLaender}
-                      klassen={selectedClasses}
-                      onAdoptAlternative={handleAdoptAlternative}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === "goods" && (
-            <div className="space-y-4">
-              {isLoadingGoods ? (
-                <div className="bg-white rounded-2xl p-8 text-center border border-gray-100">
-                  <Loader2 className="w-12 h-12 animate-spin text-teal-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900">W&D-Analyse wird erstellt...</h3>
-                  <p className="text-gray-600 mt-2">Prüfe Waren- und Dienstleistungsverzeichnis auf Amtskonformität</p>
-                </div>
-              ) : goodsAnalysis ? (
-                <>
-                  <div className={`rounded-2xl p-6 ${
-                    goodsAnalysis.overallCompliance === "compliant" 
-                      ? "bg-teal-50 border border-teal-200" 
-                      : goodsAnalysis.overallCompliance === "needs_improvement"
-                        ? "bg-orange-50 border border-orange-200"
-                        : "bg-red-50 border border-red-200"
-                  }`}>
-                    <div className="flex items-center gap-4">
-                      {goodsAnalysis.overallCompliance === "compliant" ? (
-                        <CheckCircle className="w-10 h-10 text-teal-600" />
-                      ) : goodsAnalysis.overallCompliance === "needs_improvement" ? (
-                        <AlertTriangle className="w-10 h-10 text-orange-600" />
-                      ) : (
-                        <XCircle className="w-10 h-10 text-red-600" />
-                      )}
-                      <div>
-                        <h3 className={`text-lg font-semibold ${
-                          goodsAnalysis.overallCompliance === "compliant" ? "text-teal-800" :
-                          goodsAnalysis.overallCompliance === "needs_improvement" ? "text-orange-800" : "text-red-800"
-                        }`}>
-                          {goodsAnalysis.overallCompliance === "compliant" 
-                            ? "Alle Waren & Dienstleistungen sind amtskonform"
-                            : goodsAnalysis.overallCompliance === "needs_improvement"
-                              ? "Einige Formulierungen benötigen Verbesserung"
-                              : "Erhebliche Überarbeitung erforderlich"}
-                        </h3>
-                        <p className={`text-sm mt-1 ${
-                          goodsAnalysis.overallCompliance === "compliant" ? "text-teal-700" :
-                          goodsAnalysis.overallCompliance === "needs_improvement" ? "text-orange-700" : "text-red-700"
-                        }`}>
-                          {goodsAnalysis.classRecommendations.filter(c => c.isCompliant).length} von {goodsAnalysis.classRecommendations.length} Klassen konform
-                        </p>
-                      </div>
                     </div>
                     
-                    {goodsAnalysis.warnings.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Wichtige Hinweise:</h4>
-                        <ul className="space-y-1">
-                          {goodsAnalysis.warnings.map((warning, idx) => (
-                            <li key={idx} className="text-sm text-gray-600 flex items-start gap-2">
-                              <AlertTriangle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
-                              {warning}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    <div className="space-y-3">
+                      {goodsAnalysis.classRecommendations.map((rec, idx) => (
+                        <ClassComplianceCard key={idx} recommendation={rec} />
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="bg-gray-50 rounded-xl p-8 text-center">
+                    <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900">Keine W&D-Analyse verfügbar</h3>
+                    <p className="text-gray-600 mt-2">
+                      Bitte stellen Sie sicher, dass Markenname und Klassen ausgewählt sind.
+                    </p>
+                    <button
+                      onClick={loadGoodsServicesAnalysis}
+                      disabled={!markenname.trim() || selectedClasses.length === 0}
+                      className="mt-4 px-6 py-3 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50"
+                    >
+                      W&D-Analyse starten
+                    </button>
                   </div>
-                  
-                  <div className="space-y-3">
-                    {goodsAnalysis.classRecommendations.map((rec, idx) => (
-                      <ClassComplianceCard key={idx} recommendation={rec} />
-                    ))}
-                  </div>
-                  
-                </>
-              ) : (
-                <div className="bg-white rounded-2xl p-8 text-center border border-gray-100">
-                  <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900">Keine W&D-Analyse verfügbar</h3>
-                  <p className="text-gray-600 mt-2">
-                    Bitte stellen Sie sicher, dass Markenname und Klassen ausgewählt sind.
-                  </p>
-                  <button
-                    onClick={loadGoodsServicesAnalysis}
-                    disabled={!markenname.trim() || selectedClasses.length === 0}
-                    className="mt-4 px-6 py-3 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50"
-                  >
-                    W&D-Analyse starten
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Nächste Schritte</h3>
