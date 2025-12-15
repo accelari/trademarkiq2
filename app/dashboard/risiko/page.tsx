@@ -35,6 +35,8 @@ import {
 } from "lucide-react";
 import WorkflowProgress from "@/app/components/WorkflowProgress";
 import { NICE_CLASSES, formatClassLabel } from "@/lib/nice-classes";
+import { VoiceProvider } from "@humeai/voice-react";
+import VoiceAssistant from "@/app/components/VoiceAssistant";
 
 interface Solution {
   type: "name_modification" | "class_change" | "mark_type" | "geographic" | "coexistence";
@@ -175,6 +177,22 @@ function OppositionRiskBar({ risk }: { risk: number }) {
   );
 }
 
+function EffortIndicator({ effort }: { effort: "low" | "medium" | "high" }) {
+  const config = {
+    low: { filled: 1, color: "text-teal-600" },
+    medium: { filled: 2, color: "text-orange-600" },
+    high: { filled: 3, color: "text-red-600" },
+  };
+  const { filled, color } = config[effort];
+  return (
+    <span className={`flex items-center gap-0.5 ${color}`} title={effort === "low" ? "Gering" : effort === "medium" ? "Mittel" : "Hoch"}>
+      {[1, 2, 3].map((n) => (
+        <span key={n} className="text-sm">{n <= filled ? "●" : "○"}</span>
+      ))}
+    </span>
+  );
+}
+
 function EffortBadge({ effort }: { effort: "low" | "medium" | "high" }) {
   const config = {
     low: { label: "Gering", bg: "bg-teal-100", text: "text-teal-700" },
@@ -183,6 +201,22 @@ function EffortBadge({ effort }: { effort: "low" | "medium" | "high" }) {
   };
   const { label, bg, text } = config[effort];
   return <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${bg} ${text}`}>{label}</span>;
+}
+
+function getCategoryLabel(type: Solution["type"]): { emoji: string; label: string } {
+  switch (type) {
+    case "name_modification":
+      return { emoji: "🏷️", label: "Namensvariante" };
+    case "mark_type":
+    case "class_change":
+      return { emoji: "🎨", label: "Anmeldestrategie" };
+    case "geographic":
+      return { emoji: "📍", label: "Territorium" };
+    case "coexistence":
+      return { emoji: "🤝", label: "Koexistenz" };
+    default:
+      return { emoji: "💡", label: "Strategie" };
+  }
 }
 
 function SolutionTypeIcon({ type }: { type: Solution["type"] }) {
@@ -208,9 +242,17 @@ function SolutionCard({
   klassen: number[];
 }) {
   const isNameModification = solution.type === "name_modification";
+  const category = getCategoryLabel(solution.type);
   
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+      <div className="mb-3">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
+          <span>{category.emoji}</span>
+          {category.label}
+        </span>
+      </div>
+      
       <div className="flex items-start gap-3 mb-3">
         <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center text-teal-600">
           <SolutionTypeIcon type={solution.type} />
@@ -228,16 +270,21 @@ function SolutionCard({
       )}
       
       <div className="flex items-center justify-between text-sm mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-gray-500">Erfolg:</span>
+        <div className="flex items-center gap-2 group relative">
+          <span className="text-gray-500">Relative Anmeldechance (KI-basiert):</span>
           <span className={`font-bold ${
             solution.successProbability > 70 ? 'text-teal-600' : 
             solution.successProbability > 40 ? 'text-orange-600' : 'text-red-600'
           }`}>{solution.successProbability}%</span>
+          <div className="absolute bottom-full left-0 mb-1 hidden group-hover:block z-10">
+            <div className="bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
+              Vergleichende Einschätzung – keine Rechtsberatung
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-gray-500">Aufwand:</span>
-          <EffortBadge effort={solution.effort} />
+          <EffortIndicator effort={solution.effort} />
         </div>
       </div>
       
@@ -658,11 +705,60 @@ function RisikoPageContent() {
   const [isLoadingGoods, setIsLoadingGoods] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  const [showAdvisorModal, setShowAdvisorModal] = useState(false);
+  const [inputMode, setInputMode] = useState<"sprache" | "text">("sprache");
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isLoadingToken, setIsLoadingToken] = useState(false);
+  
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
     }
   }, [status, router]);
+  
+  const loadAccessToken = async () => {
+    if (accessToken) return;
+    setIsLoadingToken(true);
+    try {
+      const response = await fetch("/api/token");
+      if (response.ok) {
+        const data = await response.json();
+        setAccessToken(data.accessToken);
+      }
+    } catch (err) {
+      console.error("Failed to load access token:", err);
+    } finally {
+      setIsLoadingToken(false);
+    }
+  };
+  
+  const handleOpenAdvisorModal = async () => {
+    await loadAccessToken();
+    setShowAdvisorModal(true);
+  };
+  
+  const getAdvisorContextMessage = () => {
+    if (!expertAnalysis) return null;
+    
+    const conflicts = expertAnalysis.conflictAnalyses || [];
+    const conflictDetails = conflicts.map(c => 
+      `- ${c.conflictName} (${c.similarity}% Ähnlichkeit, ${c.oppositionRisk}% Widerspruchsrisiko, Klassen: ${c.conflictClasses.join(", ")})`
+    ).join("\n");
+    
+    return `[SYSTEM-KONTEXT für Risikoanalyse-Beratung]
+Markenname: ${markenname}
+Zielländer: ${selectedLaender.join(", ")}
+Nizza-Klassen: ${selectedClasses.join(", ")}
+Gesamtrisiko: ${expertAnalysis.overallRisk === "high" ? "Hoch" : expertAnalysis.overallRisk === "medium" ? "Mittel" : "Niedrig"}
+Anzahl Konflikte: ${conflicts.length}
+
+Konflikte:
+${conflictDetails || "Keine Konflikte gefunden"}
+
+Zusammenfassung: ${expertAnalysis.summary}
+
+WICHTIG: Du berätst zu dieser spezifischen Risikoanalyse. Hilf dem Nutzer, die Konflikte zu verstehen und erkläre die möglichen Lösungsstrategien.`;
+  };
 
   const loadCaseDataAndAnalysis = async (caseIdToLoad: string) => {
     setIsLoadingFromCase(true);
@@ -1395,7 +1491,112 @@ function RisikoPageContent() {
               </a>
             </div>
           </div>
+
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center">
+                  <MessageCircle className="w-6 h-6 text-teal-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Unsicher? Besprechen Sie mit unserem Experten</h3>
+                  <p className="text-sm text-gray-600">Unser KI-Markenberater hilft Ihnen bei der Interpretation der Ergebnisse</p>
+                </div>
+              </div>
+              <button
+                onClick={handleOpenAdvisorModal}
+                disabled={isLoadingToken}
+                className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50"
+              >
+                {isLoadingToken ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <MessageCircle className="w-5 h-5" />
+                )}
+                Beratung starten
+              </button>
+            </div>
+          </div>
         </>
+      )}
+
+      {showAdvisorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowAdvisorModal(false)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden mx-4">
+            <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">
+                  KI-Markenberater (Kontext: {selectedLaender.join(", ")} / Klasse {selectedClasses.join(", ")})
+                </h2>
+                <button
+                  onClick={() => setShowAdvisorModal(false)}
+                  className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 text-sm">
+                <span className="px-3 py-1 bg-white/20 rounded-full">
+                  Marke: {markenname}
+                </span>
+                <span className="px-3 py-1 bg-white/20 rounded-full">
+                  {(expertAnalysis?.conflictAnalyses || []).length} Konflikte
+                </span>
+                <span className="px-3 py-1 bg-white/20 rounded-full">
+                  {selectedClasses.length} Klassen
+                </span>
+              </div>
+            </div>
+            
+            <div className="p-4 border-b bg-gray-50">
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setInputMode("sprache")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    inputMode === "sprache" 
+                      ? "bg-teal-600 text-white" 
+                      : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  Sprache
+                </button>
+                <button
+                  onClick={() => setInputMode("text")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    inputMode === "text" 
+                      ? "bg-teal-600 text-white" 
+                      : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+                  }`}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Text
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 overflow-y-auto" style={{ maxHeight: "calc(90vh - 250px)" }}>
+              {accessToken ? (
+                <VoiceProvider>
+                  <VoiceAssistant 
+                    accessToken={accessToken} 
+                    inputMode={inputMode}
+                    contextMessage={getAdvisorContextMessage()}
+                  />
+                </VoiceProvider>
+              ) : (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+                  <span className="ml-3 text-gray-600">Verbindung wird hergestellt...</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {!expertAnalysis && !isLoadingFromCase && !isAnalyzing && (
