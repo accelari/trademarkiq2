@@ -712,7 +712,7 @@ export default function ConsultationsModal({
                               const nextStep = journeySteps.find((s, i) => i > 0 && getStepStatus(consultation, s) !== "completed" && getStepStatus(consultation, s) !== "skipped");
                               const stepRoutes: Record<string, string> = {
                                 recherche: `/dashboard/recherche?caseId=${consultation.caseId}`,
-                                risikoanalyse: `/dashboard/risikoanalyse?caseId=${consultation.caseId}`,
+                                risikoanalyse: `/dashboard/risiko?caseId=${consultation.caseId}`,
                                 anmeldung: `/dashboard/anmeldung?caseId=${consultation.caseId}`,
                                 watchlist: `/dashboard/watchlist?caseId=${consultation.caseId}`,
                               };
