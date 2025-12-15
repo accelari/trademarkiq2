@@ -32,6 +32,7 @@ import {
   Bookmark,
   User,
   MessageCircle,
+  Info,
 } from "lucide-react";
 import WorkflowProgress from "@/app/components/WorkflowProgress";
 import { NICE_CLASSES, formatClassLabel } from "@/lib/nice-classes";
@@ -109,6 +110,13 @@ const OFFICE_NAMES: Record<string, string> = {
   "GB": "UKIPO (UK)",
   "CH": "IGE (Schweiz)",
   "AT": "ÖPA (Österreich)",
+};
+
+const REGISTER_URLS: Record<string, string> = {
+  "DE": "https://register.dpma.de/DPMAregister/marke/register/",
+  "EU": "https://euipo.europa.eu/eSearch/",
+  "WO": "https://www3.wipo.int/madrid/monitor/",
+  "US": "https://tsdr.uspto.gov/",
 };
 
 function AnimatedRiskScore({ score, risk }: { score: number; risk: "high" | "medium" | "low" }) {
@@ -243,6 +251,17 @@ function SolutionCard({
       
       <p className="text-xs text-gray-500 mb-3">{solution.reasoning}</p>
       
+      {solution.type === "mark_type" && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-blue-800">
+              Hinweis: Eine Wort-Bild-Marke schützt nur die konkrete grafische Gestaltung. Eine reine Wortmarke bietet breiteren Schutz, erfordert aber höhere Unterscheidungskraft.
+            </p>
+          </div>
+        </div>
+      )}
+      
       {isNameModification && solution.suggestedValue && onAdopt && (
         <button
           onClick={() => onAdopt(solution.suggestedValue)}
@@ -297,6 +316,17 @@ function ConflictCard({
               <span className="flex items-center gap-1">
                 <Globe className="w-3.5 h-3.5" />
                 {OFFICE_NAMES[conflict.conflictOffice] || conflict.conflictOffice}
+                {REGISTER_URLS[conflict.conflictOffice] && (
+                  <a
+                    href={REGISTER_URLS[conflict.conflictOffice]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="ml-1 text-teal-600 hover:text-teal-800"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
               </span>
               {conflict.conflictClasses.length > 0 && (
                 <span className="flex items-center gap-1">
@@ -326,6 +356,21 @@ function ConflictCard({
             <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
               {conflict.legalAssessment}
             </p>
+          </div>
+          
+          <div>
+            <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <Info className="w-4 h-4 text-blue-600" />
+              Ähnlichkeitsfaktoren
+            </h5>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800">
+                Die Ähnlichkeit von {conflict.similarity}% basiert auf der Analyse von: Klangbild (phonetisch), Schriftbild (visuell) und Bedeutung (konzeptuell).
+                {conflict.conflictClasses.length > 0 && klassen.some(k => conflict.conflictClasses.includes(k)) && (
+                  <span className="font-medium"> Bei Klassenkollision in Klassen {conflict.conflictClasses.filter(k => klassen.includes(k)).join(", ")} erhöht sich das Risiko.</span>
+                )}
+              </p>
+            </div>
           </div>
           
           <OppositionRiskBar risk={conflict.oppositionRisk} />
@@ -1400,6 +1445,27 @@ function RisikoPageContent() {
               )}
             </div>
           )}
+
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-amber-800">Wichtiger Hinweis</h3>
+                <p className="text-sm text-amber-700 mt-2">
+                  Diese KI-Analyse ersetzt keine professionelle Rechtsberatung. Für eine verbindliche Einschätzung empfehlen wir die Konsultation eines Markenrechts-Experten.
+                </p>
+                <a
+                  href="/dashboard/experten"
+                  className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors"
+                >
+                  <User className="w-4 h-4" />
+                  Experten kontaktieren
+                </a>
+              </div>
+            </div>
+          </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Nächste Schritte</h3>
