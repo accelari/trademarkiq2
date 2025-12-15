@@ -1266,62 +1266,6 @@ WICHTIG:
               </a>
             </div>
           </div>
-          
-          <div className="border-t border-gray-200 pt-6">
-            <p className="text-center text-sm text-gray-500 mb-4">
-              Oder starten Sie die Analyse manuell (nur für fortgeschrittene Nutzer)
-            </p>
-            
-            <div className="grid md:grid-cols-3 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Markenname</label>
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={markenname}
-                    onChange={(e) => setMarkenname(e.target.value)}
-                    placeholder="z.B. TechFlow, BioNova..."
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Zielländer</label>
-                <LandSelector selectedLaender={selectedLaender} onToggle={toggleLand} />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nizza-Klassen</label>
-                <ClassSelector selectedClasses={selectedClasses} onToggle={toggleClass} />
-              </div>
-            </div>
-
-            {error && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
-                {error}
-              </div>
-            )}
-
-            <button
-              onClick={handleManualAnalysis}
-              disabled={isAnalyzing || !markenname.trim() || selectedLaender.length === 0 || selectedClasses.length === 0}
-              className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gray-600 text-white font-semibold rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                  Analysiere...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-6 h-6" />
-                  Analyse starten
-                </>
-              )}
-            </button>
-          </div>
         </div>
       )}
 
@@ -1808,34 +1752,6 @@ WICHTIG:
         </>
       )}
 
-      {!expertAnalysis && !isLoadingFromCase && !isAnalyzing && (
-        <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
-          <div className="w-20 h-20 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <MessageCircle className="w-10 h-10 text-teal-600" />
-          </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-3">
-            Persönliche Risikoberatung
-          </h3>
-          <p className="text-gray-600 max-w-lg mx-auto mb-6">
-            Unser KI-Markenberater erklärt Ihnen die Ergebnisse 
-            in einem persönlichen Gespräch – verständlich und ohne Fachjargon.
-          </p>
-          <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
-            <span className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full">
-              <Mic className="w-4 h-4 text-teal-600" />
-              Sprachsteuerung
-            </span>
-            <span className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full">
-              <Lightbulb className="w-4 h-4 text-teal-600" />
-              Lösungsvorschläge
-            </span>
-            <span className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full">
-              <MessageCircle className="w-4 h-4 text-teal-600" />
-              Interaktive Beratung
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
