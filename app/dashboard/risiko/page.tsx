@@ -714,6 +714,7 @@ function RisikoPageContent() {
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [showRiskModal, setShowRiskModal] = useState(false);
   const [pendingQuickQuestion, setPendingQuickQuestion] = useState<string | null>(null);
+  const [advisorPromptSent, setAdvisorPromptSent] = useState(false);
   const technicalDetailsRef = useRef<HTMLDivElement>(null);
   
   const RISK_QUICK_QUESTIONS = [
@@ -1303,31 +1304,34 @@ WICHTIG:
                 
                 <button 
                   onClick={() => setShowRiskModal(true)}
-                  className="relative flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                  className="relative flex-shrink-0 cursor-pointer hover:scale-105 transition-transform group"
                   title="Risikodetails anzeigen"
                 >
-                  <div className="relative w-12 h-12">
-                    <svg className="w-full h-full -rotate-90">
-                      <circle cx="24" cy="24" r="20" stroke="white" strokeOpacity="0.3" strokeWidth="4" fill="none" />
+                  <div className="relative w-16 h-16">
+                    <div className="absolute inset-0 rounded-full animate-ping opacity-30 bg-white/40" style={{ animationDuration: '2s' }} />
+                    <div className="absolute inset-0 rounded-full animate-pulse opacity-20 bg-white/30" style={{ animationDuration: '1.5s' }} />
+                    <svg className="w-full h-full -rotate-90 relative z-10">
+                      <circle cx="32" cy="32" r="26" stroke="white" strokeOpacity="0.3" strokeWidth="5" fill="none" />
                       <circle
-                        cx="24"
-                        cy="24"
-                        r="20"
-                        strokeWidth="4"
+                        cx="32"
+                        cy="32"
+                        r="26"
+                        strokeWidth="5"
                         fill="none"
                         strokeLinecap="round"
-                        strokeDasharray={2 * Math.PI * 20}
-                        strokeDashoffset={2 * Math.PI * 20 - (getOverallRiskScore() / 100) * 2 * Math.PI * 20}
+                        strokeDasharray={2 * Math.PI * 26}
+                        strokeDashoffset={2 * Math.PI * 26 - (getOverallRiskScore() / 100) * 2 * Math.PI * 26}
                         className={`${
                           expertAnalysis.overallRisk === "high" ? "stroke-red-400" :
                           expertAnalysis.overallRisk === "medium" ? "stroke-orange-400" : "stroke-green-400"
                         } transition-all duration-1000`}
                       />
                     </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-xs font-bold text-white">{getOverallRiskScore()}%</span>
+                    <div className="absolute inset-0 flex items-center justify-center z-10">
+                      <span className="text-sm font-bold text-white">{getOverallRiskScore()}%</span>
                     </div>
                   </div>
+                  <span className="block text-xs text-white/80 mt-1 text-center group-hover:text-white transition-colors">Details</span>
                 </button>
               </div>
               
@@ -1372,8 +1376,13 @@ WICHTIG:
                         inputMode={inputMode}
                         autoStart={inputMode === "sprache"}
                         onAutoStartConsumed={() => setAutoStartVoice(false)}
-                        contextMessage={pendingQuickQuestion}
-                        onContextMessageConsumed={() => setPendingQuickQuestion(null)}
+                        contextMessage={pendingQuickQuestion || (!advisorPromptSent ? generateAdvisorPrompt() : null)}
+                        onContextMessageConsumed={() => {
+                          setPendingQuickQuestion(null);
+                          if (!advisorPromptSent) {
+                            setAdvisorPromptSent(true);
+                          }
+                        }}
                         embedded={true}
                       />
                     </VoiceProvider>
@@ -1409,37 +1418,6 @@ WICHTIG:
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <AnimatedRiskScore 
-                  score={getOverallRiskScore()} 
-                  risk={expertAnalysis.overallRisk} 
-                />
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-lg">"{markenname}"</h3>
-                  <p className="text-sm text-gray-600">
-                    {(expertAnalysis.conflictAnalyses || []).length} Konflikte gefunden
-                  </p>
-                </div>
-              </div>
-              {expertAnalysis.bestOverallSolution && (
-                <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 max-w-sm">
-                  <div className="flex items-center gap-2 text-teal-700 font-medium mb-1">
-                    <Lightbulb className="w-4 h-4" />
-                    Empfehlung
-                  </div>
-                  <p className="text-sm text-teal-800">{expertAnalysis.bestOverallSolution.title}</p>
-                  {expertAnalysis.bestOverallSolution.suggestedValue && (
-                    <p className="text-sm font-medium text-teal-900 mt-1">
-                      {expertAnalysis.bestOverallSolution.suggestedValue}
-                    </p>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
