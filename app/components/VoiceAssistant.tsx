@@ -308,7 +308,24 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       if (status.value === "connected") {
         await disconnect();
       } else {
-        setPendingPrompt(KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'");
+        const isSystemContext = contextMessage?.startsWith("[SYSTEM-KONTEXT");
+        const isRisikoberatung = contextMessage?.includes("Risikoberatung");
+        
+        let prompt: string;
+        if (contextMessage && isSystemContext) {
+          prompt = KLAUS_SYSTEM_PROMPT + `\n\n${contextMessage}`;
+          if (isRisikoberatung) {
+            prompt += `\n\nAUFGABE: Präsentiere sofort die Risikoanalyse. Beginne mit dem Markennamen, dem Gesamtrisiko, nenne die wichtigsten Konflikte und gib deine Empfehlung. Sei konkret und hilfreich.`;
+            setPendingQuestion("Bitte präsentiere mir die Risikoanalyse für meine Marke.");
+          } else {
+            prompt += `\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt und frage dann nach den noch fehlenden Informationen.`;
+            setPendingQuestion("Ich möchte die Beratung fortsetzen.");
+          }
+        } else {
+          prompt = KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'";
+        }
+        
+        setPendingPrompt(prompt);
         await connect({
           auth: {
             type: "accessToken" as const,
@@ -410,13 +427,13 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
   useEffect(() => {
     if (!contextMessage || contextMessageProcessed || isLoading) return;
     
-    setContextMessageProcessed(true);
+    const isSystemContext = contextMessage.startsWith("[SYSTEM-KONTEXT");
+    const isRisikoberatung = contextMessage.includes("Risikoberatung");
     
-    const processContextMessage = async () => {
-      const isSystemContext = contextMessage.startsWith("[SYSTEM-KONTEXT");
-      const isRisikoberatung = contextMessage.includes("Risikoberatung");
+    if (inputMode === "text") {
+      setContextMessageProcessed(true);
       
-      if (inputMode === "text") {
+      const processTextContext = async () => {
         if (isSystemContext) {
           setIsLoading(true);
           try {
@@ -453,55 +470,66 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
         } else {
           await handleTextMessage(contextMessage);
         }
-      } else {
+        onContextMessageConsumed?.();
+      };
+      
+      processTextContext();
+    } else {
+      if (status.value === "connected") {
+        setContextMessageProcessed(true);
+        
         const voiceMessage = isRisikoberatung
           ? "Bitte präsentiere mir die Risikoanalyse für meine Marke."
           : isSystemContext 
             ? "Ich möchte die Beratung fortsetzen."
             : contextMessage;
-          
-        if (status.value === "connected") {
-          if (isSystemContext) {
-            console.log("Voice connected: Updating session settings with context...");
-            const updatedPrompt = isRisikoberatung
-              ? KLAUS_SYSTEM_PROMPT + `\n\n${contextMessage}\n\nAUFGABE: Präsentiere sofort die Risikoanalyse. Beginne mit dem Markennamen, dem Gesamtrisiko, nenne die wichtigsten Konflikte und gib deine Empfehlung. Sei konkret und hilfreich.`
-              : KLAUS_SYSTEM_PROMPT + `\n\n${contextMessage}\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt und frage dann nach den noch fehlenden Informationen.`;
-            sendSessionSettings({
-              systemPrompt: updatedPrompt
-            });
-          }
-          sendUserInput(voiceMessage);
-        } else {
-          setPendingQuestion(voiceMessage);
-          try {
-            setError(null);
-            let fullPrompt = KLAUS_SYSTEM_PROMPT + (isSystemContext ? `\n\n${contextMessage}` : `\n\nKONTEXT: ${contextMessage}`);
-            if (isRisikoberatung) {
-              fullPrompt += `\n\nAUFGABE: Präsentiere sofort die Risikoanalyse. Beginne mit dem Markennamen, dem Gesamtrisiko, nenne die wichtigsten Konflikte und gib deine Empfehlung. Sei konkret und hilfreich.`;
-            } else if (isSystemContext) {
-              fullPrompt += `\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt und frage dann nach den noch fehlenden Informationen.`;
-            }
-            console.log("Voice connecting with context:", isRisikoberatung ? "RISIKOBERATUNG" : isSystemContext ? "SYSTEM-KONTEXT" : "regular context");
-            setPendingPrompt(fullPrompt);
-            await connect({
-              auth: {
-                type: "accessToken" as const,
-                value: accessToken,
-              },
-              hostname: "api.hume.ai",
-              configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
-            });
-          } catch (err) {
-            console.error("Connection error:", err);
-            setPendingQuestion(null);
-          }
+        
+        if (isSystemContext) {
+          console.log("Voice connected: Updating session settings with context...");
+          const updatedPrompt = isRisikoberatung
+            ? KLAUS_SYSTEM_PROMPT + `\n\n${contextMessage}\n\nAUFGABE: Präsentiere sofort die Risikoanalyse. Beginne mit dem Markennamen, dem Gesamtrisiko, nenne die wichtigsten Konflikte und gib deine Empfehlung. Sei konkret und hilfreich.`
+            : KLAUS_SYSTEM_PROMPT + `\n\n${contextMessage}\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt und frage dann nach den noch fehlenden Informationen.`;
+          sendSessionSettings({
+            systemPrompt: updatedPrompt
+          });
         }
+        sendUserInput(voiceMessage);
+        onContextMessageConsumed?.();
+      } else if (status.value === "disconnected" && !autoStart) {
+        setContextMessageProcessed(true);
+        
+        const voiceMessage = isRisikoberatung
+          ? "Bitte präsentiere mir die Risikoanalyse für meine Marke."
+          : isSystemContext 
+            ? "Ich möchte die Beratung fortsetzen."
+            : contextMessage;
+        
+        setPendingQuestion(voiceMessage);
+        let fullPrompt = KLAUS_SYSTEM_PROMPT + (isSystemContext ? `\n\n${contextMessage}` : `\n\nKONTEXT: ${contextMessage}`);
+        if (isRisikoberatung) {
+          fullPrompt += `\n\nAUFGABE: Präsentiere sofort die Risikoanalyse. Beginne mit dem Markennamen, dem Gesamtrisiko, nenne die wichtigsten Konflikte und gib deine Empfehlung. Sei konkret und hilfreich.`;
+        } else if (isSystemContext) {
+          fullPrompt += `\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt und frage dann nach den noch fehlenden Informationen.`;
+        }
+        console.log("Voice connecting with context (no autoStart):", isRisikoberatung ? "RISIKOBERATUNG" : "SYSTEM-KONTEXT");
+        setPendingPrompt(fullPrompt);
+        
+        connect({
+          auth: {
+            type: "accessToken" as const,
+            value: accessToken,
+          },
+          hostname: "api.hume.ai",
+          configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
+        }).catch(err => {
+          console.error("Connection error:", err);
+          setPendingQuestion(null);
+        });
+        
+        onContextMessageConsumed?.();
       }
-      onContextMessageConsumed?.();
-    };
-    
-    processContextMessage();
-  }, [contextMessage, contextMessageProcessed, isLoading, inputMode, status.value]);
+    }
+  }, [contextMessage, contextMessageProcessed, isLoading, inputMode, status.value, autoStart]);
 
   useEffect(() => {
     if (contextMessage === null) {
