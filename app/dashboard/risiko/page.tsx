@@ -706,6 +706,7 @@ function RisikoPageContent() {
   const [goodsAnalysis, setGoodsAnalysis] = useState<GoodsServicesAnalysis | null>(null);
   const [isLoadingGoods, setIsLoadingGoods] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [noConflictsFound, setNoConflictsFound] = useState(false);
   
   const [inputMode, setInputMode] = useState<"sprache" | "text">("sprache");
   const [voicePromptSent, setVoicePromptSent] = useState(false);
@@ -954,6 +955,24 @@ WICHTIG:
     }
     
     const storedData = sessionStorage.getItem('risikoanalyse_conflicts');
+    
+    if (conflictsParam !== null && parseInt(conflictsParam) === 0) {
+      if (storedData) {
+        try {
+          const parsed = JSON.parse(storedData);
+          if (parsed.markenname) setMarkenname(parsed.markenname);
+          if (parsed.laender?.length > 0) setSelectedLaender(parsed.laender);
+          if (parsed.klassen?.length > 0) setSelectedClasses(parsed.klassen);
+        } catch (e) {
+          console.error("Error parsing stored data:", e);
+        }
+      }
+      sessionStorage.removeItem('risikoanalyse_conflicts');
+      setExpertAnalysis(null);
+      setNoConflictsFound(true);
+      return;
+    }
+    
     if (storedData && conflictsParam && parseInt(conflictsParam) > 0) {
       try {
         const parsed = JSON.parse(storedData);
@@ -1235,9 +1254,60 @@ WICHTIG:
         </div>
       )}
 
-      {!caseId && !expertAnalysis && (
+      {noConflictsFound && (
+        <div className="bg-white rounded-2xl shadow-sm border border-green-200 p-8">
+          <div className="text-center max-w-xl mx-auto">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-10 h-10 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-green-700 mb-3">
+              Keine Konflikte gefunden!
+            </h2>
+            <p className="text-gray-600 mb-2">
+              Für <span className="font-semibold text-gray-900">"{markenname}"</span> wurden keine kollidierenden Marken gefunden.
+            </p>
+            <p className="text-gray-500 text-sm mb-8">
+              Das ist ein sehr gutes Zeichen! Die Marke scheint verfügbar zu sein. 
+              Sie können jetzt mit der Markenanmeldung fortfahren.
+            </p>
+            
+            <div className="bg-green-50 border border-green-100 rounded-xl p-6 mb-8">
+              <div className="flex items-center justify-center gap-4">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-green-600">0%</div>
+                  <div className="text-sm text-green-700 font-medium">Kollisionsrisiko</div>
+                </div>
+                <div className="h-12 w-px bg-green-200" />
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-green-600">0</div>
+                  <div className="text-sm text-green-700 font-medium">Konflikte</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <a 
+                href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}&countries=${selectedLaender.join(",")}&classes=${selectedClasses.join(",")}`}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white font-medium rounded-xl hover:bg-green-700 transition-colors"
+              >
+                <CheckCircle className="w-5 h-5" />
+                Marke jetzt anmelden
+              </a>
+              <a 
+                href="/dashboard/recherche"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                <Search className="w-5 h-5" />
+                Neue Recherche starten
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!caseId && !expertAnalysis && !noConflictsFound && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          <div className="text-center max-w-xl mx-auto mb-8">
+          <div className="text-center max-w-xl mx-auto">
             <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertTriangle className="w-8 h-8 text-teal-600" />
             </div>
