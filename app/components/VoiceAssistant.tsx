@@ -515,34 +515,36 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 lg:gap-6">
-        <div className="xl:col-span-3 bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-          <div className="bg-gradient-to-r from-primary to-primary-light p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <MessageCircle className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="text-white font-semibold">TrademarkIQ Markenberater</h3>
-                <p className="text-white/80 text-sm">
-                  {isTextMode ? "Schriftliche Beratung" : "Sprachgesteuerte Beratung"}
-                </p>
-              </div>
-              <div className="ml-auto flex items-center gap-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  isTextMode
-                    ? 'bg-white/30 text-white'
-                    : isReconnecting
-                      ? 'bg-amber-400/30 text-white animate-pulse'
-                      : isConnected 
-                        ? 'bg-green-400/30 text-white' 
-                        : 'bg-white/20 text-white/80'
-                }`}>
-                  {isTextMode ? 'Text-Modus' : isReconnecting ? 'Verbinde neu...' : isConnecting ? 'Verbindet...' : isConnected ? 'Aktiv' : 'Bereit'}
-                </span>
+      <div className={`grid ${embedded ? '' : 'grid-cols-1 xl:grid-cols-5'} gap-4 lg:gap-6`}>
+        <div className={`${embedded ? '' : 'xl:col-span-3'} bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100`}>
+          {!embedded && (
+            <div className="bg-gradient-to-r from-primary to-primary-light p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                  <MessageCircle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-white font-semibold">KI-Markenberater</h3>
+                  <p className="text-white/80 text-sm">
+                    {isTextMode ? "Schriftliche Beratung" : "Sprachgesteuerte Beratung"}
+                  </p>
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    isTextMode
+                      ? 'bg-white/30 text-white'
+                      : isReconnecting
+                        ? 'bg-amber-400/30 text-white animate-pulse'
+                        : isConnected 
+                          ? 'bg-green-400/30 text-white' 
+                          : 'bg-white/20 text-white/80'
+                  }`}>
+                    {isTextMode ? 'Text-Modus' : isReconnecting ? 'Verbinde neu...' : isConnecting ? 'Verbindet...' : isConnected ? 'Aktiv' : 'Bereit'}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {isTextMode ? (
             <div className="p-6 flex flex-col" style={{ minHeight: '400px' }}>
@@ -773,7 +775,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           )}
         </div>
 
-        {!embedded && (
+        {!embedded && customQuestions && customQuestions.length > 0 && (
           <div className="xl:col-span-2">
             <QuickQuestions 
               onQuestionClick={handleQuestionClick}
@@ -781,15 +783,14 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
             />
           </div>
         )}
+        {!embedded && !customQuestions && (
+          <div className="xl:col-span-2">
+            <QuickQuestions 
+              onQuestionClick={handleQuestionClick}
+            />
+          </div>
+        )}
       </div>
-      {embedded && customQuestions && customQuestions.length > 0 && (
-        <div className="mt-4">
-          <QuickQuestions 
-            onQuestionClick={handleQuestionClick}
-            customQuestions={customQuestions}
-          />
-        </div>
-      )}
     </div>
   );
 });

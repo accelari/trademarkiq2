@@ -712,6 +712,8 @@ function RisikoPageContent() {
   const [isLoadingToken, setIsLoadingToken] = useState(false);
   const [autoStartVoice, setAutoStartVoice] = useState(false);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
+  const [showRiskModal, setShowRiskModal] = useState(false);
+  const [pendingQuickQuestion, setPendingQuickQuestion] = useState<string | null>(null);
   const technicalDetailsRef = useRef<HTMLDivElement>(null);
   
   const RISK_QUICK_QUESTIONS = [
@@ -721,11 +723,8 @@ function RisikoPageContent() {
     "Kann ich die Marke trotzdem anmelden?"
   ];
   
-  const scrollToTechnicalDetails = () => {
-    setShowTechnicalDetails(true);
-    setTimeout(() => {
-      technicalDetailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+  const handleQuickQuestion = (question: string) => {
+    setPendingQuickQuestion(question);
   };
   
   useEffect(() => {
@@ -1295,17 +1294,17 @@ WICHTIG:
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                    <User className="w-5 h-5" />
+                    <Scale className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold">Klaus erklärt: "{markenname}"</h2>
+                    <h2 className="text-lg font-semibold">Risikoanalyse: "{markenname}"</h2>
                   </div>
                 </div>
                 
                 <button 
-                  onClick={scrollToTechnicalDetails}
+                  onClick={() => setShowRiskModal(true)}
                   className="relative flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
-                  title="Details anzeigen"
+                  title="Risikodetails anzeigen"
                 >
                   <div className="relative w-12 h-12">
                     <svg className="w-full h-full -rotate-90">
@@ -1359,37 +1358,57 @@ WICHTIG:
             </div>
             
             <div className="p-4">
-              {isLoadingToken ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
-                  <span className="ml-3 text-gray-600 text-sm">Verbindung wird hergestellt...</span>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2">
+                  {isLoadingToken ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+                      <span className="ml-3 text-gray-600 text-sm">Verbindung wird hergestellt...</span>
+                    </div>
+                  ) : accessToken ? (
+                    <VoiceProvider>
+                      <VoiceAssistant 
+                        accessToken={accessToken} 
+                        inputMode={inputMode}
+                        autoStart={inputMode === "sprache"}
+                        onAutoStartConsumed={() => setAutoStartVoice(false)}
+                        contextMessage={pendingQuickQuestion}
+                        onContextMessageConsumed={() => setPendingQuickQuestion(null)}
+                        embedded={true}
+                      />
+                    </VoiceProvider>
+                  ) : (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-center text-gray-500">
+                        <AlertTriangle className="w-10 h-10 mx-auto mb-3 text-orange-400" />
+                        <p className="text-sm">Verbindung zum Berater konnte nicht hergestellt werden.</p>
+                        <button 
+                          onClick={() => window.location.reload()}
+                          className="mt-3 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm"
+                        >
+                          Erneut versuchen
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : accessToken ? (
-                <VoiceProvider>
-                  <VoiceAssistant 
-                    accessToken={accessToken} 
-                    inputMode={inputMode}
-                    autoStart={inputMode === "sprache"}
-                    onAutoStartConsumed={() => setAutoStartVoice(false)}
-                    contextMessage={generateAdvisorPrompt()}
-                    customQuestions={RISK_QUICK_QUESTIONS}
-                    embedded={true}
-                  />
-                </VoiceProvider>
-              ) : (
-                <div className="flex items-center justify-center py-12">
-                  <div className="text-center text-gray-500">
-                    <AlertTriangle className="w-10 h-10 mx-auto mb-3 text-orange-400" />
-                    <p className="text-sm">Verbindung zum Berater konnte nicht hergestellt werden.</p>
-                    <button 
-                      onClick={() => window.location.reload()}
-                      className="mt-3 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm"
-                    >
-                      Erneut versuchen
-                    </button>
+                <div className="lg:col-span-1">
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 h-full">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Schnellfragen</h4>
+                    <div className="space-y-2">
+                      {RISK_QUICK_QUESTIONS.map((question, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleQuickQuestion(question)}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 bg-white rounded-lg border border-gray-200 hover:border-teal-400 hover:bg-teal-50 transition-colors"
+                        >
+                          {question}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
@@ -1672,6 +1691,99 @@ WICHTIG:
               </div>
             )}
           </div>
+
+          {showRiskModal && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowRiskModal(false)}>
+              <div 
+                className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="sticky top-0 bg-gradient-to-r from-teal-600 to-teal-700 text-white p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <AnimatedRiskScore 
+                      score={getOverallRiskScore()} 
+                      risk={expertAnalysis.overallRisk} 
+                    />
+                    <div>
+                      <h2 className="text-xl font-bold">Risikodetails: "{markenname}"</h2>
+                      <p className="text-white/80 text-sm mt-1">
+                        {(expertAnalysis.conflictAnalyses || []).length} Konflikte gefunden
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowRiskModal(false)}
+                    className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="p-6 space-y-6">
+                  {expertAnalysis.summary && (
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                      <p className="text-gray-700 italic">"{expertAnalysis.summary}"</p>
+                    </div>
+                  )}
+
+                  {expertAnalysis.bestOverallSolution && (
+                    <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
+                      <div className="flex items-center gap-2 text-teal-700 font-semibold mb-2">
+                        <Lightbulb className="w-5 h-5" />
+                        Empfohlene Lösung
+                      </div>
+                      <p className="text-teal-800">{expertAnalysis.bestOverallSolution.title}</p>
+                      {expertAnalysis.bestOverallSolution.suggestedValue && (
+                        <div className="mt-2 bg-white rounded-lg p-3 border border-teal-200">
+                          <span className="font-medium text-teal-900">{expertAnalysis.bestOverallSolution.suggestedValue}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4 mt-3 text-sm">
+                        <span className="text-teal-600">
+                          Erfolgswahrscheinlichkeit: <strong>{expertAnalysis.bestOverallSolution.successProbability}%</strong>
+                        </span>
+                        <EffortBadge effort={expertAnalysis.bestOverallSolution.effort} />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-orange-500" />
+                      Gefundene Konflikte ({(expertAnalysis.conflictAnalyses || []).length})
+                    </h3>
+                    <div className="space-y-3">
+                      {(expertAnalysis.conflictAnalyses || []).map((conflict, idx) => (
+                        <ConflictCard
+                          key={conflict.conflictId || idx}
+                          conflict={conflict}
+                          laender={selectedLaender}
+                          klassen={selectedClasses}
+                          onAdoptAlternative={handleAdoptAlternative}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="sticky bottom-0 bg-gray-50 border-t p-4 flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowRiskModal(false)}
+                    className="px-6 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    Schließen
+                  </button>
+                  <a
+                    href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`}
+                    className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Marke anmelden
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -1684,7 +1796,7 @@ WICHTIG:
             Persönliche Risikoberatung
           </h3>
           <p className="text-gray-600 max-w-lg mx-auto mb-6">
-            Nach der Analyse erklärt Ihnen Klaus, unser KI-Markenberater, die Ergebnisse 
+            Unser KI-Markenberater erklärt Ihnen die Ergebnisse 
             in einem persönlichen Gespräch – verständlich und ohne Fachjargon.
           </p>
           <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
