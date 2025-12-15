@@ -522,10 +522,11 @@ export async function POST(request: NextRequest) {
       console.log(`Fetching holder info for ${conflictsNeedingHolderInfo.length} conflicts...`);
       
       const tmsearchClient = getTMSearchClient();
-      const holderPromises = conflictsNeedingHolderInfo.slice(0, 10).map(async (conflict) => {
+      const holderPromises = conflictsNeedingHolderInfo.map(async (conflict) => {
         try {
           const info = await tmsearchClient.getInfo({ mid: conflict.mid });
-          return { mid: conflict.mid, holder: info?.holder || null };
+          const ownerName = (info as any)?.owner?.name || null;
+          return { mid: conflict.mid, holder: ownerName };
         } catch (error) {
           console.error(`Failed to fetch holder for mid ${conflict.mid}:`, error);
           return { mid: conflict.mid, holder: null };
