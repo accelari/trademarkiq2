@@ -509,6 +509,10 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
     }
   }, [contextMessage]);
 
+  useEffect(() => {
+    setContextMessageProcessed(false);
+  }, [inputMode]);
+
   const isConnected = status.value === "connected";
   const isConnecting = status.value === "connecting";
   const isTextMode = inputMode === "text";

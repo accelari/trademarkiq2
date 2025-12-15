@@ -708,13 +708,14 @@ function RisikoPageContent() {
   const [error, setError] = useState<string | null>(null);
   
   const [inputMode, setInputMode] = useState<"sprache" | "text">("sprache");
+  const [voicePromptSent, setVoicePromptSent] = useState(false);
+  const [textPromptSent, setTextPromptSent] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoadingToken, setIsLoadingToken] = useState(false);
   const [autoStartVoice, setAutoStartVoice] = useState(false);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [showRiskModal, setShowRiskModal] = useState(false);
   const [pendingQuickQuestion, setPendingQuickQuestion] = useState<string | null>(null);
-  const [advisorPromptSent, setAdvisorPromptSent] = useState(false);
   const technicalDetailsRef = useRef<HTMLDivElement>(null);
   
   const RISK_QUICK_QUESTIONS = [
@@ -1376,11 +1377,17 @@ WICHTIG:
                         inputMode={inputMode}
                         autoStart={inputMode === "sprache"}
                         onAutoStartConsumed={() => setAutoStartVoice(false)}
-                        contextMessage={pendingQuickQuestion || (!advisorPromptSent ? generateAdvisorPrompt() : null)}
+                        contextMessage={pendingQuickQuestion || (
+                          inputMode === "sprache" 
+                            ? (!voicePromptSent ? generateAdvisorPrompt() : null)
+                            : (!textPromptSent ? generateAdvisorPrompt() : null)
+                        )}
                         onContextMessageConsumed={() => {
                           setPendingQuickQuestion(null);
-                          if (!advisorPromptSent) {
-                            setAdvisorPromptSent(true);
+                          if (inputMode === "sprache") {
+                            setVoicePromptSent(true);
+                          } else {
+                            setTextPromptSent(true);
                           }
                         }}
                         embedded={true}
