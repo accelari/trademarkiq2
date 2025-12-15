@@ -414,27 +414,21 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
     
     const processContextMessage = async () => {
       const isSystemContext = contextMessage.startsWith("[SYSTEM-KONTEXT");
+      const isRisikoberatung = contextMessage.includes("Risikoberatung");
       
       if (inputMode === "text") {
         if (isSystemContext) {
-          const userVisibleMessage = "Ich möchte die Beratung fortsetzen, um die fehlenden Informationen zu ergänzen.";
-          
-          const newUserMessage: TextMessage = {
-            id: Date.now().toString(),
-            type: "user",
-            content: userVisibleMessage,
-            timestamp: new Date()
-          };
-          setTextMessages(prev => [...prev, newUserMessage]);
-          onMessageSent?.(userVisibleMessage, "user");
-          
           setIsLoading(true);
           try {
+            const triggerMessage = isRisikoberatung 
+              ? "Bitte präsentiere mir jetzt die Analyse der Marke basierend auf den Recherche-Ergebnissen."
+              : "Ich möchte die Beratung fortsetzen, um die fehlenden Informationen zu ergänzen.";
+            
             const response = await fetch("/api/ai/chat", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
-                message: userVisibleMessage,
+                message: triggerMessage,
                 systemContext: contextMessage
               }),
             });
@@ -460,14 +454,18 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           await handleTextMessage(contextMessage);
         }
       } else {
-        const voiceMessage = isSystemContext 
-          ? "Ich möchte die Beratung fortsetzen, um die fehlenden Informationen zu ergänzen."
-          : contextMessage;
+        const voiceMessage = isRisikoberatung
+          ? "Bitte präsentiere mir die Risikoanalyse für meine Marke."
+          : isSystemContext 
+            ? "Ich möchte die Beratung fortsetzen."
+            : contextMessage;
           
         if (status.value === "connected") {
           if (isSystemContext) {
-            console.log("Voice connected: Updating session settings with catch-up context...");
-            const updatedPrompt = KLAUS_SYSTEM_PROMPT + `\n\n${contextMessage}\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt (z.B. den Markennamen) und frage dann nach den noch fehlenden Informationen.`;
+            console.log("Voice connected: Updating session settings with context...");
+            const updatedPrompt = isRisikoberatung
+              ? KLAUS_SYSTEM_PROMPT + `\n\n${contextMessage}\n\nAUFGABE: Präsentiere sofort die Risikoanalyse. Beginne mit dem Markennamen, dem Gesamtrisiko, nenne die wichtigsten Konflikte und gib deine Empfehlung. Sei konkret und hilfreich.`
+              : KLAUS_SYSTEM_PROMPT + `\n\n${contextMessage}\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt und frage dann nach den noch fehlenden Informationen.`;
             sendSessionSettings({
               systemPrompt: updatedPrompt
             });
@@ -478,10 +476,12 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           try {
             setError(null);
             let fullPrompt = KLAUS_SYSTEM_PROMPT + (isSystemContext ? `\n\n${contextMessage}` : `\n\nKONTEXT: ${contextMessage}`);
-            if (isSystemContext) {
-              fullPrompt += `\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt (z.B. den Markennamen falls bekannt) und frage dann nach den noch fehlenden Informationen.`;
+            if (isRisikoberatung) {
+              fullPrompt += `\n\nAUFGABE: Präsentiere sofort die Risikoanalyse. Beginne mit dem Markennamen, dem Gesamtrisiko, nenne die wichtigsten Konflikte und gib deine Empfehlung. Sei konkret und hilfreich.`;
+            } else if (isSystemContext) {
+              fullPrompt += `\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt und frage dann nach den noch fehlenden Informationen.`;
             }
-            console.log("Voice connecting with context:", isSystemContext ? "SYSTEM-KONTEXT" : "regular context");
+            console.log("Voice connecting with context:", isRisikoberatung ? "RISIKOBERATUNG" : isSystemContext ? "SYSTEM-KONTEXT" : "regular context");
             setPendingPrompt(fullPrompt);
             await connect({
               auth: {

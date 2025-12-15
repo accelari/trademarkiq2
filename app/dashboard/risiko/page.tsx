@@ -1356,7 +1356,7 @@ WICHTIG:
                   }`}
                 >
                   <Type className="w-4 h-4" />
-                  Text
+                  Tippen
                 </button>
               </div>
             </div>
