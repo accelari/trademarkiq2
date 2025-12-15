@@ -950,8 +950,6 @@ WICHTIG:
     
     if (caseIdParam) {
       setCaseId(caseIdParam);
-      loadCaseDataAndAnalysis(caseIdParam);
-      return;
     }
     
     const storedData = sessionStorage.getItem('risikoanalyse_conflicts');
@@ -1062,6 +1060,11 @@ WICHTIG:
       } catch (e) {
         console.error("Error parsing stored conflicts:", e);
       }
+      return;
+    }
+    
+    if (caseIdParam && !storedData) {
+      loadCaseDataAndAnalysis(caseIdParam);
     }
   }, [searchParams]);
   
