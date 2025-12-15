@@ -1236,56 +1236,92 @@ WICHTIG:
       )}
 
       {!caseId && !expertAnalysis && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <div className="grid md:grid-cols-3 gap-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Markenname</label>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={markenname}
-                  onChange={(e) => setMarkenname(e.target.value)}
-                  placeholder="z.B. TechFlow, BioNova..."
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500"
-                />
-              </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+          <div className="text-center max-w-xl mx-auto mb-8">
+            <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-teal-600" />
             </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-3">
+              Zuerst eine Markenrecherche durchführen
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Um eine aussagekräftige Risikoanalyse zu erhalten, führen Sie bitte zuerst eine Markenrecherche durch. 
+              Noch besser: Starten Sie mit einer persönlichen Beratung, um die optimale Markenstrategie zu entwickeln.
+            </p>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Zielländer</label>
-              <LandSelector selectedLaender={selectedLaender} onToggle={toggleLand} />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nizza-Klassen</label>
-              <ClassSelector selectedClasses={selectedClasses} onToggle={toggleClass} />
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <a 
+                href="/dashboard/copilot"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 text-white font-medium rounded-xl hover:bg-teal-700 transition-colors"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Beratung starten
+              </a>
+              <a 
+                href="/dashboard/recherche"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-teal-600 text-teal-700 font-medium rounded-xl hover:bg-teal-50 transition-colors"
+              >
+                <Search className="w-5 h-5" />
+                Zur Markenrecherche
+              </a>
             </div>
           </div>
-
-          {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
-              {error}
+          
+          <div className="border-t border-gray-200 pt-6">
+            <p className="text-center text-sm text-gray-500 mb-4">
+              Oder starten Sie die Analyse manuell (nur für fortgeschrittene Nutzer)
+            </p>
+            
+            <div className="grid md:grid-cols-3 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Markenname</label>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={markenname}
+                    onChange={(e) => setMarkenname(e.target.value)}
+                    placeholder="z.B. TechFlow, BioNova..."
+                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Zielländer</label>
+                <LandSelector selectedLaender={selectedLaender} onToggle={toggleLand} />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nizza-Klassen</label>
+                <ClassSelector selectedClasses={selectedClasses} onToggle={toggleClass} />
+              </div>
             </div>
-          )}
 
-          <button
-            onClick={handleManualAnalysis}
-            disabled={isAnalyzing || !markenname.trim() || selectedLaender.length === 0 || selectedClasses.length === 0}
-            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="w-6 h-6 animate-spin" />
-                Analysiere...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-6 h-6" />
-                Analyse starten
-              </>
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+                {error}
+              </div>
             )}
-          </button>
+
+            <button
+              onClick={handleManualAnalysis}
+              disabled={isAnalyzing || !markenname.trim() || selectedLaender.length === 0 || selectedClasses.length === 0}
+              className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gray-600 text-white font-semibold rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  Analysiere...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-6 h-6" />
+                  Analyse starten
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
 
