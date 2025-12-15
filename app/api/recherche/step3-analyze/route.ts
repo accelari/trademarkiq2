@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import { NICE_CLASSES } from "@/lib/nice-classes";
 import { calculateSimilarity } from "@/lib/similarity";
+import { getTMSearchClient } from "@/lib/tmsearch/client";
 
 const client = new Anthropic({
   baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
@@ -149,6 +150,7 @@ function detectFamousMarks(conflicts: ConflictingMark[]): { detected: boolean; n
 
 interface ConflictingMark {
   id: string;
+  mid?: number;
   name: string;
   register: string;
   holder: string;
@@ -228,6 +230,7 @@ async function analyzeResults(
   if (relevantResults.length <= 3) {
     const fallbackConflicts = relevantResults.map((r: any) => ({
       id: r.applicationNumber || r.id || "",
+      mid: r.mid || undefined,
       name: r.name || "",
       register: OFFICE_CODE_TO_NAME[r.office] || r.office || "Unbekannt",
       holder: r.holder || "",
@@ -400,6 +403,7 @@ Antworte NUR mit dem JSON.`
         const markName = String(c.name || "");
         return {
           id: conflictId,
+          mid: matchedResult?.mid || undefined,
           name: markName,
           register: registerName,
           holder: matchedResult?.holder || (c.holder && c.holder !== "Unbekannt" && c.holder !== "unbekannt" ? String(c.holder) : ""),
@@ -436,6 +440,7 @@ Antworte NUR mit dem JSON.`
     
     const fallbackConflicts = relevantResults.slice(0, 10).map((r: any) => ({
       id: r.applicationNumber || r.id || "",
+      mid: r.mid || undefined,
       name: r.name || "",
       register: OFFICE_CODE_TO_NAME[r.office] || r.office || "Unbekannt",
       holder: r.holder || "",
@@ -511,6 +516,36 @@ export async function POST(request: NextRequest) {
     );
 
     console.log(`Analysis complete: ${conflicts.length} conflicts, risk level: ${analysis.overallRisk}`);
+
+    const conflictsNeedingHolderInfo = conflicts.filter(c => c.mid && (!c.holder || c.holder === ""));
+    if (conflictsNeedingHolderInfo.length > 0) {
+      console.log(`Fetching holder info for ${conflictsNeedingHolderInfo.length} conflicts...`);
+      
+      const tmsearchClient = getTMSearchClient();
+      const holderPromises = conflictsNeedingHolderInfo.slice(0, 10).map(async (conflict) => {
+        try {
+          const info = await tmsearchClient.getInfo({ mid: conflict.mid });
+          return { mid: conflict.mid, holder: info?.holder || null };
+        } catch (error) {
+          console.error(`Failed to fetch holder for mid ${conflict.mid}:`, error);
+          return { mid: conflict.mid, holder: null };
+        }
+      });
+      
+      const holderResults = await Promise.all(holderPromises);
+      const holderMap = new Map(holderResults.map(h => [h.mid, h.holder]));
+      
+      for (const conflict of conflicts) {
+        if (conflict.mid && holderMap.has(conflict.mid)) {
+          const holder = holderMap.get(conflict.mid);
+          if (holder) {
+            conflict.holder = holder;
+          }
+        }
+      }
+      
+      console.log(`Holder info fetched for ${holderResults.filter(h => h.holder).length} conflicts`);
+    }
 
     return NextResponse.json({
       success: true,
