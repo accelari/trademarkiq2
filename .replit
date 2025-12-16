@@ -44,4 +44,9 @@ packages = ["glib", "nss", "nspr", "atk", "cups", "libdrm", "gtk3", "pango", "ca
 
 [userenv.shared]
 AUTH_SECRET = "VgUhQBYkuMidgaalFdvmoR1/FpAalYWh9MbcNwVsepc="
+
+[userenv.development]
 NEXTAUTH_URL = "https://0618468b-bade-466f-85b0-ef23b5d368fd-00-2gk88po9aoxgq.spock.replit.dev"
+
+[userenv.production]
+NEXTAUTH_URL = "https://trademark-iq.pro"
