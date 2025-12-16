@@ -148,9 +148,21 @@ export default function GuidedTour({ isOpen, onClose, onComplete }: GuidedTourPr
     }
   };
 
+  const saveTourStatus = async () => {
+    try {
+      await fetch("/api/user/tour-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tourCompleted: true }),
+      });
+    } catch (error) {
+      console.error("Failed to save tour status:", error);
+    }
+  };
+
   const handleComplete = () => {
     if (dontShowAgain) {
-      localStorage.setItem("hasSeenTour", "true");
+      saveTourStatus();
     }
     onComplete();
     setCurrentStep(0);
@@ -158,7 +170,7 @@ export default function GuidedTour({ isOpen, onClose, onComplete }: GuidedTourPr
 
   const handleSkip = () => {
     if (dontShowAgain) {
-      localStorage.setItem("hasSeenTour", "true");
+      saveTourStatus();
     }
     onClose();
     setCurrentStep(0);

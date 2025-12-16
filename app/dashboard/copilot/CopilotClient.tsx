@@ -442,13 +442,23 @@ Alle wichtigen Informationen sind bereits vorhanden. Der Kunde kann zur Recherch
   }, [searchParams]);
 
   useEffect(() => {
-    const hasSeenTour = localStorage.getItem("hasSeenTour");
-    if (!hasSeenTour) {
-      const timer = setTimeout(() => {
-        setShowGuidedTour(true);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
+    const checkTourStatus = async () => {
+      try {
+        const response = await fetch("/api/user/tour-status");
+        if (response.ok) {
+          const data = await response.json();
+          if (!data.tourCompleted) {
+            const timer = setTimeout(() => {
+              setShowGuidedTour(true);
+            }, 1000);
+            return () => clearTimeout(timer);
+          }
+        }
+      } catch (error) {
+        console.error("Error checking tour status:", error);
+      }
+    };
+    checkTourStatus();
   }, []);
 
   useEffect(() => {
@@ -1915,7 +1925,6 @@ ${notesText}`,
         onClose={() => setShowGuidedTour(false)} 
         onComplete={() => {
           setShowGuidedTour(false);
-          localStorage.setItem("hasSeenTour", "true");
         }} 
       />
     </div>
