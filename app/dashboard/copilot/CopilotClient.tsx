@@ -758,8 +758,10 @@ Alle wichtigen Informationen sind bereits vorhanden. Der Kunde kann zur Recherch
 
   const handleNavigateToRecherche = async () => {
     const trademark = manualTrademarkName.trim();
-    const classes = manualNiceClasses.split(",").map(c => c.trim()).filter(c => c).join(",");
-    const countries = manualCountriesText.split(",").map(c => c.trim()).filter(c => c).join(",");
+    const classesArray = manualNiceClasses.split(",").map(c => c.trim()).filter(c => c);
+    const classes = classesArray.join(",");
+    const countriesArray = manualCountriesText.split(",").map(c => c.trim()).filter(c => c);
+    const countries = countriesArray.join(",");
     
     if (!trademark || !classes || !countries) {
       setToast({ message: "Bitte füllen Sie alle Pflichtfelder aus", visible: true });
@@ -780,6 +782,30 @@ Alle wichtigen Informationen sind bereits vorhanden. Der Kunde kann zur Recherch
       const targetCaseId = catchUpCaseId || currentCaseId;
       
       if (targetCaseId) {
+        // Save manual data to caseDecisions and update trademarkCases before navigating
+        try {
+          // Save to caseDecisions
+          await fetch("/api/cases/save-decisions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              caseId: targetCaseId,
+              trademarkName: trademark,
+              countries: countriesArray,
+              niceClasses: classesArray.map(c => parseInt(c)).filter(n => !isNaN(n))
+            })
+          });
+          
+          // Also update trademarkCases.trademarkName
+          await fetch(`/api/cases/${targetCaseId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ trademarkName: trademark })
+          });
+        } catch (saveError) {
+          console.error("Failed to save manual decisions:", saveError);
+        }
+        
         const message = catchUpCaseId 
           ? `Beratung für ${catchUpCaseInfo?.caseNumber} gespeichert!`
           : `Bericht erstellt!`;
