@@ -621,6 +621,7 @@ function RisikoPageContent() {
   ];
   
   const handleQuickAction = (question: string) => {
+    handleMessageSent(question, "user");
     setPendingQuickQuestion(question);
   };
 
@@ -665,8 +666,14 @@ function RisikoPageContent() {
   };
 
   const saveConsultation = async () => {
-    if (meetingNotes.length === 0 || !caseId) {
-      setToast({ message: "Keine Beratung zum Speichern vorhanden", type: "error", visible: true });
+    if (!caseId) {
+      setToast({ message: "Kein Fall verknüpft. Bitte starten Sie über die Beratung oder Recherche.", type: "error", visible: true });
+      setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 4000);
+      return;
+    }
+    
+    if (meetingNotes.length <= 1) {
+      setToast({ message: "Starten Sie zuerst ein Gespräch mit Klaus", type: "error", visible: true });
       setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
       return;
     }
@@ -742,14 +749,22 @@ function RisikoPageContent() {
 
       if (!consultationResponse.ok) throw new Error("Fehler beim Speichern");
 
-      await fetch(`/api/cases/${caseId}/steps`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          step: "risikoanalyse",
-          status: "completed",
-        }),
-      });
+      try {
+        const stepResponse = await fetch(`/api/cases/${caseId}/steps`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            step: "risikoanalyse",
+            status: "completed",
+          }),
+        });
+        
+        if (!stepResponse.ok) {
+          console.error("Failed to update case step:", await stepResponse.text());
+        }
+      } catch (stepError) {
+        console.error("Error updating case step:", stepError);
+      }
 
       setSavedSuccessfully(true);
       setToast({ message: "Beratung erfolgreich gespeichert!", type: "success", visible: true });
@@ -1486,7 +1501,16 @@ WICHTIG:
                       embedded={true}
                     />
                     
-                    {meetingNotes.length > 0 && caseId && (
+                    {!caseId && (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                          <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                          <span className="text-sm text-orange-700">Kein Fall verknüpft. Starten Sie über die Beratung, um zu speichern.</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {caseId && (
                       <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-gray-600">
@@ -1502,6 +1526,11 @@ WICHTIG:
                           <div className="flex items-center gap-2 p-3 bg-teal-50 border border-teal-200 rounded-lg">
                             <CheckCircle className="w-5 h-5 text-teal-600" />
                             <span className="text-sm font-medium text-teal-700">Beratung gespeichert!</span>
+                          </div>
+                        ) : meetingNotes.length <= 1 ? (
+                          <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                            <MessageCircle className="w-5 h-5 text-gray-400" />
+                            <span className="text-sm text-gray-600">Starten Sie ein Gespräch mit Klaus</span>
                           </div>
                         ) : (
                           <button
