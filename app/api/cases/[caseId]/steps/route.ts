@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { trademarkCases, caseSteps, caseEvents } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 
 export async function PATCH(
   request: NextRequest,
@@ -35,7 +35,10 @@ export async function PATCH(
 
     const existingCase = await db.query.trademarkCases.findFirst({
       where: and(
-        eq(trademarkCases.id, caseId),
+        or(
+          eq(trademarkCases.id, caseId),
+          eq(trademarkCases.caseNumber, caseId)
+        ),
         eq(trademarkCases.userId, session.user.id)
       ),
     });
@@ -46,7 +49,7 @@ export async function PATCH(
 
     const existingStep = await db.query.caseSteps.findFirst({
       where: and(
-        eq(caseSteps.caseId, caseId),
+        eq(caseSteps.caseId, existingCase.id),
         eq(caseSteps.step, step)
       ),
     });
@@ -73,7 +76,7 @@ export async function PATCH(
       .returning();
 
     await db.insert(caseEvents).values({
-      caseId,
+      caseId: existingCase.id,
       userId: session.user.id,
       eventType: "step_status_changed",
       eventData: { step, status, previousStatus: existingStep.status },
@@ -82,7 +85,7 @@ export async function PATCH(
     await db
       .update(trademarkCases)
       .set({ updatedAt: new Date() })
-      .where(eq(trademarkCases.id, caseId));
+      .where(eq(trademarkCases.id, existingCase.id));
 
     return NextResponse.json({
       success: true,
