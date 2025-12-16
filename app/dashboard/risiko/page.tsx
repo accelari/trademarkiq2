@@ -596,6 +596,8 @@ function RisikoPageContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccessfully, setSavedSuccessfully] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error"; visible: boolean }>({ message: "", type: "success", visible: false });
+  const [previousConsultationContext, setPreviousConsultationContext] = useState<string | null>(null);
+  const [sessionStartIndex, setSessionStartIndex] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const meetingNotesRef = useRef<MeetingNote[]>([]);
   
@@ -672,7 +674,8 @@ function RisikoPageContent() {
       return;
     }
     
-    if (meetingNotes.length <= 1) {
+    const liveNotesCount = meetingNotes.length - sessionStartIndex;
+    if (liveNotesCount <= 0) {
       setToast({ message: "Starten Sie zuerst ein Gespräch mit Klaus", type: "error", visible: true });
       setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
       return;
@@ -681,12 +684,14 @@ function RisikoPageContent() {
     setIsSaving(true);
 
     try {
-      const notesText = meetingNotes
+      const liveSessionNotes = meetingNotes.slice(sessionStartIndex);
+      
+      const notesText = liveSessionNotes
         .filter((n) => n.type !== "system")
         .map((n) => `${n.type === "user" ? "Frage" : "Antwort"}: ${n.content}`)
         .join("\n\n");
 
-      const sessionProtocol = meetingNotes
+      const sessionProtocol = liveSessionNotes
         .map((n) => {
           const time = n.timestamp.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
           const role = n.type === "user" ? "BENUTZER" : n.type === "assistant" ? "BERATER" : "SYSTEM";
@@ -856,7 +861,40 @@ WICHTIG:
 - Erkläre Fachbegriffe wenn du sie verwendest
 - Sei empathisch - der Kunde hat vielleicht viel Zeit in diesen Markennamen investiert
 - Wenn der Kunde die Details sehen möchte, sage ihm dass er links die Konflikte im Detail anschauen kann
-- Du antwortest IMMER auf Deutsch.`;
+- Du antwortest IMMER auf Deutsch.${previousConsultationContext ? `
+
+${previousConsultationContext}` : ''}`;
+  };
+
+  const parseSessionProtocol = (protocol: string): MeetingNote[] => {
+    if (!protocol) return [];
+    
+    const lines = protocol.split('\n');
+    const notes: MeetingNote[] = [];
+    
+    for (const line of lines) {
+      const match = line.match(/^\[(\d{2}:\d{2})\] (BENUTZER|BERATER|SYSTEM): (.+)$/);
+      if (match) {
+        const [, time, role, content] = match;
+        const [hours, minutes] = time.split(':').map(Number);
+        const timestamp = new Date();
+        timestamp.setHours(hours, minutes, 0, 0);
+        
+        let type: "user" | "assistant" | "system";
+        if (role === "BENUTZER") type = "user";
+        else if (role === "BERATER") type = "assistant";
+        else type = "system";
+        
+        notes.push({
+          id: `history-${Date.now()}-${notes.length}`,
+          timestamp,
+          content,
+          type,
+        });
+      }
+    }
+    
+    return notes;
   };
 
   const loadCaseDataAndAnalysis = async (caseIdToLoad: string) => {
@@ -874,6 +912,47 @@ WICHTIG:
       
       if (caseRecord?.trademarkName) {
         setMarkenname(caseRecord.trademarkName);
+      }
+      
+      const risikoConsultations = caseRecord?.consultations?.filter((c: any) => c.mode === "risikoanalyse") || [];
+      if (risikoConsultations.length > 0) {
+        const lastRisikoConsultation = risikoConsultations[0];
+        
+        const sessionProtocolText = lastRisikoConsultation.sessionProtocol || "";
+        const historicalNotes = parseSessionProtocol(sessionProtocolText);
+        
+        const notesTextFromHistory = historicalNotes
+          .filter(n => n.type !== "system")
+          .map(n => `${n.type === "user" ? "Frage" : "Antwort"}: ${n.content}`)
+          .join("\n\n");
+        
+        const contextWithFullTranscript = `[VORHERIGE RISIKOANALYSE-BERATUNG]
+Du hast bereits eine Risikoanalyse-Beratung für diese Marke durchgeführt.
+
+${lastRisikoConsultation.summary ? `ZUSAMMENFASSUNG DER LETZTEN BERATUNG:
+${lastRisikoConsultation.summary}
+
+` : ''}${notesTextFromHistory ? `VOLLSTÄNDIGES GESPRÄCHSPROTOKOLL:
+${notesTextFromHistory}
+
+` : ''}Berücksichtige diese Informationen, falls der Kunde auf vorherige Gespräche Bezug nimmt. Erwähne aber nicht proaktiv, dass es eine vorherige Beratung gab - nur wenn der Kunde danach fragt.`;
+        
+        setPreviousConsultationContext(contextWithFullTranscript);
+        
+        const systemNote: MeetingNote = {
+          id: `system-context-${Date.now()}`,
+          timestamp: new Date(),
+          content: `Fortsetzung der Risikoanalyse für "${caseRecord.trademarkName || 'Marke'}"`,
+          type: "system",
+        };
+        
+        const historicalNotesWithSystem = [systemNote, ...historicalNotes];
+        setSessionStartIndex(historicalNotesWithSystem.length);
+        
+        setMeetingNotes(prev => {
+          const filteredPrev = prev.filter(n => !n.id.startsWith('system-context-') && !n.id.startsWith('history-'));
+          return [...historicalNotesWithSystem, ...filteredPrev];
+        });
       }
       
       if (caseRecord?.decisions && caseRecord.decisions.length > 0) {
@@ -1550,6 +1629,29 @@ WICHTIG:
                               </>
                             )}
                           </button>
+                        )}
+                        
+                        {meetingNotes.length > 1 && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                              <FileText className="w-4 h-4 text-teal-600" />
+                              Sitzungsprotokoll
+                            </h4>
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                              {meetingNotes.filter(n => n.type !== "system").slice(-8).map((note) => (
+                                <div key={note.id} className={`text-xs p-2.5 rounded-lg ${
+                                  note.type === "user"
+                                    ? "bg-teal-50 text-gray-800 border border-teal-100"
+                                    : "bg-gray-50 text-gray-700 border border-gray-100"
+                                }`}>
+                                  <span className="text-[10px] font-medium text-gray-500 block mb-1">
+                                    {note.type === "user" ? "Sie:" : "Klaus:"}
+                                  </span>
+                                  <span className="whitespace-pre-wrap line-clamp-3">{note.content}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
                     )}
