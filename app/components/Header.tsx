@@ -70,7 +70,7 @@ export default function Header() {
 
             <Link
               href="/login"
-              className="ml-4 px-4 py-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors"
+              className="ml-4 px-4 py-2 text-sm font-medium text-primary hover:text-primary-hover transition-colors"
             >
               Anmelden
             </Link>
@@ -111,7 +111,7 @@ export default function Header() {
               <hr className="my-2 border-gray-200" />
               <Link
                 href="/login"
-                className="mx-4 mt-2 px-4 py-3 text-gray-700 text-center font-medium hover:bg-gray-50 rounded-sm"
+                className="mx-4 mt-2 px-4 py-3 text-primary text-center font-medium hover:bg-gray-50 rounded-sm"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Anmelden
