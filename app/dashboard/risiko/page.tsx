@@ -902,24 +902,40 @@ Konflikt ${i+1}: "${c.conflictName}"
 ${c.solutions.map(s => `  • ${s.title}: ${s.description} (Erfolg: ${s.successProbability}%, Aufwand: ${s.effort})`).join('\n')}
 `).join('\n');
     
-    let currentSessionContext = "";
-    if (includeCurrentSession && meetingNotesRef.current.length > 0) {
-      const relevantNotes = meetingNotesRef.current.filter(n => n.type !== "system");
-      if (relevantNotes.length > 0) {
-        currentSessionContext = `
+    const relevantNotes = meetingNotesRef.current.filter(n => n.type !== "system");
+    const hasExistingConversation = includeCurrentSession && relevantNotes.length > 0;
+    
+    let conversationContext = "";
+    let conversationGuidance = "";
+    
+    if (hasExistingConversation) {
+      conversationContext = `
+WICHTIG - FORTGESETZTES GESPRÄCH:
+Du hast bereits mit diesem Kunden über die Marke "${markenname}" gesprochen. Hier ist das bisherige Gespräch:
 
-BISHERIGES GESPRÄCH IN DIESER SITZUNG:
 ${relevantNotes.map(n => `${n.type === "user" ? "KUNDE" : "KLAUS"}: ${n.content}`).join('\n')}
 
-WICHTIG: Der Kunde hat die Sitzung kurz unterbrochen. Setze das Gespräch nahtlos fort. 
-- Erwähne die Unterbrechung NICHT
-- Frage stattdessen: "Wo waren wir stehengeblieben?" oder "Haben Sie noch Fragen zu dem, was wir besprochen haben?"
-- Beziehe dich auf das bisherige Gespräch, wenn der Kunde weiterspricht`;
-      }
+--- ENDE DES BISHERIGEN GESPRÄCHS ---
+`;
+      conversationGuidance = `
+GESPRÄCHSFÜHRUNG (FORTGESETZTES GESPRÄCH):
+⚠️ KRITISCH: Du hast bereits mit dem Kunden gesprochen! Beginne NICHT mit "Hallo, mein Name ist Klaus"!
+1. Knüpfe direkt an das vorherige Gespräch an
+2. Sage z.B. "Wo waren wir stehengeblieben?" oder "Haben Sie noch Fragen zu dem, was wir besprochen haben?"
+3. Wenn der Kunde eine Frage stellt, beantworte sie direkt - du kennst bereits alle Details
+4. Erwähne die technische Unterbrechung NICHT`;
+    } else {
+      conversationGuidance = `
+GESPRÄCHSFÜHRUNG (NEUES GESPRÄCH):
+1. Begrüße den Kunden freundlich und nenne die untersuchte Marke
+2. Erkläre das Hauptergebnis in einfachen Worten (z.B. "Leider gibt es ein Problem...")
+3. Nenne den wichtigsten Konflikt und erkläre warum das problematisch ist
+4. Stelle die beste Lösung vor
+5. Frage ob der Kunde Fragen hat oder die technischen Details sehen möchte`;
     }
     
     return `[SYSTEM-KONTEXT für Risikoberatung]
-
+${conversationContext}
 Du bist Klaus, Markenberater bei TrademarkIQ. Du hast gerade die Recherche-Ergebnisse analysiert.
 
 MARKE: "${markenname}"
@@ -939,13 +955,7 @@ BESTE EMPFEHLUNG: ${expertAnalysis.bestOverallSolution.title}
 - Vorschlag: ${expertAnalysis.bestOverallSolution.suggestedValue}
 - Erfolgswahrscheinlichkeit: ${expertAnalysis.bestOverallSolution.successProbability}%
 ` : ''}
-
-GESPRÄCHSFÜHRUNG:
-1. Begrüße den Kunden freundlich und nenne die untersuchte Marke
-2. Erkläre das Hauptergebnis in einfachen Worten (z.B. "Leider gibt es ein Problem...")
-3. Nenne den wichtigsten Konflikt und erkläre warum das problematisch ist
-4. Stelle die beste Lösung vor
-5. Frage ob der Kunde Fragen hat oder die technischen Details sehen möchte
+${conversationGuidance}
 
 WICHTIG: 
 - Sprich in einfacher, verständlicher Sprache
@@ -954,7 +964,7 @@ WICHTIG:
 - Wenn der Kunde die Details sehen möchte, sage ihm dass er links die Konflikte im Detail anschauen kann
 - Du antwortest IMMER auf Deutsch.${previousConsultationContext ? `
 
-${previousConsultationContext}` : ''}${currentSessionContext}`;
+${previousConsultationContext}` : ''}`;
   };
 
   const parseSessionProtocol = (protocol: string): MeetingNote[] => {
