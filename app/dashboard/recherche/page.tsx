@@ -1555,6 +1555,8 @@ export default function RecherchePage() {
   const [showConsultationsModal, setShowConsultationsModal] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   
+  const caseCreatedRef = useRef(false);
+  
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([]);
   const [isDeepSearch, setIsDeepSearch] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -1830,6 +1832,51 @@ export default function RecherchePage() {
       }).catch(console.error);
     }
   }, [caseId, data, hasSearched, activeSearchQuery, statusUpdated, aiAnalysis, selectedLaender, aiSelectedClasses]);
+
+  useEffect(() => {
+    const createCaseAutomatically = async () => {
+      if (caseId || currentCaseNumber || caseCreatedRef.current || !aiAnalysis) {
+        return;
+      }
+      
+      caseCreatedRef.current = true;
+      
+      try {
+        const res = await fetch("/api/cases", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            trademarkName: searchQuery.trim() || activeSearchQuery,
+            skipBeratung: true,
+          }),
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentCaseNumber(data.case.caseNumber);
+          
+          await fetch(`/api/cases/${data.case.id}/update-status`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              step: "recherche",
+              status: "in_progress",
+              metadata: {
+                searchQuery: activeSearchQuery || searchQuery,
+                countries: selectedLaender,
+                classes: aiSelectedClasses,
+              }
+            })
+          });
+        }
+      } catch (error) {
+        console.error("Error auto-creating case:", error);
+        caseCreatedRef.current = false;
+      }
+    };
+    
+    createCaseAutomatically();
+  }, [aiAnalysis, caseId, currentCaseNumber, searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses]);
 
   const toggleClass = (classNum: number) => {
     setSelectedClasses((prev) =>
@@ -2155,7 +2202,58 @@ export default function RecherchePage() {
       
       router.push(`/dashboard/risiko?markenname=${encodeURIComponent(searchQuery)}&conflicts=${aiAnalysis?.conflicts?.length || 0}&laender=${selectedLaender.join(',')}&klassen=${aiSelectedClasses.join(',')}&case=${activeCaseId}`);
     } else {
-      setShowSaveSearchDialog(true);
+      try {
+        const res = await fetch("/api/cases", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            trademarkName: searchQuery.trim() || activeSearchQuery,
+            skipBeratung: true,
+          }),
+        });
+        
+        if (res.ok) {
+          const responseData = await res.json();
+          const newCaseId = responseData.case?.id || responseData.case?.caseNumber;
+          setCurrentCaseNumber(responseData.case?.caseNumber);
+          setResultsSaved(true);
+          
+          await fetch(`/api/cases/${newCaseId}/update-status`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              step: "recherche",
+              status: "completed",
+              metadata: {
+                searchQuery: activeSearchQuery || searchQuery,
+                resultsCount: data?.total || data?.results?.length || 0,
+                conflictsCount: aiAnalysis?.conflicts?.length || 0,
+                countries: selectedLaender,
+                classes: aiSelectedClasses,
+                searchedAt: new Date().toISOString(),
+                conflicts: aiAnalysis?.conflicts || [],
+              }
+            })
+          });
+          
+          if (aiAnalysis?.conflicts && aiAnalysis.conflicts.length > 0) {
+            sessionStorage.setItem('risikoanalyse_conflicts', JSON.stringify({
+              conflicts: aiAnalysis.conflicts,
+              markenname: searchQuery,
+              laender: selectedLaender,
+              klassen: aiSelectedClasses,
+              analysis: aiAnalysis.analysis,
+            }));
+          }
+          
+          router.push(`/dashboard/risiko?markenname=${encodeURIComponent(searchQuery)}&conflicts=${aiAnalysis?.conflicts?.length || 0}&laender=${selectedLaender.join(',')}&klassen=${aiSelectedClasses.join(',')}&case=${newCaseId}`);
+        } else {
+          setShowSaveSearchDialog(true);
+        }
+      } catch (error) {
+        console.error("Error creating case:", error);
+        setShowSaveSearchDialog(true);
+      }
     }
   };
 
