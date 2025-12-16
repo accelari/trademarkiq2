@@ -51,6 +51,7 @@ import WorkflowProgress from "@/app/components/WorkflowProgress";
 import { NICE_CLASSES, formatClassLabel } from "@/lib/nice-classes";
 import { VoiceProvider } from "@humeai/voice-react";
 import VoiceAssistant from "@/app/components/VoiceAssistant";
+import { useUnsavedData } from "@/app/contexts/UnsavedDataContext";
 
 interface Solution {
   type: "name_modification" | "class_change" | "mark_type" | "geographic" | "coexistence";
@@ -563,6 +564,13 @@ function RisikoPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { 
+    setHasUnsavedData: setGlobalHasUnsavedData, 
+    setCheckUnsavedDataRef,
+    setOnSaveBeforeLeave,
+    setPendingNavigation,
+    setShowLeaveModal
+  } = useUnsavedData();
   
   const [markenname, setMarkenname] = useState("");
   const [isGoodsExpanded, setIsGoodsExpanded] = useState(false);
@@ -594,12 +602,30 @@ function RisikoPageContent() {
   const [meetingStartTime, setMeetingStartTime] = useState<Date | null>(null);
   const [meetingDuration, setMeetingDuration] = useState("00:00");
   const [isSaving, setIsSaving] = useState(false);
-  const [savedSuccessfully, setSavedSuccessfully] = useState(false);
+  const [savedSuccessfully, setSavedSuccessfullyState] = useState(false);
+  const savedSuccessfullyRef = useRef(false);
+  const setSavedSuccessfully = (value: boolean) => {
+    savedSuccessfullyRef.current = value;
+    setSavedSuccessfullyState(value);
+  };
   const [toast, setToast] = useState<{ message: string; type: "success" | "error"; visible: boolean }>({ message: "", type: "success", visible: false });
   const [previousConsultationContext, setPreviousConsultationContext] = useState<string | null>(null);
-  const [sessionStartIndex, setSessionStartIndex] = useState(0);
+  const [sessionStartIndex, setSessionStartIndexState] = useState(0);
+  const sessionStartIndexRef = useRef(0);
+  const setSessionStartIndex = (value: number) => {
+    sessionStartIndexRef.current = value;
+    setSessionStartIndexState(value);
+  };
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const meetingNotesRef = useRef<MeetingNote[]>([]);
+  
+  const liveNotesCount = meetingNotes.length - sessionStartIndex;
+  const hasUnsavedData = liveNotesCount > 0 && !savedSuccessfully;
+  
+  const computeHasUnsavedData = () => {
+    const currentLiveNotes = meetingNotesRef.current.length - sessionStartIndexRef.current;
+    return currentLiveNotes > 0 && !savedSuccessfullyRef.current;
+  };
   
   const QUICK_ACTION_BUTTONS = [
     { 
@@ -649,6 +675,44 @@ function RisikoPageContent() {
     };
   }, [meetingStartTime]);
 
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (computeHasUnsavedData()) {
+        e.preventDefault();
+        e.returnValue = "Sie haben ungespeicherte Beratungsdaten. Möchten Sie die Seite wirklich verlassen?";
+        return e.returnValue;
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  useEffect(() => {
+    setCheckUnsavedDataRef(computeHasUnsavedData);
+    return () => setCheckUnsavedDataRef(null);
+  }, [setCheckUnsavedDataRef]);
+
+  useEffect(() => {
+    setGlobalHasUnsavedData(hasUnsavedData);
+  }, [hasUnsavedData, setGlobalHasUnsavedData]);
+
+  useEffect(() => {
+    if (caseId) {
+      setOnSaveBeforeLeave(saveConsultation);
+    }
+    return () => setOnSaveBeforeLeave(null);
+  }, [caseId, setOnSaveBeforeLeave]);
+
+  const handleNavigationWithCheck = (e: React.MouseEvent, path: string) => {
+    const currentLiveNotes = meetingNotesRef.current.length - sessionStartIndexRef.current;
+    const hasUnsaved = currentLiveNotes > 0 && !savedSuccessfullyRef.current;
+    if (hasUnsaved) {
+      e.preventDefault();
+      setPendingNavigation(path);
+      setShowLeaveModal(true);
+    }
+  };
+
   const handleMessageSent = (message: string, type: "user" | "assistant") => {
     if (!meetingStartTime) {
       setMeetingStartTime(new Date());
@@ -659,7 +723,11 @@ function RisikoPageContent() {
       content: message,
       type,
     };
-    setMeetingNotes((prev) => [...prev, newNote]);
+    setMeetingNotes((prev) => {
+      const updated = [...prev, newNote];
+      meetingNotesRef.current = updated;
+      return updated;
+    });
   };
 
   const calculateDurationSeconds = (): number => {
@@ -667,18 +735,18 @@ function RisikoPageContent() {
     return Math.floor((new Date().getTime() - meetingStartTime.getTime()) / 1000);
   };
 
-  const saveConsultation = async () => {
+  const saveConsultation = async (): Promise<boolean> => {
     if (!caseId) {
       setToast({ message: "Kein Fall verknüpft. Bitte starten Sie über die Beratung oder Recherche.", type: "error", visible: true });
       setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 4000);
-      return;
+      return false;
     }
     
     const liveNotesCount = meetingNotes.length - sessionStartIndex;
     if (liveNotesCount <= 0) {
       setToast({ message: "Starten Sie zuerst ein Gespräch mit Klaus", type: "error", visible: true });
       setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
-      return;
+      return false;
     }
 
     setIsSaving(true);
@@ -774,10 +842,12 @@ function RisikoPageContent() {
       setSavedSuccessfully(true);
       setToast({ message: "Beratung erfolgreich gespeichert!", type: "success", visible: true });
       setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
+      return true;
     } catch (error) {
       console.error("Save error:", error);
       setToast({ message: "Fehler beim Speichern der Beratung", type: "error", visible: true });
       setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -951,7 +1021,9 @@ ${notesTextFromHistory}
         
         setMeetingNotes(prev => {
           const filteredPrev = prev.filter(n => !n.id.startsWith('system-context-') && !n.id.startsWith('history-'));
-          return [...historicalNotesWithSystem, ...filteredPrev];
+          const updated = [...historicalNotesWithSystem, ...filteredPrev];
+          meetingNotesRef.current = updated;
+          return updated;
         });
       }
       
@@ -1353,6 +1425,7 @@ ${notesTextFromHistory}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <a 
                 href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}&countries=${selectedLaender.join(",")}&classes=${selectedClasses.join(",")}`}
+                onClick={(e) => handleNavigationWithCheck(e, `/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}&countries=${selectedLaender.join(",")}&classes=${selectedClasses.join(",")}`)}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 text-white font-medium rounded-xl hover:bg-teal-700 transition-colors"
               >
                 <CheckCircle className="w-5 h-5" />
@@ -1360,6 +1433,7 @@ ${notesTextFromHistory}
               </a>
               <a 
                 href="/dashboard/recherche"
+                onClick={(e) => handleNavigationWithCheck(e, "/dashboard/recherche")}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-teal-600 text-teal-700 font-medium rounded-xl hover:bg-teal-50 transition-colors"
               >
                 <Search className="w-5 h-5" />
@@ -1486,6 +1560,7 @@ ${notesTextFromHistory}
                 </button>
                 <a
                   href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`}
+                  onClick={(e) => handleNavigationWithCheck(e, `/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`)}
                   className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
                 >
                   <CheckCircle className="w-4 h-4" />
@@ -1870,6 +1945,7 @@ ${notesTextFromHistory}
               </button>
               <a
                 href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`}
+                onClick={(e) => handleNavigationWithCheck(e, `/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`)}
                 className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2"
               >
                 <CheckCircle className="w-4 h-4" />

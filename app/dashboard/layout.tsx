@@ -183,14 +183,18 @@ function LeaveModal() {
   const handleSaveAndNavigate = async () => {
     setIsSaving(true);
     try {
+      let saveSuccess = true;
       if (onSaveBeforeLeave) {
-        await onSaveBeforeLeave();
+        const result = await onSaveBeforeLeave();
+        saveSuccess = result !== false;
       }
-      setShowLeaveModal(false);
-      setHasUnsavedData(false);
-      if (pendingNavigation) {
-        router.push(pendingNavigation);
-        setPendingNavigation(null);
+      if (saveSuccess) {
+        setShowLeaveModal(false);
+        setHasUnsavedData(false);
+        if (pendingNavigation) {
+          router.push(pendingNavigation);
+          setPendingNavigation(null);
+        }
       }
     } catch (error) {
       console.error("Error saving before leave:", error);
