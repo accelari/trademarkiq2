@@ -618,13 +618,19 @@ function RisikoPageContent() {
   };
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const meetingNotesRef = useRef<MeetingNote[]>([]);
+  const isHistoryLoadedRef = useRef(false);
   
-  const liveNotesCount = meetingNotes.length - sessionStartIndex;
-  const hasUnsavedData = liveNotesCount > 0 && !savedSuccessfully;
+  const getLiveNonSystemNotes = (notes: MeetingNote[], startIndex: number) => {
+    return notes.slice(startIndex).filter(n => n.type !== "system");
+  };
+  
+  const liveNonSystemNotes = getLiveNonSystemNotes(meetingNotes, sessionStartIndex);
+  const hasUnsavedData = liveNonSystemNotes.length > 0 && !savedSuccessfully;
   
   const computeHasUnsavedData = () => {
-    const currentLiveNotes = meetingNotesRef.current.length - sessionStartIndexRef.current;
-    return currentLiveNotes > 0 && !savedSuccessfullyRef.current;
+    if (!isHistoryLoadedRef.current) return false;
+    const liveNotes = getLiveNonSystemNotes(meetingNotesRef.current, sessionStartIndexRef.current);
+    return liveNotes.length > 0 && !savedSuccessfullyRef.current;
   };
   
   const QUICK_ACTION_BUTTONS = [
@@ -704,8 +710,7 @@ function RisikoPageContent() {
   }, [caseId, setOnSaveBeforeLeave]);
 
   const handleNavigationWithCheck = (e: React.MouseEvent, path: string) => {
-    const currentLiveNotes = meetingNotesRef.current.length - sessionStartIndexRef.current;
-    const hasUnsaved = currentLiveNotes > 0 && !savedSuccessfullyRef.current;
+    const hasUnsaved = computeHasUnsavedData();
     if (hasUnsaved) {
       e.preventDefault();
       setPendingNavigation(path);
@@ -742,8 +747,8 @@ function RisikoPageContent() {
       return false;
     }
     
-    const liveNotesCount = meetingNotes.length - sessionStartIndex;
-    if (liveNotesCount <= 0) {
+    const liveNotes = getLiveNonSystemNotes(meetingNotes, sessionStartIndex);
+    if (liveNotes.length <= 0) {
       setToast({ message: "Starten Sie zuerst ein Gespräch mit Klaus", type: "error", visible: true });
       setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
       return false;
@@ -1128,6 +1133,7 @@ ${notesTextFromHistory}
         });
         
         if (tmName) setMarkenname(tmName);
+        isHistoryLoadedRef.current = true;
         setIsLoadingFromCase(false);
         return;
       }
@@ -1148,6 +1154,7 @@ ${notesTextFromHistory}
       console.error("Error loading case data:", err);
       setError("Fehler beim Laden der Falldaten");
     } finally {
+      isHistoryLoadedRef.current = true;
       setIsLoadingFromCase(false);
     }
   };
@@ -1183,6 +1190,7 @@ ${notesTextFromHistory}
       sessionStorage.removeItem('risikoanalyse_conflicts');
       setExpertAnalysis(null);
       setNoConflictsFound(true);
+      isHistoryLoadedRef.current = true;
       return;
     }
     
@@ -1275,11 +1283,14 @@ ${notesTextFromHistory}
       } catch (e) {
         console.error("Error parsing stored conflicts:", e);
       }
+      isHistoryLoadedRef.current = true;
       return;
     }
     
     if (caseIdParam && !storedData) {
       loadCaseDataAndAnalysis(caseIdParam);
+    } else {
+      isHistoryLoadedRef.current = true;
     }
   }, [searchParams]);
   
