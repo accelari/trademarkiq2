@@ -30,8 +30,25 @@ function ResetPasswordForm() {
 
     setLoading(true);
 
-    setError("Diese Funktion ist noch nicht vollständig implementiert. Bitte kontaktieren Sie den Support, um Ihr Passwort zurückzusetzen.");
-    setLoading(false);
+    try {
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Ein Fehler ist aufgetreten");
+      }
+
+      window.location.href = "/login?message=password-reset-success";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ein Fehler ist aufgetreten");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!token) {
