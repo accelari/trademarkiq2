@@ -758,18 +758,57 @@ Alle wichtigen Informationen sind bereits vorhanden. Der Kunde kann zur Recherch
 
   const handleNavigateToRecherche = async () => {
     const trademark = manualTrademarkName.trim();
-    const classesArray = manualNiceClasses.split(",").map(c => c.trim()).filter(c => c);
-    const classes = classesArray.join(",");
     const countriesArray = manualCountriesText.split(",").map(c => c.trim()).filter(c => c);
     const countries = countriesArray.join(",");
     
-    if (!trademark || !classes || !countries) {
+    if (!trademark || !manualNiceClasses.trim() || !countries) {
       setToast({ message: "Bitte füllen Sie alle Pflichtfelder aus", visible: true });
       return;
     }
 
     setIsAnalyzing(true);
-    setToast({ message: "Erstelle Bericht und navigiere zur Recherche...", visible: true });
+    setToast({ message: "Analysiere Eingaben und navigiere zur Recherche...", visible: true });
+
+    let classesArray: string[] = [];
+    let numericClasses: number[] = [];
+    
+    try {
+      const interpretResponse = await fetch("/api/ai/interpret-nice-classes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: manualNiceClasses.trim() })
+      });
+      
+      if (interpretResponse.ok) {
+        const interpretData = await interpretResponse.json();
+        if (interpretData.classes && interpretData.classes.length > 0) {
+          numericClasses = interpretData.classes;
+          classesArray = numericClasses.map(n => n.toString());
+          if (interpretData.interpreted) {
+            setManualNiceClasses(classesArray.join(", "));
+          }
+        } else if (interpretData.error) {
+          setToast({ message: interpretData.error, visible: true });
+          setIsAnalyzing(false);
+          return;
+        }
+      }
+    } catch (interpretError) {
+      console.error("Failed to interpret Nice classes:", interpretError);
+    }
+    
+    if (classesArray.length === 0) {
+      classesArray = manualNiceClasses.split(",").map(c => c.trim()).filter(c => c);
+      numericClasses = classesArray.map(c => parseInt(c)).filter(n => !isNaN(n) && n >= 1 && n <= 45);
+    }
+    
+    const classes = classesArray.join(",");
+    
+    if (numericClasses.length === 0) {
+      setToast({ message: "Bitte geben Sie gültige Nizza-Klassen ein (1-45)", visible: true });
+      setIsAnalyzing(false);
+      return;
+    }
 
     try {
       if (!savedSuccessfully && meetingNotes.length > 1) {
@@ -792,7 +831,7 @@ Alle wichtigen Informationen sind bereits vorhanden. Der Kunde kann zur Recherch
               caseId: targetCaseId,
               trademarkName: trademark,
               countries: countriesArray,
-              niceClasses: classesArray.map(c => parseInt(c)).filter(n => !isNaN(n))
+              niceClasses: numericClasses
             })
           });
           
