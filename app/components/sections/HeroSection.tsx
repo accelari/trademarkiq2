@@ -23,7 +23,7 @@ export default function HeroSection() {
             </p>
             
             <div className="flex flex-wrap gap-4 mb-6">
-              <Link href="/demo" className="s-button">
+              <Link href="/register" className="s-button">
                 Kostenlos testen
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Link>

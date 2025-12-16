@@ -199,7 +199,7 @@ export default function UeberUnsPage() {
             Schließen Sie sich den über 500 Unternehmen an, die bereits auf TrademarkIQ vertrauen.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/demo" className="s-button bg-white text-primary hover:bg-gray-100">
+            <Link href="/register" className="s-button bg-white text-primary hover:bg-gray-100">
               Kostenlos testen
               <ArrowRight className="w-4 h-4 ml-2" />
             </Link>

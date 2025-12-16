@@ -69,7 +69,7 @@ export default function Header() {
             </div>
 
             <Link
-              href="/dashboard"
+              href="/register"
               className="ml-4 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-sm hover:bg-primary-hover transition-colors"
             >
               Kostenlos testen
@@ -104,7 +104,7 @@ export default function Header() {
               ))}
               <hr className="my-2 border-gray-200" />
               <Link
-                href="/dashboard"
+                href="/register"
                 className="mx-4 mt-2 px-4 py-3 bg-primary text-white text-center font-semibold rounded-sm hover:bg-primary-hover"
                 onClick={() => setMobileMenuOpen(false)}
               >

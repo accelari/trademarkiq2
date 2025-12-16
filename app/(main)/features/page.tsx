@@ -188,7 +188,7 @@ export default function FeaturesPage() {
             Starten Sie noch heute mit TrademarkIQ und schützen Sie Ihre Marke vor kostspieligen Konflikten.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/demo" className="s-button bg-white text-primary hover:bg-gray-100">
+            <Link href="/register" className="s-button bg-white text-primary hover:bg-gray-100">
               Kostenlos testen
               <ArrowRight className="w-4 h-4 ml-2" />
             </Link>
