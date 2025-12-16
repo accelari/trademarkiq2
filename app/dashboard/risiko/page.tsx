@@ -37,7 +37,16 @@ import {
   HelpCircle,
   Zap,
   ListChecks,
+  Save,
+  Clock,
 } from "lucide-react";
+
+interface MeetingNote {
+  id: string;
+  timestamp: Date;
+  content: string;
+  type: "user" | "assistant" | "system";
+}
 import WorkflowProgress from "@/app/components/WorkflowProgress";
 import { NICE_CLASSES, formatClassLabel } from "@/lib/nice-classes";
 import { VoiceProvider } from "@humeai/voice-react";
@@ -581,6 +590,15 @@ function RisikoPageContent() {
   const [expandedConflictId, setExpandedConflictId] = useState<string | null>(null);
   const technicalDetailsRef = useRef<HTMLDivElement>(null);
   
+  const [meetingNotes, setMeetingNotes] = useState<MeetingNote[]>([]);
+  const [meetingStartTime, setMeetingStartTime] = useState<Date | null>(null);
+  const [meetingDuration, setMeetingDuration] = useState("00:00");
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedSuccessfully, setSavedSuccessfully] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error"; visible: boolean }>({ message: "", type: "success", visible: false });
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const meetingNotesRef = useRef<MeetingNote[]>([]);
+  
   const QUICK_ACTION_BUTTONS = [
     { 
       id: "explain-risks", 
@@ -604,6 +622,145 @@ function RisikoPageContent() {
   
   const handleQuickAction = (question: string) => {
     setPendingQuickQuestion(question);
+  };
+
+  useEffect(() => {
+    meetingNotesRef.current = meetingNotes;
+  }, [meetingNotes]);
+
+  useEffect(() => {
+    if (meetingStartTime && !timerRef.current) {
+      timerRef.current = setInterval(() => {
+        const now = new Date();
+        const diff = Math.floor((now.getTime() - meetingStartTime.getTime()) / 1000);
+        const mins = Math.floor(diff / 60);
+        const secs = diff % 60;
+        setMeetingDuration(`${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`);
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [meetingStartTime]);
+
+  const handleMessageSent = (message: string, type: "user" | "assistant") => {
+    if (!meetingStartTime) {
+      setMeetingStartTime(new Date());
+    }
+    const newNote: MeetingNote = {
+      id: `${Date.now()}-${type}`,
+      timestamp: new Date(),
+      content: message,
+      type,
+    };
+    setMeetingNotes((prev) => [...prev, newNote]);
+  };
+
+  const calculateDurationSeconds = (): number => {
+    if (!meetingStartTime) return 0;
+    return Math.floor((new Date().getTime() - meetingStartTime.getTime()) / 1000);
+  };
+
+  const saveConsultation = async () => {
+    if (meetingNotes.length === 0 || !caseId) {
+      setToast({ message: "Keine Beratung zum Speichern vorhanden", type: "error", visible: true });
+      setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const notesText = meetingNotes
+        .filter((n) => n.type !== "system")
+        .map((n) => `${n.type === "user" ? "Frage" : "Antwort"}: ${n.content}`)
+        .join("\n\n");
+
+      const sessionProtocol = meetingNotes
+        .map((n) => {
+          const time = n.timestamp.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+          const role = n.type === "user" ? "BENUTZER" : n.type === "assistant" ? "BERATER" : "SYSTEM";
+          return `[${time}] ${role}: ${n.content}`;
+        })
+        .join("\n");
+
+      const summaryResponse = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Du bist ein Experte für Markenrecht. Erstelle eine kurze, prägnante Zusammenfassung (3-5 Sätze) dieser Risikoanalyse-Beratung auf Deutsch. Fokussiere auf die besprochenen Risiken, Konflikte und empfohlenen Maßnahmen. Gib NUR die Zusammenfassung zurück.\n\nGespräch:\n${notesText}`,
+          history: [],
+        }),
+      });
+
+      if (!summaryResponse.ok) throw new Error("Fehler bei der Zusammenfassung");
+      const summaryData = await summaryResponse.json();
+      const summary = summaryData.response || "Risikoanalyse-Beratung durchgeführt";
+
+      const titleResponse = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Erstelle einen kurzen, prägnanten Titel (max 50 Zeichen) für diese Risikoanalyse-Beratung. Der Titel soll das Hauptthema widerspiegeln. Gib NUR den Titel zurück, ohne Anführungszeichen.\n\nZusammenfassung:\n${summary}`,
+          history: [],
+        }),
+      });
+
+      let title = `Risikoanalyse: ${markenname}`;
+      if (titleResponse.ok) {
+        const titleData = await titleResponse.json();
+        if (titleData.response) {
+          title = titleData.response.replace(/^["']|["']$/g, "").trim();
+        }
+      }
+
+      const duration = calculateDurationSeconds();
+
+      const consultationResponse = await fetch("/api/consultations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          summary,
+          transcript: notesText,
+          sessionProtocol,
+          duration,
+          mode: "risikoanalyse",
+          extractedData: {
+            trademarkName: markenname,
+            countries: selectedLaender,
+            niceClasses: selectedClasses,
+            overallRisk: expertAnalysis?.overallRisk,
+            conflictCount: expertAnalysis?.conflictAnalyses?.length || 0,
+          },
+          caseId,
+        }),
+      });
+
+      if (!consultationResponse.ok) throw new Error("Fehler beim Speichern");
+
+      await fetch(`/api/cases/${caseId}/steps`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: "risikoanalyse",
+          status: "completed",
+        }),
+      });
+
+      setSavedSuccessfully(true);
+      setToast({ message: "Beratung erfolgreich gespeichert!", type: "success", visible: true });
+      setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
+    } catch (error) {
+      console.error("Save error:", error);
+      setToast({ message: "Fehler beim Speichern der Beratung", type: "error", visible: true });
+      setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   useEffect(() => {
@@ -1325,8 +1482,48 @@ WICHTIG:
                           setTextPromptSent(true);
                         }
                       }}
+                      onMessageSent={handleMessageSent}
                       embedded={true}
                     />
+                    
+                    {meetingNotes.length > 0 && caseId && (
+                      <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Clock className="w-4 h-4" />
+                            <span className="text-sm font-medium">Dauer: {meetingDuration}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {meetingNotes.length} Nachrichten
+                          </span>
+                        </div>
+                        
+                        {savedSuccessfully ? (
+                          <div className="flex items-center gap-2 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                            <CheckCircle className="w-5 h-5 text-teal-600" />
+                            <span className="text-sm font-medium text-teal-700">Beratung gespeichert!</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={saveConsultation}
+                            disabled={isSaving}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isSaving ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Wird gespeichert...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Save className="w-4 h-4" />
+                                <span>Beratung speichern</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </VoiceProvider>
                 ) : (
                   <div className="flex items-center justify-center py-12">
@@ -1549,6 +1746,19 @@ WICHTIG:
               </a>
             </div>
           </div>
+        </div>
+      )}
+
+      {toast.visible && (
+        <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
+          toast.type === "success" ? "bg-teal-600 text-white" : "bg-red-600 text-white"
+        }`}>
+          {toast.type === "success" ? (
+            <CheckCircle className="w-5 h-5" />
+          ) : (
+            <AlertTriangle className="w-5 h-5" />
+          )}
+          <span className="font-medium">{toast.message}</span>
         </div>
       )}
     </div>
