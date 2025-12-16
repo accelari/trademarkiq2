@@ -881,7 +881,7 @@ function RisikoPageContent() {
     }
   }, [expertAnalysis, accessToken, isLoadingToken]);
   
-  const generateAdvisorPrompt = (): string | null => {
+  const generateAdvisorPrompt = (includeCurrentSession: boolean = false): string | null => {
     if (!expertAnalysis) return null;
     
     const conflicts = expertAnalysis.conflictAnalyses || [];
@@ -896,6 +896,22 @@ Konflikt ${i+1}: "${c.conflictName}"
 - Lösungsvorschläge:
 ${c.solutions.map(s => `  • ${s.title}: ${s.description} (Erfolg: ${s.successProbability}%, Aufwand: ${s.effort})`).join('\n')}
 `).join('\n');
+    
+    let currentSessionContext = "";
+    if (includeCurrentSession && meetingNotesRef.current.length > 0) {
+      const relevantNotes = meetingNotesRef.current.filter(n => n.type !== "system");
+      if (relevantNotes.length > 0) {
+        currentSessionContext = `
+
+BISHERIGES GESPRÄCH IN DIESER SITZUNG:
+${relevantNotes.map(n => `${n.type === "user" ? "KUNDE" : "KLAUS"}: ${n.content}`).join('\n')}
+
+WICHTIG: Der Kunde hat die Sitzung kurz unterbrochen. Setze das Gespräch nahtlos fort. 
+- Erwähne die Unterbrechung NICHT
+- Frage stattdessen: "Wo waren wir stehengeblieben?" oder "Haben Sie noch Fragen zu dem, was wir besprochen haben?"
+- Beziehe dich auf das bisherige Gespräch, wenn der Kunde weiterspricht`;
+      }
+    }
     
     return `[SYSTEM-KONTEXT für Risikoberatung]
 
@@ -933,7 +949,7 @@ WICHTIG:
 - Wenn der Kunde die Details sehen möchte, sage ihm dass er links die Konflikte im Detail anschauen kann
 - Du antwortest IMMER auf Deutsch.${previousConsultationContext ? `
 
-${previousConsultationContext}` : ''}`;
+${previousConsultationContext}` : ''}${currentSessionContext}`;
   };
 
   const parseSessionProtocol = (protocol: string): MeetingNote[] => {
@@ -1638,17 +1654,28 @@ ${notesTextFromHistory}
                       inputMode={inputMode}
                       autoStart={inputMode === "sprache"}
                       onAutoStartConsumed={() => setAutoStartVoice(false)}
-                      contextMessage={pendingQuickQuestion || (
-                        inputMode === "sprache" 
-                          ? (!voicePromptSent ? generateAdvisorPrompt() : null)
-                          : (!textPromptSent ? generateAdvisorPrompt() : null)
-                      )}
+                      contextMessage={pendingQuickQuestion || (() => {
+                        const hasExistingNotes = meetingNotesRef.current.filter(n => n.type !== "system").length > 0;
+                        const promptNotSent = inputMode === "sprache" ? !voicePromptSent : !textPromptSent;
+                        
+                        if (promptNotSent) {
+                          return generateAdvisorPrompt(hasExistingNotes);
+                        }
+                        return null;
+                      })()}
                       onContextMessageConsumed={() => {
                         setPendingQuickQuestion(null);
                         if (inputMode === "sprache") {
                           setVoicePromptSent(true);
                         } else {
                           setTextPromptSent(true);
+                        }
+                      }}
+                      onSessionEnd={() => {
+                        if (inputMode === "sprache") {
+                          setVoicePromptSent(false);
+                        } else {
+                          setTextPromptSent(false);
                         }
                       }}
                       onMessageSent={handleMessageSent}

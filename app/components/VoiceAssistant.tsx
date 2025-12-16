@@ -82,6 +82,7 @@ interface VoiceAssistantProps {
   onContextMessageConsumed?: () => void;
   customQuestions?: string[];
   embedded?: boolean;
+  onSessionEnd?: () => void;
 }
 
 interface TextMessage {
@@ -91,7 +92,7 @@ interface TextMessage {
   timestamp: Date;
 }
 
-const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ accessToken, inputMode = "sprache", onMessageSent, autoStart, onAutoStartConsumed, contextMessage, onContextMessageConsumed, customQuestions, embedded = false }, ref) => {
+const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ accessToken, inputMode = "sprache", onMessageSent, autoStart, onAutoStartConsumed, contextMessage, onContextMessageConsumed, customQuestions, embedded = false, onSessionEnd }, ref) => {
   const { status, connect, disconnect, sendUserInput, sendSessionSettings, messages } = useVoice();
   const [error, setError] = useState<string | null>(null);
   const [textMessages, setTextMessages] = useState<TextMessage[]>([]);
@@ -216,6 +217,16 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
     }
   };
 
+  const prevStatusRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    if (prevStatusRef.current === "connected" && status.value === "disconnected") {
+      setContextMessageProcessed(false);
+      onSessionEnd?.();
+    }
+    prevStatusRef.current = status.value;
+  }, [status.value, onSessionEnd]);
+  
   useEffect(() => {
     if (status.value === "disconnected") {
       processedPairsRef.current = new Set();
