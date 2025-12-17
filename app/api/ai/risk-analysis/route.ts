@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import { getTMSearchClient } from "@/lib/tmsearch/client";
 import { NICE_CLASSES } from "@/lib/nice-classes";
+import { getAllRelatedClasses, RELATED_CLASSES_MAP } from "@/lib/related-classes";
 
 const client = new Anthropic({
   baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
@@ -97,6 +98,15 @@ async function performMultiDimensionalAnalysis(
     return klass ? `Klasse ${k}: ${klass.name}` : `Klasse ${k}`;
   }).join(", ");
 
+  const relatedClasses = klassen.length > 0 ? getAllRelatedClasses(klassen) : [];
+  const relatedClassesText = relatedClasses.length > 0 
+    ? relatedClasses.map(k => {
+        const klass = NICE_CLASSES.find(c => c.id === k);
+        const relation = RELATED_CLASSES_MAP[k];
+        return klass ? `Klasse ${k} (${klass.name})${relation ? ` - ${relation.reason}` : ''}` : `Klasse ${k}`;
+      }).join("\n  - ")
+    : "";
+
   const laenderText = laender.map(l => OFFICE_NAMES[l] || l).join(", ");
 
   const resultsText = searchResults.slice(0, 30).map(r => {
@@ -117,7 +127,13 @@ Ziel-Nizza-Klassen: ${klassenText || "Alle"}
 Ziel-Länder: ${laenderText}
 Verwendete Suchbegriffe: ${searchTermsUsed.join(", ")}
 
-Gefundene bestehende Marken (${searchResults.length} Treffer):
+${relatedClassesText ? `WICHTIG: Analysiere auch klassenübergreifende Risiken!
+Die Ziel-Klassen haben folgende VERWANDTE KLASSEN mit potenziellen Überschneidungen:
+  - ${relatedClassesText}
+
+Prüfe bei jedem Treffer, ob dessen Waren-/Dienstleistungsbeschreibung sich mit den Ziel-Klassen überschneiden könnte, auch wenn die Klassennummern unterschiedlich sind.
+
+` : ''}Gefundene bestehende Marken (${searchResults.length} Treffer):
 ${resultsText || "Keine Marken gefunden."}
 
 Erstelle eine detaillierte Analyse. Antworte mit einem JSON-Objekt:

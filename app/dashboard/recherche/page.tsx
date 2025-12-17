@@ -45,6 +45,7 @@ import {
 import WorkflowProgress from "@/app/components/WorkflowProgress";
 import ConsultationsModal from "@/app/components/ConsultationsModal";
 import { NICE_CLASSES, getPopularClasses, formatClassLabel } from "@/lib/nice-classes";
+import { getAllRelatedClasses, hasOverlappingClasses, getClassRelationInfo } from "@/lib/related-classes";
 import { useUnsavedData } from "@/app/contexts/UnsavedDataContext";
 
 const fetcher = async (url: string) => {
@@ -1323,9 +1324,10 @@ function CollapsibleSection({ title, icon, children, defaultOpen = false }: Coll
 interface ConflictDetailModalProps {
   conflict: ConflictingMark;
   onClose: () => void;
+  selectedClasses?: number[];
 }
 
-function ConflictDetailModal({ conflict, onClose }: ConflictDetailModalProps) {
+function ConflictDetailModal({ conflict, onClose, selectedClasses = [] }: ConflictDetailModalProps) {
   const getRiskStyles = () => {
     switch (conflict.riskLevel) {
       case "high": return { bg: "bg-red-50", border: "border-red-200", badge: "bg-red-100 text-red-700", icon: "text-red-600" };
@@ -1442,12 +1444,48 @@ function ConflictDetailModal({ conflict, onClose }: ConflictDetailModalProps) {
                 Nizza-Klassen
               </h3>
               <div className="flex flex-wrap gap-2">
-                {conflict.classes.map((cls) => (
-                  <span key={cls} className="px-3 py-1.5 bg-primary/10 text-primary text-sm font-medium rounded-lg">
-                    Klasse {cls}
-                  </span>
-                ))}
+                {conflict.classes.map((cls) => {
+                  const relationInfo = selectedClasses.length > 0 ? getClassRelationInfo(selectedClasses, cls) : null;
+                  const isDirectMatch = relationInfo?.isDirectMatch;
+                  const isRelated = relationInfo?.isRelated;
+                  
+                  return (
+                    <div key={cls} className="flex flex-col gap-1">
+                      <span className={`px-3 py-1.5 text-sm font-medium rounded-lg ${
+                        isDirectMatch ? 'bg-primary/10 text-primary' :
+                        isRelated ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        Klasse {cls}
+                        {isDirectMatch && <span className="ml-1 text-xs">(direkt)</span>}
+                        {isRelated && <span className="ml-1 text-xs">(verwandt)</span>}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
+              {selectedClasses.length > 0 && conflict.classes.some(cls => {
+                const info = getClassRelationInfo(selectedClasses, cls);
+                return info.isRelated;
+              }) && (
+                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800 font-medium flex items-center gap-2 mb-1">
+                    <Lightbulb className="w-4 h-4" />
+                    Verwandtschaftsgrund:
+                  </p>
+                  {conflict.classes.map(cls => {
+                    const info = getClassRelationInfo(selectedClasses, cls);
+                    if (info.isRelated && info.reason) {
+                      return (
+                        <p key={cls} className="text-xs text-yellow-700 mt-1">
+                          <strong>Klasse {cls}:</strong> {info.reason}
+                        </p>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -2730,6 +2768,27 @@ export default function RecherchePage() {
                     )}
                   </div>
                 )}
+                
+                {aiSelectedClasses.length > 0 && getAllRelatedClasses(aiSelectedClasses).length > 0 && (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800 font-medium flex items-center gap-2">
+                      <Lightbulb className="w-4 h-4" />
+                      Verwandte Klassen mit möglichen Überschneidungen:
+                    </p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {getAllRelatedClasses(aiSelectedClasses).slice(0, 10).map(cls => (
+                        <span key={cls} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
+                          Klasse {cls}
+                        </span>
+                      ))}
+                      {getAllRelatedClasses(aiSelectedClasses).length > 10 && (
+                        <span className="px-2 py-0.5 bg-blue-100/50 text-blue-600 text-xs rounded">
+                          +{getAllRelatedClasses(aiSelectedClasses).length - 10} weitere
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2930,6 +2989,11 @@ export default function RecherchePage() {
                         const isInSelectedClasses = conflict.classes.some(cls => aiSelectedClasses.includes(cls));
                         const isCrossClass = extendedClassSearch && !isInSelectedClasses && conflict.classes.length > 0;
                         
+                        const relatedClassInfo = conflict.classes.length > 0 && !isInSelectedClasses
+                          ? conflict.classes.map(cls => getClassRelationInfo(aiSelectedClasses, cls)).find(info => info.isRelated)
+                          : null;
+                        const isRelatedClass = !!relatedClassInfo;
+                        
                         const formatGermanDate = (dateStr: string | null) => {
                           if (!dateStr) return "-";
                           try {
@@ -2957,9 +3021,15 @@ export default function RecherchePage() {
                                       Bekannte Marke
                                     </span>
                                   )}
-                                  {isCrossClass && (
+                                  {isCrossClass && !isRelatedClass && (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
                                       Klassen: {conflict.classes.join(", ")} (nicht Ihre Auswahl)
+                                    </span>
+                                  )}
+                                  {isRelatedClass && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
+                                      <Lightbulb className="w-3 h-3" />
+                                      Verwandte Klasse
                                     </span>
                                   )}
                                 </div>
@@ -3229,6 +3299,7 @@ export default function RecherchePage() {
         <ConflictDetailModal
           conflict={selectedConflict}
           onClose={() => setSelectedConflict(null)}
+          selectedClasses={aiSelectedClasses}
         />
       )}
 
