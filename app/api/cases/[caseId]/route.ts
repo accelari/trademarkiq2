@@ -30,8 +30,8 @@ export async function GET(
     
     const queryOptions = {
       with: {
-        steps: true,
-        decisions: true,
+        steps: {},
+        decisions: {},
         events: {
           orderBy: (events: any, { desc }: any) => [desc(events.createdAt)],
         },
@@ -133,8 +133,8 @@ export async function PATCH(
     const caseWithDetails = await db.query.trademarkCases.findFirst({
       where: eq(trademarkCases.id, caseId),
       with: {
-        steps: true,
-        decisions: true,
+        steps: {},
+        decisions: {},
         events: {
           orderBy: (events, { desc }) => [desc(events.createdAt)],
         },
