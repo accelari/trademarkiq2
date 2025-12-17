@@ -1576,7 +1576,7 @@ export default function RecherchePage() {
   });
   
   const [selectedLaender, setSelectedLaender] = useState<string[]>([]);
-  const [extendedClassSearch, setExtendedClassSearch] = useState(false);
+  const [includeRelatedClasses, setIncludeRelatedClasses] = useState(true);
   
   const [expertLoading, setExpertLoading] = useState(false);
   const [expertSuccess, setExpertSuccess] = useState(false);
@@ -2317,10 +2317,10 @@ export default function RecherchePage() {
 
     const effectiveClasses = aiSelectedClasses.length === 45 ? [] : aiSelectedClasses;
     const relatedClasses = getAllRelatedClasses(aiSelectedClasses);
-    const searchClasses = extendedClassSearch 
-      ? [] 
-      : [...new Set([...effectiveClasses, ...relatedClasses])].sort((a, b) => a - b);
-    const cacheKey = `${searchQuery.trim()}-${searchClasses.sort().join(",") || "all"}-${selectedLaender.sort().join(",") || "all"}-${deepSearch ? "deep" : "std"}-${extendedClassSearch ? "ext" : "std"}`;
+    const searchClasses = includeRelatedClasses 
+      ? [...new Set([...effectiveClasses, ...relatedClasses])].sort((a, b) => a - b)
+      : effectiveClasses;
+    const cacheKey = `${searchQuery.trim()}-${searchClasses.sort().join(",") || "all"}-${selectedLaender.sort().join(",") || "all"}-${deepSearch ? "deep" : "std"}-${includeRelatedClasses ? "rel" : "direct"}`;
     const cachedResult = analysisCache.current.get(cacheKey);
     if (cachedResult && !deepSearch) {
       setAiAnalysis(cachedResult);
@@ -2397,9 +2397,9 @@ export default function RecherchePage() {
           queryTerms: variantsData.queryTerms,
           klassen: searchClasses,
           laender: selectedLaender,
-          extendedClassSearch,
+          extendedClassSearch: false,
           originalKlassen: effectiveClasses,
-          relatedClasses: relatedClasses,
+          relatedClasses: includeRelatedClasses ? relatedClasses : [],
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -2430,8 +2430,8 @@ export default function RecherchePage() {
           klassen: effectiveClasses,
           laender: selectedLaender,
           expertStrategy: variantsData.expertStrategy,
-          extendedClassSearch,
-          relatedClasses: relatedClasses,
+          extendedClassSearch: false,
+          relatedClasses: includeRelatedClasses ? relatedClasses : [],
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -2748,77 +2748,39 @@ export default function RecherchePage() {
                 />
                 
                 {aiSelectedClasses.length > 0 && (
-                  <div className="mt-3 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-semibold text-gray-800">Suchumfang</span>
-                      <label className="flex items-center gap-2 cursor-pointer group">
-                        <span className={`text-xs font-medium transition-colors ${!extendedClassSearch ? 'text-primary' : 'text-gray-400'}`}>
-                          Standard
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeRelatedClasses}
+                        onChange={(e) => setIncludeRelatedClasses(e.target.checked)}
+                        className="mt-1 w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">
+                          Auch verwandte Klassen prüfen
                         </span>
-                        <div className="relative">
-                          <input
-                            type="checkbox"
-                            checked={extendedClassSearch}
-                            onChange={(e) => setExtendedClassSearch(e.target.checked)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-10 h-5 bg-primary/30 rounded-full peer-checked:bg-orange-400 transition-colors"></div>
-                          <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5 shadow-sm"></div>
-                        </div>
-                        <span className={`text-xs font-medium transition-colors ${extendedClassSearch ? 'text-orange-600' : 'text-gray-400'}`}>
-                          Vollständig
-                        </span>
-                      </label>
-                    </div>
-                    
-                    {!extendedClassSearch ? (
-                      <div className="space-y-2">
-                        <div className="flex items-start gap-2">
-                          <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm text-gray-700">
-                              <span className="font-medium">Durchsucht wird:</span> Ihre {aiSelectedClasses.length} ausgewählte{aiSelectedClasses.length === 1 ? '' : 'n'} Klasse{aiSelectedClasses.length === 1 ? '' : 'n'}
-                              {getAllRelatedClasses(aiSelectedClasses).length > 0 && (
-                                <span className="text-primary font-medium"> + {getAllRelatedClasses(aiSelectedClasses).length} verwandte Klassen</span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                        {getAllRelatedClasses(aiSelectedClasses).length > 0 && (
-                          <div className="ml-6 flex flex-wrap gap-1">
+                        <span className="ml-2 px-1.5 py-0.5 bg-primary/10 text-primary text-xs rounded">empfohlen</span>
+                        {includeRelatedClasses && getAllRelatedClasses(aiSelectedClasses).length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
                             <span className="text-xs text-gray-500 mr-1">Verwandt:</span>
-                            {getAllRelatedClasses(aiSelectedClasses).slice(0, 8).map(cls => (
+                            {getAllRelatedClasses(aiSelectedClasses).slice(0, 10).map(cls => (
                               <span key={cls} className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded border border-yellow-200">
                                 {cls}
                               </span>
                             ))}
-                            {getAllRelatedClasses(aiSelectedClasses).length > 8 && (
+                            {getAllRelatedClasses(aiSelectedClasses).length > 10 && (
                               <span className="px-1.5 py-0.5 bg-yellow-50 text-yellow-600 text-xs rounded">
-                                +{getAllRelatedClasses(aiSelectedClasses).length - 8}
+                                +{getAllRelatedClasses(aiSelectedClasses).length - 10}
                               </span>
                             )}
                           </div>
                         )}
-                        <p className="text-xs text-gray-500 ml-6">
-                          Verwandte Klassen haben typische Überschneidungen bei Waren/Dienstleistungen.
+                        <p className="text-xs text-gray-500 mt-1">
+                          Findet Konflikte in Klassen mit typischen Überschneidungen bei Waren/Dienstleistungen.
                         </p>
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex items-start gap-2">
-                          <Globe className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm text-gray-700">
-                              <span className="font-medium text-orange-600">Durchsucht wird:</span> Alle 45 Nizza-Klassen
-                            </p>
-                          </div>
-                        </div>
-                        <p className="text-xs text-orange-600 ml-6 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          Findet auch Konflikte in komplett anderen Branchen. Dauert länger.
-                        </p>
-                      </div>
-                    )}
+                    </label>
                   </div>
                 )}
               </div>
@@ -2985,7 +2947,7 @@ export default function RecherchePage() {
                     </h3>
                     
                     {(() => {
-                      const crossClassConflicts = extendedClassSearch 
+                      const crossClassConflicts = includeRelatedClasses 
                         ? aiAnalysis.conflicts.filter(c => 
                             !c.classes.some(cls => aiSelectedClasses.includes(cls))
                           )
@@ -3019,7 +2981,7 @@ export default function RecherchePage() {
                         const riskEmoji = conflict.riskLevel === "high" ? "🔴" : conflict.riskLevel === "medium" ? "🟡" : "🟢";
                         
                         const isInSelectedClasses = conflict.classes.some(cls => aiSelectedClasses.includes(cls));
-                        const isCrossClass = extendedClassSearch && !isInSelectedClasses && conflict.classes.length > 0;
+                        const isCrossClass = includeRelatedClasses && !isInSelectedClasses && conflict.classes.length > 0;
                         
                         const relatedClassInfo = conflict.classes.length > 0 && !isInSelectedClasses
                           ? conflict.classes.map(cls => getClassRelationInfo(aiSelectedClasses, cls)).find(info => info.isRelated)
