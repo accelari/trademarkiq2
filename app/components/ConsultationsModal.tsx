@@ -386,12 +386,37 @@ const formatDate = (dateString: string) => {
   });
 };
 
-const getStepStatus = (consultation: Consultation, stepName: string) => {
+type StepStatusType = "completed" | "in_progress" | "skipped" | "pending" | "current";
+
+const getStepStatus = (consultation: Consultation, stepName: string): StepStatusType => {
   const step = consultation.caseSteps?.find(s => s.step === stepName);
   if (!step) return "pending";
   if (step.skippedAt || step.status === "skipped") return "skipped";
   if (step.completedAt || step.status === "completed") return "completed";
   if (step.status === "in_progress") return "in_progress";
+  return "pending";
+};
+
+const getEnhancedStepStatus = (consultation: Consultation, stepName: string): StepStatusType => {
+  const baseStatus = getStepStatus(consultation, stepName);
+  
+  if (baseStatus === "completed" || baseStatus === "skipped") {
+    return baseStatus;
+  }
+  
+  const allSteps = journeySteps.map(s => ({ name: s, status: getStepStatus(consultation, s) }));
+  const currentStepIndex = allSteps.findIndex(s => 
+    s.status !== "completed" && s.status !== "skipped"
+  );
+  
+  if (currentStepIndex === -1) return baseStatus;
+  
+  const stepIndex = journeySteps.indexOf(stepName);
+  
+  if (stepIndex === currentStepIndex) {
+    return baseStatus === "in_progress" ? "in_progress" : "current";
+  }
+  
   return "pending";
 };
 
@@ -403,6 +428,55 @@ const stepLabels: Record<string, string> = {
   anmeldung: "Anmeldung",
   watchlist: "Watchlist",
 };
+
+interface StepBadgeProps {
+  step: string;
+  status: StepStatusType;
+}
+
+function StepBadge({ step, status }: StepBadgeProps) {
+  const getStyles = () => {
+    switch (status) {
+      case "completed":
+        return {
+          container: "bg-primary text-white border-primary",
+          icon: <Check className="w-3 h-3" />,
+        };
+      case "in_progress":
+        return {
+          container: "bg-primary/10 text-primary border-primary/30",
+          icon: <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />,
+        };
+      case "current":
+        return {
+          container: "bg-white text-primary border-primary border-2",
+          icon: <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />,
+        };
+      case "skipped":
+        return {
+          container: "bg-amber-50 text-amber-600 border-amber-300",
+          icon: <ArrowRight className="w-3 h-3 rotate-180" />,
+        };
+      case "pending":
+      default:
+        return {
+          container: "bg-gray-50 text-gray-400 border-gray-200",
+          icon: null,
+        };
+    }
+  };
+
+  const styles = getStyles();
+
+  return (
+    <div
+      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border ${styles.container}`}
+    >
+      {styles.icon}
+      <span>{stepLabels[step]}</span>
+    </div>
+  );
+}
 
 export default function ConsultationsModal({
   isOpen,
@@ -675,27 +749,9 @@ export default function ConsultationsModal({
                           <div className="mt-3">
                             <div className="flex flex-wrap gap-2">
                               {journeySteps.map((step) => {
-                                const status = getStepStatus(consultation, step);
-                                const statusStyles = status === "completed" 
-                                  ? "bg-green-100 text-green-700 border-green-200" 
-                                  : status === "skipped"
-                                  ? "bg-gray-100 text-gray-400 border-gray-200 line-through"
-                                  : status === "in_progress"
-                                  ? "bg-primary/10 text-primary border-primary/30"
-                                  : "bg-gray-50 text-gray-500 border-gray-200";
-                                const statusIcon = status === "completed" 
-                                  ? <Check className="w-3 h-3" />
-                                  : status === "skipped"
-                                  ? <span className="text-[10px]">⊘</span>
-                                  : null;
+                                const status = getEnhancedStepStatus(consultation, step);
                                 return (
-                                  <div
-                                    key={step}
-                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border ${statusStyles}`}
-                                  >
-                                    {statusIcon}
-                                    <span>{stepLabels[step]}</span>
-                                  </div>
+                                  <StepBadge key={step} step={step} status={status} />
                                 );
                               })}
                             </div>
@@ -708,20 +764,25 @@ export default function ConsultationsModal({
                         {consultation.caseId && (
                           <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                             {(() => {
-                              const beratungStatus = getStepStatus(consultation, "beratung");
-                              const nextStep = journeySteps.find((s, i) => i > 0 && getStepStatus(consultation, s) !== "completed" && getStepStatus(consultation, s) !== "skipped");
+                              const beratungStatus = getEnhancedStepStatus(consultation, "beratung");
+                              const nextStep = journeySteps.find((s, i) => {
+                                const status = getEnhancedStepStatus(consultation, s);
+                                return status !== "completed" && status !== "skipped";
+                              });
                               const stepRoutes: Record<string, string> = {
+                                beratung: `/dashboard/copilot?case=${consultation.caseId}`,
                                 recherche: `/dashboard/recherche?caseId=${consultation.caseId}`,
                                 risikoanalyse: `/dashboard/risiko?caseId=${consultation.caseId}`,
                                 anmeldung: `/dashboard/anmeldung?caseId=${consultation.caseId}`,
                                 watchlist: `/dashboard/watchlist?caseId=${consultation.caseId}`,
                               };
                               
-                              const isIncomplete = consultation.extractedData && !(consultation.extractedData as any).isComplete;
+                              const beratungInProgress = beratungStatus === "in_progress";
+                              const beratungSkipped = beratungStatus === "skipped";
                               
                               return (
                                 <>
-                                  {beratungStatus === "skipped" && (
+                                  {beratungSkipped && (
                                     <button
                                       onClick={() => {
                                         handleClose();
@@ -733,47 +794,69 @@ export default function ConsultationsModal({
                                       Beratung nachholen
                                     </button>
                                   )}
-                                  {isIncomplete && (
+                                  {beratungInProgress && (
                                     <button
                                       onClick={() => {
                                         handleClose();
-                                        onNavigate(`/dashboard/copilot?catchUpCase=${consultation.caseId}`);
+                                        onNavigate(`/dashboard/copilot?resumeCase=${consultation.caseId}`);
                                       }}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors"
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors"
                                     >
                                       <MessageCircle className="w-3.5 h-3.5" />
                                       Beratung fortsetzen
                                     </button>
                                   )}
-                                  {nextStep && nextStep !== "beratung" && (
-                                    <button
-                                      onClick={() => {
-                                        handleClose();
-                                        onNavigate(stepRoutes[nextStep]);
-                                      }}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors"
-                                    >
-                                      Weiter: {stepLabels[nextStep]}
-                                      <ArrowRight className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                  
-                                  {journeySteps.slice(1).filter(s => getStepStatus(consultation, s) !== "completed").length > 1 && (
-                                    <div className="flex gap-1">
-                                      {journeySteps.slice(1).filter(s => s !== nextStep && getStepStatus(consultation, s) !== "completed").slice(0, 2).map(step => (
+                                  {(() => {
+                                    const nextNonBeratungStep = journeySteps.slice(1).find(s => {
+                                      const status = getEnhancedStepStatus(consultation, s);
+                                      return status !== "completed" && status !== "skipped";
+                                    });
+                                    if (nextNonBeratungStep) {
+                                      return (
                                         <button
-                                          key={step}
                                           onClick={() => {
                                             handleClose();
-                                            onNavigate(stepRoutes[step]);
+                                            onNavigate(stepRoutes[nextNonBeratungStep]);
                                           }}
-                                          className="px-2.5 py-1.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors"
                                         >
-                                          {stepLabels[step]}
+                                          Weiter: {stepLabels[nextNonBeratungStep]}
+                                          <ArrowRight className="w-3.5 h-3.5" />
                                         </button>
-                                      ))}
-                                    </div>
-                                  )}
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                  
+                                  {(() => {
+                                    const nextNonBeratungStep = journeySteps.slice(1).find(s => {
+                                      const status = getEnhancedStepStatus(consultation, s);
+                                      return status !== "completed" && status !== "skipped";
+                                    });
+                                    const additionalSteps = journeySteps.slice(1).filter(s => {
+                                      const status = getEnhancedStepStatus(consultation, s);
+                                      return s !== nextNonBeratungStep && status !== "completed";
+                                    }).slice(0, 2);
+                                    
+                                    if (additionalSteps.length === 0) return null;
+                                    
+                                    return (
+                                      <div className="flex gap-1">
+                                        {additionalSteps.map(step => (
+                                          <button
+                                            key={step}
+                                            onClick={() => {
+                                              handleClose();
+                                              onNavigate(stepRoutes[step]);
+                                            }}
+                                            className="px-2.5 py-1.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                                          >
+                                            {stepLabels[step]}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
                                 </>
                               );
                             })()}
