@@ -519,10 +519,16 @@ export async function POST(request: NextRequest) {
       console.log(`  Names without classes: ${resultsWithNoClasses.map((r: any) => r.name).join(", ")}`);
     }
     
+    // Convert allClasses to numbers for comparison (API returns strings like "07")
+    const allClassesNum = allClasses.map(c => Number(c));
+    const selectedKlassenNum = selectedKlassen.map((c: any) => Number(c));
+    const relatedClassesNum = relatedClasses.map(c => Number(c));
+    
     if (!extendedClassSearch && selectedKlassen.length > 0) {
       filteredResults = results.filter((r: any) => {
         if (!r.niceClasses || r.niceClasses.length === 0) return true;
-        return r.niceClasses.some((cls: number) => allClasses.includes(cls));
+        // Compare as numbers to handle both "07" and 7
+        return r.niceClasses.some((cls: any) => allClassesNum.includes(Number(cls)));
       });
       console.log(`Filtered results: ${filteredResults.length} of ${results.length} (Standard mode)`);
     } else {
@@ -531,8 +537,8 @@ export async function POST(request: NextRequest) {
 
     filteredResults = filteredResults.map((r: any) => ({
       ...r,
-      isDirectClass: r.niceClasses?.some((cls: number) => selectedKlassen.includes(cls)) || false,
-      isRelatedClass: r.niceClasses?.some((cls: number) => relatedClasses.includes(cls) && !selectedKlassen.includes(cls)) || false,
+      isDirectClass: r.niceClasses?.some((cls: any) => selectedKlassenNum.includes(Number(cls))) || false,
+      isRelatedClass: r.niceClasses?.some((cls: any) => relatedClassesNum.includes(Number(cls)) && !selectedKlassenNum.includes(Number(cls))) || false,
     }));
 
     const searchTermsUsed = expertStrategy?.variants?.map((v: any) => v.term) || [markenname];
@@ -579,8 +585,8 @@ export async function POST(request: NextRequest) {
 
     const markedConflicts = conflicts.map((c: ConflictingMark) => ({
       ...c,
-      isDirectClass: c.classes?.some((cls: number) => selectedKlassen.includes(cls)) || false,
-      isRelatedClass: c.classes?.some((cls: number) => relatedClasses.includes(cls) && !selectedKlassen.includes(cls)) || false,
+      isDirectClass: c.classes?.some((cls: any) => selectedKlassenNum.includes(Number(cls))) || false,
+      isRelatedClass: c.classes?.some((cls: any) => relatedClassesNum.includes(Number(cls)) && !selectedKlassenNum.includes(Number(cls))) || false,
     }));
 
     return NextResponse.json({
