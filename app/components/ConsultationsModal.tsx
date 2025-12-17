@@ -318,6 +318,68 @@ function ConflictCard({ conflict, onShowDetail }: ConflictCardProps) {
   );
 }
 
+interface ResetConfirmDialogProps {
+  isOpen: boolean;
+  fromStep: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}
+
+function ResetConfirmDialog({ isOpen, fromStep, onConfirm, onCancel, isLoading }: ResetConfirmDialogProps) {
+  if (!isOpen) return null;
+  
+  const affectedSteps = {
+    beratung: ["Beratung", "Recherche", "Risikoanalyse"],
+    recherche: ["Recherche", "Risikoanalyse"],
+  };
+  
+  const steps = affectedSteps[fromStep as keyof typeof affectedSteps] || [];
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={onCancel}>
+      <div className="bg-white rounded-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-amber-600" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900">Schritte zurücksetzen?</h3>
+        </div>
+        <p className="text-gray-600 mb-4">
+          Wenn Sie {fromStep === "beratung" ? "die Beratung" : "die Recherche"} erneut durchführen, werden folgende Schritte zurückgesetzt:
+        </p>
+        <div className="bg-amber-50 rounded-lg p-3 mb-6">
+          <ul className="space-y-1">
+            {steps.map((step) => (
+              <li key={step} className="flex items-center gap-2 text-amber-800">
+                <span className="w-1.5 h-1.5 bg-amber-600 rounded-full" />
+                {step}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={isLoading}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Abbrechen
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            Fortfahren
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface CaseStep {
   step: string;
   status: string;
@@ -542,8 +604,16 @@ export default function ConsultationsModal({
   onNavigate,
 }: ConsultationsModalProps) {
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
-  const [rechercheExpanded, setRechercheExpanded] = useState(false);
   const [selectedConflict, setSelectedConflict] = useState<ConflictMark | null>(null);
+  const [highlightedSection, setHighlightedSection] = useState<string | null>(null);
+  const [resetDialog, setResetDialog] = useState<{ isOpen: boolean; fromStep: string } | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleScrollToSection = (sectionId: string) => {
+    setHighlightedSection(sectionId);
+    setTimeout(() => setHighlightedSection(null), 2000);
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const handleClose = () => {
     setSelectedConsultation(null);
@@ -555,6 +625,34 @@ export default function ConsultationsModal({
       setSelectedConsultation(null);
     }
     await onDelete(id);
+  };
+
+  const handleResetSteps = async () => {
+    if (!resetDialog || !selectedConsultation?.caseId) return;
+    
+    setIsResetting(true);
+    try {
+      const res = await fetch(`/api/cases/${selectedConsultation.caseId}/reset-steps`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromStep: resetDialog.fromStep }),
+      });
+      
+      if (!res.ok) throw new Error("Reset failed");
+      
+      setResetDialog(null);
+      handleClose();
+      
+      if (resetDialog.fromStep === "beratung") {
+        onNavigate?.(`/dashboard/copilot?resumeCase=${selectedConsultation.caseId}`);
+      } else {
+        onNavigate?.(`/dashboard/recherche?caseId=${selectedConsultation.caseId}`);
+      }
+    } catch (error) {
+      console.error("Error resetting steps:", error);
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -597,6 +695,22 @@ export default function ConsultationsModal({
               >
                 ← Zurück zur Liste
               </button>
+              <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-gray-100">
+                {[
+                  { id: "section-beratung", label: "Beratung", icon: MessageCircle },
+                  { id: "section-recherche", label: "Recherche", icon: Search },
+                  { id: "section-risiko", label: "Risikoanalyse", icon: AlertTriangle },
+                ].map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => handleScrollToSection(id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${highlightedSection === id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </button>
+                ))}
+              </div>
               <div className="mb-4">
                 <h3 className="font-semibold text-gray-900 text-lg">{selectedConsultation.title}</h3>
                 <div className="text-sm text-gray-500 mt-1 space-y-0.5">
@@ -607,11 +721,16 @@ export default function ConsultationsModal({
                 </div>
               </div>
               {selectedConsultation.summary && (
-                <div id="section-beratung" className="bg-gray-50 rounded-xl p-4 border border-gray-100 mb-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4" />
-                    Beratungszusammenfassung
-                  </h4>
+                <div id="section-beratung" className={`mb-4 ${highlightedSection === 'section-beratung' ? 'ring-2 ring-primary ring-offset-2 animate-pulse rounded-xl' : ''}`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <MessageCircle className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-bold text-gray-900">Beratung</h3>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4" />
+                      Beratungszusammenfassung
+                    </h4>
                   <ReactMarkdown
                     components={{
                       h1: ({ children }) => <h2 className="text-base font-bold mt-4 mb-2 first:mt-0 text-gray-900">{children}</h2>,
@@ -632,34 +751,50 @@ export default function ConsultationsModal({
                   >
                     {selectedConsultation.summary}
                   </ReactMarkdown>
+                  <div className="mt-4 pt-3 border-t border-gray-200">
+                    <button
+                      onClick={() => setResetDialog({ isOpen: true, fromStep: "beratung" })}
+                      className="text-sm text-primary hover:text-primary/80 flex items-center gap-1.5 transition-colors"
+                    >
+                      <ArrowRight className="w-4 h-4 rotate-180" />
+                      Beratung erneut durchführen
+                    </button>
+                  </div>
+                  </div>
                 </div>
               )}
 
               {(selectedConsultation.trademarkName || (selectedConsultation.countries && selectedConsultation.countries.length > 0) || (selectedConsultation.niceClasses && selectedConsultation.niceClasses.length > 0)) && (
-                <div id="section-recherche" className="bg-teal-50 rounded-xl p-4 border border-teal-100 mb-4">
-                  <h4 className="text-sm font-semibold text-teal-800 mb-3 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    Extrahierte Informationen
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    {selectedConsultation.trademarkName && (
-                      <div className="flex justify-between">
-                        <span className="text-teal-700">Markenname:</span>
-                        <span className="font-medium text-teal-900">"{selectedConsultation.trademarkName}"</span>
-                      </div>
-                    )}
-                    {selectedConsultation.countries && selectedConsultation.countries.length > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-teal-700">Zielländer:</span>
-                        <span className="font-medium text-teal-900">{selectedConsultation.countries.join(", ")}</span>
-                      </div>
-                    )}
-                    {selectedConsultation.niceClasses && selectedConsultation.niceClasses.length > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-teal-700">Nizza-Klassen:</span>
-                        <span className="font-medium text-teal-900">{selectedConsultation.niceClasses.join(", ")}</span>
-                      </div>
-                    )}
+                <div id="section-recherche" className={`mb-4 ${highlightedSection === 'section-recherche' ? 'ring-2 ring-primary ring-offset-2 animate-pulse rounded-xl' : ''}`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Search className="w-5 h-5 text-teal-600" />
+                    <h3 className="text-lg font-bold text-gray-900">Recherche</h3>
+                  </div>
+                  <div className="bg-teal-50 rounded-xl p-4 border border-teal-100">
+                    <h4 className="text-sm font-semibold text-teal-800 mb-3 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      Extrahierte Informationen
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      {selectedConsultation.trademarkName && (
+                        <div className="flex justify-between">
+                          <span className="text-teal-700">Markenname:</span>
+                          <span className="font-medium text-teal-900">"{selectedConsultation.trademarkName}"</span>
+                        </div>
+                      )}
+                      {selectedConsultation.countries && selectedConsultation.countries.length > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-teal-700">Zielländer:</span>
+                          <span className="font-medium text-teal-900">{selectedConsultation.countries.join(", ")}</span>
+                        </div>
+                      )}
+                      {selectedConsultation.niceClasses && selectedConsultation.niceClasses.length > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-teal-700">Nizza-Klassen:</span>
+                          <span className="font-medium text-teal-900">{selectedConsultation.niceClasses.join(", ")}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -670,85 +805,93 @@ export default function ConsultationsModal({
                 const meta = rechercheStep.metadata || {};
                 const conflicts = meta.conflicts || [];
                 return (
-                  <div id="section-risiko" className="bg-blue-50 rounded-xl border border-blue-100 mb-4 overflow-hidden">
-                    <button
-                      onClick={() => setRechercheExpanded(!rechercheExpanded)}
-                      className="w-full p-4 flex items-center justify-between hover:bg-blue-100/50 transition-colors"
-                    >
-                      <h4 className="text-sm font-semibold text-blue-800 flex items-center gap-2">
-                        <Search className="w-4 h-4" />
-                        Konfliktanalyse
-                        {meta.conflictsCount !== undefined && (
-                          <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${meta.conflictsCount > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                            {meta.conflictsCount} Konflikte
-                          </span>
-                        )}
-                      </h4>
-                      <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform ${rechercheExpanded ? 'rotate-180' : ''}`} />
-                    </button>
-                    
-                    {rechercheExpanded && (
-                      <div className="px-4 pb-4 space-y-3">
-                        <div className="space-y-2 text-sm">
-                          {meta.searchQuery && (
-                            <div className="flex justify-between">
-                              <span className="text-blue-700">Suchbegriff:</span>
-                              <span className="font-medium text-blue-900">"{meta.searchQuery}"</span>
-                            </div>
+                  <div id="section-risiko" className={`mb-4 ${highlightedSection === 'section-risiko' ? 'ring-2 ring-primary ring-offset-2 animate-pulse rounded-xl' : ''}`}>
+                    <div className="flex items-center gap-2 mb-3 mt-6">
+                      <AlertTriangle className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-lg font-bold text-gray-900">Risikoanalyse</h3>
+                    </div>
+                    <div className="bg-blue-50 rounded-xl border border-blue-100 overflow-hidden">
+                      <div className="p-4">
+                        <h4 className="text-sm font-semibold text-blue-800 flex items-center gap-2 mb-3">
+                          <Search className="w-4 h-4" />
+                          Konfliktanalyse
+                          {meta.conflictsCount !== undefined && (
+                            <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${meta.conflictsCount > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                              {meta.conflictsCount} Konflikte
+                            </span>
                           )}
-                          {meta.resultsCount !== undefined && (
-                            <div className="flex justify-between">
-                              <span className="text-blue-700">Ergebnisse analysiert:</span>
-                              <span className="font-medium text-blue-900">{meta.resultsCount}</span>
-                            </div>
-                          )}
-                          {meta.countries && meta.countries.length > 0 && (
-                            <div className="flex justify-between">
-                              <span className="text-blue-700">Länder:</span>
-                              <span className="font-medium text-blue-900">{meta.countries.join(", ")}</span>
-                            </div>
-                          )}
-                          {meta.classes && meta.classes.length > 0 && (
-                            <div className="flex justify-between">
-                              <span className="text-blue-700">Nizza-Klassen:</span>
-                              <span className="font-medium text-blue-900">{meta.classes.join(", ")}</span>
-                            </div>
-                          )}
-                          {rechercheStep.completedAt && (
-                            <div className="flex justify-between pt-2 border-t border-blue-200 mt-2">
-                              <span className="text-blue-700">Durchgeführt am:</span>
-                              <span className="font-medium text-blue-900">
-                                {new Date(rechercheStep.completedAt).toLocaleDateString("de-DE", {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {conflicts.length > 0 && (
-                          <div className="mt-4 pt-3 border-t border-blue-200">
-                            <h5 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
-                              <AlertTriangle className="w-4 h-4 text-red-500" />
-                              Gefundene Konflikte ({conflicts.length})
-                            </h5>
-                            <div className="space-y-2">
-                              {conflicts.map((conflict: ConflictMark, index: number) => (
-                                <ConflictCard
-                                  key={conflict.id || index}
-                                  conflict={conflict}
-                                  onShowDetail={setSelectedConflict}
-                                />
-                              ))}
-                            </div>
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="space-y-2 text-sm">
+                            {meta.searchQuery && (
+                              <div className="flex justify-between">
+                                <span className="text-blue-700">Suchbegriff:</span>
+                                <span className="font-medium text-blue-900">"{meta.searchQuery}"</span>
+                              </div>
+                            )}
+                            {meta.resultsCount !== undefined && (
+                              <div className="flex justify-between">
+                                <span className="text-blue-700">Ergebnisse analysiert:</span>
+                                <span className="font-medium text-blue-900">{meta.resultsCount}</span>
+                              </div>
+                            )}
+                            {meta.countries && meta.countries.length > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-blue-700">Länder:</span>
+                                <span className="font-medium text-blue-900">{meta.countries.join(", ")}</span>
+                              </div>
+                            )}
+                            {meta.classes && meta.classes.length > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-blue-700">Nizza-Klassen:</span>
+                                <span className="font-medium text-blue-900">{meta.classes.join(", ")}</span>
+                              </div>
+                            )}
+                            {rechercheStep.completedAt && (
+                              <div className="flex justify-between pt-2 border-t border-blue-200 mt-2">
+                                <span className="text-blue-700">Durchgeführt am:</span>
+                                <span className="font-medium text-blue-900">
+                                  {new Date(rechercheStep.completedAt).toLocaleDateString("de-DE", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                        )}
+                          
+                          {conflicts.length > 0 && (
+                            <div className="mt-4 pt-3 border-t border-blue-200">
+                              <h5 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4 text-red-500" />
+                                Gefundene Konflikte ({conflicts.length})
+                              </h5>
+                              <div className="space-y-2">
+                                {conflicts.map((conflict: ConflictMark, index: number) => (
+                                  <ConflictCard
+                                    key={conflict.id || index}
+                                    conflict={conflict}
+                                    onShowDetail={setSelectedConflict}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="mt-4 pt-3 border-t border-blue-200">
+                            <button
+                              onClick={() => setResetDialog({ isOpen: true, fromStep: "recherche" })}
+                              className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1.5 transition-colors"
+                            >
+                              <ArrowRight className="w-4 h-4 rotate-180" />
+                              Recherche erneut durchführen
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               })()}
@@ -869,6 +1012,14 @@ export default function ConsultationsModal({
           onClose={() => setSelectedConflict(null)} 
         />
       )}
+      
+      <ResetConfirmDialog
+        isOpen={resetDialog?.isOpen || false}
+        fromStep={resetDialog?.fromStep || ""}
+        onConfirm={handleResetSteps}
+        onCancel={() => setResetDialog(null)}
+        isLoading={isResetting}
+      />
     </div>
   );
 }
