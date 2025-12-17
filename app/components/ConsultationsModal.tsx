@@ -312,16 +312,6 @@ function ConflictCard({ conflict, onShowDetail }: ConflictCardProps) {
               <p className="mt-0.5 text-gray-700 bg-gray-50 p-2 rounded">{conflict.reasoning}</p>
             </div>
           )}
-          
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onShowDetail(conflict);
-            }}
-            className="w-full mt-2 px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-lg hover:bg-primary/20 transition-colors"
-          >
-            Vollständige Details anzeigen
-          </button>
         </div>
       )}
     </div>
@@ -435,6 +425,8 @@ interface StepBadgeProps {
   onNavigate?: (path: string) => void;
   onClose?: () => void;
   isBeratungIncomplete?: boolean;
+  onScrollToSection?: (sectionId: string) => void;
+  consultation?: Consultation;
 }
 
 const stepRoutes: Record<string, (caseId: string) => string> = {
@@ -452,12 +444,27 @@ const getSkipRoute = (step: string, caseId: string) => {
   return stepRoutes[step](caseId);
 };
 
-function StepBadge({ step, status, caseId, onNavigate, onClose, isBeratungIncomplete }: StepBadgeProps) {
-  const isClickable = status !== "pending" && caseId && onNavigate;
+const stepToSectionId: Record<string, string> = {
+  beratung: "section-beratung",
+  recherche: "section-recherche",
+  risikoanalyse: "section-risiko",
+};
+
+function StepBadge({ step, status, caseId, onNavigate, onClose, isBeratungIncomplete, onScrollToSection, consultation }: StepBadgeProps) {
+  const canScroll = status === "completed" && onScrollToSection && stepToSectionId[step];
+  const canNavigate = status !== "pending" && caseId && onNavigate;
+  const isClickable = caseId && (canScroll || canNavigate);
   
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isClickable || !caseId || !onNavigate) return;
+    if (!caseId || status === "pending") return;
+    
+    if (status === "completed" && onScrollToSection && stepToSectionId[step]) {
+      onScrollToSection(stepToSectionId[step]);
+      return;
+    }
+    
+    if (!onNavigate) return;
     
     onClose?.();
     
@@ -600,7 +607,7 @@ export default function ConsultationsModal({
                 </div>
               </div>
               {selectedConsultation.summary && (
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 mb-4">
+                <div id="section-beratung" className="bg-gray-50 rounded-xl p-4 border border-gray-100 mb-4">
                   <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                     <MessageSquare className="w-4 h-4" />
                     Beratungszusammenfassung
@@ -629,7 +636,7 @@ export default function ConsultationsModal({
               )}
 
               {(selectedConsultation.trademarkName || (selectedConsultation.countries && selectedConsultation.countries.length > 0) || (selectedConsultation.niceClasses && selectedConsultation.niceClasses.length > 0)) && (
-                <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 mb-4">
+                <div id="section-recherche" className="bg-teal-50 rounded-xl p-4 border border-teal-100 mb-4">
                   <h4 className="text-sm font-semibold text-teal-800 mb-3 flex items-center gap-2">
                     <Sparkles className="w-4 h-4" />
                     Extrahierte Informationen
@@ -663,14 +670,14 @@ export default function ConsultationsModal({
                 const meta = rechercheStep.metadata || {};
                 const conflicts = meta.conflicts || [];
                 return (
-                  <div className="bg-blue-50 rounded-xl border border-blue-100 mb-4 overflow-hidden">
+                  <div id="section-risiko" className="bg-blue-50 rounded-xl border border-blue-100 mb-4 overflow-hidden">
                     <button
                       onClick={() => setRechercheExpanded(!rechercheExpanded)}
                       className="w-full p-4 flex items-center justify-between hover:bg-blue-100/50 transition-colors"
                     >
                       <h4 className="text-sm font-semibold text-blue-800 flex items-center gap-2">
                         <Search className="w-4 h-4" />
-                        Recherche-Ergebnisse
+                        Konfliktanalyse
                         {meta.conflictsCount !== undefined && (
                           <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${meta.conflictsCount > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
                             {meta.conflictsCount} Konflikte
@@ -795,6 +802,13 @@ export default function ConsultationsModal({
                                 const isBeratungIncomplete = beratungStep?.status === "in_progress" || 
                                   (beratungStatus === "current" && consultation.extractedData && !(consultation.extractedData as any).isComplete);
                                 
+                                const handleScrollToSection = (sectionId: string) => {
+                                  setSelectedConsultation(consultation);
+                                  setTimeout(() => {
+                                    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                  }, 100);
+                                };
+                                
                                 return journeySteps.map((step) => {
                                   const status = getEnhancedStepStatus(consultation, step);
                                   return (
@@ -806,6 +820,8 @@ export default function ConsultationsModal({
                                       onNavigate={onNavigate}
                                       onClose={handleClose}
                                       isBeratungIncomplete={step === "beratung" ? isBeratungIncomplete : undefined}
+                                      onScrollToSection={handleScrollToSection}
+                                      consultation={consultation}
                                     />
                                   );
                                 });
