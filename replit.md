@@ -25,6 +25,8 @@ The application is built with Next.js 16 (App Router) and TypeScript, utilizing 
   - **Conversation Continuity**: When resuming an incomplete consultation, the assistant receives full context from prior sessions (summary, extracted data, missing fields)
   - **Automatic Decision Persistence**: Extracted trademark data (name, countries, Nice classes) is automatically saved to caseDecisions when consultations are saved. Follow-up consultations update existing decisions (upsert), and the case's updatedAt timestamp is refreshed to show when data was last modified.
   - **Research Prefill**: When navigating to Recherche, forms are automatically prefilled with consultation data; missing fields are highlighted with a link back to continue the consultation
+  - **Enhanced Case Detail Modal**: Clear section headers (Beratung, Recherche, Risikoanalyse) with icons, navigation chips for quick section jumping, highlight animation when scrolling, Konfliktanalyse always expanded
+  - **Step Reset Feature**: Users can redo Beratung (resets Beratung + Recherche + Risikoanalyse) or Recherche (resets Recherche + Risikoanalyse) with confirmation dialog showing affected steps, then redirects to appropriate page
 - **Markenrecherche**: AI-powered trademark search with `tmsearch.ai` integration, including accuracy scores, office badges, and detailed modals. Features include:
   - World-class international search strategy generation using Claude Opus 4.1
   - Multilingual phonetic analysis (EN, DE, FR, ES, ZH, JP, KR, AR)
