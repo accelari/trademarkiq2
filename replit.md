@@ -96,3 +96,20 @@ The database schema includes tables for `users`, `organizations`, `memberships`,
 - **Tailwind CSS**: For utility-first styling.
 - **Lucide React**: Icon library.
 - **Google Fonts (Open Sans)**: Typography.
+
+## Development Guidelines
+
+### AI Assistant Thinking Prompt
+Bei jeder Programmieranfrage sollte der KI-Assistent den **[Architect Thinking Prompt](docs/ai/architect-thinking-prompt.md)** verwenden. Dieser Prompt stellt sicher, dass:
+
+- Alle Benutzer-Szenarien durchdacht werden (Happy Path, Fehler, Leer, Abbruch)
+- Der Datenfluss vollständig analysiert wird
+- Randfälle identifiziert und behandelt werden
+- TrademarkIQ-spezifische Muster eingehalten werden (hasUnsavedData, Case-Lookup, Voice-Modus)
+
+### Häufige Fehlerquellen
+- **System-Notizen**: Werden nicht als "ungespeicherte Daten" gezählt (`type !== "system"`)
+- **Case-Lookup**: Muss sowohl UUID (`id`) als auch caseNumber (`TM-...`) unterstützen
+- **Hume Voice**: Niemals `connect()` im `useEffect` - nur auf User-Geste (Klick)
+- **Port 5000**: Einziger exponierter Port für Frontend im Replit-Iframe
+- **Consultations**: Chronologisch laden (`asc`) für Langzeit-Gedächtnis
