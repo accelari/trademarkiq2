@@ -18,9 +18,13 @@ export async function POST(
     const body = await request.json();
     const { step, status, metadata } = body;
 
+    // Support both UUID (id) and caseNumber (TM-YYYYMMDD-XXXXXX)
     const caseRecord = await db.query.trademarkCases.findFirst({
       where: and(
-        eq(trademarkCases.id, caseId),
+        or(
+          eq(trademarkCases.id, caseId),
+          eq(trademarkCases.caseNumber, caseId)
+        ),
         eq(trademarkCases.userId, session.user.id)
       ),
       with: {
