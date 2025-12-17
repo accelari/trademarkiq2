@@ -680,31 +680,44 @@ export default function ConsultationsModal({
               <X className="w-6 h-6" />
             </button>
           </div>
-          {selectedConsultation && (
-            <div className="mt-4 pt-4 border-t border-white/20 flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setSelectedConsultation(null)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-white/20 text-white hover:bg-white/30 transition-colors"
-              >
-                ← Zurück zur Liste
-              </button>
-              <div className="h-5 w-px bg-white/30 mx-1 hidden sm:block" />
-              {[
-                { id: "section-beratung", label: "Beratung", icon: MessageCircle },
-                { id: "section-recherche", label: "Recherche", icon: Search },
-                { id: "section-risiko", label: "Risikoanalyse", icon: AlertTriangle },
-              ].map(({ id, label, icon: Icon }) => (
+          {selectedConsultation && (() => {
+            const hasBeratung = !!selectedConsultation.summary;
+            const hasRecherche = !!(selectedConsultation.trademarkName || (selectedConsultation.countries && selectedConsultation.countries.length > 0) || (selectedConsultation.niceClasses && selectedConsultation.niceClasses.length > 0));
+            const rechercheStep = selectedConsultation.caseSteps?.find(s => s.step === "recherche" && (s.status === "completed" || s.completedAt));
+            const hasRisiko = !!rechercheStep;
+            
+            const availableChips = [
+              hasBeratung && { id: "section-beratung", label: "Beratung", icon: MessageCircle },
+              hasRecherche && { id: "section-recherche", label: "Recherche", icon: Search },
+              hasRisiko && { id: "section-risiko", label: "Risikoanalyse", icon: AlertTriangle },
+            ].filter(Boolean) as { id: string; label: string; icon: typeof MessageCircle }[];
+            
+            return (
+              <div className="mt-4 pt-4 border-t border-white/20 flex flex-wrap items-center gap-2">
                 <button
-                  key={id}
-                  onClick={() => handleScrollToSection(id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${highlightedSection === id ? 'bg-white text-primary' : 'bg-white/20 text-white hover:bg-white/30'}`}
+                  onClick={() => setSelectedConsultation(null)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-white/20 text-white hover:bg-white/30 transition-colors"
                 >
-                  <Icon className="w-4 h-4" />
-                  {label}
+                  ← Zurück zur Liste
                 </button>
-              ))}
-            </div>
-          )}
+                {availableChips.length > 0 && (
+                  <>
+                    <div className="h-5 w-px bg-white/30 mx-1 hidden sm:block" />
+                    {availableChips.map(({ id, label, icon: Icon }) => (
+                      <button
+                        key={id}
+                        onClick={() => handleScrollToSection(id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${highlightedSection === id ? 'bg-white text-primary' : 'bg-white/20 text-white hover:bg-white/30'}`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {label}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -757,7 +770,7 @@ export default function ConsultationsModal({
                   <div className="mt-4 pt-3 border-t border-gray-200">
                     <button
                       onClick={() => setResetDialog({ isOpen: true, fromStep: "beratung" })}
-                      className="text-sm text-primary hover:text-primary/80 flex items-center gap-1.5 transition-colors"
+                      className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
                     >
                       <ArrowRight className="w-4 h-4 rotate-180" />
                       Beratung erneut durchführen
@@ -886,7 +899,7 @@ export default function ConsultationsModal({
                           <div className="mt-4 pt-3 border-t border-blue-200">
                             <button
                               onClick={() => setResetDialog({ isOpen: true, fromStep: "recherche" })}
-                              className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1.5 transition-colors"
+                              className="px-4 py-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
                             >
                               <ArrowRight className="w-4 h-4 rotate-180" />
                               Recherche erneut durchführen
