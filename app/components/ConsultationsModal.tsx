@@ -386,14 +386,13 @@ const formatDate = (dateString: string) => {
   });
 };
 
-type StepStatusType = "completed" | "in_progress" | "skipped" | "pending" | "current";
+type StepStatusType = "completed" | "current" | "skipped" | "pending";
 
 const getStepStatus = (consultation: Consultation, stepName: string): StepStatusType => {
   const step = consultation.caseSteps?.find(s => s.step === stepName);
   if (!step) return "pending";
   if (step.skippedAt || step.status === "skipped") return "skipped";
   if (step.completedAt || step.status === "completed") return "completed";
-  if (step.status === "in_progress") return "in_progress";
   return "pending";
 };
 
@@ -414,7 +413,7 @@ const getEnhancedStepStatus = (consultation: Consultation, stepName: string): St
   const stepIndex = journeySteps.indexOf(stepName);
   
   if (stepIndex === currentStepIndex) {
-    return baseStatus === "in_progress" ? "in_progress" : "current";
+    return "current";
   }
   
   return "pending";
@@ -434,6 +433,13 @@ interface StepBadgeProps {
   status: StepStatusType;
 }
 
+const statusTooltips: Record<StepStatusType, string> = {
+  completed: "Erledigt",
+  current: "Nächster Schritt",
+  skipped: "Übersprungen – können Sie nachholen",
+  pending: "Kommt später",
+};
+
 function StepBadge({ step, status }: StepBadgeProps) {
   const getStyles = () => {
     switch (status) {
@@ -441,11 +447,6 @@ function StepBadge({ step, status }: StepBadgeProps) {
         return {
           container: "bg-primary text-white border-primary",
           icon: <Check className="w-3 h-3" />,
-        };
-      case "in_progress":
-        return {
-          container: "bg-primary/10 text-primary border-primary/30",
-          icon: <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />,
         };
       case "current":
         return {
@@ -470,7 +471,8 @@ function StepBadge({ step, status }: StepBadgeProps) {
 
   return (
     <div
-      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border ${styles.container}`}
+      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border cursor-default ${styles.container}`}
+      title={statusTooltips[status]}
     >
       {styles.icon}
       <span>{stepLabels[step]}</span>
@@ -777,8 +779,10 @@ export default function ConsultationsModal({
                                 watchlist: `/dashboard/watchlist?caseId=${consultation.caseId}`,
                               };
                               
-                              const beratungInProgress = beratungStatus === "in_progress";
                               const beratungSkipped = beratungStatus === "skipped";
+                              const beratungStep = consultation.caseSteps?.find(s => s.step === "beratung");
+                              const beratungStartedButNotComplete = beratungStep?.status === "in_progress" || 
+                                (beratungStatus === "current" && consultation.extractedData && !(consultation.extractedData as any).isComplete);
                               
                               return (
                                 <>
@@ -794,7 +798,7 @@ export default function ConsultationsModal({
                                       Beratung nachholen
                                     </button>
                                   )}
-                                  {beratungInProgress && (
+                                  {beratungStartedButNotComplete && (
                                     <button
                                       onClick={() => {
                                         handleClose();
