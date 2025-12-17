@@ -20,6 +20,8 @@ The application is built with Next.js 16 (App Router) and TypeScript, utilizing 
 
 ### Key Features
 - **Markenberatung (Voice CoPilot)**: AI-powered voice/text assistant (Hume AI + Claude). Always-on session tracking with timer. "Meine Markenfälle" popup accessible from multiple pages to view/manage all trademark cases. AI-generated summaries with Markdown formatting. One-click save functionality.
+  - **Long-term Memory**: Klaus remembers ALL previous consultations across multiple sessions. When resuming, he has full chronological context of prior conversations with session numbers and dates, enabling seamless continuity like a living assistant.
+  - **Welcome Banner**: When resuming a case, displays session count, known trademark info (name, countries, Nice classes), and highlights missing information with a dismiss button.
   - **Conversation Continuity**: When resuming an incomplete consultation, the assistant receives full context from prior sessions (summary, extracted data, missing fields)
   - **Automatic Decision Persistence**: Extracted trademark data (name, countries, Nice classes) is automatically saved to caseDecisions when consultations are saved. Follow-up consultations update existing decisions (upsert), and the case's updatedAt timestamp is refreshed to show when data was last modified.
   - **Research Prefill**: When navigating to Recherche, forms are automatically prefilled with consultation data; missing fields are highlighted with a link back to continue the consultation
