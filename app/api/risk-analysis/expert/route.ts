@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { trademarkCases, caseSteps } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { NICE_CLASSES } from "@/lib/nice-classes";
 
@@ -345,7 +345,10 @@ export async function POST(request: NextRequest) {
 
     const existingCase = await db.query.trademarkCases.findFirst({
       where: and(
-        eq(trademarkCases.id, caseId),
+        or(
+          eq(trademarkCases.id, caseId),
+          eq(trademarkCases.caseNumber, caseId)
+        ),
         eq(trademarkCases.userId, session.user.id)
       ),
       with: {
@@ -355,8 +358,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (!existingCase) {
+      console.error(`[risk-analysis/expert] Case not found: caseId=${caseId}, userId=${session.user.id}`);
       return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
     }
+    
+    console.log(`[risk-analysis/expert] Found case: id=${existingCase.id}, caseNumber=${existingCase.caseNumber}`);
+    console.log(`[risk-analysis/expert] Case has ${existingCase.steps?.length || 0} steps and ${existingCase.decisions?.length || 0} decisions`);
 
     const rechercheStep = existingCase.steps?.find(s => s.step === "recherche");
     
