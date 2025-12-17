@@ -103,6 +103,7 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
   const [manualNiceClasses, setManualNiceClasses] = useState("");
   const [manualCountriesText, setManualCountriesText] = useState("");
   const [contextMessage, setContextMessage] = useState<string | null>(null);
+  const [caseMemory, setCaseMemory] = useState<string | null>(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [catchUpCaseId, setCatchUpCaseId] = useState<string | null>(null);
@@ -374,125 +375,151 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     }
     if (caseToResume) {
       setCatchUpCaseId(caseToResume);
-      fetch(`/api/cases/${caseToResume}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.case) {
-            const allConsultations = data.case.consultations || [];
-            const latestConsultation = allConsultations[allConsultations.length - 1];
-            
-            let mergedCountries: string[] = [];
-            let mergedNiceClasses: number[] = [];
-            let allSummaries: { date: string; summary: string }[] = [];
-            
-            allConsultations.forEach((consultation: any) => {
-              const extracted = consultation.extractedData as {
-                trademarkName?: string;
-                countries?: string[];
-                niceClasses?: number[];
-              } | undefined;
-              
-              if (extracted?.countries) {
-                mergedCountries = [...new Set([...mergedCountries, ...extracted.countries])];
-              }
-              if (extracted?.niceClasses) {
-                mergedNiceClasses = [...new Set([...mergedNiceClasses, ...extracted.niceClasses])];
-              }
-              if (consultation.summary) {
-                const consultationDate = new Date(consultation.createdAt).toLocaleDateString("de-DE", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric"
-                });
-                allSummaries.push({ date: consultationDate, summary: consultation.summary });
-              }
-            });
-            
-            const latestExtracted = latestConsultation?.extractedData as {
+      
+      const loadCaseData = async () => {
+        try {
+          const caseRes = await fetch(`/api/cases/${caseToResume}`);
+          const data = await caseRes.json();
+          
+          if (!data.case) return;
+          
+          const allConsultations = data.case.consultations || [];
+          const latestConsultation = allConsultations[allConsultations.length - 1];
+          
+          let mergedCountries: string[] = [];
+          let mergedNiceClasses: number[] = [];
+          let allSummaries: { date: string; summary: string }[] = [];
+          
+          allConsultations.forEach((consultation: any) => {
+            const extracted = consultation.extractedData as {
               trademarkName?: string;
               countries?: string[];
               niceClasses?: number[];
             } | undefined;
             
-            const trademarkName = data.case.trademarkName || latestExtracted?.trademarkName || "Unbekannt";
-            const countries = mergedCountries.length > 0 ? mergedCountries : (latestExtracted?.countries || []);
-            const niceClasses = mergedNiceClasses.length > 0 ? mergedNiceClasses : (latestExtracted?.niceClasses || []);
-            
-            setCatchUpCaseInfo({
-              caseNumber: data.case.caseNumber,
-              trademarkName,
-              previousSummary: allSummaries.map(s => `[${s.date}] ${s.summary}`).join("\n\n"),
-              extractedData: {
-                trademarkName: data.case.trademarkName || latestExtracted?.trademarkName,
-                countries,
-                niceClasses,
-              }
-            });
-            
-            const missingInfo: string[] = [];
-            const hasTrademarkName = data.case.trademarkName || latestExtracted?.trademarkName;
-            if (!hasTrademarkName) missingInfo.push("Markenname");
-            if (!countries.length) missingInfo.push("Zielländer");
-            if (!niceClasses.length) missingInfo.push("Nizza-Klassen");
-            
-            let systemContext = `[SYSTEM-KONTEXT]
+            if (extracted?.countries) {
+              mergedCountries = [...new Set([...mergedCountries, ...extracted.countries])];
+            }
+            if (extracted?.niceClasses) {
+              mergedNiceClasses = [...new Set([...mergedNiceClasses, ...extracted.niceClasses])];
+            }
+            if (consultation.summary) {
+              const consultationDate = new Date(consultation.createdAt).toLocaleDateString("de-DE", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric"
+              });
+              allSummaries.push({ date: consultationDate, summary: consultation.summary });
+            }
+          });
+          
+          const latestExtracted = latestConsultation?.extractedData as {
+            trademarkName?: string;
+            countries?: string[];
+            niceClasses?: number[];
+          } | undefined;
+          
+          const trademarkName = data.case.trademarkName || latestExtracted?.trademarkName || "Unbekannt";
+          const countries = mergedCountries.length > 0 ? mergedCountries : (latestExtracted?.countries || []);
+          const niceClasses = mergedNiceClasses.length > 0 ? mergedNiceClasses : (latestExtracted?.niceClasses || []);
+          
+          setCatchUpCaseInfo({
+            caseNumber: data.case.caseNumber,
+            trademarkName,
+            previousSummary: allSummaries.map(s => `[${s.date}] ${s.summary}`).join("\n\n"),
+            extractedData: {
+              trademarkName: data.case.trademarkName || latestExtracted?.trademarkName,
+              countries,
+              niceClasses,
+            }
+          });
+          
+          const missingInfo: string[] = [];
+          const hasTrademarkName = data.case.trademarkName || latestExtracted?.trademarkName;
+          if (!hasTrademarkName) missingInfo.push("Markenname");
+          if (!countries.length) missingInfo.push("Zielländer");
+          if (!niceClasses.length) missingInfo.push("Nizza-Klassen");
+          
+          let systemContext = `[SYSTEM-KONTEXT]
 Dies ist eine Fortsetzung einer Beratung für Fall ${data.case.caseNumber}.
 Der Kunde hat bereits ${allConsultations.length} Beratungssession(s) mit dir geführt.`;
 
-            if (allSummaries.length > 0) {
-              systemContext += `
+          if (allSummaries.length > 0) {
+            systemContext += `
 
 GESPRÄCHSVERLAUF (chronologisch):`;
-              allSummaries.forEach((s, i) => {
-                systemContext += `
+            allSummaries.forEach((s, i) => {
+              systemContext += `
 
 --- Session ${i + 1} (${s.date}) ---
 ${s.summary}`;
-              });
-            }
-
-            const knownTrademarkName = data.case.trademarkName || latestExtracted?.trademarkName;
-            console.log("[CopilotClient] resumeCase context:", {
-              totalSessions: allConsultations.length,
-              caseTrademarkName: data.case.trademarkName,
-              knownTrademarkName,
-              countries,
-              niceClasses
             });
-            
-            systemContext += `
+          }
+
+          const knownTrademarkName = data.case.trademarkName || latestExtracted?.trademarkName;
+          console.log("[CopilotClient] resumeCase context:", {
+            totalSessions: allConsultations.length,
+            caseTrademarkName: data.case.trademarkName,
+            knownTrademarkName,
+            countries,
+            niceClasses
+          });
+          
+          systemContext += `
 
 AKTUELLER STAND:
 - Markenname: ${knownTrademarkName || "(noch nicht festgelegt)"}
 - Länder: ${countries.length > 0 ? countries.join(", ") : "(noch nicht festgelegt)"}
 - Nizza-Klassen: ${niceClasses.length > 0 ? niceClasses.join(", ") : "(noch nicht festgelegt)"}`;
 
-            if (missingInfo.length > 0) {
-              systemContext += `
+          if (missingInfo.length > 0) {
+            systemContext += `
 
 FEHLENDE INFORMATIONEN:
 ${missingInfo.map(info => `- ${info} muss noch bestimmt werden`).join("\n")}
 
 Bitte begrüße den Kunden herzlich zurück und fasse kurz zusammen, was ihr bereits besprochen habt. Hilf dann, die fehlenden Informationen zu ergänzen.`;
-            } else {
-              systemContext += `
+          } else {
+            systemContext += `
 
 Alle wichtigen Informationen sind bereits vorhanden. Begrüße den Kunden herzlich zurück, fasse kurz zusammen was ihr besprochen habt, und frage ob er zur Recherche fortfahren oder weitere Details besprechen möchte.`;
-            }
-            
-            setContextMessage(systemContext);
-            
-            setWelcomeMessage({
-              caseNumber: data.case.caseNumber,
-              trademarkName: knownTrademarkName || null,
-              sessionCount: allConsultations.length,
-              countries,
-              niceClasses,
-              missingInfo
-            });
           }
-        })
-        .catch(err => console.error("Error fetching case info:", err));
+          
+          // Fetch case memory from the memory API
+          try {
+            const memoryRes = await fetch(`/api/cases/${caseToResume}/memory`);
+            const memoryData = await memoryRes.json();
+            console.log("[CopilotClient] Case Memory loaded:", !!memoryData.memory?.promptForAgent);
+            
+            if (memoryData.memory?.promptForAgent) {
+              setCaseMemory(memoryData.memory.promptForAgent);
+              // Append memory to system context
+              systemContext += `
+
+---
+
+${memoryData.memory.promptForAgent}`;
+            }
+          } catch (memoryErr) {
+            console.error("[CopilotClient] Error fetching case memory:", memoryErr);
+          }
+          
+          setContextMessage(systemContext);
+          
+          setWelcomeMessage({
+            caseNumber: data.case.caseNumber,
+            trademarkName: knownTrademarkName || null,
+            sessionCount: allConsultations.length,
+            countries,
+            niceClasses,
+            missingInfo
+          });
+        } catch (err) {
+          console.error("Error fetching case info:", err);
+        }
+      };
+      
+      loadCaseData();
     }
   }, [searchParams]);
 
