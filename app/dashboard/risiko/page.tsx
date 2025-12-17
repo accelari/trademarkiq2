@@ -867,12 +867,14 @@ function RisikoPageContent() {
   useEffect(() => {
     const loadToken = async () => {
       setIsLoadingToken(true);
+      console.log("[Risiko] Loading Hume token...");
       try {
         const res = await fetch("/api/token");
         const data = await res.json();
+        console.log("[Risiko] Token loaded:", data.accessToken ? "OK" : "FAILED");
         setAccessToken(data.accessToken);
       } catch (e) {
-        console.error("Token error:", e);
+        console.error("[Risiko] Token error:", e);
       } finally {
         setIsLoadingToken(false);
       }
@@ -881,13 +883,29 @@ function RisikoPageContent() {
   }, []);
   
   useEffect(() => {
+    console.log("[Risiko] Auto-start check:", { 
+      hasExpertAnalysis: !!expertAnalysis, 
+      hasToken: !!accessToken, 
+      isLoadingToken,
+      conflictCount: expertAnalysis?.conflictAnalyses?.length || 0
+    });
     if (expertAnalysis && accessToken && !isLoadingToken) {
+      console.log("[Risiko] Setting autoStartVoice = true");
       setAutoStartVoice(true);
     }
   }, [expertAnalysis, accessToken, isLoadingToken]);
   
   const generateAdvisorPrompt = (includeCurrentSession: boolean = false): string | null => {
-    if (!expertAnalysis) return null;
+    console.log("[Risiko] generateAdvisorPrompt called:", { 
+      hasExpertAnalysis: !!expertAnalysis, 
+      includeCurrentSession,
+      markenname,
+      conflictCount: expertAnalysis?.conflictAnalyses?.length || 0
+    });
+    if (!expertAnalysis) {
+      console.log("[Risiko] No expertAnalysis - returning null");
+      return null;
+    }
     
     const conflicts = expertAnalysis.conflictAnalyses || [];
     
