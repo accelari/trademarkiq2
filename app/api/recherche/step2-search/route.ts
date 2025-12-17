@@ -50,6 +50,13 @@ export async function POST(request: NextRequest) {
         if (searchResult.results?.length > 0) {
           const officesFound = [...new Set(searchResult.results.map(r => r.office))];
           console.log(`  Offices in results: ${officesFound.join(", ")}`);
+          const sampleResults = searchResult.results.slice(0, 5).map(r => ({
+            name: r.name,
+            mid: r.mid,
+            niceClasses: r.niceClasses,
+            accuracy: r.accuracy
+          }));
+          console.log(`  [DEBUG] Sample results with classes:`, JSON.stringify(sampleResults, null, 2));
         }
         
         if (searchResult.results) {

@@ -513,6 +513,12 @@ export async function POST(request: NextRequest) {
     let filteredResults = results;
     const totalFoundResults = results.length;
     
+    const resultsWithNoClasses = results.filter((r: any) => !r.niceClasses || r.niceClasses.length === 0);
+    console.log(`Results with empty/missing niceClasses: ${resultsWithNoClasses.length} of ${results.length}`);
+    if (resultsWithNoClasses.length > 0 && resultsWithNoClasses.length <= 10) {
+      console.log(`  Names without classes: ${resultsWithNoClasses.map((r: any) => r.name).join(", ")}`);
+    }
+    
     if (!extendedClassSearch && selectedKlassen.length > 0) {
       filteredResults = results.filter((r: any) => {
         if (!r.niceClasses || r.niceClasses.length === 0) return true;
