@@ -28,6 +28,10 @@ Deine Aufgabe ist es, aus dem Gesprächsprotokoll folgende Informationen zu extr
 2. NIZZA-KLASSEN: Die relevanten Nizza-Klassifikationen (Nummern 1-45)
 3. ZIELLÄNDER: Die Länder/Regionen für die Markenanmeldung
 
+WICHTIG FÜR NIZZA-KLASSEN:
+- Wenn der Kunde "alle Klassen", "allen Klassen", "sämtliche Klassen", "jede Klasse" oder "in allen Bereichen" sagt, gib ALLE 45 Klassen zurück: ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45"]
+- Achte genau auf diese Formulierungen im Gespräch!
+
 WICHTIG - UNTERSCHEIDE ZWISCHEN:
 - "confirmedCountries": Länder die der KUNDE explizit genannt/bestätigt hat (z.B. "Ich möchte in Deutschland anmelden")
 - "suggestedCountries": Länder die der BERATER vorgeschlagen hat, aber vom Kunden NICHT bestätigt wurden
