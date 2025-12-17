@@ -2747,7 +2747,7 @@ export default function RecherchePage() {
                   onClearAll={() => setAiSelectedClasses([])}
                 />
                 
-                {aiSelectedClasses.length > 0 && (
+                {aiSelectedClasses.length > 0 && aiSelectedClasses.length < NICE_CLASSES.length && (
                   <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <label className="flex items-start gap-3 cursor-pointer">
                       <input
