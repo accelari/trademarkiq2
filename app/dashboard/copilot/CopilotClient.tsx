@@ -122,6 +122,14 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     caseId: string | null;
     caseNumber: string | null;
   } | null>(null);
+  const [welcomeMessage, setWelcomeMessage] = useState<{
+    caseNumber: string;
+    trademarkName: string | null;
+    sessionCount: number;
+    countries: string[];
+    niceClasses: number[];
+    missingInfo: string[];
+  } | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const meetingNotesRef = useRef<MeetingNote[]>([]);
   const inputModeRef = useRef<"sprache" | "text">("sprache");
@@ -130,7 +138,8 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  const hasUnsavedData = meetingNotes.length > 1 && !savedSuccessfully && !sessionAnalyzed;
+  const userNotes = meetingNotes.filter(n => n.type !== "system");
+  const hasUnsavedData = userNotes.length > 0 && !savedSuccessfully && !sessionAnalyzed;
 
   // Global UnsavedDataContext integration for sidebar navigation interception
   const { 
@@ -142,9 +151,9 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
   // Register ref-based check function for real-time detection (fixes race condition)
   useEffect(() => {
     const checkUnsavedData = () => {
-      const hasNotes = meetingNotesRef.current.length > 1;
-      console.log("[CopilotClient] Ref check - meetingNotesRef.length:", meetingNotesRef.current.length, "| hasNotes:", hasNotes);
-      return hasNotes && !savedSuccessfully && !sessionAnalyzed;
+      const userNotesInRef = meetingNotesRef.current.filter(n => n.type !== "system");
+      console.log("[CopilotClient] Ref check - userNotes:", userNotesInRef.length, "| total:", meetingNotesRef.current.length);
+      return userNotesInRef.length > 0 && !savedSuccessfully && !sessionAnalyzed;
     };
     setCheckUnsavedDataRef(checkUnsavedData);
     return () => setCheckUnsavedDataRef(null);
@@ -353,6 +362,9 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     const prompt = searchParams.get("prompt");
     const showConsultations = searchParams.get("consultations");
     const catchUpCase = searchParams.get("catchUpCase");
+    const resumeCase = searchParams.get("resumeCase");
+    const caseToResume = catchUpCase || resumeCase;
+    
     if (topic) {
       setContextTopic(topic);
       setContextPrompt(prompt ? decodeURIComponent(prompt) : null);
@@ -360,55 +372,89 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     if (showConsultations === "true") {
       setShowConsultationsModal(true);
     }
-    if (catchUpCase) {
-      setCatchUpCaseId(catchUpCase);
-      fetch(`/api/cases/${catchUpCase}`)
+    if (caseToResume) {
+      setCatchUpCaseId(caseToResume);
+      fetch(`/api/cases/${caseToResume}`)
         .then(res => res.json())
         .then(data => {
           if (data.case) {
-            const lastConsultation = data.case.consultations?.[0];
-            const extractedData = lastConsultation?.extractedData as {
+            const allConsultations = data.case.consultations || [];
+            const latestConsultation = allConsultations[allConsultations.length - 1];
+            
+            let mergedCountries: string[] = [];
+            let mergedNiceClasses: number[] = [];
+            let allSummaries: { date: string; summary: string }[] = [];
+            
+            allConsultations.forEach((consultation: any) => {
+              const extracted = consultation.extractedData as {
+                trademarkName?: string;
+                countries?: string[];
+                niceClasses?: number[];
+              } | undefined;
+              
+              if (extracted?.countries) {
+                mergedCountries = [...new Set([...mergedCountries, ...extracted.countries])];
+              }
+              if (extracted?.niceClasses) {
+                mergedNiceClasses = [...new Set([...mergedNiceClasses, ...extracted.niceClasses])];
+              }
+              if (consultation.summary) {
+                const consultationDate = new Date(consultation.createdAt).toLocaleDateString("de-DE", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric"
+                });
+                allSummaries.push({ date: consultationDate, summary: consultation.summary });
+              }
+            });
+            
+            const latestExtracted = latestConsultation?.extractedData as {
               trademarkName?: string;
               countries?: string[];
               niceClasses?: number[];
             } | undefined;
             
-            const trademarkName = data.case.trademarkName || extractedData?.trademarkName || "Unbekannt";
-            const countries = extractedData?.countries || [];
-            const niceClasses = extractedData?.niceClasses || [];
-            const previousSummary = lastConsultation?.summary || "";
+            const trademarkName = data.case.trademarkName || latestExtracted?.trademarkName || "Unbekannt";
+            const countries = mergedCountries.length > 0 ? mergedCountries : (latestExtracted?.countries || []);
+            const niceClasses = mergedNiceClasses.length > 0 ? mergedNiceClasses : (latestExtracted?.niceClasses || []);
             
             setCatchUpCaseInfo({
               caseNumber: data.case.caseNumber,
               trademarkName,
-              previousSummary,
+              previousSummary: allSummaries.map(s => `[${s.date}] ${s.summary}`).join("\n\n"),
               extractedData: {
-                trademarkName: data.case.trademarkName || extractedData?.trademarkName,
+                trademarkName: data.case.trademarkName || latestExtracted?.trademarkName,
                 countries,
                 niceClasses,
               }
             });
             
             const missingInfo: string[] = [];
-            const hasTrademarkName = data.case.trademarkName || extractedData?.trademarkName;
+            const hasTrademarkName = data.case.trademarkName || latestExtracted?.trademarkName;
             if (!hasTrademarkName) missingInfo.push("Markenname");
             if (!countries.length) missingInfo.push("Zielländer");
             if (!niceClasses.length) missingInfo.push("Nizza-Klassen");
             
             let systemContext = `[SYSTEM-KONTEXT]
-Dies ist eine Fortsetzung einer vorherigen Beratung für Fall ${data.case.caseNumber}.`;
+Dies ist eine Fortsetzung einer Beratung für Fall ${data.case.caseNumber}.
+Der Kunde hat bereits ${allConsultations.length} Beratungssession(s) mit dir geführt.`;
 
-            if (previousSummary) {
+            if (allSummaries.length > 0) {
               systemContext += `
 
-VORHERIGE BERATUNG:
-${previousSummary}`;
+GESPRÄCHSVERLAUF (chronologisch):`;
+              allSummaries.forEach((s, i) => {
+                systemContext += `
+
+--- Session ${i + 1} (${s.date}) ---
+${s.summary}`;
+              });
             }
 
-            const knownTrademarkName = data.case.trademarkName || extractedData?.trademarkName;
-            console.log("[CopilotClient] catchUpCase context:", {
+            const knownTrademarkName = data.case.trademarkName || latestExtracted?.trademarkName;
+            console.log("[CopilotClient] resumeCase context:", {
+              totalSessions: allConsultations.length,
               caseTrademarkName: data.case.trademarkName,
-              extractedTrademarkName: extractedData?.trademarkName,
               knownTrademarkName,
               countries,
               niceClasses
@@ -416,7 +462,7 @@ ${previousSummary}`;
             
             systemContext += `
 
-BEREITS BEKANNT:
+AKTUELLER STAND:
 - Markenname: ${knownTrademarkName || "(noch nicht festgelegt)"}
 - Länder: ${countries.length > 0 ? countries.join(", ") : "(noch nicht festgelegt)"}
 - Nizza-Klassen: ${niceClasses.length > 0 ? niceClasses.join(", ") : "(noch nicht festgelegt)"}`;
@@ -427,14 +473,23 @@ BEREITS BEKANNT:
 FEHLENDE INFORMATIONEN:
 ${missingInfo.map(info => `- ${info} muss noch bestimmt werden`).join("\n")}
 
-Bitte führe das Gespräch fort und hilf dem Kunden, die fehlenden Informationen zu ergänzen.`;
+Bitte begrüße den Kunden herzlich zurück und fasse kurz zusammen, was ihr bereits besprochen habt. Hilf dann, die fehlenden Informationen zu ergänzen.`;
             } else {
               systemContext += `
 
-Alle wichtigen Informationen sind bereits vorhanden. Der Kunde kann zur Recherche fortfahren oder weitere Details besprechen.`;
+Alle wichtigen Informationen sind bereits vorhanden. Begrüße den Kunden herzlich zurück, fasse kurz zusammen was ihr besprochen habt, und frage ob er zur Recherche fortfahren oder weitere Details besprechen möchte.`;
             }
             
             setContextMessage(systemContext);
+            
+            setWelcomeMessage({
+              caseNumber: data.case.caseNumber,
+              trademarkName: knownTrademarkName || null,
+              sessionCount: allConsultations.length,
+              countries,
+              niceClasses,
+              missingInfo
+            });
           }
         })
         .catch(err => console.error("Error fetching case info:", err));
@@ -1460,6 +1515,64 @@ ${notesText}`,
           </div>
         )}
       </div>
+
+      {welcomeMessage && (
+        <div className="mb-6 bg-gradient-to-r from-primary/5 to-teal-50 border border-primary/20 rounded-2xl p-5 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+              <MessageCircle className="w-6 h-6 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900 mb-1">
+                Willkommen zurück! 👋
+              </h3>
+              <p className="text-sm text-gray-600 mb-3">
+                {welcomeMessage.sessionCount === 1 
+                  ? `Sie setzen Ihre Beratung für Fall ${welcomeMessage.caseNumber} fort.`
+                  : `Sie haben bereits ${welcomeMessage.sessionCount} Gespräche zu Fall ${welcomeMessage.caseNumber} geführt.`
+                }
+              </p>
+              
+              <div className="bg-white rounded-xl p-4 border border-gray-100 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-500 block text-xs mb-1">Markenname</span>
+                    <span className={`font-medium ${welcomeMessage.trademarkName ? 'text-gray-900' : 'text-amber-600'}`}>
+                      {welcomeMessage.trademarkName || "Noch offen"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block text-xs mb-1">Länder</span>
+                    <span className={`font-medium ${welcomeMessage.countries.length > 0 ? 'text-gray-900' : 'text-amber-600'}`}>
+                      {welcomeMessage.countries.length > 0 ? welcomeMessage.countries.join(", ") : "Noch offen"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block text-xs mb-1">Nizza-Klassen</span>
+                    <span className={`font-medium ${welcomeMessage.niceClasses.length > 0 ? 'text-gray-900' : 'text-amber-600'}`}>
+                      {welcomeMessage.niceClasses.length > 0 ? welcomeMessage.niceClasses.join(", ") : "Noch offen"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {welcomeMessage.missingInfo.length > 0 && (
+                <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+                  <AlertTriangle className="w-4 h-4 inline mr-1" />
+                  Noch zu klären: {welcomeMessage.missingInfo.join(", ")}
+                </p>
+              )}
+              
+              <button
+                onClick={() => setWelcomeMessage(null)}
+                className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
+              >
+                Verstanden, Beratung starten →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         <div className="lg:col-span-2 order-1">

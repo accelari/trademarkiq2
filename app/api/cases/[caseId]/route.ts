@@ -28,23 +28,26 @@ export async function GET(
 
     let caseData;
     
+    const queryOptions = {
+      with: {
+        steps: true,
+        decisions: true,
+        events: {
+          orderBy: (events: any, { desc }: any) => [desc(events.createdAt)],
+        },
+        consultations: {
+          orderBy: (consultations: any, { asc }: any) => [asc(consultations.createdAt)],
+        },
+      },
+    };
+
     if (isUUID(caseId)) {
       caseData = await db.query.trademarkCases.findFirst({
         where: and(
           eq(trademarkCases.id, caseId),
           eq(trademarkCases.userId, session.user.id)
         ),
-        with: {
-          steps: true,
-          decisions: true,
-          events: {
-            orderBy: (events, { desc }) => [desc(events.createdAt)],
-          },
-          consultations: {
-            orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
-            limit: 1,
-          },
-        },
+        ...queryOptions,
       });
     } else if (isCaseNumber(caseId)) {
       caseData = await db.query.trademarkCases.findFirst({
@@ -52,17 +55,7 @@ export async function GET(
           eq(trademarkCases.caseNumber, caseId),
           eq(trademarkCases.userId, session.user.id)
         ),
-        with: {
-          steps: true,
-          decisions: true,
-          events: {
-            orderBy: (events, { desc }) => [desc(events.createdAt)],
-          },
-          consultations: {
-            orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
-            limit: 1,
-          },
-        },
+        ...queryOptions,
       });
     } else {
       caseData = await db.query.trademarkCases.findFirst({
@@ -73,17 +66,7 @@ export async function GET(
           ),
           eq(trademarkCases.userId, session.user.id)
         ),
-        with: {
-          steps: true,
-          decisions: true,
-          events: {
-            orderBy: (events, { desc }) => [desc(events.createdAt)],
-          },
-          consultations: {
-            orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
-            limit: 1,
-          },
-        },
+        ...queryOptions,
       });
     }
 
