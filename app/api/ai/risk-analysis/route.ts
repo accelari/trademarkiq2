@@ -111,7 +111,8 @@ async function performMultiDimensionalAnalysis(
 
   const resultsText = searchResults.slice(0, 30).map(r => {
     const classes = r.niceClasses?.join(", ") || "keine";
-    return `- "${r.name}" | Register: ${r.office || "?"} | Inhaber: ${r.holder || "unbekannt"} | Klassen: ${classes} | Ähnlichkeit: ${r.accuracy || 0}%`;
+    const goodsServices = r.goodsServices ? ` | Waren/Dienstleistungen: ${r.goodsServices.substring(0, 200)}${r.goodsServices.length > 200 ? '...' : ''}` : "";
+    return `- "${r.name}" | Register: ${r.office || "?"} | Inhaber: ${r.holder || "unbekannt"} | Klassen: ${classes} | Ähnlichkeit: ${r.accuracy || 0}%${goodsServices}`;
   }).join("\n");
 
   const response = await client.messages.create({
@@ -132,6 +133,9 @@ Die Ziel-Klassen haben folgende VERWANDTE KLASSEN mit potenziellen Überschneidu
   - ${relatedClassesText}
 
 Prüfe bei jedem Treffer, ob dessen Waren-/Dienstleistungsbeschreibung sich mit den Ziel-Klassen überschneiden könnte, auch wenn die Klassennummern unterschiedlich sind.
+
+ANALYSE DER WAREN-/DIENSTLEISTUNGSBESCHREIBUNGEN:
+Wenn Waren-/Dienstleistungsbeschreibungen vorhanden sind, prüfe deren semantische Überschneidung mit den Ziel-Klassen. Auch wenn eine Marke in anderen Klassen registriert ist, kann eine Kollision entstehen, wenn die tatsächlichen Waren/Dienstleistungen sich überschneiden.
 
 ` : ''}Gefundene bestehende Marken (${searchResults.length} Treffer):
 ${resultsText || "Keine Marken gefunden."}
@@ -376,6 +380,35 @@ export async function POST(request: NextRequest) {
 
     allResults.sort((a, b) => (b.accuracy || 0) - (a.accuracy || 0));
     allResults = allResults.slice(0, 100);
+
+    // Enrich cross-class results with goods/services descriptions
+    if (selectedKlassen.length > 0) {
+      const crossClassResults = allResults.filter(r => {
+        if (!r.niceClasses || r.niceClasses.length === 0) return false;
+        return !r.niceClasses.some((cls: number) => selectedKlassen.includes(cls));
+      });
+
+      const enrichedResults = await Promise.all(
+        crossClassResults.slice(0, 10).map(async (result) => {
+          try {
+            const info = await tmsearchClient.getInfo({ mid: result.mid });
+            if (info?.goodsServices) {
+              return { ...result, goodsServices: info.goodsServices };
+            }
+          } catch (e) {
+            console.error(`Info-API Fehler für mid ${result.mid}:`, e);
+          }
+          return result;
+        })
+      );
+
+      for (const enriched of enrichedResults) {
+        const index = allResults.findIndex(r => r.mid === enriched.mid);
+        if (index !== -1) {
+          allResults[index] = enriched;
+        }
+      }
+    }
 
     const analysis = await performMultiDimensionalAnalysis(
       markenname.trim(),
