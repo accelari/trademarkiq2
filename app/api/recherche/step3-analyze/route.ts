@@ -484,7 +484,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { markenname, results, klassen, laender, expertStrategy } = body;
+    const { markenname, results, klassen, laender, expertStrategy, extendedClassSearch = false } = body;
+    const relatedClasses: number[] = Array.isArray(body.relatedClasses) ? body.relatedClasses : [];
 
     if (!markenname?.trim()) {
       return NextResponse.json({ 
@@ -500,18 +501,40 @@ export async function POST(request: NextRequest) {
 
     const selectedKlassen = Array.isArray(klassen) && klassen.length > 0 ? klassen : [];
     const selectedLaender = Array.isArray(laender) && laender.length > 0 ? laender : [];
+    const allClasses = [...new Set([...selectedKlassen, ...relatedClasses])];
 
     console.log("=== STEP 3: ANALYSIS ===");
     console.log(`Analyzing ${results.length} results for "${markenname}"`);
     console.log(`Klassen: ${selectedKlassen.join(", ") || "alle"}`);
+    console.log(`Related Klassen: ${relatedClasses.join(", ") || "keine"}`);
+    console.log(`Extended Class Search: ${extendedClassSearch}`);
     console.log(`Länder: ${selectedLaender.join(", ") || "alle"}`);
+
+    let filteredResults = results;
+    const totalFoundResults = results.length;
+    
+    if (!extendedClassSearch && selectedKlassen.length > 0) {
+      filteredResults = results.filter((r: any) => {
+        if (!r.niceClasses || r.niceClasses.length === 0) return true;
+        return r.niceClasses.some((cls: number) => allClasses.includes(cls));
+      });
+      console.log(`Filtered results: ${filteredResults.length} of ${results.length} (Standard mode)`);
+    } else {
+      console.log(`Showing all ${results.length} results (Extended mode)`);
+    }
+
+    filteredResults = filteredResults.map((r: any) => ({
+      ...r,
+      isDirectClass: r.niceClasses?.some((cls: number) => selectedKlassen.includes(cls)) || false,
+      isRelatedClass: r.niceClasses?.some((cls: number) => relatedClasses.includes(cls) && !selectedKlassen.includes(cls)) || false,
+    }));
 
     const searchTermsUsed = expertStrategy?.variants?.map((v: any) => v.term) || [markenname];
 
     const { analysis, conflicts } = await analyzeResults(
       markenname.trim(),
       selectedKlassen,
-      results,
+      filteredResults,
       searchTermsUsed
     );
 
@@ -548,12 +571,19 @@ export async function POST(request: NextRequest) {
       console.log(`Holder info fetched for ${holderResults.filter(h => h.holder).length} conflicts`);
     }
 
+    const markedConflicts = conflicts.map((c: ConflictingMark) => ({
+      ...c,
+      isDirectClass: c.classes?.some((cls: number) => selectedKlassen.includes(cls)) || false,
+      isRelatedClass: c.classes?.some((cls: number) => relatedClasses.includes(cls) && !selectedKlassen.includes(cls)) || false,
+    }));
+
     return NextResponse.json({
       success: true,
       analysis,
-      conflicts,
+      conflicts: markedConflicts,
       searchTermsUsed,
-      totalResultsAnalyzed: results.length,
+      totalResultsAnalyzed: filteredResults.length,
+      totalFoundResults,
       expertStrategy,
     });
   } catch (error: any) {

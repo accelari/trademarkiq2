@@ -113,6 +113,8 @@ interface ConflictingMark {
   registrationNumber: string;
   registrationDate: string | null;
   isFamousMark: boolean;
+  isDirectClass?: boolean;
+  isRelatedClass?: boolean;
 }
 
 interface SearchVariant {
@@ -142,6 +144,7 @@ interface AIAnalysis {
   conflicts: ConflictingMark[];
   searchTermsUsed: string[];
   totalResultsAnalyzed: number;
+  totalFoundResults?: number;
   expertStrategy?: ExpertStrategy;
 }
 
@@ -2428,6 +2431,7 @@ export default function RecherchePage() {
           laender: selectedLaender,
           expertStrategy: variantsData.expertStrategy,
           extendedClassSearch,
+          relatedClasses: relatedClasses,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -3407,9 +3411,15 @@ export default function RecherchePage() {
             <div className="p-5 space-y-4">
               <div className="bg-gray-50 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-gray-600">API-Treffer insgesamt</span>
-                  <span className="text-2xl font-bold text-gray-900">{aiAnalysis.totalResultsAnalyzed}</span>
+                  <span className="text-gray-600">Gefunden (alle Register)</span>
+                  <span className="text-2xl font-bold text-gray-900">{aiAnalysis.totalFoundResults ?? aiAnalysis.totalResultsAnalyzed}</span>
                 </div>
+                {aiAnalysis.totalFoundResults && aiAnalysis.totalFoundResults !== aiAnalysis.totalResultsAnalyzed && (
+                  <div className="flex items-center justify-between mb-3 pt-2 border-t border-gray-200">
+                    <span className="text-gray-600">Angezeigt (relevante Klassen)</span>
+                    <span className="text-xl font-bold text-primary">{aiAnalysis.totalResultsAnalyzed}</span>
+                  </div>
+                )}
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div 
                     className="bg-primary h-2 rounded-full transition-all" 

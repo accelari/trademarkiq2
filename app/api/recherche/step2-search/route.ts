@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
       try {
         const searchParams: any = {
           status: "active",
-          classes: selectedKlassen.length > 0 ? selectedKlassen : undefined,
           minAccuracy: 60,
         };
         
@@ -78,6 +77,7 @@ export async function POST(request: NextRequest) {
       results: allResults,
       totalResults: allResults.length,
       searchTermsUsed,
+      selectedKlassen,
     });
   } catch (error: any) {
     console.error("Step 2 - Search error:", error);
