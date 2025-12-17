@@ -202,17 +202,32 @@ function generateEventSummary(eventType: string, eventData: Record<string, any>)
       return `Risikoanalyse abgeschlossen${eventData?.riskLevel ? ` - Risiko: ${eventData.riskLevel}` : ''}`;
     case 'step_reset':
     case 'steps_reset':
-      return `Schritt(e) zurückgesetzt${eventData?.steps ? `: ${eventData.steps.join(', ')}` : ''}`;
+      const resetSteps = eventData?.resetSteps || eventData?.steps;
+      return `Schritt(e) zurückgesetzt${resetSteps ? `: ${resetSteps.join(', ')}` : ''}`;
     case 'decisions_extracted':
       return 'Entscheidungsdaten extrahiert';
     case 'decision_updated':
       return 'Entscheidungsdaten aktualisiert';
-    case 'case_created':
-      return 'Fall erstellt';
+    case 'created':
+      return `Fall erstellt${eventData?.trademarkName ? ` für Marke "${eventData.trademarkName}"` : ''}`;
+    case 'updated':
+      return `Fall aktualisiert${eventData?.trademarkName ? ` - Marke: "${eventData.trademarkName}"` : ''}`;
+    case 'step_status_changed':
+      const step = eventData?.step || 'unbekannt';
+      const status = eventData?.status;
+      if (status === 'completed') {
+        if (step === 'recherche' && eventData?.metadata?.conflictsCount !== undefined) {
+          return `Recherche abgeschlossen - ${eventData.metadata.conflictsCount} Konflikte bei "${eventData.metadata?.searchQuery || 'Suche'}"`;
+        }
+        return `${step.charAt(0).toUpperCase() + step.slice(1)} abgeschlossen`;
+      }
+      return `${step.charAt(0).toUpperCase() + step.slice(1)} gestartet`;
     case 'step_completed':
       return `Schritt "${eventData?.step || 'unbekannt'}" abgeschlossen`;
     case 'step_skipped':
       return `Schritt "${eventData?.step || 'unbekannt'}" übersprungen`;
+    case 'beratung_catch_up_completed':
+      return 'Beratung nachgeholt und abgeschlossen';
     default:
       return eventData?.summary || `Ereignis: ${eventType}`;
   }
