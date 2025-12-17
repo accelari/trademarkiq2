@@ -479,12 +479,12 @@ function StepBadge({ step, status, caseId, onNavigate, onClose, isBeratungIncomp
         };
       case "current":
         return {
-          container: "bg-primary text-white border-primary hover:bg-primary/90",
+          container: "bg-transparent text-primary border-primary border-2 hover:bg-primary/10",
           icon: null,
         };
       case "skipped":
         return {
-          container: "bg-amber-500 text-white border-amber-500 hover:bg-amber-600",
+          container: "bg-transparent text-amber-600 border-amber-500 border-2 hover:bg-amber-50",
           icon: <ArrowRight className="w-3 h-3 rotate-180" />,
         };
       case "pending":
@@ -782,12 +782,6 @@ export default function ConsultationsModal({
                           {consultation.caseNumber && (
                             <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
                               {consultation.caseNumber}
-                            </span>
-                          )}
-                          {consultation.extractedData && !(consultation.extractedData as any).isComplete && (
-                            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" />
-                              Unvollständig
                             </span>
                           )}
                         </div>
