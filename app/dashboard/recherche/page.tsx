@@ -1535,6 +1535,7 @@ export default function RecherchePage() {
   });
   
   const [selectedLaender, setSelectedLaender] = useState<string[]>([]);
+  const [extendedClassSearch, setExtendedClassSearch] = useState(false);
   
   const [expertLoading, setExpertLoading] = useState(false);
   const [expertSuccess, setExpertSuccess] = useState(false);
@@ -2349,8 +2350,10 @@ export default function RecherchePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           queryTerms: variantsData.queryTerms,
-          klassen: effectiveClasses,
+          klassen: extendedClassSearch ? [] : effectiveClasses,
           laender: selectedLaender,
+          extendedClassSearch,
+          originalKlassen: effectiveClasses,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -2381,6 +2384,7 @@ export default function RecherchePage() {
           klassen: effectiveClasses,
           laender: selectedLaender,
           expertStrategy: variantsData.expertStrategy,
+          extendedClassSearch,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -2695,6 +2699,37 @@ export default function RecherchePage() {
                   onToggleClass={toggleAiClass}
                   onClearAll={() => setAiSelectedClasses([])}
                 />
+                
+                {aiSelectedClasses.length > 0 && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          checked={extendedClassSearch}
+                          onChange={(e) => setExtendedClassSearch(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-10 h-5 bg-gray-300 rounded-full peer-checked:bg-primary transition-colors"></div>
+                        <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5 shadow-sm"></div>
+                      </div>
+                      <span className="text-sm text-gray-700 font-medium group-hover:text-gray-900 transition-colors">
+                        Klassenübergreifende Analyse
+                      </span>
+                      <div className="relative group/tooltip">
+                        <HelpCircle className="w-4 h-4 text-gray-400 hover:text-primary cursor-help" />
+                        <div className="absolute left-6 top-0 w-64 p-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-50 pointer-events-none">
+                          Findet auch Marken in anderen Klassen, deren Waren-/Dienstleistungsbeschreibungen sich überschneiden könnten.
+                        </div>
+                      </div>
+                    </label>
+                    {extendedClassSearch && (
+                      <p className="text-xs text-gray-500 mt-2 ml-13">
+                        Suche in allen Klassen aktiv – Marken außerhalb Ihrer Auswahl werden orange markiert.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2857,6 +2892,32 @@ export default function RecherchePage() {
                       <AlertTriangle className="w-5 h-5 text-orange-500" />
                       Kollidierende Marken ({aiAnalysis.conflicts.length})
                     </h3>
+                    
+                    {(() => {
+                      const crossClassConflicts = extendedClassSearch 
+                        ? aiAnalysis.conflicts.filter(c => 
+                            !c.classes.some(cls => aiSelectedClasses.includes(cls))
+                          )
+                        : [];
+                      
+                      if (crossClassConflicts.length > 0) {
+                        return (
+                          <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-start gap-3">
+                            <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-medium text-orange-800">
+                                {crossClassConflicts.length} Marke{crossClassConflicts.length !== 1 ? 'n' : ''} in anderen Klassen gefunden
+                              </p>
+                              <p className="text-sm text-orange-700 mt-1">
+                                Diese könnten trotzdem relevant sein, wenn sich die Waren-/Dienstleistungsbeschreibungen überschneiden.
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                    
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {aiAnalysis.conflicts.map((conflict, idx) => {
                         const riskStyles = conflict.riskLevel === "high" 
@@ -2865,6 +2926,9 @@ export default function RecherchePage() {
                             ? "border-orange-200 hover:border-orange-300 bg-orange-50/50" 
                             : "border-green-200 hover:border-green-300 bg-green-50/50";
                         const riskEmoji = conflict.riskLevel === "high" ? "🔴" : conflict.riskLevel === "medium" ? "🟡" : "🟢";
+                        
+                        const isInSelectedClasses = conflict.classes.some(cls => aiSelectedClasses.includes(cls));
+                        const isCrossClass = extendedClassSearch && !isInSelectedClasses && conflict.classes.length > 0;
                         
                         const formatGermanDate = (dateStr: string | null) => {
                           if (!dateStr) return "-";
@@ -2886,12 +2950,19 @@ export default function RecherchePage() {
                             <div className="flex items-start justify-between gap-2 mb-2">
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold text-gray-900 group-hover:text-primary transition-colors">{conflict.name}</h4>
-                                {conflict.isFamousMark && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-medium rounded-full mt-1">
-                                    <Star className="w-3 h-3" />
-                                    Bekannte Marke
-                                  </span>
-                                )}
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {conflict.isFamousMark && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
+                                      <Star className="w-3 h-3" />
+                                      Bekannte Marke
+                                    </span>
+                                  )}
+                                  {isCrossClass && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
+                                      Klassen: {conflict.classes.join(", ")} (nicht Ihre Auswahl)
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <span className="flex items-center gap-1 text-sm font-bold whitespace-nowrap">
                                 {riskEmoji} {conflict.accuracy}%
@@ -2921,7 +2992,7 @@ export default function RecherchePage() {
                                 <Globe className="w-3 h-3" />
                                 {conflict.register}
                               </span>
-                              {conflict.classes.length > 0 && (
+                              {conflict.classes.length > 0 && !isCrossClass && (
                                 <span className="flex items-center gap-1">
                                   <Tag className="w-3 h-3" />
                                   {conflict.classes.length} Klassen
