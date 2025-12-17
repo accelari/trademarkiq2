@@ -2313,7 +2313,11 @@ export default function RecherchePage() {
     }
 
     const effectiveClasses = aiSelectedClasses.length === 45 ? [] : aiSelectedClasses;
-    const cacheKey = `${searchQuery.trim()}-${effectiveClasses.sort().join(",") || "all"}-${selectedLaender.sort().join(",") || "all"}-${deepSearch ? "deep" : "std"}`;
+    const relatedClasses = getAllRelatedClasses(aiSelectedClasses);
+    const searchClasses = extendedClassSearch 
+      ? [] 
+      : [...new Set([...effectiveClasses, ...relatedClasses])].sort((a, b) => a - b);
+    const cacheKey = `${searchQuery.trim()}-${searchClasses.sort().join(",") || "all"}-${selectedLaender.sort().join(",") || "all"}-${deepSearch ? "deep" : "std"}-${extendedClassSearch ? "ext" : "std"}`;
     const cachedResult = analysisCache.current.get(cacheKey);
     if (cachedResult && !deepSearch) {
       setAiAnalysis(cachedResult);
@@ -2388,10 +2392,11 @@ export default function RecherchePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           queryTerms: variantsData.queryTerms,
-          klassen: extendedClassSearch ? [] : effectiveClasses,
+          klassen: searchClasses,
           laender: selectedLaender,
           extendedClassSearch,
           originalKlassen: effectiveClasses,
+          relatedClasses: relatedClasses,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -2739,54 +2744,77 @@ export default function RecherchePage() {
                 />
                 
                 {aiSelectedClasses.length > 0 && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className="relative">
-                        <input
-                          type="checkbox"
-                          checked={extendedClassSearch}
-                          onChange={(e) => setExtendedClassSearch(e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-10 h-5 bg-gray-300 rounded-full peer-checked:bg-primary transition-colors"></div>
-                        <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5 shadow-sm"></div>
-                      </div>
-                      <span className="text-sm text-gray-700 font-medium group-hover:text-gray-900 transition-colors">
-                        Klassenübergreifende Analyse
-                      </span>
-                      <div className="relative group/tooltip">
-                        <HelpCircle className="w-4 h-4 text-gray-400 hover:text-primary cursor-help" />
-                        <div className="absolute left-6 top-0 w-64 p-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-50 pointer-events-none">
-                          Findet auch Marken in anderen Klassen, deren Waren-/Dienstleistungsbeschreibungen sich überschneiden könnten.
+                  <div className="mt-3 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-semibold text-gray-800">Suchumfang</span>
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <span className={`text-xs font-medium transition-colors ${!extendedClassSearch ? 'text-primary' : 'text-gray-400'}`}>
+                          Standard
+                        </span>
+                        <div className="relative">
+                          <input
+                            type="checkbox"
+                            checked={extendedClassSearch}
+                            onChange={(e) => setExtendedClassSearch(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-10 h-5 bg-primary/30 rounded-full peer-checked:bg-orange-400 transition-colors"></div>
+                          <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5 shadow-sm"></div>
                         </div>
-                      </div>
-                    </label>
-                    {extendedClassSearch && (
-                      <p className="text-xs text-gray-500 mt-2 ml-13">
-                        Suche in allen Klassen aktiv – Marken außerhalb Ihrer Auswahl werden orange markiert.
-                      </p>
-                    )}
-                  </div>
-                )}
-                
-                {aiSelectedClasses.length > 0 && getAllRelatedClasses(aiSelectedClasses).length > 0 && (
-                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-800 font-medium flex items-center gap-2">
-                      <Lightbulb className="w-4 h-4" />
-                      Verwandte Klassen mit möglichen Überschneidungen:
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {getAllRelatedClasses(aiSelectedClasses).slice(0, 10).map(cls => (
-                        <span key={cls} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
-                          Klasse {cls}
+                        <span className={`text-xs font-medium transition-colors ${extendedClassSearch ? 'text-orange-600' : 'text-gray-400'}`}>
+                          Vollständig
                         </span>
-                      ))}
-                      {getAllRelatedClasses(aiSelectedClasses).length > 10 && (
-                        <span className="px-2 py-0.5 bg-blue-100/50 text-blue-600 text-xs rounded">
-                          +{getAllRelatedClasses(aiSelectedClasses).length - 10} weitere
-                        </span>
-                      )}
+                      </label>
                     </div>
+                    
+                    {!extendedClassSearch ? (
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2">
+                          <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm text-gray-700">
+                              <span className="font-medium">Durchsucht wird:</span> Ihre {aiSelectedClasses.length} ausgewählte{aiSelectedClasses.length === 1 ? '' : 'n'} Klasse{aiSelectedClasses.length === 1 ? '' : 'n'}
+                              {getAllRelatedClasses(aiSelectedClasses).length > 0 && (
+                                <span className="text-primary font-medium"> + {getAllRelatedClasses(aiSelectedClasses).length} verwandte Klassen</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        {getAllRelatedClasses(aiSelectedClasses).length > 0 && (
+                          <div className="ml-6 flex flex-wrap gap-1">
+                            <span className="text-xs text-gray-500 mr-1">Verwandt:</span>
+                            {getAllRelatedClasses(aiSelectedClasses).slice(0, 8).map(cls => (
+                              <span key={cls} className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded border border-yellow-200">
+                                {cls}
+                              </span>
+                            ))}
+                            {getAllRelatedClasses(aiSelectedClasses).length > 8 && (
+                              <span className="px-1.5 py-0.5 bg-yellow-50 text-yellow-600 text-xs rounded">
+                                +{getAllRelatedClasses(aiSelectedClasses).length - 8}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-500 ml-6">
+                          Verwandte Klassen haben typische Überschneidungen bei Waren/Dienstleistungen.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2">
+                          <Globe className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm text-gray-700">
+                              <span className="font-medium text-orange-600">Durchsucht wird:</span> Alle 45 Nizza-Klassen
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-orange-600 ml-6 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          Findet auch Konflikte in komplett anderen Branchen. Dauert länger.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
