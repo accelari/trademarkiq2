@@ -660,7 +660,7 @@ export default function ConsultationsModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={handleClose}>
       <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="bg-gradient-to-r from-primary to-teal-500 p-6">
+        <div className="bg-gradient-to-r from-primary to-teal-500 p-6 sticky top-0 z-20">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
@@ -680,6 +680,31 @@ export default function ConsultationsModal({
               <X className="w-6 h-6" />
             </button>
           </div>
+          {selectedConsultation && (
+            <div className="mt-4 pt-4 border-t border-white/20 flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setSelectedConsultation(null)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-white/20 text-white hover:bg-white/30 transition-colors"
+              >
+                ← Zurück zur Liste
+              </button>
+              <div className="h-5 w-px bg-white/30 mx-1 hidden sm:block" />
+              {[
+                { id: "section-beratung", label: "Beratung", icon: MessageCircle },
+                { id: "section-recherche", label: "Recherche", icon: Search },
+                { id: "section-risiko", label: "Risikoanalyse", icon: AlertTriangle },
+              ].map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => handleScrollToSection(id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${highlightedSection === id ? 'bg-white text-primary' : 'bg-white/20 text-white hover:bg-white/30'}`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -689,28 +714,6 @@ export default function ConsultationsModal({
             </div>
           ) : selectedConsultation ? (
             <div>
-              <button
-                onClick={() => setSelectedConsultation(null)}
-                className="text-primary hover:underline text-sm mb-4 flex items-center gap-1"
-              >
-                ← Zurück zur Liste
-              </button>
-              <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-gray-100">
-                {[
-                  { id: "section-beratung", label: "Beratung", icon: MessageCircle },
-                  { id: "section-recherche", label: "Recherche", icon: Search },
-                  { id: "section-risiko", label: "Risikoanalyse", icon: AlertTriangle },
-                ].map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    onClick={() => handleScrollToSection(id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${highlightedSection === id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
               <div className="mb-4">
                 <h3 className="font-semibold text-gray-900 text-lg">{selectedConsultation.title}</h3>
                 <div className="text-sm text-gray-500 mt-1 space-y-0.5">
