@@ -1332,8 +1332,37 @@ ${notesTextFromHistory}
         return;
       }
       
+      // Keine Konflikte im Case - prüfe ob Recherche durchgeführt wurde
+      const rechercheStatus = rechercheStep?.status;
+      const tmName = caseRecord.trademarkName || "Marke";
+      if (tmName) setMarkenname(tmName);
+      
+      if (rechercheStatus === "completed" || rechercheStatus === "skipped") {
+        // Recherche wurde durchgeführt aber keine Konflikte gefunden
+        setExpertAnalysis({
+          success: true,
+          trademarkName: tmName,
+          overallRisk: "low",
+          conflictAnalyses: [],
+          bestOverallSolution: null,
+          summary: "Es wurden keine Konflikte in der Recherche gefunden. Die Marke scheint frei von Kollisionen zu sein.",
+        });
+        setNoConflictsFound(true);
+      } else {
+        // Recherche wurde noch nicht durchgeführt - Klaus erklärt das
+        setExpertAnalysis({
+          success: true,
+          trademarkName: tmName,
+          overallRisk: "low",
+          conflictAnalyses: [],
+          bestOverallSolution: null,
+          summary: `Für die Marke "${tmName}" wurde noch keine Recherche durchgeführt. Bitte führe zuerst eine Markenrecherche durch, um potenzielle Konflikte zu identifizieren.`,
+        });
+        setError("Keine Recherche-Daten vorhanden. Bitte führe zuerst eine Markenrecherche durch.");
+      }
+      
       isHistoryLoadedRef.current = true;
-      await startStreamingAnalysis(caseIdToLoad, caseRecord.trademarkName || "");
+      setIsLoadingFromCase(false);
     } catch (err: any) {
       console.error("Error loading case data:", err);
       setError("Fehler beim Laden der Falldaten");
@@ -1387,10 +1416,10 @@ ${notesTextFromHistory}
         if (parsed.klassen?.length > 0) setSelectedClasses(parsed.klassen);
         
         if (caseIdParam) {
-          isHistoryLoadedRef.current = true;
-          startStreamingAnalysis(caseIdParam, parsed.markenname || markennameParam || "");
-          return;
+          setCaseId(caseIdParam);
         }
+        // Keine startStreamingAnalysis mehr - Klaus erhält alle Infos aus Recherche-Daten
+        // Die expertAnalysis wird unten aus den sessionStorage-Daten gesetzt
         
         const conflictAnalyses: ExpertConflictAnalysis[] = parsed.conflicts.map((c: any) => ({
           conflictId: c.id || c.applicationNumber || Math.random().toString(),
