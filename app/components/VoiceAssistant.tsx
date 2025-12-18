@@ -105,6 +105,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
   const [wasConnected, setWasConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const pendingPromptRef = useRef<string | null>(null);
   const textChatRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -184,20 +185,27 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       setReconnectAttempts(0);
       setIsReconnecting(false);
       
-      if (pendingPrompt) {
-        const hasContext = pendingPrompt.includes("[SYSTEM-KONTEXT");
-        console.log("Sende SessionSettings mit Klaus-Prompt...", hasContext ? "(mit Catch-Up Kontext)" : "(Standard)");
+      // Use ref for immediate access (avoids React state race condition)
+      const promptToSend = pendingPromptRef.current || pendingPrompt;
+      
+      if (promptToSend) {
+        const hasContext = promptToSend.includes("[SYSTEM-KONTEXT");
+        console.log("Sende SessionSettings mit Klaus-Prompt...", hasContext ? "(mit Catch-Up Kontext)" : "(Standard)", "length:", promptToSend.length);
         if (hasContext) {
           console.log("Context-Prompt wird gesendet, enthält:", 
-            pendingPrompt.includes("Markenname:") ? "Markenname" : "kein Markenname",
-            pendingPrompt.includes("Länder:") ? "Länder" : "keine Länder",
-            pendingPrompt.includes("Nizza-Klassen:") ? "Nizza-Klassen" : "keine Nizza-Klassen"
+            promptToSend.includes("MARKE:") ? "Markenname" : "kein Markenname",
+            promptToSend.includes("LÄNDER:") || promptToSend.includes("Länder:") ? "Länder" : "keine Länder",
+            promptToSend.includes("KLASSEN:") || promptToSend.includes("Nizza-Klassen:") ? "Nizza-Klassen" : "keine Nizza-Klassen"
           );
         }
         sendSessionSettings({
-          systemPrompt: pendingPrompt
+          systemPrompt: promptToSend
         });
+        // Clear both ref and state
+        pendingPromptRef.current = null;
         setPendingPrompt(null);
+      } else {
+        console.warn("[VoiceAssistant] Connected but no prompt available!");
       }
     }
   }, [status.value, pendingPrompt, sendSessionSettings]);
@@ -248,7 +256,9 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
               console.log("Verwende bestehendes Token für Reconnect");
             }
             
-            setPendingPrompt(KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Die Verbindung wurde wiederhergestellt. Sage kurz: 'Ich bin wieder da. Wo waren wir stehengeblieben?'");
+            const reconnectPrompt = KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Die Verbindung wurde wiederhergestellt. Sage kurz: 'Ich bin wieder da. Wo waren wir stehengeblieben?'";
+            pendingPromptRef.current = reconnectPrompt;
+            setPendingPrompt(reconnectPrompt);
             await connect({
               auth: {
                 type: "accessToken" as const,
@@ -283,12 +293,15 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
   }, [status.value, pendingQuestion, sendUserInput]);
 
   useEffect(() => {
-    if (autoStart && !autoStartTriggered && status.value === "disconnected") {
+    // Only auto-start when prompt is ready (ref or state) to avoid race condition
+    const promptReady = !!(pendingPromptRef.current || pendingPrompt);
+    if (autoStart && !autoStartTriggered && status.value === "disconnected" && promptReady) {
+      console.log("[VoiceAssistant] Auto-start triggering, promptReady:", promptReady, "length:", pendingPromptRef.current?.length || pendingPrompt?.length || 0);
       setAutoStartTriggered(true);
       handleToggleRef.current?.();
       onAutoStartConsumed?.();
     }
-  }, [autoStart, autoStartTriggered, status.value, onAutoStartConsumed]);
+  }, [autoStart, autoStartTriggered, status.value, onAutoStartConsumed, pendingPrompt]);
 
   const handleToggleRef = useRef<(() => void) | null>(null);
 
@@ -319,7 +332,8 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       if (status.value === "connected") {
         await disconnect();
       } else {
-        if (!pendingPrompt) {
+        // Check ref first, then state
+        if (!pendingPromptRef.current && !pendingPrompt) {
           const isSystemContext = contextMessage?.startsWith("[SYSTEM-KONTEXT");
           const isRisikoberatung = contextMessage?.includes("Risikoberatung");
           
@@ -337,10 +351,12 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
             prompt = KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Beginne das Gespräch mit: 'Hallo, mein Name ist Klaus. Wie kann ich Ihnen heute bei Ihrer Marke helfen?'";
           }
           
+          // Set ref SYNCHRONOUSLY before connect (critical for race condition fix)
+          pendingPromptRef.current = prompt;
           setPendingPrompt(prompt);
         }
         
-        console.log("Voice connecting via user click, pendingPrompt ready:", !!pendingPrompt, "pendingQuestion:", pendingQuestion);
+        console.log("Voice connecting, pendingPromptRef ready:", !!pendingPromptRef.current, "length:", pendingPromptRef.current?.length || 0);
         await connect({
           auth: {
             type: "accessToken" as const,
@@ -368,7 +384,9 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       setPendingQuestion(question);
       try {
         setError(null);
-        setPendingPrompt(KLAUS_SYSTEM_PROMPT + `\n\nBEGRÜSSUNG: Der Benutzer hat eine Schnellfrage ausgewählt. Beginne deine Antwort mit: 'Hallo, mein Name ist Klaus. Gerne berate ich Sie zu diesem Thema.' Dann beantworte die folgende Frage: "${question}"`);
+        const quickPrompt = KLAUS_SYSTEM_PROMPT + `\n\nBEGRÜSSUNG: Der Benutzer hat eine Schnellfrage ausgewählt. Beginne deine Antwort mit: 'Hallo, mein Name ist Klaus. Gerne berate ich Sie zu diesem Thema.' Dann beantworte die folgende Frage: "${question}"`;
+        pendingPromptRef.current = quickPrompt;
+        setPendingPrompt(quickPrompt);
         await connect({
           auth: {
             type: "accessToken" as const,
@@ -526,7 +544,9 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
         } else if (isSystemContext) {
           fullPrompt += `\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt und frage dann nach den noch fehlenden Informationen.`;
         }
-        console.log("Voice context prepared (waiting for user click):", isRisikoberatung ? "RISIKOBERATUNG" : "SYSTEM-KONTEXT");
+        console.log("Voice context prepared (waiting for auto-start):", isRisikoberatung ? "RISIKOBERATUNG" : "SYSTEM-KONTEXT", "length:", fullPrompt.length);
+        // Set ref SYNCHRONOUSLY for auto-start to pick up immediately
+        pendingPromptRef.current = fullPrompt;
         setPendingPrompt(fullPrompt);
         
         onContextMessageConsumed?.();
