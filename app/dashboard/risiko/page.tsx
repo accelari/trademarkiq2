@@ -627,6 +627,7 @@ function RisikoPageContent() {
   const meetingNotesRef = useRef<MeetingNote[]>([]);
   const isHistoryLoadedRef = useRef(false);
   const [pageReady, setPageReady] = useState(false);
+  const [advisorPrompt, setAdvisorPrompt] = useState<string | null>(null);
   
   const getLiveNonSystemNotes = (notes: MeetingNote[], startIndex: number) => {
     return notes.slice(startIndex).filter(n => n.type !== "system");
@@ -890,22 +891,41 @@ function RisikoPageContent() {
     loadToken();
   }, []);
   
+  // Generate and store advisor prompt when data is ready
+  useEffect(() => {
+    if (!pageReady || isLoadingFromCase) return;
+    
+    console.log("[Risiko] Generating advisor prompt...", {
+      pageReady,
+      hasExpertAnalysis: !!expertAnalysis,
+      noConflictsFound,
+      klausWaitingMode,
+      markenname
+    });
+    
+    const prompt = generateAdvisorPrompt(false);
+    if (prompt) {
+      console.log("[Risiko] Advisor prompt ready, length:", prompt.length);
+      setAdvisorPrompt(prompt);
+    } else {
+      console.log("[Risiko] No prompt generated (data not ready)");
+    }
+  }, [pageReady, expertAnalysis, noConflictsFound, klausWaitingMode, markenname, isLoadingFromCase]);
+  
   useEffect(() => {
     console.log("[Risiko] Auto-start check:", { 
-      hasExpertAnalysis: !!expertAnalysis, 
+      hasAdvisorPrompt: !!advisorPrompt,
       hasToken: !!accessToken, 
       isLoadingToken,
-      isStreaming,
       isLoadingFromCase,
-      klausWaitingMode,
-      pageReady,
-      conflictCount: expertAnalysis?.conflictAnalyses?.length || 0
+      pageReady
     });
-    if (accessToken && !isLoadingToken && !isLoadingFromCase && (klausWaitingMode || expertAnalysis || pageReady)) {
-      console.log("[Risiko] Setting autoStartVoice = true (immediate start)");
+    // Only auto-start when BOTH token AND prompt are ready
+    if (accessToken && !isLoadingToken && !isLoadingFromCase && advisorPrompt) {
+      console.log("[Risiko] Setting autoStartVoice = true (prompt + token ready)");
       setAutoStartVoice(true);
     }
-  }, [expertAnalysis, accessToken, isLoadingToken, klausWaitingMode, isStreaming, isLoadingFromCase, pageReady]);
+  }, [advisorPrompt, accessToken, isLoadingToken, isLoadingFromCase, pageReady]);
   
   const generateWaitingPrompt = (): string => {
     return `[SYSTEM-KONTEXT für Risikoberatung - WARTEMODUS]
@@ -1978,13 +1998,18 @@ ${notesTextFromHistory}
                     <VoiceAssistant 
                       accessToken={accessToken} 
                       inputMode={inputMode}
-                      autoStart={inputMode === "sprache"}
+                      autoStart={autoStartVoice && inputMode === "sprache"}
                       onAutoStartConsumed={() => setAutoStartVoice(false)}
                       contextMessage={pendingQuickQuestion || (() => {
-                        const hasExistingNotes = meetingNotesRef.current.filter(n => n.type !== "system").length > 0;
                         const promptNotSent = inputMode === "sprache" ? !voicePromptSent : !textPromptSent;
                         
                         if (promptNotSent) {
+                          // Use pre-generated prompt for faster startup
+                          if (advisorPrompt) {
+                            return advisorPrompt;
+                          }
+                          // Fallback: generate on-demand if not yet ready
+                          const hasExistingNotes = meetingNotesRef.current.filter(n => n.type !== "system").length > 0;
                           return generateAdvisorPrompt(hasExistingNotes);
                         }
                         return null;
