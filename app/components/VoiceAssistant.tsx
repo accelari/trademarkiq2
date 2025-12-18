@@ -544,15 +544,36 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
         } else if (isSystemContext) {
           fullPrompt += `\n\nBEGRÜSSUNG: Da dies eine Fortsetzung ist, beginne mit einer kurzen Zusammenfassung was du bereits weißt und frage dann nach den noch fehlenden Informationen.`;
         }
-        console.log("Voice context prepared (waiting for auto-start):", isRisikoberatung ? "RISIKOBERATUNG" : "SYSTEM-KONTEXT", "length:", fullPrompt.length);
-        // Set ref SYNCHRONOUSLY for auto-start to pick up immediately
+        
+        // Set ref SYNCHRONOUSLY before any connect call
         pendingPromptRef.current = fullPrompt;
         setPendingPrompt(fullPrompt);
+        
+        // If autoStart is active and we have a token, connect immediately here
+        // This avoids the race condition with the separate auto-start effect
+        if (autoStart && accessToken) {
+          console.log("[VoiceAssistant] Context ready + autoStart: connecting immediately, prompt length:", fullPrompt.length);
+          setAutoStartTriggered(true);
+          onAutoStartConsumed?.();
+          connect({
+            auth: {
+              type: "accessToken",
+              value: accessToken,
+            },
+            hostname: "api.hume.ai",
+            configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
+          }).catch(err => {
+            console.error("Auto-start connect error:", err);
+            setError("Verbindungsfehler. Bitte klicken Sie auf 'Starten'.");
+          });
+        } else {
+          console.log("Voice context prepared (waiting for manual start):", isRisikoberatung ? "RISIKOBERATUNG" : "SYSTEM-KONTEXT", "autoStart:", autoStart, "hasToken:", !!accessToken);
+        }
         
         onContextMessageConsumed?.();
       }
     }
-  }, [contextMessage, contextMessageProcessed, isLoading, inputMode, status.value, autoStart]);
+  }, [contextMessage, contextMessageProcessed, isLoading, inputMode, status.value, autoStart, accessToken, connect, onAutoStartConsumed]);
 
   useEffect(() => {
     if (contextMessage === null) {
