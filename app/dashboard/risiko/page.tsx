@@ -598,6 +598,13 @@ function RisikoPageContent() {
   const [expandedConflictId, setExpandedConflictId] = useState<string | null>(null);
   const technicalDetailsRef = useRef<HTMLDivElement>(null);
   
+  const [streamedConflicts, setStreamedConflicts] = useState<ExpertConflictAnalysis[]>([]);
+  const [analysisProgress, setAnalysisProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamStatus, setStreamStatus] = useState<string | null>(null);
+  const voiceQueueRef = useRef<string[]>([]);
+  const [klausWaitingMode, setKlausWaitingMode] = useState(false);
+  
   const [meetingNotes, setMeetingNotes] = useState<MeetingNote[]>([]);
   const [meetingStartTime, setMeetingStartTime] = useState<Date | null>(null);
   const [meetingDuration, setMeetingDuration] = useState("00:00");
@@ -887,21 +894,44 @@ function RisikoPageContent() {
       hasExpertAnalysis: !!expertAnalysis, 
       hasToken: !!accessToken, 
       isLoadingToken,
+      isStreaming,
+      klausWaitingMode,
       conflictCount: expertAnalysis?.conflictAnalyses?.length || 0
     });
-    if (expertAnalysis && accessToken && !isLoadingToken) {
-      console.log("[Risiko] Setting autoStartVoice = true");
+    if (accessToken && !isLoadingToken && (klausWaitingMode || expertAnalysis)) {
+      console.log("[Risiko] Setting autoStartVoice = true (immediate start)");
       setAutoStartVoice(true);
     }
-  }, [expertAnalysis, accessToken, isLoadingToken]);
+  }, [expertAnalysis, accessToken, isLoadingToken, klausWaitingMode, isStreaming]);
+  
+  const generateWaitingPrompt = (): string => {
+    return `[SYSTEM-KONTEXT für Risikoberatung - WARTEMODUS]
+Du bist Klaus, Markenberater bei TrademarkIQ. Die Analyse läuft gerade.
+
+WICHTIG: Bitte sag dem Kunden: "Einen Moment bitte, ich schaue mir Ihren Fall genau an und analysiere die gefundenen Marken..."
+
+Halte das Gespräch kurz und freundlich. Du kannst erwähnen:
+- Dass du gerade die Recherche-Ergebnisse analysierst
+- Dass du in wenigen Sekunden die Ergebnisse präsentieren wirst
+- Dass der Kunde ruhig schon Fragen stellen kann
+
+Du antwortest IMMER auf Deutsch und in kurzen, natürlichen Sätzen.`;
+  };
   
   const generateAdvisorPrompt = (includeCurrentSession: boolean = false): string | null => {
     console.log("[Risiko] generateAdvisorPrompt called:", { 
       hasExpertAnalysis: !!expertAnalysis, 
       includeCurrentSession,
       markenname,
+      klausWaitingMode,
       conflictCount: expertAnalysis?.conflictAnalyses?.length || 0
     });
+    
+    if (klausWaitingMode && !expertAnalysis) {
+      console.log("[Risiko] Klaus in waiting mode - returning waiting prompt");
+      return generateWaitingPrompt();
+    }
+    
     if (!expertAnalysis) {
       console.log("[Risiko] No expertAnalysis - returning null");
       return null;
@@ -985,6 +1015,115 @@ WICHTIG:
 ${previousConsultationContext}` : ''}`;
   };
 
+  const startStreamingAnalysis = async (caseIdToStream: string, tmName: string) => {
+    setIsStreaming(true);
+    setStreamedConflicts([]);
+    setAnalysisProgress(null);
+    setStreamStatus("Analyse wird gestartet...");
+    setKlausWaitingMode(true);
+    
+    try {
+      const response = await fetch("/api/risk-analysis/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: caseIdToStream }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Streaming-Analyse fehlgeschlagen");
+      }
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      if (!reader) {
+        throw new Error("Kein Stream verfügbar");
+      }
+      
+      let buffer = "";
+      const collectedConflicts: ExpertConflictAnalysis[] = [];
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+        
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              switch (data.type) {
+                case "status":
+                  setStreamStatus(data.message);
+                  break;
+                  
+                case "progress":
+                  setAnalysisProgress({ current: data.current, total: data.total });
+                  setStreamStatus(`Analysiere Konflikt ${data.current} von ${data.total}...`);
+                  break;
+                  
+                case "conflict":
+                  const newConflict = data.data as ExpertConflictAnalysis;
+                  collectedConflicts.push(newConflict);
+                  setStreamedConflicts(prev => [...prev, newConflict]);
+                  
+                  voiceQueueRef.current.push(
+                    `Konflikt gefunden: ${newConflict.conflictName} mit ${newConflict.oppositionRisk}% Widerspruchsrisiko.`
+                  );
+                  break;
+                  
+                case "summary":
+                  const summaryData = data.data;
+                  setKlausWaitingMode(false);
+                  setExpertAnalysis({
+                    success: true,
+                    trademarkName: summaryData.trademarkName || tmName,
+                    overallRisk: summaryData.overallRisk,
+                    conflictAnalyses: summaryData.conflictAnalyses || collectedConflicts,
+                    bestOverallSolution: summaryData.bestOverallSolution,
+                    summary: summaryData.summary,
+                  });
+                  if (summaryData.trademarkName) {
+                    setMarkenname(summaryData.trademarkName);
+                  }
+                  
+                  voiceQueueRef.current.push(
+                    `Die Analyse ist abgeschlossen. ${summaryData.summary}`
+                  );
+                  break;
+                  
+                case "error":
+                  setError(data.message);
+                  setKlausWaitingMode(false);
+                  break;
+                  
+                case "done":
+                  setIsStreaming(false);
+                  setStreamStatus(null);
+                  setAnalysisProgress(null);
+                  break;
+              }
+            } catch (e) {
+              console.error("Error parsing stream event:", e);
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error("Streaming error:", err);
+      setError(err.message || "Fehler bei der Streaming-Analyse");
+      setKlausWaitingMode(false);
+    } finally {
+      setIsStreaming(false);
+      setIsLoadingFromCase(false);
+    }
+  };
+  
   const parseSessionProtocol = (protocol: string): MeetingNote[] => {
     if (!protocol) return [];
     
@@ -1166,22 +1305,11 @@ ${notesTextFromHistory}
         return;
       }
       
-      const response = await fetch("/api/risk-analysis/expert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caseId: caseIdToLoad }),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        setExpertAnalysis(data);
-        if (data.trademarkName) setMarkenname(data.trademarkName);
-      }
+      isHistoryLoadedRef.current = true;
+      await startStreamingAnalysis(caseIdToLoad, caseRecord.trademarkName || "");
     } catch (err: any) {
       console.error("Error loading case data:", err);
       setError("Fehler beim Laden der Falldaten");
-    } finally {
       isHistoryLoadedRef.current = true;
       setIsLoadingFromCase(false);
     }
@@ -1436,13 +1564,69 @@ ${notesTextFromHistory}
         </div>
       </div>
 
-      {isLoadingFromCase && (
-        <div className="bg-teal-50 border border-teal-200 rounded-2xl p-6 flex items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
-          <div>
-            <h3 className="font-semibold text-teal-900">Daten werden aus Recherche übernommen...</h3>
-            <p className="text-sm text-teal-700">Die Konfliktanalyse wird vorbereitet</p>
+      {(isLoadingFromCase || isStreaming) && (
+        <div className="bg-teal-50 border border-teal-200 rounded-2xl p-6">
+          <div className="flex items-center gap-4 mb-4">
+            <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+            <div>
+              <h3 className="font-semibold text-teal-900">
+                {isStreaming ? "Experten-Analyse läuft..." : "Daten werden aus Recherche übernommen..."}
+              </h3>
+              <p className="text-sm text-teal-700">
+                {streamStatus || "Die Konfliktanalyse wird vorbereitet"}
+              </p>
+            </div>
           </div>
+          
+          {analysisProgress && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="text-teal-700">Analysiere Konflikt {analysisProgress.current} von {analysisProgress.total}</span>
+                <span className="font-medium text-teal-900">
+                  {Math.round((analysisProgress.current / analysisProgress.total) * 100)}%
+                </span>
+              </div>
+              <div className="h-2 bg-teal-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-teal-600 rounded-full transition-all duration-300"
+                  style={{ width: `${(analysisProgress.current / analysisProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+          
+          {streamedConflicts.length > 0 && (
+            <div className="mt-6 space-y-3">
+              <h4 className="text-sm font-semibold text-teal-800">
+                Gefundene Konflikte ({streamedConflicts.length})
+              </h4>
+              <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1">
+                {streamedConflicts.map((conflict, idx) => (
+                  <div 
+                    key={conflict.conflictId || idx}
+                    className="bg-white border border-teal-200 rounded-xl p-3 animate-in fade-in slide-in-from-top-2 duration-300"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${
+                          conflict.oppositionRisk > 70 ? 'bg-red-500' : 
+                          conflict.oppositionRisk > 40 ? 'bg-orange-500' : 'bg-teal-500'
+                        }`} />
+                        <span className="font-medium text-gray-900">{conflict.conflictName}</span>
+                      </div>
+                      <span className={`text-sm font-semibold ${
+                        conflict.oppositionRisk > 70 ? 'text-red-600' : 
+                        conflict.oppositionRisk > 40 ? 'text-orange-600' : 'text-teal-600'
+                      }`}>
+                        {conflict.oppositionRisk}% Risiko
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1 truncate">{conflict.conflictHolder}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
