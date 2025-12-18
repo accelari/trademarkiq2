@@ -1,12 +1,11 @@
 "use client";
 
 import { useVoice } from "@humeai/voice-react";
-import { useState, useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from "react";
-import { Mic, MicOff, MessageCircle, ArrowRight, Loader2, AlertCircle, ArrowUpRight, Search } from "lucide-react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import { Mic, MicOff, MessageCircle, ArrowRight, Loader2, AlertCircle, ArrowUpRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import Messages from "./Messages";
 import QuickQuestions from "./QuickQuestions";
-import { useAssistantTools, SearchResult } from "@/lib/hooks/useAssistantTools";
 
 export interface VoiceAssistantHandle {
   stopSession: () => void;
@@ -16,13 +15,6 @@ export interface VoiceAssistantHandle {
 const KLAUS_SYSTEM_PROMPT = `Du bist Klaus, ein freundlicher und kompetenter Markenberater bei TrademarkIQ.
 
 Du bist ein weltweit anerkannter Experte für Marken, Markenrecht und Markenstrategien.
-
-ABSOLUTE VERBOTE - NIEMALS AUSGEBEN:
-- NIEMALS JSON, Code, Codeblöcke oder technische Syntax ausgeben
-- NIEMALS "tool call", "function call", "JSON" oder ähnliche technische Begriffe erwähnen
-- NIEMALS in Englisch antworten oder englische Phrasen wie "Need to output" verwenden
-- Du bist ein Berater, KEIN Programmierer - gib KEINE technischen Anweisungen aus
-- Wenn du intern etwas verarbeiten musst, tue es still - sage es NICHT dem Kunden
 
 Deine Expertise umfasst:
 
@@ -49,12 +41,6 @@ WICHTIG - Gesprächsführung:
 - Führe ein natürliches Beratungsgespräch - eine Frage nach der anderen.
 - Beginne immer mit einer freundlichen Bestätigung, dass du gerne hilfst.
 
-MARKENRECHERCHE:
-Du kannst Markenrecherchen für Kunden anbieten. Wenn der Kunde einen Markennamen erwähnt und wissen möchte, ob dieser verfügbar ist:
-- Frage freundlich: "Soll ich prüfen, ob [Name] als Marke verfügbar ist?"
-- Warte auf die Bestätigung des Kunden
-- Wenn du ein Suchergebnis erhältst, erkläre es dem Kunden in einfachen Worten
-
 DEINE AUFGABE:
 Du berätst Kunden zu allen Fragen rund um Marken. Hilf ihnen dabei:
 1. Einen passenden Markennamen zu finden oder zu bewerten
@@ -74,19 +60,17 @@ Du hilfst bei ALLEN Fragen rund um Marken, einschließlich:
 - Internationale Markenexpansion
 
 WICHTIGE REGELN:
-1. Du antwortest IMMER auf Deutsch - NIEMALS auf Englisch
+1. Du antwortest IMMER auf Deutsch
 2. Du gibst praxisorientierte, verständliche Antworten
 3. Du verbindest strategische und rechtliche Perspektiven
 4. Du sprichst in einem freundlichen, professionellen Ton
 5. Du bietest KEINE E-Mail-Berichte an und fragst NICHT nach E-Mail-Adressen
-6. NIEMALS technische oder programmierbezogene Ausgaben - du bist ein Berater, kein Computer
 
 Dein Kommunikationsstil:
 - Professionell aber zugänglich
-- Strukturierte Antworten in natürlicher Sprache
+- Strukturierte Antworten
 - Konkrete Beispiele wenn hilfreich
-- Ehrlich über Grenzen deines Wissens
-- IMMER menschlich und warmherzig`;
+- Ehrlich über Grenzen deines Wissens`;
 
 interface VoiceAssistantProps {
   accessToken: string;
@@ -108,92 +92,8 @@ interface TextMessage {
   timestamp: Date;
 }
 
-interface PendingSearch {
-  term: string;
-}
-
-const SEARCH_OFFER_PATTERNS = [
-  /soll ich pr[üu]fen/i,
-  /m[öo]chten sie.*(dass ich|ob ich).*(such|pr[üu]f)/i,
-  /soll ich.*suchen/i,
-  /kann ich.*pr[üu]fen/i,
-  /wollen sie.*dass ich.*recherchier/i,
-  /soll ich.*nachschauen/i,
-  /soll ich.*recherchier/i,
-];
-
-const CONFIRMATION_PATTERNS = [
-  /^ja\b/i,
-  /^bitte\b/i,
-  /^pr[üu]f/i,
-  /^such/i,
-  /^gerne\b/i,
-  /^okay\b/i,
-  /^mach das/i,
-  /^klar\b/i,
-  /^natürlich\b/i,
-  /^auf jeden fall/i,
-];
-
-function detectSearchOffer(text: string): { isOffer: boolean; brandName: string | null } {
-  const isOffer = SEARCH_OFFER_PATTERNS.some(pattern => pattern.test(text));
-  
-  if (!isOffer) return { isOffer: false, brandName: null };
-  
-  const patterns = [
-    /ob\s+["']?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\s]{1,30})["']?\s+als\s+marke/i,
-    /pr[üu]fen.*["']([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\s]{1,30})["']/i,
-    /marke\s+["']?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\s]{1,30})["']?\s+verf[üu]gbar/i,
-    /namen?\s+["']([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\s]{1,30})["']/i,
-  ];
-  
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match && match[1]) {
-      return { isOffer: true, brandName: match[1].trim() };
-    }
-  }
-  
-  return { isOffer: true, brandName: null };
-}
-
-function detectConfirmation(text: string): boolean {
-  return CONFIRMATION_PATTERNS.some(pattern => pattern.test(text.trim()));
-}
-
-function formatSearchResultForKlaus(result: SearchResult): string {
-  const riskLabels = {
-    low: "gering",
-    medium: "mittel", 
-    high: "hoch"
-  };
-  
-  let message = `Die Markenrecherche für "${result.searchTerm}" ist abgeschlossen. `;
-  message += `Das Risiko ist ${riskLabels[result.riskLevel]}. `;
-  message += `Es wurden ${result.totalResults} ähnliche Marken gefunden. `;
-  
-  if (result.topConflicts.length > 0) {
-    message += `Die wichtigsten Konflikte sind: `;
-    result.topConflicts.slice(0, 3).forEach((conflict, i) => {
-      message += `${conflict.name} mit ${conflict.similarity}% Ähnlichkeit von ${conflict.holder}`;
-      if (i < Math.min(result.topConflicts.length, 3) - 1) {
-        message += ", ";
-      } else {
-        message += ". ";
-      }
-    });
-  }
-  
-  message += result.summary;
-  message += " Bitte erkläre mir diese Ergebnisse.";
-  
-  return message;
-}
-
 const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ accessToken, inputMode = "sprache", onMessageSent, autoStart, onAutoStartConsumed, contextMessage, onContextMessageConsumed, customQuestions, embedded = false, onSessionEnd }, ref) => {
   const { status, connect, disconnect, sendUserInput, sendSessionSettings, messages } = useVoice();
-  const { performSearch, isSearching, remainingSearches } = useAssistantTools();
-  
   const [error, setError] = useState<string | null>(null);
   const [textMessages, setTextMessages] = useState<TextMessage[]>([]);
   const [autoStartTriggered, setAutoStartTriggered] = useState(false);
@@ -205,142 +105,14 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
   const [wasConnected, setWasConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
-  
-  const [pendingSearch, setPendingSearch] = useState<PendingSearch | null>(null);
-  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
-  const [searchInProgress, setSearchInProgress] = useState(false);
-  
   const textChatRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastProcessedMessageIndexRef = useRef<number>(-1);
   
   const MAX_RECONNECT_ATTEMPTS = 3;
   const RECONNECT_DELAY = 2000;
   
   const processedPairsRef = useRef<Set<string>>(new Set());
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const executeSearch = useCallback(async (searchTerm: string) => {
-    if (searchInProgress || isSearching) {
-      console.log("Search blocked - already in progress");
-      return;
-    }
-    
-    console.log("Starting search for:", searchTerm);
-    setSearchInProgress(true);
-    
-    const isVoiceMode = inputMode === "sprache" && status.value === "connected";
-    
-    if (isVoiceMode) {
-      console.log("Voice mode: Sending 'Einen Moment' message");
-      sendUserInput("Bitte führe jetzt die Markenrecherche durch. Einen Moment bitte.");
-    } else {
-      const searchingMessage: TextMessage = {
-        id: `assistant-searching-${Date.now()}`,
-        type: "assistant",
-        content: "Einen Moment, ich führe die Markenrecherche durch...",
-        timestamp: new Date(),
-      };
-      setTextMessages(prev => [...prev, searchingMessage]);
-    }
-    
-    try {
-      const result = await performSearch({ searchTerm });
-      console.log("Search completed:", result.riskLevel, result.totalResults, "results");
-      
-      const resultMessage = formatSearchResultForKlaus(result);
-      console.log("Formatted result message:", resultMessage.substring(0, 100) + "...");
-      
-      if (isVoiceMode) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        console.log("Voice mode: Sending search results to Klaus");
-        sendUserInput(resultMessage);
-        
-        console.log("Search results sent successfully");
-      } else {
-        const response = await fetch("/api/ai/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            message: resultMessage,
-            history: textMessages.map(m => ({
-              role: m.type as "user" | "assistant",
-              content: m.content
-            }))
-          })
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const assistantMessage: TextMessage = {
-            id: `assistant-${Date.now()}`,
-            type: "assistant",
-            content: data.response,
-            timestamp: new Date(),
-          };
-          setTextMessages(prev => [...prev, assistantMessage]);
-          onMessageSent?.(data.response, "assistant");
-        }
-      }
-    } catch (err) {
-      console.error("Search error:", err);
-      const errorMessage = "Es gab ein Problem bei der Markenrecherche. Bitte versuchen Sie es später erneut.";
-      
-      if (isVoiceMode) {
-        sendUserInput("Die Markenrecherche hat leider nicht funktioniert. " + errorMessage);
-      } else {
-        const errorMsg: TextMessage = {
-          id: `assistant-error-${Date.now()}`,
-          type: "assistant",
-          content: errorMessage,
-          timestamp: new Date(),
-        };
-        setTextMessages(prev => [...prev, errorMsg]);
-      }
-    } finally {
-      setSearchInProgress(false);
-      setPendingSearch(null);
-      setAwaitingConfirmation(false);
-      console.log("Search completed, state reset");
-    }
-  }, [inputMode, status.value, sendUserInput, performSearch, textMessages, onMessageSent, searchInProgress, isSearching]);
-
-  useEffect(() => {
-    if (inputMode !== "sprache" || messages.length === 0) return;
-    
-    const newMessages = messages.slice(lastProcessedMessageIndexRef.current + 1);
-    
-    for (let i = 0; i < newMessages.length; i++) {
-      const msg = newMessages[i];
-      const msgIndex = lastProcessedMessageIndexRef.current + 1 + i;
-      
-      if (msg.type === "assistant_message" && msg.message?.content) {
-        const content = msg.message.content;
-        const { isOffer, brandName } = detectSearchOffer(content);
-        
-        if (isOffer && brandName) {
-          setPendingSearch({ term: brandName });
-          setAwaitingConfirmation(true);
-          console.log("Klaus bietet Suche an für:", brandName);
-        }
-      }
-      
-      if (msg.type === "user_message" && msg.message?.content && awaitingConfirmation && pendingSearch) {
-        const content = msg.message.content;
-        
-        if (detectConfirmation(content)) {
-          console.log("Benutzer bestätigt Suche für:", pendingSearch.term);
-          executeSearch(pendingSearch.term);
-        } else {
-          setPendingSearch(null);
-          setAwaitingConfirmation(false);
-        }
-      }
-      
-      lastProcessedMessageIndexRef.current = msgIndex;
-    }
-  }, [messages, inputMode, awaitingConfirmation, pendingSearch, executeSearch]);
 
   useImperativeHandle(ref, () => ({
     stopSession: () => {
@@ -353,8 +125,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       }
       setWasConnected(false);
       setReconnectAttempts(MAX_RECONNECT_ATTEMPTS);
-      setPendingSearch(null);
-      setAwaitingConfirmation(false);
     },
     isConnected: () => status.value === "connected",
   }));
@@ -452,9 +222,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
   useEffect(() => {
     if (prevStatusRef.current === "connected" && status.value === "disconnected") {
       setContextMessageProcessed(false);
-      setPendingSearch(null);
-      setAwaitingConfirmation(false);
-      lastProcessedMessageIndexRef.current = -1;
       onSessionEnd?.();
     }
     prevStatusRef.current = status.value;
@@ -620,7 +387,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
   };
 
   const handleTextMessage = async (message: string) => {
-    if (isLoading || searchInProgress) return;
+    if (isLoading) return;
 
     const userMessage: TextMessage = {
       id: `user-${Date.now()}`,
@@ -631,13 +398,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
     
     setTextMessages(prev => [...prev, userMessage]);
     onMessageSent?.(message, "user");
-    
-    if (awaitingConfirmation && pendingSearch && detectConfirmation(message)) {
-      console.log("Text-Modus: Benutzer bestätigt Suche für:", pendingSearch.term);
-      await executeSearch(pendingSearch.term);
-      return;
-    }
-    
     setIsLoading(true);
     setError(null);
 
@@ -653,16 +413,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
       
       setTextMessages(prev => [...prev, assistantMessage]);
       onMessageSent?.(response, "assistant");
-      
-      const { isOffer, brandName } = detectSearchOffer(response);
-      if (isOffer && brandName) {
-        setPendingSearch({ term: brandName });
-        setAwaitingConfirmation(true);
-        console.log("Text-Modus: Klaus bietet Suche an für:", brandName);
-      } else {
-        setPendingSearch(null);
-        setAwaitingConfirmation(false);
-      }
     } catch (err) {
       console.error("Chat error:", err);
       setError("Fehler bei der Kommunikation. Bitte versuchen Sie es erneut.");
@@ -673,7 +423,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
 
   const handleTextSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!textInput.trim() || isLoading || searchInProgress) return;
+    if (!textInput.trim() || isLoading) return;
     
     const message = textInput.trim();
     setTextInput("");
@@ -792,8 +542,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
 
   useEffect(() => {
     setContextMessageProcessed(false);
-    setPendingSearch(null);
-    setAwaitingConfirmation(false);
   }, [inputMode]);
 
   const isConnected = status.value === "connected";
@@ -817,12 +565,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
                   </p>
                 </div>
                 <div className="ml-auto flex items-center gap-2">
-                  {(isSearching || searchInProgress) && (
-                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-amber-400/30 text-white flex items-center gap-1.5">
-                      <Search className="w-3 h-3 animate-pulse" />
-                      Suche...
-                    </span>
-                  )}
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                     isTextMode
                       ? 'bg-white/30 text-white'
@@ -903,7 +645,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
                   ))
                 )}
                 
-                {(isLoading || searchInProgress) && (
+                {isLoading && (
                   <div className="flex justify-start">
                     <div className="max-w-[85%]">
                       <div className="text-xs text-primary font-semibold mb-1 flex items-center gap-1.5">
@@ -911,17 +653,8 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
                         Markenberater
                       </div>
                       <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2">
-                        {searchInProgress ? (
-                          <>
-                            <Search className="w-4 h-4 animate-pulse text-primary" />
-                            <span className="text-sm text-gray-500">Führe Markenrecherche durch...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                            <span className="text-sm text-gray-500">Analysiert...</span>
-                          </>
-                        )}
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        <span className="text-sm text-gray-500">Analysiert...</span>
                       </div>
                     </div>
                   </div>
@@ -934,33 +667,26 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
                 </div>
               )}
 
-              {remainingSearches < 5 && (
-                <div className="mb-3 p-2 bg-blue-50 border border-blue-100 rounded-lg text-blue-700 text-xs flex items-center gap-2">
-                  <Search className="w-3 h-3" />
-                  <span>Verbleibende Suchen: {remainingSearches}/5 pro Stunde</span>
-                </div>
-              )}
-
               <form onSubmit={handleTextSubmit} className="flex gap-3">
                 <input
                   type="text"
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
                   placeholder="Ihre Frage zum Markenrecht..."
-                  disabled={isLoading || searchInProgress}
+                  disabled={isLoading}
                   className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-gray-50 disabled:cursor-not-allowed"
                 />
                 <button
                   type="submit"
-                  disabled={!textInput.trim() || isLoading || searchInProgress}
+                  disabled={!textInput.trim() || isLoading}
                   className={`px-5 py-3 rounded-xl transition-all flex items-center justify-center ${
-                    textInput.trim() && !isLoading && !searchInProgress
+                    textInput.trim() && !isLoading
                       ? 'bg-primary hover:bg-primary-hover text-white shadow-sm'
                       : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   }`}
                   aria-label="Nachricht senden"
                 >
-                  {isLoading || searchInProgress ? (
+                  {isLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <ArrowRight className="w-5 h-5" />
@@ -983,12 +709,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
                       <span className={`text-sm font-medium ${isConnected ? 'text-green-600' : 'text-gray-500'}`}>
                         {isConnecting ? 'Verbindet...' : isReconnecting ? 'Verbindet neu...' : 'Aktive Sprachsitzung'}
                       </span>
-                      {(isSearching || searchInProgress) && (
-                        <span className="text-sm text-amber-600 flex items-center gap-1.5">
-                          <Search className="w-4 h-4 animate-pulse" />
-                          Suche läuft...
-                        </span>
-                      )}
                     </div>
                     {isConnected && (
                       <button
