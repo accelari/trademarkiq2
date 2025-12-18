@@ -201,10 +201,14 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
         sendSessionSettings({
           systemPrompt: promptToSend
         });
+        // Mark that session settings have been sent - this allows pending questions to be sent
+        setSessionSettingsSent(true);
         // Clear both ref and state
         pendingPromptRef.current = null;
         setPendingPrompt(null);
       } else {
+        // Even without a custom prompt, mark as ready so pending questions can be sent
+        setSessionSettingsSent(true);
         console.warn("[VoiceAssistant] Connected but no prompt available!");
       }
     }
@@ -285,12 +289,29 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
     };
   }, [status.value, wasConnected, inputMode, reconnectAttempts, isReconnecting, accessToken, connect]);
 
+  // Track when session settings have been sent (use state to trigger re-render)
+  const [sessionSettingsSent, setSessionSettingsSent] = useState(false);
+  
   useEffect(() => {
-    if (status.value === "connected" && pendingQuestion) {
-      sendUserInput(pendingQuestion);
-      setPendingQuestion(null);
+    // Reset the flag when disconnected
+    if (status.value === "disconnected") {
+      setSessionSettingsSent(false);
     }
-  }, [status.value, pendingQuestion, sendUserInput]);
+  }, [status.value]);
+  
+  useEffect(() => {
+    if (status.value === "connected" && pendingQuestion && sessionSettingsSent) {
+      // Wait a short delay to ensure session settings are processed by Hume
+      // before sending the user input
+      const timeoutId = setTimeout(() => {
+        console.log("[VoiceAssistant] Sending pending question after session settings (with delay)");
+        sendUserInput(pendingQuestion);
+        setPendingQuestion(null);
+      }, 150); // 150ms delay to ensure WebSocket message is processed
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [status.value, pendingQuestion, sendUserInput, sessionSettingsSent]);
 
   useEffect(() => {
     // Only auto-start when prompt is ready (ref or state) to avoid race condition
