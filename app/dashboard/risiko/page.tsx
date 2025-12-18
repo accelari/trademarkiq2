@@ -1355,6 +1355,16 @@ ${notesTextFromHistory}
         const parsed = JSON.parse(storedData);
         sessionStorage.removeItem('risikoanalyse_conflicts');
         
+        if (parsed.markenname) setMarkenname(parsed.markenname);
+        if (parsed.laender?.length > 0) setSelectedLaender(parsed.laender);
+        if (parsed.klassen?.length > 0) setSelectedClasses(parsed.klassen);
+        
+        if (caseIdParam) {
+          isHistoryLoadedRef.current = true;
+          startStreamingAnalysis(caseIdParam, parsed.markenname || markennameParam || "");
+          return;
+        }
+        
         const conflictAnalyses: ExpertConflictAnalysis[] = parsed.conflicts.map((c: any) => ({
           conflictId: c.id || c.applicationNumber || Math.random().toString(),
           conflictName: c.name,
@@ -1443,7 +1453,7 @@ ${notesTextFromHistory}
       return;
     }
     
-    if (caseIdParam && !storedData) {
+    if (caseIdParam) {
       loadCaseDataAndAnalysis(caseIdParam);
     } else {
       isHistoryLoadedRef.current = true;

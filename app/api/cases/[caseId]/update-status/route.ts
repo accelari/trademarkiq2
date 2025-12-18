@@ -38,7 +38,7 @@ export async function POST(
 
     const existingStep = await db.query.caseSteps.findFirst({
       where: and(
-        eq(caseSteps.caseId, caseId),
+        eq(caseSteps.caseId, caseRecord.id),
         eq(caseSteps.step, step)
       ),
     });
@@ -57,14 +57,14 @@ export async function POST(
       })
       .where(
         and(
-          eq(caseSteps.caseId, caseId),
+          eq(caseSteps.caseId, caseRecord.id),
           eq(caseSteps.step, step)
         )
       )
       .returning();
 
     await db.insert(caseEvents).values({
-      caseId,
+      caseId: caseRecord.id,
       userId: session.user.id,
       eventType: "step_status_changed",
       eventData: { 
@@ -77,7 +77,7 @@ export async function POST(
 
     if (step === "recherche" && status === "completed") {
       const consultation = await db.query.consultations.findFirst({
-        where: eq(consultations.caseId, caseId),
+        where: eq(consultations.caseId, caseRecord.id),
       });
 
       if (consultation) {

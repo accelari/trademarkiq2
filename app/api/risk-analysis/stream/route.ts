@@ -5,6 +5,7 @@ import { trademarkCases } from "@/db/schema";
 import { eq, and, or } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { NICE_CLASSES } from "@/lib/nice-classes";
+import { getTMSearchClient } from "@/lib/tmsearch/client";
 
 const client = new Anthropic({
   baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
@@ -36,6 +37,7 @@ interface ExpertConflictAnalysis {
 
 interface ConflictFromRecherche {
   id?: string;
+  mid?: number | string;
   name: string;
   holder?: string;
   classes?: number[];
@@ -381,7 +383,39 @@ export async function POST(request: NextRequest) {
   }
 
   const metadata = rechercheStep.metadata as Record<string, any> | null;
-  const conflicts: ConflictFromRecherche[] = metadata?.conflicts || [];
+  let conflicts: ConflictFromRecherche[] = metadata?.conflicts || [];
+
+  const conflictsNeedingHolder = conflicts.filter(c => c.mid && (!c.holder || c.holder === "" || c.holder === "Unbekannt"));
+  if (conflictsNeedingHolder.length > 0) {
+    try {
+      const tmsearchClient = getTMSearchClient();
+      const holderPromises = conflictsNeedingHolder.map(async (conflict) => {
+        try {
+          const midNum = typeof conflict.mid === "string" ? parseInt(conflict.mid, 10) : conflict.mid!;
+          const info = await tmsearchClient.getInfo({ mid: midNum });
+          const ownerName = (info as any)?.owner?.name || null;
+          return { mid: String(conflict.mid), holder: ownerName };
+        } catch {
+          return { mid: String(conflict.mid), holder: null };
+        }
+      });
+      
+      const holderResults = await Promise.all(holderPromises);
+      const holderMap = new Map(holderResults.map(h => [h.mid, h.holder]));
+      
+      conflicts = conflicts.map(c => {
+        if (c.mid && holderMap.has(String(c.mid))) {
+          const holder = holderMap.get(String(c.mid));
+          if (holder) {
+            return { ...c, holder };
+          }
+        }
+        return c;
+      });
+    } catch (e) {
+      console.error("Error fetching holder info:", e);
+    }
+  }
 
   const decision = existingCase.decisions?.[0];
   const targetClasses: number[] = decision?.niceClasses || [];
