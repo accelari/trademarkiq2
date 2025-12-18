@@ -626,6 +626,7 @@ function RisikoPageContent() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const meetingNotesRef = useRef<MeetingNote[]>([]);
   const isHistoryLoadedRef = useRef(false);
+  const [pageReady, setPageReady] = useState(false);
   
   const getLiveNonSystemNotes = (notes: MeetingNote[], startIndex: number) => {
     return notes.slice(startIndex).filter(n => n.type !== "system");
@@ -895,14 +896,16 @@ function RisikoPageContent() {
       hasToken: !!accessToken, 
       isLoadingToken,
       isStreaming,
+      isLoadingFromCase,
       klausWaitingMode,
+      pageReady,
       conflictCount: expertAnalysis?.conflictAnalyses?.length || 0
     });
-    if (accessToken && !isLoadingToken && (klausWaitingMode || expertAnalysis)) {
+    if (accessToken && !isLoadingToken && !isLoadingFromCase && (klausWaitingMode || expertAnalysis || pageReady)) {
       console.log("[Risiko] Setting autoStartVoice = true (immediate start)");
       setAutoStartVoice(true);
     }
-  }, [expertAnalysis, accessToken, isLoadingToken, klausWaitingMode, isStreaming]);
+  }, [expertAnalysis, accessToken, isLoadingToken, klausWaitingMode, isStreaming, isLoadingFromCase, pageReady]);
   
   const generateWaitingPrompt = (): string => {
     return `[SYSTEM-KONTEXT für Risikoberatung - WARTEMODUS]
@@ -933,8 +936,44 @@ Du antwortest IMMER auf Deutsch und in kurzen, natürlichen Sätzen.`;
     }
     
     if (!expertAnalysis) {
-      console.log("[Risiko] No expertAnalysis - returning null");
-      return null;
+      if (noConflictsFound) {
+        console.log("[Risiko] No conflicts found - returning success prompt");
+        return `[SYSTEM-KONTEXT für Risikoberatung - KEINE KONFLIKTE]
+Du bist Klaus, Markenberater bei TrademarkIQ.
+
+MARKE: "${markenname}"
+ERGEBNIS: Die Recherche wurde durchgeführt und es wurden KEINE Konflikte gefunden!
+
+DEINE AUFGABE:
+1. Begrüße den Kunden freundlich
+2. Überbring die gute Nachricht: Die Marke "${markenname}" scheint verfügbar zu sein!
+3. Erkläre kurz, dass das Risiko einer Kollision mit bestehenden Marken gering ist
+4. Empfehle den nächsten Schritt: Die Markenanmeldung vorbereiten
+5. Biete an, Fragen zur Anmeldung zu beantworten
+
+WICHTIG: 
+- Sei begeistert und positiv - das ist ein gutes Ergebnis!
+- Weise auf den "Marke jetzt anmelden" Button hin
+- Du antwortest IMMER auf Deutsch`;
+      }
+      
+      console.log("[Risiko] No expertAnalysis - returning guidance prompt");
+      return `[SYSTEM-KONTEXT für Risikoberatung - KEINE RECHERCHE-DATEN]
+Du bist Klaus, Markenberater bei TrademarkIQ.
+
+SITUATION: Der Kunde ist auf der Risikoanalyse-Seite, aber es liegen noch keine Recherche-Daten vor.
+${markenname ? `Die Marke "${markenname}" wurde noch nicht recherchiert.` : "Es wurde noch keine Marke recherchiert."}
+
+DEINE AUFGABE:
+1. Begrüße den Kunden freundlich
+2. Erkläre kurz, dass für eine aussagekräftige Risikoanalyse zuerst eine Markenrecherche durchgeführt werden muss
+3. Weise auf die Buttons auf der Seite hin: "Beratung starten" oder "Zur Markenrecherche"
+4. Biete an, Fragen zur Markenrecherche zu beantworten
+
+WICHTIG: 
+- Sei freundlich und hilfsbereit
+- Erkläre in einfachen Worten warum die Recherche wichtig ist
+- Du antwortest IMMER auf Deutsch`;
     }
     
     const conflicts = expertAnalysis.conflictAnalyses || [];
@@ -1328,6 +1367,7 @@ ${notesTextFromHistory}
         
         if (tmName) setMarkenname(tmName);
         isHistoryLoadedRef.current = true;
+        setPageReady(true);
         setIsLoadingFromCase(false);
         return;
       }
@@ -1349,24 +1389,18 @@ ${notesTextFromHistory}
         });
         setNoConflictsFound(true);
       } else {
-        // Recherche wurde noch nicht durchgeführt - Klaus erklärt das
-        setExpertAnalysis({
-          success: true,
-          trademarkName: tmName,
-          overallRisk: "low",
-          conflictAnalyses: [],
-          bestOverallSolution: null,
-          summary: `Für die Marke "${tmName}" wurde noch keine Recherche durchgeführt. Bitte führe zuerst eine Markenrecherche durch, um potenzielle Konflikte zu identifizieren.`,
-        });
-        setError("Keine Recherche-Daten vorhanden. Bitte führe zuerst eine Markenrecherche durch.");
+        // Recherche wurde noch nicht durchgeführt - expertAnalysis bleibt null
+        // Die UI zeigt dann automatisch "Zuerst Recherche durchführen"
       }
       
       isHistoryLoadedRef.current = true;
+      setPageReady(true);
       setIsLoadingFromCase(false);
     } catch (err: any) {
       console.error("Error loading case data:", err);
       setError("Fehler beim Laden der Falldaten");
       isHistoryLoadedRef.current = true;
+      // Bei Fehlern pageReady NICHT setzen - Klaus soll nicht falsch sprechen
       setIsLoadingFromCase(false);
     }
   };
@@ -1403,6 +1437,7 @@ ${notesTextFromHistory}
       setExpertAnalysis(null);
       setNoConflictsFound(true);
       isHistoryLoadedRef.current = true;
+      setPageReady(true);
       return;
     }
     
@@ -1506,6 +1541,7 @@ ${notesTextFromHistory}
         console.error("Error parsing stored conflicts:", e);
       }
       isHistoryLoadedRef.current = true;
+      setPageReady(true);
       return;
     }
     
@@ -1513,6 +1549,7 @@ ${notesTextFromHistory}
       loadCaseDataAndAnalysis(caseIdParam);
     } else {
       isHistoryLoadedRef.current = true;
+      setPageReady(true);
     }
   }, [searchParams]);
   
@@ -1749,7 +1786,7 @@ ${notesTextFromHistory}
         </div>
       )}
 
-      {!caseId && !expertAnalysis && !noConflictsFound && (
+      {!expertAnalysis && !noConflictsFound && !isLoadingFromCase && !isStreaming && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
           <div className="text-center max-w-xl mx-auto">
             <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1765,14 +1802,14 @@ ${notesTextFromHistory}
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <a 
-                href="/dashboard/copilot"
+                href={caseId ? `/dashboard/copilot?caseId=${caseId}` : "/dashboard/copilot"}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 text-white font-medium rounded-xl hover:bg-teal-700 transition-colors"
               >
                 <MessageCircle className="w-5 h-5" />
                 Beratung starten
               </a>
               <a 
-                href="/dashboard/recherche"
+                href={caseId ? `/dashboard/recherche?caseId=${caseId}` : "/dashboard/recherche"}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-teal-600 text-teal-700 font-medium rounded-xl hover:bg-teal-50 transition-colors"
               >
                 <Search className="w-5 h-5" />
