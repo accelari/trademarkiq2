@@ -263,6 +263,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
             const reconnectPrompt = KLAUS_SYSTEM_PROMPT + "\n\nBEGRÜSSUNG: Die Verbindung wurde wiederhergestellt. Sage kurz: 'Ich bin wieder da. Wo waren wir stehengeblieben?'";
             pendingPromptRef.current = reconnectPrompt;
             setPendingPrompt(reconnectPrompt);
+            console.log("[VoiceAssistant] Reconnect with sessionSettings, prompt length:", reconnectPrompt.length);
             await connect({
               auth: {
                 type: "accessToken" as const,
@@ -270,6 +271,10 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
               },
               hostname: "api.hume.ai",
               configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
+              sessionSettings: {
+                type: "session_settings",
+                systemPrompt: reconnectPrompt
+              }
             });
           } catch (err) {
             console.error("Reconnect fehlgeschlagen:", err);
@@ -301,13 +306,13 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
   
   useEffect(() => {
     if (status.value === "connected" && pendingQuestion && sessionSettingsSent) {
-      // Wait a short delay to ensure session settings are processed by Hume
-      // before sending the user input
+      // Wait for session settings to be processed by Hume before sending user input
+      // Using 500ms to ensure WebSocket message is fully processed
       const timeoutId = setTimeout(() => {
-        console.log("[VoiceAssistant] Sending pending question after session settings (with delay)");
+        console.log("[VoiceAssistant] Sending pending question after session settings, delay: 500ms");
         sendUserInput(pendingQuestion);
         setPendingQuestion(null);
-      }, 150); // 150ms delay to ensure WebSocket message is processed
+      }, 500);
       
       return () => clearTimeout(timeoutId);
     }
@@ -377,7 +382,8 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           setPendingPrompt(prompt);
         }
         
-        console.log("Voice connecting, pendingPromptRef ready:", !!pendingPromptRef.current, "length:", pendingPromptRef.current?.length || 0);
+        const promptForSession = pendingPromptRef.current || pendingPrompt || KLAUS_SYSTEM_PROMPT;
+        console.log("[VoiceAssistant] Connecting with sessionSettings, prompt length:", promptForSession.length);
         await connect({
           auth: {
             type: "accessToken" as const,
@@ -385,6 +391,10 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           },
           hostname: "api.hume.ai",
           configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
+          sessionSettings: {
+            type: "session_settings",
+            systemPrompt: promptForSession
+          }
         });
       }
     } catch (err) {
@@ -408,6 +418,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
         const quickPrompt = KLAUS_SYSTEM_PROMPT + `\n\nBEGRÜSSUNG: Der Benutzer hat eine Schnellfrage ausgewählt. Beginne deine Antwort mit: 'Hallo, mein Name ist Klaus. Gerne berate ich Sie zu diesem Thema.' Dann beantworte die folgende Frage: "${question}"`;
         pendingPromptRef.current = quickPrompt;
         setPendingPrompt(quickPrompt);
+        console.log("[VoiceAssistant] Quick question with sessionSettings, prompt length:", quickPrompt.length);
         await connect({
           auth: {
             type: "accessToken" as const,
@@ -415,6 +426,10 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           },
           hostname: "api.hume.ai",
           configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
+          sessionSettings: {
+            type: "session_settings",
+            systemPrompt: quickPrompt
+          }
         });
       } catch (err) {
         console.error("Connection error:", err);
@@ -573,7 +588,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
         // If autoStart is active and we have a token, connect immediately here
         // This avoids the race condition with the separate auto-start effect
         if (autoStart && accessToken) {
-          console.log("[VoiceAssistant] Context ready + autoStart: connecting immediately, prompt length:", fullPrompt.length);
+          console.log("[VoiceAssistant] Context ready + autoStart with sessionSettings, prompt length:", fullPrompt.length);
           setAutoStartTriggered(true);
           onAutoStartConsumed?.();
           connect({
@@ -583,6 +598,10 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
             },
             hostname: "api.hume.ai",
             configId: "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
+            sessionSettings: {
+              type: "session_settings",
+              systemPrompt: fullPrompt
+            }
           }).catch(err => {
             console.error("Auto-start connect error:", err);
             setError("Verbindungsfehler. Bitte klicken Sie auf 'Starten'.");
