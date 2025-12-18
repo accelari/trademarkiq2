@@ -3,7 +3,7 @@
 import { VoiceProvider } from "@humeai/voice-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Mic, FileText, Clock, Check, MessageSquare, MessageCircle, Sparkles, Info, Loader2, X, Save, FolderOpen, Lightbulb, ChevronDown, HelpCircle, ArrowRight, Search, AlertTriangle } from "lucide-react";
+import { Mic, FileText, Clock, Check, MessageSquare, MessageCircle, Sparkles, Info, Loader2, X, Save, FolderOpen, Lightbulb, ChevronDown, HelpCircle, ArrowRight, Search, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import VoiceAssistant, { VoiceAssistantHandle } from "../../components/VoiceAssistant";
 import WorkflowProgress from "../../components/WorkflowProgress";
@@ -11,6 +11,7 @@ import HelpDrawer from "../../components/HelpDrawer";
 import GuidedTour from "../../components/GuidedTour";
 import ConsultationsModal from "../../components/ConsultationsModal";
 import { useUnsavedData } from "@/app/contexts/UnsavedDataContext";
+import { useSearchResultListener, SearchResult, AssistantSearchEventDetail } from "@/lib/hooks/useAssistantTools";
 
 interface CopilotClientProps {
   accessToken: string;
@@ -131,6 +132,8 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     niceClasses: number[];
     missingInfo: string[];
   } | null>(null);
+  const [assistantSearchResults, setAssistantSearchResults] = useState<SearchResult[]>([]);
+  const [searchResultsExpanded, setSearchResultsExpanded] = useState(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const meetingNotesRef = useRef<MeetingNote[]>([]);
   const inputModeRef = useRef<"sprache" | "text">("sprache");
@@ -550,6 +553,15 @@ ${memoryData.memory.promptForAgent}`;
   useEffect(() => {
     inputModeRef.current = inputMode;
   }, [inputMode]);
+
+  // Listen for Klaus' search results - hook auto-subscribes/unsubscribes
+  useSearchResultListener((result: SearchResult) => {
+    setAssistantSearchResults(prev => {
+      // Deduplicate by id
+      if (prev.some(r => r.id === result.id)) return prev;
+      return [...prev, result];
+    });
+  });
 
   useEffect(() => {
     if (toast.visible) {
@@ -1652,6 +1664,90 @@ ${notesText}`,
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {assistantSearchResults.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500">
+              <button 
+                onClick={() => setSearchResultsExpanded(!searchResultsExpanded)}
+                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Search className="w-4 h-4 text-primary" />
+                  Klaus' Recherchen
+                  <span className="ml-1 px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full">
+                    {assistantSearchResults.length}
+                  </span>
+                </h3>
+                <div className="flex items-center gap-2">
+                  {searchResultsExpanded ? (
+                    <EyeOff className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <Eye className="w-4 h-4 text-gray-400" />
+                  )}
+                  <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${searchResultsExpanded ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+              
+              {searchResultsExpanded && (
+                <div className="px-4 pb-4 space-y-3 max-h-80 overflow-y-auto">
+                  {assistantSearchResults.map((result, index) => {
+                    const riskColors = {
+                      low: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200', label: 'Niedrig' },
+                      medium: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', label: 'Mittel' },
+                      high: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200', label: 'Hoch' }
+                    };
+                    const riskStyle = riskColors[result.riskLevel] || riskColors.low;
+                    
+                    return (
+                      <div 
+                        key={`${result.searchTerm}-${index}`}
+                        className="bg-gray-50 rounded-lg p-3 border border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300"
+                        style={{ animationDelay: `${index * 100}ms` }}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 truncate text-sm">
+                              {result.searchTerm}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {result.totalResults} Treffer
+                            </p>
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${riskStyle.bg} ${riskStyle.text} ${riskStyle.border} border`}>
+                            {riskStyle.label}
+                          </span>
+                        </div>
+                        
+                        {result.topConflicts && result.topConflicts.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <p className="text-xs font-medium text-gray-500 mb-1.5">Top Konflikte:</p>
+                            <div className="space-y-1">
+                              {result.topConflicts.slice(0, 3).map((conflict, i) => (
+                                <div key={i} className="flex items-center justify-between text-xs bg-white rounded px-2 py-1.5 border border-gray-100">
+                                  <span className="text-gray-800 truncate flex-1" title={conflict.name}>
+                                    {conflict.name}
+                                  </span>
+                                  <span className="text-gray-500 ml-2 whitespace-nowrap">
+                                    {Math.round(conflict.similarity * 100)}%
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {result.summary && (
+                          <p className="text-xs text-gray-600 mt-2 line-clamp-2">
+                            {result.summary}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

@@ -52,6 +52,7 @@ import { NICE_CLASSES, formatClassLabel } from "@/lib/nice-classes";
 import { VoiceProvider } from "@humeai/voice-react";
 import VoiceAssistant from "@/app/components/VoiceAssistant";
 import { useUnsavedData } from "@/app/contexts/UnsavedDataContext";
+import { useSearchResultListener, SearchResult } from "@/lib/hooks/useAssistantTools";
 
 interface Solution {
   type: "name_modification" | "class_change" | "mark_type" | "geographic" | "coexistence";
@@ -605,6 +606,9 @@ function RisikoPageContent() {
   const voiceQueueRef = useRef<string[]>([]);
   const [klausWaitingMode, setKlausWaitingMode] = useState(false);
   
+  const [assistantSearchResults, setAssistantSearchResults] = useState<SearchResult[]>([]);
+  const [isAssistantSearchExpanded, setIsAssistantSearchExpanded] = useState(true);
+  
   const [meetingNotes, setMeetingNotes] = useState<MeetingNote[]>([]);
   const [meetingStartTime, setMeetingStartTime] = useState<Date | null>(null);
   const [meetingDuration, setMeetingDuration] = useState("00:00");
@@ -715,6 +719,15 @@ function RisikoPageContent() {
     }
     return () => setOnSaveBeforeLeave(null);
   }, [caseId, setOnSaveBeforeLeave]);
+
+  // Listen for Klaus' search results - hook auto-subscribes/unsubscribes
+  useSearchResultListener((result: SearchResult) => {
+    setAssistantSearchResults((prev) => {
+      // Deduplicate by id
+      if (prev.some(r => r.id === result.id)) return prev;
+      return [...prev, result];
+    });
+  });
 
   const handleNavigationWithCheck = (e: React.MouseEvent, path: string) => {
     const hasUnsaved = computeHasUnsavedData();
@@ -1807,6 +1820,109 @@ ${notesTextFromHistory}
                 </a>
               </div>
             </div>
+            
+            {assistantSearchResults.length > 0 && (
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl shadow-sm border border-indigo-200 overflow-hidden">
+                <button
+                  onClick={() => setIsAssistantSearchExpanded(!isAssistantSearchExpanded)}
+                  className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-indigo-100/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-indigo-900">Klaus' Alternative Recherchen</h3>
+                      <p className="text-sm text-indigo-600">{assistantSearchResults.length} zusätzliche Suche{assistantSearchResults.length !== 1 ? 'n' : ''} durchgeführt</p>
+                    </div>
+                  </div>
+                  {isAssistantSearchExpanded ? (
+                    <ChevronUp className="w-5 h-5 text-indigo-400" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-indigo-400" />
+                  )}
+                </button>
+                
+                {isAssistantSearchExpanded && (
+                  <div className="border-t border-indigo-200 p-5 space-y-4">
+                    {assistantSearchResults.map((result, idx) => {
+                      const getRiskConfig = (level: string) => {
+                        switch (level) {
+                          case "high": return { bg: "bg-red-100", border: "border-red-300", text: "text-red-700", label: "Hohes Risiko", emoji: "🔴" };
+                          case "medium": return { bg: "bg-orange-100", border: "border-orange-300", text: "text-orange-700", label: "Mittleres Risiko", emoji: "🟡" };
+                          default: return { bg: "bg-teal-100", border: "border-teal-300", text: "text-teal-700", label: "Niedriges Risiko", emoji: "🟢" };
+                        }
+                      };
+                      const riskConfig = getRiskConfig(result.riskLevel);
+                      
+                      return (
+                        <div 
+                          key={idx} 
+                          className="bg-white rounded-xl border border-indigo-200 p-4 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="font-semibold text-gray-900 truncate">{result.searchTerm}</h4>
+                                <span className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${riskConfig.bg} ${riskConfig.text} ${riskConfig.border} border`}>
+                                  {riskConfig.emoji} {riskConfig.label}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-500 mt-1">
+                                {result.totalResults} Treffer gefunden
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {result.summary && (
+                            <p className="text-sm text-gray-600 mb-3 bg-indigo-50/50 rounded-lg p-3 border border-indigo-100">
+                              {result.summary}
+                            </p>
+                          )}
+                          
+                          {result.topConflicts && result.topConflicts.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-xs font-medium text-indigo-700 uppercase tracking-wide">Top Konflikte:</p>
+                              <div className="space-y-2">
+                                {result.topConflicts.slice(0, 3).map((conflict, cIdx) => (
+                                  <div 
+                                    key={cIdx}
+                                    className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg p-2.5 text-sm"
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-medium text-gray-900 truncate block">{conflict.name}</span>
+                                      <span className="text-xs text-gray-500">{conflict.holder} • {conflict.office}</span>
+                                    </div>
+                                    <span className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-bold ${
+                                      conflict.similarity > 70 ? 'bg-red-100 text-red-700' :
+                                      conflict.similarity > 40 ? 'bg-orange-100 text-orange-700' : 'bg-teal-100 text-teal-700'
+                                    }`}>
+                                      {conflict.similarity}%
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="mt-3 pt-3 border-t border-gray-100">
+                            <p className="text-xs text-gray-400">
+                              Recherchiert am {new Date(result.timestamp).toLocaleString('de-DE', { 
+                                day: '2-digit', 
+                                month: '2-digit', 
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
           <div className="lg:col-span-2">
