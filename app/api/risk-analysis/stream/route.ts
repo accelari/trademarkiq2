@@ -7,6 +7,35 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NICE_CLASSES } from "@/lib/nice-classes";
 import { getTMSearchClient } from "@/lib/tmsearch/client";
 
+function createConcurrencyLimiter(concurrency: number) {
+  let running = 0;
+  const queue: (() => void)[] = [];
+  
+  return async function<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const run = async () => {
+        running++;
+        try {
+          resolve(await fn());
+        } catch (err) {
+          reject(err);
+        } finally {
+          running--;
+          if (queue.length > 0) {
+            queue.shift()!();
+          }
+        }
+      };
+      
+      if (running < concurrency) {
+        run();
+      } else {
+        queue.push(run);
+      }
+    });
+  };
+}
+
 const client = new Anthropic({
   baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
   apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
@@ -453,22 +482,44 @@ export async function POST(request: NextRequest) {
           .slice(0, 5);
 
         const total = topConflicts.length;
-        const conflictAnalyses: ExpertConflictAnalysis[] = [];
+        const limit = createConcurrencyLimiter(2);
+        let completed = 0;
+        let firstConflictSent = false;
 
-        for (let i = 0; i < topConflicts.length; i++) {
-          const conflict = topConflicts[i];
-          
-          sendEvent({ type: "progress", current: i + 1, total });
+        const analysisPromises = topConflicts.map((conflict, index) => 
+          limit(async () => {
+            try {
+              const analysis = await analyzeConflictWithExpert(trademarkName, targetClasses, conflict);
+              completed++;
+              
+              sendEvent({ type: "progress", current: completed, total });
+              
+              sendEvent({ type: "conflict_ready", index, data: analysis });
+              
+              if (!firstConflictSent) {
+                firstConflictSent = true;
+                sendEvent({ 
+                  type: "voice_bootstrap", 
+                  data: {
+                    trademarkName,
+                    firstConflict: analysis,
+                    totalConflicts: total
+                  }
+                });
+              }
+              
+              return analysis;
+            } catch (error) {
+              console.error(`Error analyzing conflict ${conflict.name}:`, error);
+              completed++;
+              sendEvent({ type: "progress", current: completed, total });
+              return null;
+            }
+          })
+        );
 
-          try {
-            const analysis = await analyzeConflictWithExpert(trademarkName, targetClasses, conflict);
-            conflictAnalyses.push(analysis);
-            
-            sendEvent({ type: "conflict", data: analysis });
-          } catch (error) {
-            console.error(`Error analyzing conflict ${conflict.name}:`, error);
-          }
-        }
+        const results = await Promise.all(analysisPromises);
+        const conflictAnalyses = results.filter((r): r is ExpertConflictAnalysis => r !== null);
 
         if (conflictAnalyses.length === 0) {
           sendEvent({ 

@@ -1068,13 +1068,40 @@ ${previousConsultationContext}` : ''}`;
                   break;
                   
                 case "conflict":
+                case "conflict_ready":
                   const newConflict = data.data as ExpertConflictAnalysis;
                   collectedConflicts.push(newConflict);
                   setStreamedConflicts(prev => [...prev, newConflict]);
                   
+                  // Queue voice update for each new conflict (after first one)
+                  if (collectedConflicts.length > 1) {
+                    voiceQueueRef.current.push(
+                      `Weiterer Konflikt analysiert: ${newConflict.conflictName} mit ${newConflict.oppositionRisk}% Widerspruchsrisiko.`
+                    );
+                  }
+                  break;
+                  
+                case "voice_bootstrap":
+                  // First conflict is ready - Klaus can start speaking immediately
+                  setKlausWaitingMode(false);
+                  const bootstrapData = data.data;
+                  const firstConflict = bootstrapData.firstConflict as ExpertConflictAnalysis;
+                  
+                  // Queue initial voice message so Klaus starts speaking right away
+                  const riskLabel = firstConflict.oppositionRisk >= 80 ? "hohes" : firstConflict.oppositionRisk >= 60 ? "mittleres" : "niedriges";
                   voiceQueueRef.current.push(
-                    `Konflikt gefunden: ${newConflict.conflictName} mit ${newConflict.oppositionRisk}% Widerspruchsrisiko.`
+                    `Ich habe den ersten Konflikt analysiert: ${firstConflict.conflictName} von ${firstConflict.conflictHolder || "unbekanntem Inhaber"} zeigt ein ${riskLabel} Widerspruchsrisiko von ${firstConflict.oppositionRisk}%. ${firstConflict.legalAssessment}. Ich analysiere gerade ${bootstrapData.totalConflicts - 1} weitere Konflikte im Hintergrund.`
                   );
+                  
+                  // Set initial expert analysis with first conflict so Klaus has context
+                  setExpertAnalysis(prev => ({
+                    success: true,
+                    trademarkName: bootstrapData.trademarkName || tmName,
+                    overallRisk: firstConflict.oppositionRisk >= 80 ? "high" : firstConflict.oppositionRisk >= 60 ? "medium" : "low",
+                    conflictAnalyses: [firstConflict],
+                    bestOverallSolution: firstConflict.solutions?.[0] || null,
+                    summary: `Erster Konflikt identifiziert: ${firstConflict.conflictName}. Weitere ${bootstrapData.totalConflicts - 1} Analysen laufen...`,
+                  }));
                   break;
                   
                 case "summary":
