@@ -897,6 +897,33 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
                   <div className="w-full border-t border-gray-200 pt-4">
                     <Messages />
                   </div>
+                  
+                  <form onSubmit={handleTextSubmit} className="w-full mt-4 flex gap-2">
+                    <input
+                      type="text"
+                      value={textInput}
+                      onChange={(e) => setTextInput(e.target.value)}
+                      placeholder="Oder tippen Sie Ihre Frage..."
+                      disabled={isLoading}
+                      className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-gray-50"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!textInput.trim() || isLoading}
+                      className={`px-4 py-2.5 rounded-xl transition-all flex items-center justify-center ${
+                        textInput.trim() && !isLoading
+                          ? 'bg-primary hover:bg-primary-hover text-white shadow-sm'
+                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      }`}
+                      aria-label="Nachricht senden"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ArrowRight className="w-4 h-4" />
+                      )}
+                    </button>
+                  </form>
                 </>
               )}
             </div>

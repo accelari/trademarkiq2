@@ -2245,6 +2245,27 @@ export default function RecherchePage() {
     createCaseAutomatically();
   }, [aiAnalysis, caseId, currentCaseNumber, searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses]);
 
+  useEffect(() => {
+    if (expertAnalysis && !klausAccessToken && !klausTokenLoading && !klausTokenError) {
+      const loadKlausToken = async () => {
+        setKlausTokenLoading(true);
+        try {
+          const res = await fetch('/api/token');
+          if (!res.ok) throw new Error('Token konnte nicht geladen werden');
+          const data = await res.json();
+          if (!data.accessToken) throw new Error('Kein Token in Antwort');
+          setKlausAccessToken(data.accessToken);
+        } catch (err: any) {
+          console.error('Klaus token error:', err);
+          setKlausTokenError(err.message || 'Fehler beim Laden');
+        } finally {
+          setKlausTokenLoading(false);
+        }
+      };
+      loadKlausToken();
+    }
+  }, [expertAnalysis, klausAccessToken, klausTokenLoading, klausTokenError]);
+
   const toggleClass = (classNum: number) => {
     setSelectedClasses((prev) =>
       prev.includes(classNum) ? prev.filter((c) => c !== classNum) : [...prev, classNum]
@@ -2807,6 +2828,10 @@ export default function RecherchePage() {
     setRiskElapsedTime(0);
     riskStartTimeRef.current = Date.now();
     setRiskStreamProgress({ phase: "connecting", message: "Verbinde mit Analyse-Server...", conflictsAnalyzed: 0, totalConflicts: 0 });
+    
+    setTimeout(() => {
+      riskResultsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
     
     try {
       const response = await fetch(`/api/risk-analysis/stream?caseId=${activeCaseId}`);
@@ -3660,69 +3685,51 @@ export default function RecherchePage() {
                             key={idx}
                             type="button"
                             onClick={() => setSelectedConflict(conflict)}
-                            className={`p-4 rounded-xl border-2 ${riskStyles} transition-all text-left hover:shadow-md cursor-pointer group`}
+                            className={`p-3 rounded-xl border-2 ${riskStyles} transition-all text-left hover:shadow-md cursor-pointer group`}
                           >
-                            <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-gray-900 group-hover:text-primary transition-colors">{conflict.name}</h4>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {conflict.isFamousMark && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
-                                      <Star className="w-3 h-3" />
-                                      Bekannte Marke
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold text-gray-900 group-hover:text-primary transition-colors truncate">{conflict.name}</h4>
+                                  <span className="flex items-center gap-1 text-sm font-bold whitespace-nowrap">
+                                    {riskEmoji} {conflict.accuracy}%
+                                  </span>
+                                </div>
+                                {conflict.holder && conflict.holder !== "Unbekannt" && conflict.holder !== "unbekannt" && (
+                                  <p className="text-sm text-gray-600 truncate mt-0.5">{conflict.holder}</p>
+                                )}
+                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${conflict.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+                                    {conflict.status === "active" ? "Aktiv" : conflict.status === "expired" ? "Abgelaufen" : "Unbekannt"}
+                                  </span>
+                                  <span className="flex items-center gap-1 text-xs text-gray-500 px-1.5 py-0.5 bg-gray-50 rounded">
+                                    <Globe className="w-3 h-3" /> {conflict.register}
+                                  </span>
+                                  {conflict.classes.length > 0 && (
+                                    <span className="flex items-center gap-1 text-xs text-gray-500 px-1.5 py-0.5 bg-gray-50 rounded">
+                                      <Tag className="w-3 h-3" /> {conflict.classes.length} Kl.
                                     </span>
                                   )}
-                                  {isCrossClass && !isRelatedClass && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
-                                      Klassen: {conflict.classes.join(", ")} (nicht Ihre Auswahl)
+                                  {conflict.isFamousMark && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-800 text-xs font-medium rounded">
+                                      <Star className="w-3 h-3" /> Bekannt
                                     </span>
                                   )}
                                   {isRelatedClass && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
-                                      <Lightbulb className="w-3 h-3" />
-                                      Verwandte Klasse
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">
+                                      <Lightbulb className="w-3 h-3" /> Verwandt
                                     </span>
                                   )}
                                 </div>
                               </div>
-                              <span className="flex items-center gap-1 text-sm font-bold whitespace-nowrap">
-                                {riskEmoji} {conflict.accuracy}%
-                              </span>
-                            </div>
-                            {conflict.holder && conflict.holder !== "Unbekannt" && conflict.holder !== "unbekannt" && (
-                              <p className="text-sm text-gray-600 mb-1 line-clamp-1">{conflict.holder}</p>
-                            )}
-                            
-                            <div className="border-t border-gray-200/50 my-2 pt-2 space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500">Status:</span>
-                                <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${conflict.status === "active" ? "bg-green-100 text-green-700" : conflict.status === "expired" ? "bg-gray-100 text-gray-600" : "bg-gray-100 text-gray-600"}`}>
-                                  {conflict.status === "active" ? "Aktiv" : conflict.status === "expired" ? "Abgelaufen" : "Unbekannt"}
-                                </span>
+                              <div className="text-right text-xs text-gray-500 space-y-0.5 shrink-0">
+                                <p>Anm: {conflict.applicationNumber || "-"}</p>
+                                {conflict.applicationDate && <p>({formatGermanDate(conflict.applicationDate)})</p>}
+                                <p>Reg: {conflict.registrationNumber || "-"}</p>
                               </div>
-                              <p className="text-xs text-gray-500">
-                                Anmeldung: {conflict.applicationNumber || "-"} {conflict.applicationDate ? `(${formatGermanDate(conflict.applicationDate)})` : ""}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                Registrierung: {conflict.registrationNumber || "-"} {conflict.registrationDate ? `(${formatGermanDate(conflict.registrationDate)})` : ""}
-                              </p>
                             </div>
-                            
-                            <div className="border-t border-gray-200/50 pt-2 mt-2 flex items-center gap-3 text-xs text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <Globe className="w-3 h-3" />
-                                {conflict.register}
-                              </span>
-                              {conflict.classes.length > 0 && !isCrossClass && (
-                                <span className="flex items-center gap-1">
-                                  <Tag className="w-3 h-3" />
-                                  {conflict.classes.length} Klassen
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-2 flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                              <ExternalLink className="w-3 h-3" />
-                              Details anzeigen
+                            <div className="mt-1.5 flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                              <ExternalLink className="w-3 h-3" /> Details
                             </div>
                           </button>
                         );
@@ -4054,33 +4061,30 @@ export default function RecherchePage() {
                             ))}
                           </div>
                           
-                          {selectedShortlistName && nameShortlist.find(i => i.name === selectedShortlistName) && (
-                            <div className="mt-3 p-3 bg-white/70 rounded-lg border border-orange-100 text-sm">
-                              {(() => {
-                                const item = nameShortlist.find(i => i.name === selectedShortlistName);
-                                if (!item) return null;
-                                return (
-                                  <div className="space-y-1">
-                                    {item.reasoning && (
-                                      <p><span className="font-medium">Begründung:</span> {item.reasoning}</p>
-                                    )}
-                                    {item.phoneticAnalysis && (
-                                      <p><span className="font-medium">Phonetische Analyse:</span> {item.phoneticAnalysis}</p>
-                                    )}
-                                    {item.distinctiveness && (
-                                      <p><span className="font-medium">Unterscheidungskraft:</span> {item.distinctiveness}</p>
-                                    )}
-                                    {item.riskReduction && (
-                                      <p><span className="font-medium">Risikoreduktion:</span> {item.riskReduction}</p>
-                                    )}
-                                    {!item.reasoning && !item.phoneticAnalysis && !item.distinctiveness && !item.riskReduction && (
-                                      <p className="text-gray-500 italic">Keine weiteren Informationen verfügbar</p>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          )}
+                          {selectedShortlistName && (() => {
+                            const item = nameShortlist.find(i => i.name === selectedShortlistName);
+                            if (!item) return null;
+                            const hasInfo = item.reasoning || item.phoneticAnalysis || item.distinctiveness || item.riskReduction;
+                            if (!hasInfo) return null;
+                            return (
+                              <div className="mt-3 p-3 bg-white/70 rounded-lg border border-orange-100 text-sm">
+                                <div className="space-y-1">
+                                  {item.reasoning && (
+                                    <p><span className="font-medium">Begründung:</span> {item.reasoning}</p>
+                                  )}
+                                  {item.phoneticAnalysis && (
+                                    <p><span className="font-medium">Phonetische Analyse:</span> {item.phoneticAnalysis}</p>
+                                  )}
+                                  {item.distinctiveness && (
+                                    <p><span className="font-medium">Unterscheidungskraft:</span> {item.distinctiveness}</p>
+                                  )}
+                                  {item.riskReduction && (
+                                    <p><span className="font-medium">Risikoreduktion:</span> {item.riskReduction}</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
                           
                           {selectedShortlistName && (
                             <button
@@ -4131,42 +4135,41 @@ export default function RecherchePage() {
                             embedded={true}
                           />
                         </VoiceProvider>
+                      ) : klausTokenLoading ? (
+                        <div className="flex flex-col items-center justify-center h-full py-12">
+                          <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+                          <p className="text-sm text-gray-600">Klaus wird vorbereitet...</p>
+                        </div>
+                      ) : klausTokenError ? (
+                        <div className="flex flex-col items-center justify-center h-full py-12">
+                          <div className="mb-4 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg">
+                            {klausTokenError}
+                          </div>
+                          <button
+                            onClick={() => {
+                              setKlausTokenError(null);
+                              setKlausTokenLoading(true);
+                              fetch('/api/token')
+                                .then(res => res.json())
+                                .then(data => {
+                                  if (data.accessToken) {
+                                    setKlausAccessToken(data.accessToken);
+                                  } else {
+                                    throw new Error('Kein Token in Antwort');
+                                  }
+                                })
+                                .catch(err => setKlausTokenError(err.message || 'Fehler beim Laden'))
+                                .finally(() => setKlausTokenLoading(false));
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                          >
+                            Erneut versuchen
+                          </button>
+                        </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full py-12">
-                          {klausTokenError && (
-                            <div className="mb-4 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg">
-                              {klausTokenError}
-                            </div>
-                          )}
-                          <button
-                            onClick={async () => {
-                              if (klausTokenLoading) return;
-                              setKlausTokenLoading(true);
-                              setKlausTokenError(null);
-                              try {
-                                const res = await fetch('/api/token');
-                                if (!res.ok) throw new Error('Token konnte nicht geladen werden');
-                                const data = await res.json();
-                                if (!data.accessToken) throw new Error('Kein Token in Antwort');
-                                setKlausAccessToken(data.accessToken);
-                              } catch (err: any) {
-                                console.error('Klaus token error:', err);
-                                setKlausTokenError(err.message || 'Fehler beim Laden');
-                              } finally {
-                                setKlausTokenLoading(false);
-                              }
-                            }}
-                            disabled={klausTokenLoading}
-                            className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 font-medium"
-                          >
-                            {klausTokenLoading ? (
-                              <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                              <Mic className="w-5 h-5" />
-                            )}
-                            Klaus aktivieren
-                          </button>
-                          <p className="text-sm text-gray-500 mt-3">Klicken Sie, um den Sprachassistenten zu starten</p>
+                          <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+                          <p className="text-sm text-gray-600">Klaus wird vorbereitet...</p>
                         </div>
                       )}
                     </div>
