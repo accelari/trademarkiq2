@@ -2851,20 +2851,30 @@ export default function RecherchePage() {
                   conflictsAnalyzed: current,
                   totalConflicts: total || prev.totalConflicts || 0
                 }));
+                
+                // Step 2 stays "running" until ALL conflicts are analyzed, Step 3 shows actual progress
                 setRiskAnalysisSteps(prev => prev.map(step => {
                   if (step.id === 2) {
+                    // Complete when: (1) we've analyzed all conflicts, OR (2) total is 0/undefined and we received any progress
+                    const stepTotal = total || 0;
+                    const stepCurrent = current || 0;
+                    const isDone = (stepTotal > 0 && stepCurrent >= stepTotal) || (stepTotal === 0);
                     return { 
                       ...step, 
-                      status: current > 0 ? "completed" as const : "running" as const,
-                      details: `${current}/${total} Konflikte in Bearbeitung...`
+                      status: isDone ? "completed" as const : "running" as const,
+                      details: stepTotal > 0 ? `${stepCurrent}/${stepTotal} Konflikte analysiert...` : "Analysiere...",
+                      progress: stepTotal > 0 ? { current: stepCurrent, total: stepTotal } : undefined
                     };
                   }
                   if (step.id === 3) {
+                    // Step 3 starts when we have at least one analyzed - guard against undefined total
+                    const stepTotal = total || 0;
+                    const stepCurrent = current || 0;
                     return {
                       ...step,
-                      status: current > 0 ? "running" as const : "pending" as const,
-                      progress: { current, total: total || 5 },
-                      details: `${current} von ${total || 5} Konflikten analysiert`
+                      status: stepCurrent > 0 ? "running" as const : "pending" as const,
+                      progress: stepTotal > 0 ? { current: stepCurrent, total: stepTotal } : undefined,
+                      details: stepTotal > 0 ? `${stepCurrent} von ${stepTotal} Konflikten analysiert` : `${stepCurrent} Konflikte analysiert`
                     };
                   }
                   return step;
@@ -2894,9 +2904,12 @@ export default function RecherchePage() {
                   phase: "complete",
                   message: prev.phase === "error" ? prev.message : "Analyse abgeschlossen"
                 }));
+                
+                // Mark ALL steps as completed when done
                 setRiskAnalysisSteps(prev => prev.map(step => ({
                   ...step,
-                  status: "completed" as const
+                  status: "completed" as const,
+                  details: step.id === 4 ? "Gesamtbewertung erstellt" : step.details
                 })));
               } else if (data.type === "error") {
                 setRiskStreamProgress({
@@ -2927,26 +2940,52 @@ export default function RecherchePage() {
   };
 
   const handleGenerateName = async () => {
+    // Use activeSearchQuery or expertAnalysis.trademarkName as fallback
     const trademarkName = searchQuery.trim() || activeSearchQuery?.trim() || expertAnalysis?.trademarkName || '';
-    const classes = selectedClasses.length > 0 ? selectedClasses : aiSelectedClasses;
     
-    if (!trademarkName || classes.length === 0) {
-      console.log("handleGenerateName: missing trademarkName or classes", { trademarkName, classes });
+    // Get classes from multiple sources
+    let classes = selectedClasses.length > 0 
+      ? selectedClasses 
+      : aiSelectedClasses.length > 0 
+        ? aiSelectedClasses 
+        : [];
+
+    // If still empty, try to extract from expert analysis conflicts
+    if (classes.length === 0 && expertAnalysis?.conflictAnalyses) {
+      const allClasses = new Set<number>();
+      expertAnalysis.conflictAnalyses.forEach((c: any) => {
+        const conflictClasses = c.conflictClasses || c.classes || [];
+        conflictClasses.forEach((cls: number) => allClasses.add(cls));
+      });
+      if (allClasses.size > 0) {
+        classes = Array.from(allClasses).slice(0, 5); // Take up to 5 classes
+      }
+    }
+    
+    if (!trademarkName) {
+      console.log("handleGenerateName: missing trademarkName");
       return;
     }
     
     setIsGeneratingName(true);
     try {
-      const conflictSource = streamedConflicts.length > 0 
-        ? streamedConflicts 
-        : (aiAnalysis?.conflicts || []);
+      // Try multiple conflict sources: expertAnalysis.conflictAnalyses > streamedConflicts > aiAnalysis.conflicts
+      let conflictSource: any[] = [];
+      
+      if (expertAnalysis?.conflictAnalyses && expertAnalysis.conflictAnalyses.length > 0) {
+        conflictSource = expertAnalysis.conflictAnalyses;
+      } else if (streamedConflicts && streamedConflicts.length > 0) {
+        conflictSource = streamedConflicts;
+      } else if (aiAnalysis?.conflicts) {
+        conflictSource = aiAnalysis.conflicts;
+      }
       
       const conflicts = conflictSource.map((c: any) => ({
         name: c.name || c.conflictName,
         holder: c.holder || c.conflictHolder || "Unbekannt",
         office: c.register || c.conflictOffice || c.office || "Unbekannt",
         classes: c.classes || c.conflictClasses || c.niceClasses || [],
-        similarity: c.accuracy || c.similarity || 0
+        similarity: c.accuracy || c.similarity || c.oppositionRisk || 0
       }));
       
       console.log("handleGenerateName: Sending to API:", { 
@@ -2992,8 +3031,11 @@ export default function RecherchePage() {
           if (!nameShortlist.find(item => item.name === suggestion.name)) {
             setNameShortlist(prev => [...prev, { 
               name: suggestion.name, 
-              status: "unchecked",
-              reasoning: suggestion.reasoning 
+              status: "unchecked" as const,
+              reasoning: suggestion.reasoning || "",
+              phoneticAnalysis: suggestion.phoneticAnalysis || "",
+              distinctiveness: suggestion.distinctiveness || "",
+              riskReduction: suggestion.riskReduction || ""
             }]);
           }
         });
