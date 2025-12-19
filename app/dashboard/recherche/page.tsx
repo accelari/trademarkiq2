@@ -1793,7 +1793,6 @@ export default function RecherchePage() {
     progress?: { current: number; total: number };
   }[]>([]);
   
-  const [showKlausAssistant, setShowKlausAssistant] = useState(false);
   const [klausAccessToken, setKlausAccessToken] = useState<string | null>(null);
   const [klausTokenLoading, setKlausTokenLoading] = useState(false);
   
@@ -1946,31 +1945,6 @@ export default function RecherchePage() {
     }, 1000);
     return () => clearInterval(timer);
   }, [isRiskStreaming]);
-
-  useEffect(() => {
-    if (showKlausAssistant && !klausAccessToken && !klausTokenLoading) {
-      setKlausTokenLoading(true);
-      fetch("/api/token")
-        .then(res => {
-          if (!res.ok) throw new Error('Token fetch failed');
-          return res.json();
-        })
-        .then(data => {
-          const token = data.accessToken || data.clientSecret;
-          if (token) {
-            setKlausAccessToken(token);
-          } else {
-            console.error('No token in response');
-          }
-        })
-        .catch(err => {
-          console.error("Failed to get Klaus token:", err);
-        })
-        .finally(() => {
-          setKlausTokenLoading(false);
-        });
-    }
-  }, [showKlausAssistant, klausAccessToken, klausTokenLoading]);
 
   useEffect(() => {
     if (!Array.isArray(streamedConflicts)) return;
@@ -3992,111 +3966,64 @@ export default function RecherchePage() {
 
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <div className="lg:col-span-3 space-y-4">
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <Scale className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <h2 className="font-semibold text-gray-900">Detaillierte Konfliktanalyse</h2>
-                          <p className="text-sm text-gray-500">{(expertAnalysis.conflictAnalyses || []).length} potenzielle Konflikte analysiert</p>
-                        </div>
+                  <div className="bg-gradient-to-br from-primary/5 to-teal-50 rounded-2xl shadow-sm border border-primary/20 p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                        <MessageCircle className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="font-semibold text-gray-900">KI-Markenberater Klaus</h2>
+                        <p className="text-sm text-gray-600">Stellen Sie Fragen zu Ihrer Risikoanalyse</p>
                       </div>
                     </div>
                     
-                    <div className="max-h-[500px] overflow-y-auto space-y-3 pr-1">
-                      {(expertAnalysis.conflictAnalyses || []).length === 0 ? (
-                        <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
-                          <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                          <h3 className="font-semibold text-green-800">Keine kritischen Konflikte!</h3>
-                          <p className="text-sm text-green-700 mt-1">
-                            Die Marke scheint frei von relevanten Kollisionen zu sein.
-                          </p>
-                        </div>
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" style={{ minHeight: "400px" }}>
+                      {klausAccessToken ? (
+                        <VoiceProvider>
+                          <VoiceAssistant 
+                            accessToken={klausAccessToken}
+                            contextMessage={`[SYSTEM-KONTEXT für Risikoberatung]\nMARKE: ${searchQuery}\nRISIKO: ${expertAnalysis?.overallRisk || 'unbekannt'}\nKONFLIKTE: ${(expertAnalysis?.conflictAnalyses || []).length} gefunden\nKLASSEN: ${aiSelectedClasses.join(', ') || 'Keine'}\nLÄNDER: ${selectedLaender.join(', ') || 'Keine'}`}
+                            embedded={true}
+                          />
+                        </VoiceProvider>
                       ) : (
-                        (expertAnalysis.conflictAnalyses || []).map((conflict, idx) => (
-                          <div 
-                            key={conflict.conflictId || idx}
-                            className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${
-                              expandedConflictId === conflict.conflictId 
-                                ? 'border-primary shadow-md' 
-                                : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                            onClick={() => setExpandedConflictId(expandedConflictId === conflict.conflictId ? null : conflict.conflictId)}
+                        <div className="flex flex-col items-center justify-center h-full py-12">
+                          <button
+                            onClick={() => {
+                              if (!klausTokenLoading) {
+                                setKlausTokenLoading(true);
+                                fetch('/api/token')
+                                  .then(res => res.json())
+                                  .then(data => setKlausAccessToken(data.accessToken))
+                                  .catch(console.error)
+                                  .finally(() => setKlausTokenLoading(false));
+                              }
+                            }}
+                            disabled={klausTokenLoading}
+                            className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 font-medium"
                           >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h4 className="font-semibold text-gray-900">{conflict.conflictName}</h4>
-                                  <span className="text-xs text-gray-500">
-                                    {OFFICE_NAMES[conflict.conflictOffice] || conflict.conflictOffice}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-gray-600 line-clamp-1">{conflict.conflictHolder}</p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  conflict.oppositionRisk > 70 ? 'bg-red-100 text-red-700' :
-                                  conflict.oppositionRisk > 40 ? 'bg-orange-100 text-orange-700' :
-                                  'bg-green-100 text-green-700'
-                                }`}>
-                                  {conflict.oppositionRisk}% Risiko
-                                </span>
-                                {expandedConflictId === conflict.conflictId ? (
-                                  <ChevronUp className="w-4 h-4 text-gray-400" />
-                                ) : (
-                                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                                )}
-                              </div>
-                            </div>
-                            
-                            {expandedConflictId === conflict.conflictId && (
-                              <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-                                <div>
-                                  <h5 className="text-sm font-medium text-gray-700 mb-1">Rechtliche Bewertung</h5>
-                                  <p className="text-sm text-gray-600">{conflict.legalAssessment}</p>
-                                </div>
-                                <div>
-                                  <h5 className="text-sm font-medium text-gray-700 mb-1">Mögliche Konsequenzen</h5>
-                                  <p className="text-sm text-gray-600">{conflict.consequences}</p>
-                                </div>
-                                <OppositionRiskBar risk={conflict.oppositionRisk} />
-                                
-                                {conflict.solutions && conflict.solutions.length > 0 && (
-                                  <div className="mt-3">
-                                    <h5 className="text-sm font-medium text-gray-700 mb-2">Lösungsvorschläge</h5>
-                                    <div className="space-y-2">
-                                      {conflict.solutions.slice(0, 2).map((solution, sIdx) => (
-                                        <div key={sIdx} className="bg-gray-50 rounded-lg p-3">
-                                          <div className="flex items-center justify-between mb-1">
-                                            <span className="text-sm font-medium text-gray-800">{solution.title}</span>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleAdoptAlternative(solution.suggestedValue, solution.reasoning);
-                                              }}
-                                              className="text-xs text-primary hover:underline"
-                                            >
-                                              + Shortlist
-                                            </button>
-                                          </div>
-                                          <p className="text-xs text-gray-600">{solution.description}</p>
-                                          {solution.suggestedValue && (
-                                            <p className="text-xs text-primary font-medium mt-1">
-                                              Vorschlag: {solution.suggestedValue}
-                                            </p>
-                                          )}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
+                            {klausTokenLoading ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <Mic className="w-5 h-5" />
                             )}
-                          </div>
-                        ))
+                            Klaus aktivieren
+                          </button>
+                          <p className="text-sm text-gray-500 mt-3">Klicken Sie, um den Sprachassistenten zu starten</p>
+                        </div>
                       )}
+                    </div>
+                    
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="text-xs text-gray-500">Beispielfragen:</span>
+                      {["Was bedeutet das Risiko?", "Wie kann ich Konflikte vermeiden?", "Welche Klassen sind betroffen?"].map((q, i) => (
+                        <button
+                          key={i}
+                          className="px-3 py-1 text-xs bg-white border border-gray-200 rounded-full hover:border-primary hover:text-primary transition-colors"
+                        >
+                          {q}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -4725,58 +4652,6 @@ export default function RecherchePage() {
         onNavigate={(path) => router.push(path)}
       />
 
-      <button
-        onClick={() => setShowKlausAssistant(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:bg-primary/90 transition-all hover:scale-105 flex items-center justify-center z-40"
-        title="KI-Berater Klaus"
-      >
-        <MessageCircle className="w-6 h-6" />
-      </button>
-
-      {showKlausAssistant && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/20" onClick={() => setShowKlausAssistant(false)} />
-          <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Mic className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">KI-Berater Klaus</h3>
-                  <p className="text-xs text-gray-500">Fragen Sie mich zur Markenrecherche</p>
-                </div>
-              </div>
-              <button onClick={() => setShowKlausAssistant(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              {klausTokenLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                </div>
-              ) : klausAccessToken ? (
-                <VoiceProvider>
-                  <VoiceAssistant 
-                    accessToken={klausAccessToken}
-                    contextMessage={searchQuery ? `[SYSTEM-KONTEXT für Markenrecherche]\nMARKE: ${searchQuery}\nAKTIVER FALL: ${caseId || currentCaseNumber || 'Neu'}\nNizza-Klassen: ${aiSelectedClasses.join(', ') || 'Noch nicht ausgewählt'}\nLänder: ${selectedLaender.join(', ') || 'Noch nicht ausgewählt'}` : null}
-                    embedded={true}
-                  />
-                </VoiceProvider>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                    <Mic className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <p className="text-gray-600">Sprachassistent nicht verfügbar</p>
-                  <p className="text-sm text-gray-500 mt-1">Bitte versuchen Sie es später erneut</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
