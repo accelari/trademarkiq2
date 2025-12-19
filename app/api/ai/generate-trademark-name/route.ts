@@ -121,7 +121,7 @@ Beziehe dich in deiner Begründung auf die relevanten Gesetzesvorschriften der Z
 Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
 
     const response = await client.messages.create({
-      model: "claude-3-5-sonnet-latest",
+      model: "claude-opus-4-1",
       max_tokens: 1024,
       messages: [
         {
