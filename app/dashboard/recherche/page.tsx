@@ -3988,21 +3988,27 @@ export default function RecherchePage() {
                         </button>
                       </div>
                       
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={customNameInput}
-                          onChange={(e) => setCustomNameInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleAddCustomName()}
-                          placeholder="Eigenen Namen eingeben..."
-                          className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                        />
-                        <button
-                          onClick={handleAddCustomName}
-                          className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
+                      <div className="mt-4 pt-4 border-t border-orange-100">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Eigene Idee hinzufügen
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={customNameInput}
+                            onChange={(e) => setCustomNameInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleAddCustomName()}
+                            placeholder="z.B. MeinMarkenname"
+                            className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                          />
+                          <button
+                            onClick={handleAddCustomName}
+                            disabled={!customNameInput.trim()}
+                            className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                          >
+                            Hinzufügen
+                          </button>
+                        </div>
                       </div>
                     </div>
                     
@@ -4047,6 +4053,34 @@ export default function RecherchePage() {
                               </div>
                             ))}
                           </div>
+                          
+                          {selectedShortlistName && nameShortlist.find(i => i.name === selectedShortlistName) && (
+                            <div className="mt-3 p-3 bg-white/70 rounded-lg border border-orange-100 text-sm">
+                              {(() => {
+                                const item = nameShortlist.find(i => i.name === selectedShortlistName);
+                                if (!item) return null;
+                                return (
+                                  <div className="space-y-1">
+                                    {item.reasoning && (
+                                      <p><span className="font-medium">Begründung:</span> {item.reasoning}</p>
+                                    )}
+                                    {item.phoneticAnalysis && (
+                                      <p><span className="font-medium">Phonetische Analyse:</span> {item.phoneticAnalysis}</p>
+                                    )}
+                                    {item.distinctiveness && (
+                                      <p><span className="font-medium">Unterscheidungskraft:</span> {item.distinctiveness}</p>
+                                    )}
+                                    {item.riskReduction && (
+                                      <p><span className="font-medium">Risikoreduktion:</span> {item.riskReduction}</p>
+                                    )}
+                                    {!item.reasoning && !item.phoneticAnalysis && !item.distinctiveness && !item.riskReduction && (
+                                      <p className="text-gray-500 italic">Keine weiteren Informationen verfügbar</p>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
                           
                           {selectedShortlistName && (
                             <button
