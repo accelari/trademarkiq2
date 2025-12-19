@@ -26,17 +26,21 @@ interface GenerateNameRequest {
 const TRADEMARK_NAME_GENERATION_PROMPT = `Du bist Dr. Klaus Weinberg, ein führender deutscher Markenrechtsanwalt mit über 40 Jahren Berufserfahrung bei DPMA, EUIPO und WIPO.
 
 Du bist Experte für die Entwicklung von Markennamen, die:
-1. UNTERSCHEIDUNGSKRAFT haben (§ 8 Abs. 2 Nr. 1 MarkenG) - nicht beschreibend für die Waren/Dienstleistungen
-2. NICHT BESCHREIBEND sind (§ 8 Abs. 2 Nr. 2 MarkenG) - keine Angabe über Art, Beschaffenheit, Menge etc.
-3. NICHT FREIHALTEBEDÜRFTIG sind (§ 8 Abs. 2 Nr. 2 MarkenG) - keine allgemein gebräuchlichen Begriffe
+1. UNTERSCHEIDUNGSKRAFT haben - nicht beschreibend für die Waren/Dienstleistungen
+2. NICHT BESCHREIBEND sind - keine Angabe über Art, Beschaffenheit, Menge etc.
+3. NICHT FREIHALTEBEDÜRFTIG sind - keine allgemein gebräuchlichen Begriffe
 4. PHONETISCH UNTERSCHIEDLICH zu Konfliktmarken sind - andere Silbenstruktur, Betonung, Klangbild
 5. VISUELL UNTERSCHIEDLICH zu Konfliktmarken sind - andere Buchstabenfolge, Länge, Schriftbild
 6. KONZEPTUELL UNTERSCHIEDLICH sind - andere semantische Bedeutung oder Assoziationen
 
-AMTSKONFORMITÄT:
-- DPMA: Prüft streng auf Unterscheidungskraft, lehnt beschreibende Angaben ab
-- EUIPO: Prüft in allen EU-Sprachen auf beschreibenden Charakter
-- WIPO: Nationale Ämter können zusätzliche Hindernisse erheben
+RECHTSGRUNDLAGEN NACH ZIELAMT:
+- DE/DPMA: § 8 MarkenG (Unterscheidungskraft, absolute Schutzhindernisse), § 9 MarkenG (Verwechslungsgefahr mit älteren Marken)
+- EU/EUIPO: Art. 7 EUTMR (absolute Eintragungshindernisse), Art. 8 EUTMR (relative Eintragungshindernisse/Widerspruchsgründe)
+- US/USPTO: Lanham Act Section 2(d) – Likelihood of Confusion (Verwechslungsgefahr)
+- WO/WIPO: Prüfung erfolgt durch die designierten nationalen Ämter nach deren jeweiligem Recht
+- CH/IGE: Schweizer Markenschutzgesetz (MSchG), Art. 2 (absolute Ausschlussgründe), Art. 3 (relative Ausschlussgründe)
+- AT/ÖPA: Österreichisches Markenschutzgesetz (MSchG), § 4 (absolute Schutzhindernisse), § 10 (Verwechslungsgefahr)
+- GB/UKIPO: UK Trade Marks Act 1994, Section 3 (absolute grounds), Section 5 (relative grounds)
 
 DEINE AUFGABE:
 Analysiere die Konfliktmarken und entwickle einen neuen Markennamen, der:
@@ -45,12 +49,14 @@ Analysiere die Konfliktmarken und entwickle einen neuen Markennamen, der:
 - Vom Amt nicht als beschreibend oder verwechselbar abgelehnt wird
 - Rechtlich besser durchsetzbar ist
 
+WICHTIG: Nenne in deiner Begründung die relevanten Gesetzesreferenzen für die angegebenen Zielämter.
+
 Antworte IMMER im folgenden JSON-Format:
 {
   "suggestedName": "NEUER_NAME",
-  "reasoning": "Kurze Begründung (max 2 Sätze) warum dieser Name weniger konfliktanfällig ist",
+  "reasoning": "Kurze Begründung (max 2 Sätze) mit Verweis auf relevante Rechtsgrundlagen der Zielämter",
   "phoneticAnalysis": "Wie unterscheidet sich der Klang vom Original und den Konflikten",
-  "distinctiveness": "Warum hat dieser Name Unterscheidungskraft",
+  "distinctiveness": "Warum hat dieser Name Unterscheidungskraft gemäß den anwendbaren Vorschriften",
   "riskReduction": "Prozentuale Einschätzung der Risikoreduzierung (z.B. '70% geringeres Konfliktrisiko')"
 }`;
 
@@ -84,21 +90,38 @@ export async function POST(request: NextRequest) {
       ? `\n\nBEREITS VORGESCHLAGENE NAMEN (NICHT WIEDERHOLEN):\n${existingShortlist.join(", ")}`
       : "";
 
+    const getLegalReferences = (offices: string[]) => {
+      const refs: string[] = [];
+      if (offices.includes("DE")) refs.push("DE: § 8 und § 9 MarkenG");
+      if (offices.includes("EU")) refs.push("EU: Art. 7 und Art. 8 EUTMR");
+      if (offices.includes("US")) refs.push("US: Lanham Act Section 2(d)");
+      if (offices.includes("WO")) refs.push("WO: Prüfung nach nationalem Recht der designierten Länder");
+      if (offices.includes("CH")) refs.push("CH: Art. 2 und Art. 3 MSchG (Schweiz)");
+      if (offices.includes("AT")) refs.push("AT: § 4 und § 10 MSchG (Österreich)");
+      if (offices.includes("GB")) refs.push("GB: UK Trade Marks Act 1994, Section 3 und 5");
+      return refs.length > 0 ? refs.join("; ") : "DE: § 8 und § 9 MarkenG";
+    };
+
+    const legalRefs = getLegalReferences(targetOffices);
+
     const userPrompt = `ORIGINALMARKE: "${originalName}"
 
 ZIELÄMTER: ${officesList}
+ANWENDBARE RECHTSGRUNDLAGEN: ${legalRefs}
 NIZZA-KLASSEN: ${niceClassesList}
 
 GEFUNDENE KONFLIKTE (${conflicts.length} Treffer):
 ${conflictSummary || "Keine Konflikte gefunden"}
 ${existingNames}
 
-Entwickle einen neuen Markennamen, der sich deutlich von den Konfliktmarken unterscheidet und beim ${officesList} nicht an Unterscheidungskraft scheitert.
+Entwickle einen neuen Markennamen, der sich deutlich von den Konfliktmarken unterscheidet und bei den genannten Ämtern (${officesList}) nicht an Unterscheidungskraft scheitert.
+
+Beziehe dich in deiner Begründung auf die relevanten Gesetzesvorschriften der Zielämter.
 
 Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-5-sonnet-latest",
       max_tokens: 1024,
       messages: [
         {

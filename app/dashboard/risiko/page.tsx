@@ -1960,13 +1960,22 @@ ${notesTextFromHistory}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-start gap-6">
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-                  <Lightbulb className="w-5 h-5 text-yellow-600" />
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
+                    <Lightbulb className="w-5 h-5 text-yellow-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Empfehlungs-Werkbank</h2>
+                    <p className="text-sm text-gray-500">Optimieren Sie Ihren Markennamen</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Empfehlungs-Werkbank</h2>
-                  <p className="text-sm text-gray-500">Optimieren Sie Ihren Markennamen</p>
+                <div className="hidden sm:block">
+                  <AnimatedRiskScore 
+                    score={getOverallRiskScore()} 
+                    risk={expertAnalysis.overallRisk}
+                    size="small"
+                  />
                 </div>
               </div>
               
@@ -2006,13 +2015,13 @@ ${notesTextFromHistory}
                     <button
                       onClick={handleCheckRegistry}
                       disabled={isCheckingRegistry || !selectedShortlistName}
-                      className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                      className="flex items-center gap-2 px-5 py-2.5 bg-teal-50 border-2 border-teal-400 text-teal-700 rounded-lg hover:bg-teal-100 hover:border-teal-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-sm"
                       title={selectedShortlistName ? `"${selectedShortlistName}" im Register prüfen` : "Wählen Sie erst einen Namen aus der Shortlist"}
                     >
                       {isCheckingRegistry ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-5 h-5 animate-spin" />
                       ) : (
-                        <Search className="w-4 h-4" />
+                        <Search className="w-5 h-5" />
                       )}
                       <span className="hidden sm:inline">Im Register prüfen</span>
                       <span className="sm:hidden">Prüfen</span>
