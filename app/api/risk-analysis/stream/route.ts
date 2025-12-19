@@ -351,41 +351,14 @@ Antworte NUR mit dem JSON.`;
   }
 }
 
-export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return new Response(JSON.stringify({ error: "Nicht autorisiert" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  let body: { caseId?: string };
-  try {
-    body = await request.json();
-  } catch {
-    return new Response(JSON.stringify({ error: "Ungültige Anfrage" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const { caseId } = body;
-
-  if (!caseId) {
-    return new Response(JSON.stringify({ error: "caseId ist erforderlich" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
+async function handleStreamRequest(caseId: string, userId: string): Promise<Response> {
   const existingCase = await db.query.trademarkCases.findFirst({
     where: and(
       or(
         eq(trademarkCases.id, caseId),
         eq(trademarkCases.caseNumber, caseId)
       ),
-      eq(trademarkCases.userId, session.user.id)
+      eq(trademarkCases.userId, userId)
     ),
     with: {
       steps: true,
@@ -566,4 +539,57 @@ export async function POST(request: NextRequest) {
       "Connection": "keep-alive",
     },
   });
+}
+
+export async function GET(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return new Response(JSON.stringify({ error: "Nicht autorisiert" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const caseId = searchParams.get("caseId");
+
+  if (!caseId) {
+    return new Response(JSON.stringify({ error: "caseId ist erforderlich" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  return handleStreamRequest(caseId, session.user.id);
+}
+
+export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return new Response(JSON.stringify({ error: "Nicht autorisiert" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  let body: { caseId?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Ungültige Anfrage" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { caseId } = body;
+
+  if (!caseId) {
+    return new Response(JSON.stringify({ error: "caseId ist erforderlich" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  return handleStreamRequest(caseId, session.user.id);
 }
