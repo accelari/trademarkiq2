@@ -2058,6 +2058,26 @@ export default function RecherchePage() {
   }, [riskStreamProgress]);
 
   useEffect(() => {
+    if (streamedConflicts && streamedConflicts.length > 0) {
+      setRiskAnalysisSteps(prev => prev.map(step => {
+        if (step.id === 2 && step.status !== "completed") {
+          return { ...step, status: "completed" as const };
+        }
+        if (step.id === 3) {
+          const total = riskStreamProgress.totalConflicts || streamedConflicts.length || 5;
+          return {
+            ...step,
+            status: streamedConflicts.length >= total ? "completed" as const : "running" as const,
+            progress: { current: streamedConflicts.length, total },
+            details: `${streamedConflicts.length} von ${total} Konflikten analysiert`
+          };
+        }
+        return step;
+      }));
+    }
+  }, [streamedConflicts?.length, riskStreamProgress.totalConflicts]);
+
+  useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedData) {
         e.preventDefault();
@@ -2834,11 +2854,27 @@ export default function RecherchePage() {
                   message: data.message || prev.message
                 }));
               } else if (data.type === "progress") {
+                const current = data.current ?? data.conflictsAnalyzed ?? 0;
+                const total = data.total ?? data.totalConflicts ?? 0;
                 setRiskStreamProgress(prev => ({
                   phase: "analyzing",
                   message: data.message || prev.message || "Analysiere Konflikte...",
-                  conflictsAnalyzed: data.current ?? data.conflictsAnalyzed ?? 0,
-                  totalConflicts: data.total ?? data.totalConflicts ?? prev.totalConflicts ?? 0
+                  conflictsAnalyzed: current,
+                  totalConflicts: total || prev.totalConflicts || 0
+                }));
+                setRiskAnalysisSteps(prev => prev.map(step => {
+                  if (step.id === 2 && step.status !== "completed") {
+                    return { ...step, status: "completed" as const };
+                  }
+                  if (step.id === 3) {
+                    return {
+                      ...step,
+                      status: current >= total && total > 0 ? "completed" as const : "running" as const,
+                      progress: { current, total: total || 5 },
+                      details: `${current} von ${total || 5} Konflikten analysiert`
+                    };
+                  }
+                  return step;
                 }));
               } else if (data.type === "conflict_ready") {
                 setStreamedConflicts(prev => [...prev, data.data]);
@@ -2850,12 +2886,25 @@ export default function RecherchePage() {
                   conflictsAnalyzed: data.data?.conflictAnalyses?.length || 0,
                   totalConflicts: data.data?.conflictAnalyses?.length || 0
                 });
+                setRiskAnalysisSteps(prev => prev.map(step => {
+                  if (step.id === 3) {
+                    return { ...step, status: "completed" as const };
+                  }
+                  if (step.id === 4) {
+                    return { ...step, status: "completed" as const, details: "Gesamtbewertung erstellt" };
+                  }
+                  return step;
+                }));
               } else if (data.type === "done") {
                 setRiskStreamProgress(prev => ({
                   ...prev,
                   phase: "complete",
                   message: prev.phase === "error" ? prev.message : "Analyse abgeschlossen"
                 }));
+                setRiskAnalysisSteps(prev => prev.map(step => ({
+                  ...step,
+                  status: "completed" as const
+                })));
               } else if (data.type === "error") {
                 setRiskStreamProgress({
                   phase: "error",
@@ -2885,17 +2934,31 @@ export default function RecherchePage() {
   };
 
   const handleGenerateName = async () => {
-    if (!searchQuery.trim() || selectedClasses.length === 0) return;
+    if (!searchQuery.trim() || selectedClasses.length === 0) {
+      console.log("handleGenerateName: missing searchQuery or selectedClasses");
+      return;
+    }
     
     setIsGeneratingName(true);
     try {
-      const conflicts = (aiAnalysis?.conflicts || []).map(c => ({
-        name: c.name,
-        holder: c.holder || "Unbekannt",
-        office: c.register || "Unbekannt",
-        classes: c.classes || [],
-        similarity: c.accuracy || 0
+      const conflictSource = streamedConflicts.length > 0 
+        ? streamedConflicts 
+        : (aiAnalysis?.conflicts || []);
+      
+      const conflicts = conflictSource.map((c: any) => ({
+        name: c.name || c.conflictName,
+        holder: c.holder || c.conflictHolder || "Unbekannt",
+        office: c.register || c.conflictOffice || c.office || "Unbekannt",
+        classes: c.classes || c.conflictClasses || c.niceClasses || [],
+        similarity: c.accuracy || c.similarity || 0
       }));
+      
+      console.log("handleGenerateName: Sending to API:", { 
+        originalName: searchQuery.trim(), 
+        conflictsCount: conflicts.length, 
+        niceClasses: selectedClasses, 
+        targetOffices: selectedLaender 
+      });
       
       const response = await fetch("/api/ai/generate-trademark-name", {
         method: "POST",
@@ -2909,36 +2972,38 @@ export default function RecherchePage() {
         }),
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        if (data.suggestedName) {
-          const newSuggestion = {
-            name: data.suggestedName,
-            status: "unchecked" as const,
-            reasoning: data.reasoning || "",
-            phoneticAnalysis: data.phoneticAnalysis || "",
-            distinctiveness: data.distinctiveness || "",
-            riskReduction: data.riskReduction || ""
-          };
-          if (!nameShortlist.find(item => item.name === data.suggestedName)) {
-            setNameShortlist(prev => [...prev, newSuggestion]);
-          }
-        } else if (data.suggestions && Array.isArray(data.suggestions)) {
-          data.suggestions.forEach((suggestion: { name: string; reasoning?: string; phoneticAnalysis?: string; distinctiveness?: string; riskReduction?: string }) => {
-            if (!nameShortlist.find(item => item.name === suggestion.name)) {
-              setNameShortlist(prev => [...prev, { 
-                name: suggestion.name, 
-                status: "unchecked",
-                reasoning: suggestion.reasoning 
-              }]);
-            }
-          });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("handleGenerateName: API error:", errorData);
+        return;
+      }
+      
+      const data = await response.json();
+      if (data.suggestedName) {
+        const newSuggestion = {
+          name: data.suggestedName,
+          status: "unchecked" as const,
+          reasoning: data.reasoning || "",
+          phoneticAnalysis: data.phoneticAnalysis || "",
+          distinctiveness: data.distinctiveness || "",
+          riskReduction: data.riskReduction || ""
+        };
+        if (!nameShortlist.find(item => item.name === data.suggestedName)) {
+          setNameShortlist(prev => [...prev, newSuggestion]);
         }
-      } else {
-        console.error("Failed to generate name:", await response.text());
+      } else if (data.suggestions && Array.isArray(data.suggestions)) {
+        data.suggestions.forEach((suggestion: { name: string; reasoning?: string; phoneticAnalysis?: string; distinctiveness?: string; riskReduction?: string }) => {
+          if (!nameShortlist.find(item => item.name === suggestion.name)) {
+            setNameShortlist(prev => [...prev, { 
+              name: suggestion.name, 
+              status: "unchecked",
+              reasoning: suggestion.reasoning 
+            }]);
+          }
+        });
       }
     } catch (error) {
-      console.error("Error generating name:", error);
+      console.error("handleGenerateName: Error generating name:", error);
     } finally {
       setIsGeneratingName(false);
     }
