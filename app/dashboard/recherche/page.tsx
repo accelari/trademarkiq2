@@ -2852,13 +2852,17 @@ export default function RecherchePage() {
                   totalConflicts: total || prev.totalConflicts || 0
                 }));
                 setRiskAnalysisSteps(prev => prev.map(step => {
-                  if (step.id === 2 && step.status !== "completed") {
-                    return { ...step, status: "completed" as const };
+                  if (step.id === 2) {
+                    return { 
+                      ...step, 
+                      status: current > 0 ? "completed" as const : "running" as const,
+                      details: `${current}/${total} Konflikte in Bearbeitung...`
+                    };
                   }
                   if (step.id === 3) {
                     return {
                       ...step,
-                      status: current >= total && total > 0 ? "completed" as const : "running" as const,
+                      status: current > 0 ? "running" as const : "pending" as const,
                       progress: { current, total: total || 5 },
                       details: `${current} von ${total || 5} Konflikten analysiert`
                     };
@@ -2923,8 +2927,11 @@ export default function RecherchePage() {
   };
 
   const handleGenerateName = async () => {
-    if (!searchQuery.trim() || selectedClasses.length === 0) {
-      console.log("handleGenerateName: missing searchQuery or selectedClasses");
+    const trademarkName = searchQuery.trim() || activeSearchQuery?.trim() || expertAnalysis?.trademarkName || '';
+    const classes = selectedClasses.length > 0 ? selectedClasses : aiSelectedClasses;
+    
+    if (!trademarkName || classes.length === 0) {
+      console.log("handleGenerateName: missing trademarkName or classes", { trademarkName, classes });
       return;
     }
     
@@ -2943,9 +2950,9 @@ export default function RecherchePage() {
       }));
       
       console.log("handleGenerateName: Sending to API:", { 
-        originalName: searchQuery.trim(), 
+        originalName: trademarkName, 
         conflictsCount: conflicts.length, 
-        niceClasses: selectedClasses, 
+        niceClasses: classes, 
         targetOffices: selectedLaender 
       });
       
@@ -2953,9 +2960,9 @@ export default function RecherchePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          originalName: searchQuery.trim(),
+          originalName: trademarkName,
           conflicts: conflicts,
-          niceClasses: selectedClasses,
+          niceClasses: classes,
           targetOffices: selectedLaender,
           existingShortlist: nameShortlist.map(item => item.name),
         }),
