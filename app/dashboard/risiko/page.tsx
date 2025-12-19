@@ -606,10 +606,11 @@ function RisikoPageContent() {
   const [klausWaitingMode, setKlausWaitingMode] = useState(false);
   
   const [suggestedName, setSuggestedName] = useState("");
-  const [nameShortlist, setNameShortlist] = useState<{name: string; status: "unchecked" | "checking" | "available" | "conflict"}[]>([]);
+  const [nameShortlist, setNameShortlist] = useState<{name: string; status: "unchecked" | "checking" | "available" | "conflict"; reasoning?: string}[]>([]);
   const [selectedShortlistName, setSelectedShortlistName] = useState<string | null>(null);
   const [isGeneratingName, setIsGeneratingName] = useState(false);
   const [isCheckingRegistry, setIsCheckingRegistry] = useState(false);
+  const [lastGeneratedReasoning, setLastGeneratedReasoning] = useState<string | null>(null);
   
   const [meetingNotes, setMeetingNotes] = useState<MeetingNote[]>([]);
   const [meetingStartTime, setMeetingStartTime] = useState<Date | null>(null);
@@ -732,12 +733,50 @@ function RisikoPageContent() {
 
   const handleGenerateName = async () => {
     setIsGeneratingName(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const suffixes = ["Plus", "Pro", "Max", "Neo", "Go", "One", "X"];
-    const baseName = markenname || "AlternativName";
-    const newName = `${baseName}${suffixes[Math.floor(Math.random() * suffixes.length)]}`;
-    setSuggestedName(newName);
-    setNameShortlist(prev => [...prev, { name: newName, status: "unchecked" }]);
+    setLastGeneratedReasoning(null);
+    
+    try {
+      const conflicts = expertAnalysis?.conflictAnalyses || [];
+      const existingNames = nameShortlist.map(item => item.name);
+      
+      const response = await fetch("/api/ai/generate-trademark-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originalName: markenname || "Marke",
+          conflicts: conflicts.map(c => ({
+            name: c.conflictName,
+            holder: c.conflictHolder,
+            office: c.conflictOffice,
+            classes: c.conflictClasses,
+            similarity: c.similarity
+          })),
+          niceClasses: selectedClasses,
+          targetOffices: selectedLaender,
+          existingShortlist: existingNames
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error("Fehler bei der Namensgenerierung");
+      }
+      
+      const data = await response.json();
+      const newName = data.suggestedName;
+      const reasoning = data.reasoning;
+      
+      setSuggestedName(newName);
+      setLastGeneratedReasoning(reasoning);
+      setNameShortlist(prev => [...prev, { name: newName, status: "unchecked", reasoning }]);
+    } catch (error) {
+      console.error("Fehler bei KI-Namensgenerierung:", error);
+      const suffixes = ["Nova", "Vio", "Zent", "Tera", "Axis"];
+      const baseName = markenname || "Alternativ";
+      const newName = `${baseName}${suffixes[Math.floor(Math.random() * suffixes.length)]}`;
+      setSuggestedName(newName);
+      setNameShortlist(prev => [...prev, { name: newName, status: "unchecked", reasoning: "Fallback-Vorschlag" }]);
+    }
+    
     setIsGeneratingName(false);
   };
 
@@ -1981,6 +2020,18 @@ ${notesTextFromHistory}
                   </div>
                 </div>
                 
+                {lastGeneratedReasoning && (
+                  <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-lg p-3 mb-3">
+                    <div className="flex items-start gap-2">
+                      <Lightbulb className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-medium text-amber-800 mb-0.5">KI-Begründung für "{suggestedName}"</p>
+                        <p className="text-sm text-amber-700">{lastGeneratedReasoning}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {nameShortlist.length > 0 ? (
                   <div>
                     <div className="flex items-center justify-between mb-2">
@@ -1995,7 +2046,7 @@ ${notesTextFromHistory}
                       {nameShortlist.map((item, idx) => (
                         <div
                           key={idx}
-                          className={`inline-flex items-center gap-1.5 rounded-full text-sm font-medium transition-all ${
+                          className={`group relative inline-flex items-center gap-1.5 rounded-full text-sm font-medium transition-all ${
                             selectedShortlistName === item.name
                               ? "ring-2 ring-teal-500 ring-offset-2"
                               : ""
@@ -2012,7 +2063,7 @@ ${notesTextFromHistory}
                           <button
                             onClick={() => handleSelectShortlistName(item.name)}
                             className="flex items-center gap-1.5 pl-3 py-1.5 hover:opacity-80 transition-opacity"
-                            title={`Klicken zum ${selectedShortlistName === item.name ? "Abwählen" : "Auswählen"}`}
+                            title={item.reasoning ? `${item.name}: ${item.reasoning}` : `Klicken zum ${selectedShortlistName === item.name ? "Abwählen" : "Auswählen"}`}
                           >
                             {item.name}
                             {getShortlistStatusIcon(item.status)}
@@ -2024,6 +2075,14 @@ ${notesTextFromHistory}
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
+                          {item.reasoning && (
+                            <div className="absolute left-0 top-full mt-2 z-20 hidden group-hover:block w-64 p-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg">
+                              <div className="flex items-start gap-1.5">
+                                <Lightbulb className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                                <span>{item.reasoning}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
