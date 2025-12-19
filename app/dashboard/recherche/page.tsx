@@ -47,7 +47,11 @@ import {
   Plus,
   Wand2,
   Scale,
+  MessageCircle,
+  Mic,
 } from "lucide-react";
+import { VoiceProvider } from "@humeai/voice-react";
+import VoiceAssistant from "@/app/components/VoiceAssistant";
 import WorkflowProgress from "@/app/components/WorkflowProgress";
 import ConsultationsModal from "@/app/components/ConsultationsModal";
 import { NICE_CLASSES, getPopularClasses, formatClassLabel } from "@/lib/nice-classes";
@@ -190,6 +194,9 @@ interface NameShortlistItem {
   name: string;
   status: "unchecked" | "checking" | "available" | "conflict";
   reasoning?: string;
+  phoneticAnalysis?: string;
+  distinctiveness?: string;
+  riskReduction?: string;
 }
 
 const OFFICE_NAMES: Record<string, string> = {
@@ -1768,12 +1775,27 @@ export default function RecherchePage() {
   const riskStartTimeRef = useRef<number | null>(null);
   
   const [nameShortlist, setNameShortlist] = useState<NameShortlistItem[]>([]);
-  const [generatedNameSuggestions, setGeneratedNameSuggestions] = useState<string[]>([]);
   const [isGeneratingName, setIsGeneratingName] = useState(false);
   const [customNameInput, setCustomNameInput] = useState("");
   const [selectedShortlistName, setSelectedShortlistName] = useState<string | null>(null);
   const [expandedConflictId, setExpandedConflictId] = useState<string | null>(null);
   const [isCheckingRegistry, setIsCheckingRegistry] = useState(false);
+  
+  const riskResultsEndRef = useRef<HTMLDivElement>(null);
+  const prevConflictsLengthRef = useRef(0);
+  const hasScrolledForAnalysisRef = useRef(false);
+  const [expandedRiskStep, setExpandedRiskStep] = useState<number | null>(null);
+  const [riskAnalysisSteps, setRiskAnalysisSteps] = useState<{
+    id: number;
+    title: string;
+    status: "pending" | "running" | "completed";
+    details?: string;
+    progress?: { current: number; total: number };
+  }[]>([]);
+  
+  const [showKlausAssistant, setShowKlausAssistant] = useState(false);
+  const [klausAccessToken, setKlausAccessToken] = useState<string | null>(null);
+  const [klausTokenLoading, setKlausTokenLoading] = useState(false);
   
   const hasUnsavedData = aiAnalysis !== null && !resultsSaved;
   
@@ -1924,6 +1946,116 @@ export default function RecherchePage() {
     }, 1000);
     return () => clearInterval(timer);
   }, [isRiskStreaming]);
+
+  useEffect(() => {
+    if (showKlausAssistant && !klausAccessToken && !klausTokenLoading) {
+      setKlausTokenLoading(true);
+      fetch("/api/token")
+        .then(res => {
+          if (!res.ok) throw new Error('Token fetch failed');
+          return res.json();
+        })
+        .then(data => {
+          const token = data.accessToken || data.clientSecret;
+          if (token) {
+            setKlausAccessToken(token);
+          } else {
+            console.error('No token in response');
+          }
+        })
+        .catch(err => {
+          console.error("Failed to get Klaus token:", err);
+        })
+        .finally(() => {
+          setKlausTokenLoading(false);
+        });
+    }
+  }, [showKlausAssistant, klausAccessToken, klausTokenLoading]);
+
+  useEffect(() => {
+    if (!Array.isArray(streamedConflicts)) return;
+    if (streamedConflicts.length > prevConflictsLengthRef.current) {
+      prevConflictsLengthRef.current = streamedConflicts.length;
+      const timer = setTimeout(() => {
+        riskResultsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [streamedConflicts?.length]);
+
+  useEffect(() => {
+    if (expertAnalysis && !hasScrolledForAnalysisRef.current) {
+      hasScrolledForAnalysisRef.current = true;
+      const timer = setTimeout(() => {
+        riskResultsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [expertAnalysis]);
+
+  useEffect(() => {
+    if (isRiskStreaming) {
+      prevConflictsLengthRef.current = 0;
+      hasScrolledForAnalysisRef.current = false;
+    }
+  }, [isRiskStreaming]);
+
+  useEffect(() => {
+    if (isRiskStreaming) {
+      const conflictsCount = aiAnalysis?.conflicts?.length || 0;
+      setRiskAnalysisSteps([
+        { 
+          id: 1, 
+          title: "Konflikte geladen", 
+          status: conflictsCount > 0 ? "completed" : "pending",
+          details: conflictsCount > 0 ? `${conflictsCount} Konflikte aus der Recherche übernommen` : undefined
+        },
+        { 
+          id: 2, 
+          title: "KI-Analyse gestartet", 
+          status: "running",
+          details: "Claude Opus analysiert jeden Konflikt einzeln..."
+        },
+        { 
+          id: 3, 
+          title: "Konflikte analysiert", 
+          status: "pending",
+          progress: { current: 0, total: conflictsCount }
+        },
+        { 
+          id: 4, 
+          title: "Risikoeinschätzung erstellt", 
+          status: "pending"
+        },
+      ]);
+    }
+  }, [isRiskStreaming, aiAnalysis?.conflicts?.length]);
+
+  useEffect(() => {
+    if (riskStreamProgress.phase === "analyzing" && riskStreamProgress.conflictsAnalyzed > 0) {
+      setRiskAnalysisSteps(prev => prev.map(step => {
+        if (step.id === 2) {
+          return { ...step, status: "completed" as const };
+        }
+        if (step.id === 3) {
+          return { 
+            ...step, 
+            status: riskStreamProgress.conflictsAnalyzed >= riskStreamProgress.totalConflicts ? "completed" as const : "running" as const,
+            progress: { current: riskStreamProgress.conflictsAnalyzed, total: riskStreamProgress.totalConflicts },
+            details: `${riskStreamProgress.conflictsAnalyzed} von ${riskStreamProgress.totalConflicts} Konflikten analysiert`
+          };
+        }
+        return step;
+      }));
+    }
+    if (riskStreamProgress.phase === "complete") {
+      setRiskAnalysisSteps(prev => prev.map(step => ({
+        ...step,
+        status: "completed" as const,
+        details: step.id === 4 ? "Gesamtbewertung erstellt" : step.details
+      })));
+    }
+  }, [riskStreamProgress]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -2757,21 +2889,42 @@ export default function RecherchePage() {
     
     setIsGeneratingName(true);
     try {
+      const conflicts = (aiAnalysis?.conflicts || []).map(c => ({
+        name: c.name,
+        holder: c.holder || "Unbekannt",
+        office: c.register || "Unbekannt",
+        classes: c.classes || [],
+        similarity: c.accuracy || 0
+      }));
+      
       const response = await fetch("/api/ai/generate-trademark-name", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           originalName: searchQuery.trim(),
-          classes: selectedClasses,
-          conflictNames: aiAnalysis?.conflicts?.map(c => c.name) || [],
+          conflicts: conflicts,
+          niceClasses: selectedClasses,
+          targetOffices: selectedLaender,
+          existingShortlist: nameShortlist.map(item => item.name),
         }),
       });
       
       if (response.ok) {
         const data = await response.json();
-        if (data.suggestions && Array.isArray(data.suggestions)) {
-          setGeneratedNameSuggestions(data.suggestions);
-          data.suggestions.forEach((suggestion: { name: string; reasoning?: string }) => {
+        if (data.suggestedName) {
+          const newSuggestion = {
+            name: data.suggestedName,
+            status: "unchecked" as const,
+            reasoning: data.reasoning || "",
+            phoneticAnalysis: data.phoneticAnalysis || "",
+            distinctiveness: data.distinctiveness || "",
+            riskReduction: data.riskReduction || ""
+          };
+          if (!nameShortlist.find(item => item.name === data.suggestedName)) {
+            setNameShortlist(prev => [...prev, newSuggestion]);
+          }
+        } else if (data.suggestions && Array.isArray(data.suggestions)) {
+          data.suggestions.forEach((suggestion: { name: string; reasoning?: string; phoneticAnalysis?: string; distinctiveness?: string; riskReduction?: string }) => {
             if (!nameShortlist.find(item => item.name === suggestion.name)) {
               setNameShortlist(prev => [...prev, { 
                 name: suggestion.name, 
@@ -2781,6 +2934,8 @@ export default function RecherchePage() {
             }
           });
         }
+      } else {
+        console.error("Failed to generate name:", await response.text());
       }
     } catch (error) {
       console.error("Error generating name:", error);
@@ -3574,13 +3729,202 @@ export default function RecherchePage() {
                         <span>Claude Opus analysiert Ihre Konflikte...</span>
                       </div>
                     )}
+
+                    {riskAnalysisSteps.length > 0 && (
+                      <div className="mt-6 border-t border-primary/20 pt-4">
+                        <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                          <Brain className="w-4 h-4 text-primary" />
+                          Analyse-Schritte
+                        </h5>
+                        <div className="space-y-2">
+                          {riskAnalysisSteps.map((step) => (
+                            <div
+                              key={step.id}
+                              className={`bg-white rounded-lg border transition-all ${
+                                step.status === "completed" 
+                                  ? "border-green-200" 
+                                  : step.status === "running" 
+                                    ? "border-primary/30 shadow-sm" 
+                                    : "border-gray-200"
+                              }`}
+                            >
+                              <button
+                                onClick={() => setExpandedRiskStep(expandedRiskStep === step.id ? null : step.id)}
+                                className="w-full flex items-center justify-between p-3 text-left"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                    step.status === "completed" 
+                                      ? "bg-green-100 text-green-700" 
+                                      : step.status === "running" 
+                                        ? "bg-primary/20 text-primary" 
+                                        : "bg-gray-100 text-gray-500"
+                                  }`}>
+                                    {step.status === "completed" ? (
+                                      <Check className="w-3.5 h-3.5" />
+                                    ) : step.status === "running" ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      step.id
+                                    )}
+                                  </div>
+                                  <div>
+                                    <span className={`text-sm font-medium ${
+                                      step.status === "completed" 
+                                        ? "text-green-700" 
+                                        : step.status === "running" 
+                                          ? "text-primary" 
+                                          : "text-gray-500"
+                                    }`}>
+                                      Schritt {step.id}: {step.title}
+                                    </span>
+                                    {step.progress && step.status === "running" && (
+                                      <span className="ml-2 text-xs text-gray-500">
+                                        ({step.progress.current}/{step.progress.total})
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${
+                                  expandedRiskStep === step.id ? "rotate-180" : ""
+                                }`} />
+                              </button>
+                              {expandedRiskStep === step.id && step.details && (
+                                <div className="px-3 pb-3 pt-0">
+                                  <p className="text-xs text-gray-600 bg-gray-50 rounded p-2 ml-9">
+                                    {step.details}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
+                <div ref={riskResultsEndRef} />
               </div>
           )}
 
           {expertAnalysis && (
             <div className="space-y-6">
+              {(expertAnalysis.overallRisk === "high" || expertAnalysis.overallRisk === "medium") && (
+                <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl shadow-sm border border-orange-200 p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                      <Wand2 className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h2 className="font-semibold text-gray-900">Empfehlungs-Werkbank</h2>
+                      <p className="text-sm text-gray-600">Alternative Markennamen erkunden</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <button
+                          onClick={handleGenerateName}
+                          disabled={isGeneratingName}
+                          className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 text-sm font-medium"
+                        >
+                          {isGeneratingName ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Wand2 className="w-4 h-4" />
+                          )}
+                          Namen generieren
+                        </button>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={customNameInput}
+                          onChange={(e) => setCustomNameInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleAddCustomName()}
+                          placeholder="Eigenen Namen eingeben..."
+                          className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        />
+                        <button
+                          onClick={handleAddCustomName}
+                          className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      {nameShortlist.length > 0 ? (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-gray-700">Shortlist ({nameShortlist.length})</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {nameShortlist.map((item) => (
+                              <div 
+                                key={item.name}
+                                className={`group relative inline-flex items-center rounded-full text-sm font-medium ${
+                                  item.status === "available" 
+                                    ? "bg-green-100 text-green-800 border border-green-200" 
+                                    : item.status === "conflict"
+                                      ? "bg-red-100 text-red-800 border border-red-200"
+                                      : item.status === "checking"
+                                        ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                        : "bg-gray-100 text-gray-700 border border-gray-200"
+                                }`}
+                              >
+                                <button
+                                  onClick={() => handleSelectShortlistName(item.name)}
+                                  className="flex items-center gap-1.5 pl-3 py-1.5 hover:opacity-80 transition-opacity"
+                                  title={[
+                                    item.reasoning || `${item.name} auswählen`,
+                                    item.phoneticAnalysis && `Phonetik: ${item.phoneticAnalysis}`,
+                                    item.distinctiveness && `Unterscheidung: ${item.distinctiveness}`,
+                                    item.riskReduction && `Risikoreduktion: ${item.riskReduction}`
+                                  ].filter(Boolean).join('\n')}
+                                >
+                                  {item.name}
+                                  {getShortlistStatusIcon(item.status)}
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveFromShortlist(item.name)}
+                                  className="pr-2 py-1.5 hover:text-red-600 transition-colors"
+                                  title="Entfernen"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {selectedShortlistName && (
+                            <button
+                              onClick={() => handleCheckRegistry(selectedShortlistName)}
+                              disabled={isCheckingRegistry}
+                              className="mt-3 flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm font-medium"
+                            >
+                              {isCheckingRegistry ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Search className="w-4 h-4" />
+                              )}
+                              "{selectedShortlistName}" im Register prüfen
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-white/50 rounded-lg p-4 border border-orange-100">
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">So geht's:</span> Generieren Sie Namensvorschläge oder geben Sie eigene ein und fügen Sie diese zur Shortlist hinzu.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <div className="lg:col-span-3 space-y-4">
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
@@ -3736,117 +4080,6 @@ export default function RecherchePage() {
                   </div>
                 </div>
               </div>
-
-              {(expertAnalysis.overallRisk === "high" || expertAnalysis.overallRisk === "medium") && (
-                <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl shadow-sm border border-orange-200 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                      <Wand2 className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <div>
-                      <h2 className="font-semibold text-gray-900">Empfehlungs-Werkbank</h2>
-                      <p className="text-sm text-gray-600">Alternative Markennamen erkunden</p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <button
-                          onClick={handleGenerateName}
-                          disabled={isGeneratingName}
-                          className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 text-sm font-medium"
-                        >
-                          {isGeneratingName ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Wand2 className="w-4 h-4" />
-                          )}
-                          Namen generieren
-                        </button>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={customNameInput}
-                          onChange={(e) => setCustomNameInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleAddCustomName()}
-                          placeholder="Eigenen Namen eingeben..."
-                          className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                        />
-                        <button
-                          onClick={handleAddCustomName}
-                          className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      {nameShortlist.length > 0 ? (
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium text-gray-700">Shortlist ({nameShortlist.length})</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {nameShortlist.map((item) => (
-                              <div 
-                                key={item.name}
-                                className={`group relative inline-flex items-center rounded-full text-sm font-medium ${
-                                  item.status === "available" 
-                                    ? "bg-green-100 text-green-800 border border-green-200" 
-                                    : item.status === "conflict"
-                                      ? "bg-red-100 text-red-800 border border-red-200"
-                                      : item.status === "checking"
-                                        ? "bg-blue-100 text-blue-800 border border-blue-200"
-                                        : "bg-gray-100 text-gray-700 border border-gray-200"
-                                }`}
-                              >
-                                <button
-                                  onClick={() => handleSelectShortlistName(item.name)}
-                                  className="flex items-center gap-1.5 pl-3 py-1.5 hover:opacity-80 transition-opacity"
-                                  title={item.reasoning || `${item.name} auswählen`}
-                                >
-                                  {item.name}
-                                  {getShortlistStatusIcon(item.status)}
-                                </button>
-                                <button
-                                  onClick={() => handleRemoveFromShortlist(item.name)}
-                                  className="pr-2 py-1.5 hover:text-red-600 transition-colors"
-                                  title="Entfernen"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                          
-                          {selectedShortlistName && (
-                            <button
-                              onClick={() => handleCheckRegistry(selectedShortlistName)}
-                              disabled={isCheckingRegistry}
-                              className="mt-3 flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm font-medium"
-                            >
-                              {isCheckingRegistry ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Search className="w-4 h-4" />
-                              )}
-                              "{selectedShortlistName}" im Register prüfen
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="bg-white/50 rounded-lg p-4 border border-orange-100">
-                          <p className="text-sm text-gray-600">
-                            <span className="font-medium">So geht's:</span> Generieren Sie Namensvorschläge oder geben Sie eigene ein und fügen Sie diese zur Shortlist hinzu.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -4426,6 +4659,59 @@ export default function RecherchePage() {
         deletingId={deletingId}
         onNavigate={(path) => router.push(path)}
       />
+
+      <button
+        onClick={() => setShowKlausAssistant(true)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:bg-primary/90 transition-all hover:scale-105 flex items-center justify-center z-40"
+        title="KI-Berater Klaus"
+      >
+        <MessageCircle className="w-6 h-6" />
+      </button>
+
+      {showKlausAssistant && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/20" onClick={() => setShowKlausAssistant(false)} />
+          <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Mic className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">KI-Berater Klaus</h3>
+                  <p className="text-xs text-gray-500">Fragen Sie mich zur Markenrecherche</p>
+                </div>
+              </div>
+              <button onClick={() => setShowKlausAssistant(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {klausTokenLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : klausAccessToken ? (
+                <VoiceProvider>
+                  <VoiceAssistant 
+                    accessToken={klausAccessToken}
+                    contextMessage={searchQuery ? `[SYSTEM-KONTEXT für Markenrecherche]\nMARKE: ${searchQuery}\nAKTIVER FALL: ${caseId || currentCaseNumber || 'Neu'}\nNizza-Klassen: ${aiSelectedClasses.join(', ') || 'Noch nicht ausgewählt'}\nLänder: ${selectedLaender.join(', ') || 'Noch nicht ausgewählt'}` : null}
+                    embedded={true}
+                  />
+                </VoiceProvider>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <Mic className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-gray-600">Sprachassistent nicht verfügbar</p>
+                  <p className="text-sm text-gray-500 mt-1">Bitte versuchen Sie es später erneut</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
