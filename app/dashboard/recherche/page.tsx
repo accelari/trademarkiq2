@@ -1795,6 +1795,7 @@ export default function RecherchePage() {
   
   const [klausAccessToken, setKlausAccessToken] = useState<string | null>(null);
   const [klausTokenLoading, setKlausTokenLoading] = useState(false);
+  const [klausTokenError, setKlausTokenError] = useState<string | null>(null);
   
   const hasUnsavedData = aiAnalysis !== null && !resultsSaved;
   
@@ -2032,24 +2033,38 @@ export default function RecherchePage() {
   }, [riskStreamProgress]);
 
   useEffect(() => {
-    if (streamedConflicts && streamedConflicts.length > 0) {
+    if (!isRiskStreaming) return;
+    
+    const conflictCount = streamedConflicts?.length || 0;
+    
+    if (conflictCount > 0) {
       setRiskAnalysisSteps(prev => prev.map(step => {
-        if (step.id === 2 && step.status !== "completed") {
-          return { ...step, status: "completed" as const };
-        }
+        if (step.id === 1) return { ...step, status: "completed" as const };
+        if (step.id === 2) return { ...step, status: "completed" as const };
         if (step.id === 3) {
-          const total = riskStreamProgress.totalConflicts || streamedConflicts.length || 5;
+          const total = riskStreamProgress.totalConflicts || conflictCount;
+          const allDone = conflictCount >= total;
           return {
             ...step,
-            status: streamedConflicts.length >= total ? "completed" as const : "running" as const,
-            progress: { current: streamedConflicts.length, total },
-            details: `${streamedConflicts.length} von ${total} Konflikten analysiert`
+            status: allDone ? "completed" as const : "running" as const,
+            progress: { current: conflictCount, total },
+            details: `${conflictCount} von ${total} Konflikten analysiert`
           };
         }
         return step;
       }));
     }
-  }, [streamedConflicts?.length, riskStreamProgress.totalConflicts]);
+  }, [isRiskStreaming, streamedConflicts?.length, riskStreamProgress.totalConflicts]);
+
+  useEffect(() => {
+    if (expertAnalysis && !isRiskStreaming) {
+      setRiskAnalysisSteps(prev => prev.map(step => ({
+        ...step,
+        status: "completed" as const,
+        details: step.id === 4 ? "Gesamtbewertung erstellt" : step.details
+      })));
+    }
+  }, [expertAnalysis, isRiskStreaming]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -3729,7 +3744,9 @@ export default function RecherchePage() {
                         <p className="text-2xl font-bold text-primary">
                           {riskStreamProgress.totalConflicts > 0 
                             ? `${Math.round((riskStreamProgress.conflictsAnalyzed / riskStreamProgress.totalConflicts) * 100)}%`
-                            : "0%"
+                            : riskStreamProgress.phase === "complete" ? "100%" 
+                            : riskStreamProgress.phase === "error" ? "0%"
+                            : riskElapsedTime < 10 ? "..." : "0%"
                           }
                         </p>
                         <p className="text-xs text-gray-500">Fortschritt</p>
@@ -3752,7 +3769,8 @@ export default function RecherchePage() {
                           style={{ 
                             width: riskStreamProgress.totalConflicts > 0 
                               ? `${(riskStreamProgress.conflictsAnalyzed / riskStreamProgress.totalConflicts) * 100}%`
-                              : "5%"
+                              : riskStreamProgress.phase === "complete" ? "100%" 
+                              : `${Math.min(5, riskElapsedTime * 0.5)}%`
                           }}
                         />
                       </div>
@@ -3833,6 +3851,50 @@ export default function RecherchePage() {
                                   <p className="text-xs text-gray-600 bg-gray-50 rounded p-2 ml-9">
                                     {step.details}
                                   </p>
+                                </div>
+                              )}
+                              {step.id === 2 && step.status === "running" && (
+                                <div className="px-3 pb-3 pt-0 ml-9 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                      <div 
+                                        className="h-full bg-primary rounded-full transition-all duration-1000"
+                                        style={{ 
+                                          width: riskStreamProgress.conflictsAnalyzed > 0 
+                                            ? `${Math.min(100, (riskStreamProgress.conflictsAnalyzed / Math.max(1, riskStreamProgress.totalConflicts)) * 80)}%` 
+                                            : `${Math.min(30, riskElapsedTime * 0.3)}%` 
+                                        }}
+                                      />
+                                    </div>
+                                    <span className="text-xs text-gray-500 min-w-[40px] text-right">
+                                      {riskStreamProgress.conflictsAnalyzed > 0 
+                                        ? `${riskStreamProgress.conflictsAnalyzed}/${riskStreamProgress.totalConflicts}`
+                                        : `${Math.min(100, Math.round(riskElapsedTime * 0.5))}%`}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                                    <span className="flex gap-1">
+                                      <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                                      <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                                      <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                                    </span>
+                                    <span>{riskStreamProgress.message || "Claude Opus analysiert..."}</span>
+                                  </div>
+                                </div>
+                              )}
+                              {step.id === 3 && step.status === "running" && step.progress && (
+                                <div className="px-3 pb-3 pt-0 ml-9">
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                      <div 
+                                        className="h-full bg-primary rounded-full transition-all duration-300"
+                                        style={{ width: `${(step.progress.current / step.progress.total) * 100}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-xs text-gray-500 min-w-[40px] text-right">
+                                      {step.progress.current}/{step.progress.total}
+                                    </span>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -3988,15 +4050,27 @@ export default function RecherchePage() {
                         </VoiceProvider>
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full py-12">
+                          {klausTokenError && (
+                            <div className="mb-4 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg">
+                              {klausTokenError}
+                            </div>
+                          )}
                           <button
-                            onClick={() => {
-                              if (!klausTokenLoading) {
-                                setKlausTokenLoading(true);
-                                fetch('/api/token')
-                                  .then(res => res.json())
-                                  .then(data => setKlausAccessToken(data.accessToken))
-                                  .catch(console.error)
-                                  .finally(() => setKlausTokenLoading(false));
+                            onClick={async () => {
+                              if (klausTokenLoading) return;
+                              setKlausTokenLoading(true);
+                              setKlausTokenError(null);
+                              try {
+                                const res = await fetch('/api/token');
+                                if (!res.ok) throw new Error('Token konnte nicht geladen werden');
+                                const data = await res.json();
+                                if (!data.accessToken) throw new Error('Kein Token in Antwort');
+                                setKlausAccessToken(data.accessToken);
+                              } catch (err: any) {
+                                console.error('Klaus token error:', err);
+                                setKlausTokenError(err.message || 'Fehler beim Laden');
+                              } finally {
+                                setKlausTokenLoading(false);
                               }
                             }}
                             disabled={klausTokenLoading}
