@@ -2696,27 +2696,38 @@ export default function RecherchePage() {
             try {
               const data = JSON.parse(line.slice(6));
               
-              if (data.type === "progress") {
-                setRiskStreamProgress({
+              if (data.type === "status") {
+                setRiskStreamProgress(prev => ({
+                  ...prev,
+                  message: data.message || prev.message
+                }));
+              } else if (data.type === "progress") {
+                setRiskStreamProgress(prev => ({
                   phase: "analyzing",
-                  message: data.message || "Analysiere Konflikte...",
-                  conflictsAnalyzed: data.current || data.conflictsAnalyzed || 0,
-                  totalConflicts: data.total || data.totalConflicts || 0
-                });
-              } else if (data.type === "conflict") {
-                setStreamedConflicts(prev => [...prev, data.conflict]);
-              } else if (data.type === "complete") {
-                setExpertAnalysis(data.analysis);
+                  message: data.message || prev.message || "Analysiere Konflikte...",
+                  conflictsAnalyzed: data.current ?? data.conflictsAnalyzed ?? 0,
+                  totalConflicts: data.total ?? data.totalConflicts ?? prev.totalConflicts ?? 0
+                }));
+              } else if (data.type === "conflict_ready") {
+                setStreamedConflicts(prev => [...prev, data.data]);
+              } else if (data.type === "summary") {
+                setExpertAnalysis(data.data);
                 setRiskStreamProgress({
                   phase: "complete",
                   message: "Analyse abgeschlossen",
-                  conflictsAnalyzed: data.analysis?.conflictAnalyses?.length || 0,
-                  totalConflicts: data.analysis?.conflictAnalyses?.length || 0
+                  conflictsAnalyzed: data.data?.conflictAnalyses?.length || 0,
+                  totalConflicts: data.data?.conflictAnalyses?.length || 0
                 });
+              } else if (data.type === "done") {
+                setRiskStreamProgress(prev => ({
+                  ...prev,
+                  phase: "complete",
+                  message: prev.phase === "error" ? prev.message : "Analyse abgeschlossen"
+                }));
               } else if (data.type === "error") {
                 setRiskStreamProgress({
                   phase: "error",
-                  message: data.error || "Fehler bei der Analyse",
+                  message: data.message || data.error || "Fehler bei der Analyse",
                   conflictsAnalyzed: 0,
                   totalConflicts: 0
                 });
