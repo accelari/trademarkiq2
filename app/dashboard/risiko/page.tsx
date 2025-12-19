@@ -768,6 +768,7 @@ function RisikoPageContent() {
       setSuggestedName(newName);
       setLastGeneratedReasoning(reasoning);
       setNameShortlist(prev => [...prev, { name: newName, status: "unchecked", reasoning }]);
+      setSelectedShortlistName(newName);
     } catch (error) {
       console.error("Fehler bei KI-Namensgenerierung:", error);
       const suffixes = ["Nova", "Vio", "Zent", "Tera", "Axis"];
@@ -775,6 +776,7 @@ function RisikoPageContent() {
       const newName = `${baseName}${suffixes[Math.floor(Math.random() * suffixes.length)]}`;
       setSuggestedName(newName);
       setNameShortlist(prev => [...prev, { name: newName, status: "unchecked", reasoning: "Fallback-Vorschlag" }]);
+      setSelectedShortlistName(newName);
     }
     
     setIsGeneratingName(false);
@@ -784,6 +786,12 @@ function RisikoPageContent() {
     if (!selectedShortlistName) return;
     const nameToCheck = selectedShortlistName;
     setIsCheckingRegistry(true);
+    
+    console.log(`[Registerprüfung] Prüfe "${nameToCheck}" für:`, {
+      länder: selectedLaender,
+      klassen: selectedClasses
+    });
+    
     const existingIndex = nameShortlist.findIndex(item => item.name === nameToCheck);
     if (existingIndex === -1) {
       setNameShortlist(prev => [...prev, { name: nameToCheck, status: "checking" }]);
@@ -792,6 +800,7 @@ function RisikoPageContent() {
         idx === existingIndex ? { ...item, status: "checking" } : item
       ));
     }
+    
     await new Promise(resolve => setTimeout(resolve, 1500));
     const statuses: ("available" | "conflict")[] = ["available", "conflict"];
     const newStatus = statuses[Math.floor(Math.random() * statuses.length)];
@@ -2045,7 +2054,11 @@ ${notesTextFromHistory}
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs text-gray-500 font-medium">
-                        Shortlist {selectedShortlistName && <span className="text-teal-600">– "{selectedShortlistName}" ausgewählt</span>}
+                        Shortlist {selectedShortlistName ? (
+                          <span className="text-teal-600">– "{selectedShortlistName}" ausgewählt</span>
+                        ) : (
+                          <span className="text-amber-600">– Klicken Sie auf einen Namen zum Auswählen</span>
+                        )}
                       </p>
                       <span className="text-[10px] text-gray-400" title="Simulation – echte Prüfung mit tmsearch.ai folgt">
                         ⓘ Simulierte Prüfung
