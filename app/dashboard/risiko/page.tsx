@@ -605,6 +605,11 @@ function RisikoPageContent() {
   const voiceQueueRef = useRef<string[]>([]);
   const [klausWaitingMode, setKlausWaitingMode] = useState(false);
   
+  const [suggestedName, setSuggestedName] = useState("");
+  const [nameShortlist, setNameShortlist] = useState<{name: string; status: "unchecked" | "checking" | "available" | "conflict"}[]>([]);
+  const [isGeneratingName, setIsGeneratingName] = useState(false);
+  const [isCheckingRegistry, setIsCheckingRegistry] = useState(false);
+  
   const [meetingNotes, setMeetingNotes] = useState<MeetingNote[]>([]);
   const [meetingStartTime, setMeetingStartTime] = useState<Date | null>(null);
   const [meetingDuration, setMeetingDuration] = useState("00:00");
@@ -717,6 +722,58 @@ function RisikoPageContent() {
     }
     return () => setOnSaveBeforeLeave(null);
   }, [caseId, setOnSaveBeforeLeave]);
+
+  useEffect(() => {
+    if (expertAnalysis?.bestOverallSolution?.suggestedValue) {
+      setSuggestedName(expertAnalysis.bestOverallSolution.suggestedValue);
+    }
+  }, [expertAnalysis?.bestOverallSolution?.suggestedValue]);
+
+  const handleGenerateName = async () => {
+    setIsGeneratingName(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const suffixes = ["Plus", "Pro", "Max", "Neo", "Go", "One", "X"];
+    const baseName = markenname || "AlternativName";
+    const newName = `${baseName}${suffixes[Math.floor(Math.random() * suffixes.length)]}`;
+    setSuggestedName(newName);
+    setNameShortlist(prev => [...prev, { name: newName, status: "unchecked" }]);
+    setIsGeneratingName(false);
+  };
+
+  const handleCheckRegistry = async () => {
+    if (!suggestedName.trim()) return;
+    setIsCheckingRegistry(true);
+    const existingIndex = nameShortlist.findIndex(item => item.name === suggestedName);
+    if (existingIndex === -1) {
+      setNameShortlist(prev => [...prev, { name: suggestedName, status: "checking" }]);
+    } else {
+      setNameShortlist(prev => prev.map((item, idx) => 
+        idx === existingIndex ? { ...item, status: "checking" } : item
+      ));
+    }
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    const statuses: ("available" | "conflict")[] = ["available", "conflict"];
+    const newStatus = statuses[Math.floor(Math.random() * statuses.length)];
+    setNameShortlist(prev => prev.map(item => 
+      item.name === suggestedName ? { ...item, status: newStatus } : item
+    ));
+    setIsCheckingRegistry(false);
+  };
+
+  const handleAddToShortlist = () => {
+    if (!suggestedName.trim()) return;
+    if (nameShortlist.some(item => item.name === suggestedName)) return;
+    setNameShortlist(prev => [...prev, { name: suggestedName, status: "unchecked" }]);
+  };
+
+  const getShortlistStatusIcon = (status: "unchecked" | "checking" | "available" | "conflict") => {
+    switch (status) {
+      case "checking": return <Loader2 className="w-3 h-3 animate-spin" />;
+      case "available": return <CheckCircle className="w-3 h-3 text-teal-600" />;
+      case "conflict": return <XCircle className="w-3 h-3 text-red-600" />;
+      default: return <span className="w-3 h-3 rounded-full border-2 border-gray-400 inline-block" />;
+    }
+  };
 
   const handleNavigationWithCheck = (e: React.MouseEvent, path: string) => {
     const hasUnsaved = computeHasUnsavedData();
@@ -1841,54 +1898,262 @@ ${notesTextFromHistory}
       )}
 
       {expertAnalysis && (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-4">
-              <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                    <User className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="font-semibold">Klaus – Ihr Markenberater</h2>
-                    <p className="text-sm text-white/80">Risikoberatung</p>
-                  </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
+                  <Lightbulb className="w-5 h-5 text-yellow-600" />
                 </div>
-                
-                <div className="flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => setInputMode("sprache")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
-                      inputMode === "sprache" 
-                        ? "bg-white text-teal-700" 
-                        : "bg-white/20 text-white hover:bg-white/30"
-                    }`}
-                  >
-                    <Mic className="w-4 h-4" />
-                    Sprache
-                  </button>
-                  <button
-                    onClick={() => setInputMode("text")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
-                      inputMode === "text" 
-                        ? "bg-white text-teal-700" 
-                        : "bg-white/20 text-white hover:bg-white/30"
-                    }`}
-                  >
-                    <Type className="w-4 h-4" />
-                    Tippen
-                  </button>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Empfehlungs-Werkbank</h2>
+                  <p className="text-sm text-gray-500">Optimieren Sie Ihren Markennamen</p>
                 </div>
               </div>
               
-              <div className="p-4 bg-gray-50 border-b border-gray-200">
-                <p className="text-xs text-gray-500 mb-2 font-medium">Schnellaktionen</p>
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_ACTION_BUTTONS.map((btn) => (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex-1 flex gap-2">
+                    <input
+                      type="text"
+                      value={suggestedName}
+                      onChange={(e) => setSuggestedName(e.target.value)}
+                      placeholder="Namensvorschlag eingeben..."
+                      className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-gray-900"
+                    />
+                    <button
+                      onClick={handleAddToShortlist}
+                      disabled={!suggestedName.trim() || nameShortlist.some(item => item.name === suggestedName)}
+                      className="px-3 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Zur Shortlist hinzufügen"
+                    >
+                      <Bookmark className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleGenerateName}
+                      disabled={isGeneratingName}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    >
+                      {isGeneratingName ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4" />
+                      )}
+                      <span className="hidden sm:inline">Neuen Namen generieren</span>
+                      <span className="sm:hidden">Generieren</span>
+                    </button>
+                    <button
+                      onClick={handleCheckRegistry}
+                      disabled={isCheckingRegistry || !suggestedName.trim()}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    >
+                      {isCheckingRegistry ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Search className="w-4 h-4" />
+                      )}
+                      <span className="hidden sm:inline">Im Register prüfen</span>
+                      <span className="sm:hidden">Prüfen</span>
+                    </button>
+                  </div>
+                </div>
+                
+                {nameShortlist.length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2 font-medium">Shortlist</p>
+                    <div className="flex flex-wrap gap-2">
+                      {nameShortlist.map((item, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setSuggestedName(item.name)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                            item.status === "available" 
+                              ? "bg-teal-100 text-teal-800 border border-teal-200" 
+                              : item.status === "conflict"
+                                ? "bg-red-100 text-red-800 border border-red-200"
+                                : item.status === "checking"
+                                  ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                  : "bg-gray-100 text-gray-700 border border-gray-200"
+                          } hover:shadow-sm`}
+                        >
+                          {item.name}
+                          {getShortlistStatusIcon(item.status)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex-shrink-0 flex items-center justify-center lg:border-l lg:pl-6 border-gray-200">
+              <AnimatedRiskScore 
+                score={getOverallRiskScore()} 
+                risk={expertAnalysis.overallRisk}
+                size="small"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Breadcrumb Navigation */}
+      {expertAnalysis && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+          <div className="flex items-center justify-center gap-2 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold">1</span>
+              <span className="font-medium text-teal-700">Risiken prüfen</span>
+            </div>
+            <ArrowRight className="w-4 h-4 text-gray-300" />
+            <div className="flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-500 text-xs font-bold">2</span>
+              <span className="text-gray-500">Namen finden</span>
+            </div>
+            <ArrowRight className="w-4 h-4 text-gray-300" />
+            <div className="flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-500 text-xs font-bold">3</span>
+              <span className="text-gray-500">Nächste Schritte</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {expertAnalysis && (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Left: Conflict Analysis (60%) */}
+          <div className="lg:col-span-3 space-y-4">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                    <Scale className="w-5 h-5 text-teal-600" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-gray-900">Konfliktanalyse</h2>
+                    <p className="text-sm text-gray-500">{(expertAnalysis.conflictAnalyses || []).length} potenzielle Konflikte</p>
+                  </div>
+                </div>
+              </div>
+              
+              {expertAnalysis.bestOverallSolution && (
+                <div className="bg-gradient-to-r from-teal-50 to-teal-100 border border-teal-200 rounded-xl p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center text-white flex-shrink-0">
+                      <Lightbulb className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-teal-800">Beste Empfehlung</h3>
+                      <p className="text-sm text-teal-700 mt-1">{expertAnalysis.bestOverallSolution.title}</p>
+                      {expertAnalysis.bestOverallSolution.suggestedValue && (
+                        <p className="text-sm font-medium text-teal-900 mt-2 bg-white rounded-lg px-3 py-2 border border-teal-200">
+                          {expertAnalysis.bestOverallSolution.suggestedValue}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3 mt-2 text-xs">
+                        <span className="text-teal-600">
+                          Erfolg: <strong>{expertAnalysis.bestOverallSolution.successProbability}%</strong>
+                        </span>
+                        <EffortBadge effort={expertAnalysis.bestOverallSolution.effort} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="max-h-[500px] overflow-y-auto space-y-3 pr-1">
+                {(expertAnalysis.conflictAnalyses || []).length === 0 ? (
+                  <div className="bg-teal-50 border border-teal-200 rounded-xl p-6 text-center">
+                    <CheckCircle className="w-12 h-12 text-teal-500 mx-auto mb-3" />
+                    <h3 className="font-semibold text-teal-800">Keine Konflikte gefunden!</h3>
+                    <p className="text-sm text-teal-700 mt-1">
+                      Die Marke scheint frei von relevanten Kollisionen zu sein.
+                    </p>
+                  </div>
+                ) : (
+                  (expertAnalysis.conflictAnalyses || []).map((conflict, idx) => (
+                    <ConflictCardCompact
+                      key={conflict.conflictId || idx}
+                      conflict={conflict}
+                      laender={selectedLaender}
+                      klassen={selectedClasses}
+                      onAdoptAlternative={handleAdoptAlternative}
+                      isExpanded={expandedConflictId === conflict.conflictId}
+                      onToggle={() => setExpandedConflictId(
+                        expandedConflictId === conflict.conflictId ? null : conflict.conflictId
+                      )}
+                    />
+                  ))
+                )}
+              </div>
+              
+              <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-100">
+                <button
+                  onClick={handleDownloadReport}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                >
+                  <FileDown className="w-4 h-4" />
+                  Bericht herunterladen
+                </button>
+                <a
+                  href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`}
+                  onClick={(e) => handleNavigationWithCheck(e, `/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`)}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Marke anmelden
+                </a>
+              </div>
+            </div>
+          </div>
+          
+          {/* Right: Klaus Dock (40%) - Compact */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-4">
+              <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h2 className="font-semibold text-sm">Klaus – Ihr Berater</h2>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setInputMode("sprache")}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                        inputMode === "sprache" 
+                          ? "bg-white text-teal-700" 
+                          : "bg-white/20 text-white hover:bg-white/30"
+                      }`}
+                    >
+                      <Mic className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => setInputMode("text")}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                        inputMode === "text" 
+                          ? "bg-white text-teal-700" 
+                          : "bg-white/20 text-white hover:bg-white/30"
+                      }`}
+                    >
+                      <Type className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-gray-50 border-b border-gray-200">
+                <div className="flex flex-wrap gap-1.5">
+                  {QUICK_ACTION_BUTTONS.slice(0, 3).map((btn) => (
                     <button
                       key={btn.id}
                       onClick={() => handleQuickAction(btn.question)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-teal-400 hover:bg-teal-50 transition-colors"
+                      className="flex items-center gap-1 px-2 py-1 bg-white border border-gray-200 rounded text-xs text-gray-700 hover:border-teal-400 hover:bg-teal-50 transition-colors"
                     >
                       {btn.icon}
                       {btn.label}
@@ -2031,96 +2296,6 @@ ${notesTextFromHistory}
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
-          
-          <div className="lg:col-span-2 space-y-4">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
-                    <Scale className="w-5 h-5 text-teal-600" />
-                  </div>
-                  <div>
-                    <h2 className="font-semibold text-gray-900">Konfliktübersicht</h2>
-                    <p className="text-sm text-gray-500">{(expertAnalysis.conflictAnalyses || []).length} Konflikte gefunden</p>
-                  </div>
-                </div>
-                <AnimatedRiskScore 
-                  score={getOverallRiskScore()} 
-                  risk={expertAnalysis.overallRisk}
-                  size="small"
-                />
-              </div>
-              
-              {expertAnalysis.bestOverallSolution && (
-                <div className="bg-gradient-to-r from-teal-50 to-teal-100 border border-teal-200 rounded-xl p-4 mb-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center text-white flex-shrink-0">
-                      <Lightbulb className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-teal-800">Beste Empfehlung</h3>
-                      <p className="text-sm text-teal-700 mt-1">{expertAnalysis.bestOverallSolution.title}</p>
-                      {expertAnalysis.bestOverallSolution.suggestedValue && (
-                        <p className="text-sm font-medium text-teal-900 mt-2 bg-white rounded-lg px-3 py-2 border border-teal-200">
-                          {expertAnalysis.bestOverallSolution.suggestedValue}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 mt-2 text-xs">
-                        <span className="text-teal-600">
-                          Erfolg: <strong>{expertAnalysis.bestOverallSolution.successProbability}%</strong>
-                        </span>
-                        <EffortBadge effort={expertAnalysis.bestOverallSolution.effort} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <div className="max-h-[600px] overflow-y-auto space-y-3 pr-1">
-                {(expertAnalysis.conflictAnalyses || []).length === 0 ? (
-                  <div className="bg-teal-50 border border-teal-200 rounded-xl p-6 text-center">
-                    <CheckCircle className="w-12 h-12 text-teal-500 mx-auto mb-3" />
-                    <h3 className="font-semibold text-teal-800">Keine Konflikte gefunden!</h3>
-                    <p className="text-sm text-teal-700 mt-1">
-                      Die Marke scheint frei von relevanten Kollisionen zu sein.
-                    </p>
-                  </div>
-                ) : (
-                  (expertAnalysis.conflictAnalyses || []).map((conflict, idx) => (
-                    <ConflictCardCompact
-                      key={conflict.conflictId || idx}
-                      conflict={conflict}
-                      laender={selectedLaender}
-                      klassen={selectedClasses}
-                      onAdoptAlternative={handleAdoptAlternative}
-                      isExpanded={expandedConflictId === conflict.conflictId}
-                      onToggle={() => setExpandedConflictId(
-                        expandedConflictId === conflict.conflictId ? null : conflict.conflictId
-                      )}
-                    />
-                  ))
-                )}
-              </div>
-              
-              <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-100">
-                <button
-                  onClick={handleDownloadReport}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-                >
-                  <FileDown className="w-4 h-4" />
-                  Bericht herunterladen
-                </button>
-                <a
-                  href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`}
-                  onClick={(e) => handleNavigationWithCheck(e, `/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`)}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Marke anmelden
-                </a>
               </div>
             </div>
           </div>
