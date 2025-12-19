@@ -7,7 +7,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { 
   LayoutDashboard, 
   Mic, 
-  BarChart3, 
   Users, 
   Bell, 
   Handshake,
@@ -26,8 +25,7 @@ import { UnsavedDataProvider, useUnsavedData } from "@/app/contexts/UnsavedDataC
 const baseNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Markenberatung", href: "/dashboard/copilot", icon: Mic },
-  { name: "Markenrecherche", href: "/dashboard/recherche", icon: Search },
-  { name: "Risiko-Analyse", href: "/dashboard/risiko", icon: BarChart3 },
+  { name: "Markenprüfung", href: "/dashboard/recherche", icon: Search },
   { name: "Markenanmeldung", href: "/dashboard/anmeldung", icon: FileText },
   { name: "Playbooks", href: "/dashboard/playbooks", icon: FileText },
   { name: "Watchlist", href: "/dashboard/watchlist", icon: Bell },

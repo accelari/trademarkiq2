@@ -27,7 +27,11 @@ The application is built with Next.js 16 (App Router) and TypeScript, utilizing 
   - **Research Prefill**: When navigating to Recherche, forms are automatically prefilled with consultation data; missing fields are highlighted with a link back to continue the consultation
   - **Enhanced Case Detail Modal**: Clear section headers (Beratung, Recherche, Risikoanalyse) with icons, navigation chips for quick section jumping, highlight animation when scrolling, Konfliktanalyse always expanded
   - **Step Reset Feature**: Users can redo Beratung (resets Beratung + Recherche + Risikoanalyse) or Recherche (resets Recherche + Risikoanalyse) with confirmation dialog showing affected steps, then redirects to appropriate page
-- **Markenrecherche**: AI-powered trademark search with `tmsearch.ai` integration, including accuracy scores, office badges, and detailed modals. Features include:
+- **Markenprüfung** (Combined Recherche + Risikoanalyse): Unified trademark verification page combining search AND risk analysis in one workflow. Features include:
+  - **Trademark Search**: AI-powered search with `tmsearch.ai` integration, accuracy scores, office badges
+  - **Streaming Risk Analysis**: Automatic risk assessment after search completes with SSE progress updates
+  - **Two-Column Results Layout**: Left: Conflict cards with legal assessment, opposition risk, solutions. Right: AnimatedRiskScore + statistics
+  - **Empfehlungs-Werkbank**: AI-powered alternative name generation with immediate registry checking for medium/high risk cases
   - World-class international search strategy generation using Claude Opus 4.1
   - Multilingual phonetic analysis (EN, DE, FR, ES, ZH, JP, KR, AR)
   - Famous marks detection with dilution protection warnings
@@ -42,6 +46,7 @@ The application is built with Next.js 16 (App Router) and TypeScript, utilizing 
   - Live feedback system: Granular SSE progress events for each search term, heartbeat pings every 8s during long operations, real-time stats (Suchen X/Y, Treffer), search progress bar, idle watchdog after 12s shows "Warten auf tmsearch.ai-Antwort..."
   - Hybrid search strategy: Deterministic base variants (German/English phonetic rules, visual similarity, common misspellings, root extraction) with LRU caching for reproducible results, plus optional "Tiefere Recherche mit KI" button for Claude-enhanced creative variants
   - Used search terms display: Tag cloud showing all search variants used in the analysis
+  - Note: Old /dashboard/risiko route redirects to this unified page
 - **Markenanmeldung**: Dedicated menu item in navigation for trademark registration wizard.
   - 4-step wizard (Mark info → Office selection → Nice classes → Summary) with expert assignment
   - Status tracking (draft, pending, submitted, expert_review, approved, rejected)
@@ -56,14 +61,13 @@ The application is built with Next.js 16 (App Router) and TypeScript, utilizing 
   - Color-coded risk levels (red >=90%, orange 80-89%, yellow 70-79%)
   - Activity history timeline showing chronological alerts and status changes
   - Accordion-style expandable history with type-specific icons
-- **Risiko-Analyse**: Comprehensive multi-dimensional risk assessment dashboard featuring:
-  - Circular risk score visualization (0-100%)
+- **Risiko-Analyse** (Now integrated into Markenprüfung): Features moved to the unified page:
+  - Circular risk score visualization (AnimatedRiskScore, 0-100%)
   - 4-dimensional analysis: Phonetic, Visual, Conceptual, Industry-specific
-  - Interactive conflict map per trademark office (DPMA, EUIPO, WIPO, etc.)
-  - AI-generated alternative name suggestions with lower risk scores
-  - Voice explanation feature using Hume AI for empathetic risk communication
-  - PDF report generation with email delivery via Resend
+  - Streaming conflict analysis with SSE progress updates
+  - AI-generated alternative name suggestions with registry checking
   - Traffic light system (🔴 High ≥80%, 🟡 Medium 60-79%, 🟢 Low <60%)
+  - Note: `/dashboard/risiko` route now redirects to `/dashboard/recherche`
 - **Team Management**: Features for inviting members and managing roles within an organization.
 - **Experten-Verzeichnis**: A directory of legal experts with contact and appointment scheduling features.
 - **Debug Console (TMview)**: Developer interface showing complete API flow with step-by-step debugging:
@@ -76,8 +80,8 @@ The application is built with Next.js 16 (App Router) and TypeScript, utilizing 
 - **Security**: API keys stored server-side, bcrypt for password hashing, JWT for sessions, organization-scoped data, and DSGVO compliance.
 
 ### Journey System (Case Tracking)
-A comprehensive 5-step journey system tracks user progress through the trademark registration process:
-- **Steps**: Beratung → Recherche → Risikoanalyse → Anmeldung → Watchlist
+A comprehensive 4-step journey system tracks user progress through the trademark registration process:
+- **Steps**: Beratung → Markenprüfung (Recherche + Risikoanalyse) → Anmeldung → Watchlist
 - **Case Numbers**: Format TM-YYYY-XXXXXX (e.g., TM-2025-000001)
 - **Decision Extraction**: AI (Claude) extracts trademark names, countries, and Nice classes from consultation summaries
 - **Prefill Feature**: Extracted decisions automatically prefill the Recherche form

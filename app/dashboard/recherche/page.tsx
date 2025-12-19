@@ -41,6 +41,12 @@ import {
   FileText,
   Brain,
   Star,
+  Circle,
+  CheckCircle,
+  XCircle,
+  Plus,
+  Wand2,
+  Scale,
 } from "lucide-react";
 import WorkflowProgress from "@/app/components/WorkflowProgress";
 import ConsultationsModal from "@/app/components/ConsultationsModal";
@@ -146,6 +152,148 @@ interface AIAnalysis {
   totalResultsAnalyzed: number;
   totalFoundResults?: number;
   expertStrategy?: ExpertStrategy;
+}
+
+interface Solution {
+  type: "name_modification" | "class_change" | "mark_type" | "geographic" | "coexistence";
+  title: string;
+  description: string;
+  suggestedValue: string;
+  successProbability: number;
+  effort: "low" | "medium" | "high";
+  reasoning: string;
+}
+
+interface ExpertConflictAnalysis {
+  conflictId: string;
+  conflictName: string;
+  conflictHolder: string;
+  conflictClasses: number[];
+  conflictOffice: string;
+  similarity: number;
+  legalAssessment: string;
+  oppositionRisk: number;
+  consequences: string;
+  solutions: Solution[];
+}
+
+interface ExpertAnalysisResponse {
+  success: boolean;
+  trademarkName: string;
+  overallRisk: "high" | "medium" | "low";
+  conflictAnalyses: ExpertConflictAnalysis[];
+  bestOverallSolution: Solution | null;
+  summary: string;
+}
+
+interface NameShortlistItem {
+  name: string;
+  status: "unchecked" | "checking" | "available" | "conflict";
+  reasoning?: string;
+}
+
+const OFFICE_NAMES: Record<string, string> = {
+  "DE": "DPMA (Deutschland)",
+  "EU": "EUIPO (EU)",
+  "WO": "WIPO (International)",
+  "US": "USPTO (USA)",
+  "GB": "UKIPO (UK)",
+  "CH": "IGE (Schweiz)",
+  "AT": "ÖPA (Österreich)",
+};
+
+function AnimatedRiskScore({ score, risk, size = "large" }: { score: number; risk: "high" | "medium" | "low"; size?: "small" | "large" }) {
+  const getColor = () => {
+    switch (risk) {
+      case "high": return { ring: "stroke-red-500", text: "text-red-600", bg: "bg-red-50", label: "Hohes Risiko" };
+      case "medium": return { ring: "stroke-orange-500", text: "text-orange-600", bg: "bg-orange-50", label: "Mittleres Risiko" };
+      case "low": return { ring: "stroke-teal-500", text: "text-teal-600", bg: "bg-teal-50", label: "Niedriges Risiko" };
+    }
+  };
+  
+  const colors = getColor();
+  
+  if (size === "small") {
+    const circumference = 2 * Math.PI * 40;
+    const offset = circumference - (score / 100) * circumference;
+    return (
+      <div className={`relative inline-flex flex-col items-center justify-center`}>
+        <div className={`relative w-24 h-24 ${colors.bg} rounded-full flex items-center justify-center`}>
+          <svg className="absolute w-full h-full -rotate-90">
+            <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="6" fill="none" className="text-gray-200" />
+            <circle
+              cx="48"
+              cy="48"
+              r="40"
+              strokeWidth="6"
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+              className={`${colors.ring} transition-all duration-1000 ease-out`}
+            />
+          </svg>
+          <div className="text-center z-10">
+            <span className={`text-xl font-bold ${colors.text}`}>{score}%</span>
+          </div>
+        </div>
+        <span className={`mt-2 text-xs font-semibold ${colors.text}`}>{colors.label}</span>
+      </div>
+    );
+  }
+  
+  const circumference = 2 * Math.PI * 54;
+  const offset = circumference - (score / 100) * circumference;
+
+  return (
+    <div className={`relative inline-flex flex-col items-center justify-center`}>
+      <div className={`relative w-36 h-36 ${colors.bg} rounded-full flex items-center justify-center`}>
+        <svg className="absolute w-full h-full -rotate-90">
+          <circle cx="72" cy="72" r="54" stroke="currentColor" strokeWidth="10" fill="none" className="text-gray-200" />
+          <circle
+            cx="72"
+            cy="72"
+            r="54"
+            strokeWidth="10"
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            className={`${colors.ring} transition-all duration-1000 ease-out`}
+          />
+        </svg>
+        <div className="text-center z-10">
+          <span className={`text-3xl font-bold ${colors.text}`}>{score}%</span>
+        </div>
+      </div>
+      <span className={`mt-3 text-sm font-semibold ${colors.text}`}>{colors.label}</span>
+    </div>
+  );
+}
+
+function OppositionRiskBar({ risk }: { risk: number }) {
+  const getColor = () => {
+    if (risk > 70) return "bg-red-500";
+    if (risk > 40) return "bg-orange-500";
+    return "bg-teal-500";
+  };
+  
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-gray-600">Widerspruchsrisiko</span>
+        <span className={`font-bold ${risk > 70 ? 'text-red-600' : risk > 40 ? 'text-orange-600' : 'text-teal-600'}`}>
+          {risk}%
+        </span>
+      </div>
+      <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
+        <div 
+          className={`h-full ${getColor()} rounded-full transition-all duration-1000 ease-out`}
+          style={{ width: `${risk}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 interface RiskModalProps {
@@ -1607,6 +1755,24 @@ export default function RecherchePage() {
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   
+  const [isRiskStreaming, setIsRiskStreaming] = useState(false);
+  const [streamedConflicts, setStreamedConflicts] = useState<ExpertConflictAnalysis[]>([]);
+  const [expertAnalysis, setExpertAnalysis] = useState<ExpertAnalysisResponse | null>(null);
+  const [riskStreamProgress, setRiskStreamProgress] = useState<{
+    phase: "connecting" | "analyzing" | "complete" | "error";
+    message: string;
+    conflictsAnalyzed: number;
+    totalConflicts: number;
+  }>({ phase: "connecting", message: "", conflictsAnalyzed: 0, totalConflicts: 0 });
+  
+  const [nameShortlist, setNameShortlist] = useState<NameShortlistItem[]>([]);
+  const [generatedNameSuggestions, setGeneratedNameSuggestions] = useState<string[]>([]);
+  const [isGeneratingName, setIsGeneratingName] = useState(false);
+  const [customNameInput, setCustomNameInput] = useState("");
+  const [selectedShortlistName, setSelectedShortlistName] = useState<string | null>(null);
+  const [expandedConflictId, setExpandedConflictId] = useState<string | null>(null);
+  const [isCheckingRegistry, setIsCheckingRegistry] = useState(false);
+  
   const hasUnsavedData = aiAnalysis !== null && !resultsSaved;
   
   const { 
@@ -2175,7 +2341,7 @@ export default function RecherchePage() {
   };
   
   const handleContinueToRiskAnalysis = async () => {
-    const activeCaseId = caseId || currentCaseNumber;
+    let activeCaseId = caseId || currentCaseNumber;
     
     if (activeCaseId && !statusUpdated) {
       try {
@@ -2229,21 +2395,7 @@ export default function RecherchePage() {
       }
     }
     
-    if (activeCaseId) {
-      setResultsSaved(true);
-      
-      if (aiAnalysis?.conflicts && aiAnalysis.conflicts.length > 0) {
-        sessionStorage.setItem('risikoanalyse_conflicts', JSON.stringify({
-          conflicts: aiAnalysis.conflicts,
-          markenname: searchQuery,
-          laender: selectedLaender,
-          klassen: aiSelectedClasses,
-          analysis: aiAnalysis.analysis,
-        }));
-      }
-      
-      router.push(`/dashboard/risiko?markenname=${encodeURIComponent(searchQuery)}&conflicts=${aiAnalysis?.conflicts?.length || 0}&laender=${selectedLaender.join(',')}&klassen=${aiSelectedClasses.join(',')}&case=${activeCaseId}`);
-    } else {
+    if (!activeCaseId) {
       try {
         const res = await fetch("/api/cases", {
           method: "POST",
@@ -2256,11 +2408,11 @@ export default function RecherchePage() {
         
         if (res.ok) {
           const responseData = await res.json();
-          const newCaseId = responseData.case?.id || responseData.case?.caseNumber;
+          activeCaseId = responseData.case?.id || responseData.case?.caseNumber;
           setCurrentCaseNumber(responseData.case?.caseNumber);
           setResultsSaved(true);
           
-          await fetch(`/api/cases/${newCaseId}/update-status`, {
+          await fetch(`/api/cases/${activeCaseId}/update-status`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -2277,25 +2429,31 @@ export default function RecherchePage() {
               }
             })
           });
-          
-          if (aiAnalysis?.conflicts && aiAnalysis.conflicts.length > 0) {
-            sessionStorage.setItem('risikoanalyse_conflicts', JSON.stringify({
-              conflicts: aiAnalysis.conflicts,
-              markenname: searchQuery,
-              laender: selectedLaender,
-              klassen: aiSelectedClasses,
-              analysis: aiAnalysis.analysis,
-            }));
-          }
-          
-          router.push(`/dashboard/risiko?markenname=${encodeURIComponent(searchQuery)}&conflicts=${aiAnalysis?.conflicts?.length || 0}&laender=${selectedLaender.join(',')}&klassen=${aiSelectedClasses.join(',')}&case=${newCaseId}`);
         } else {
           setShowSaveSearchDialog(true);
+          return;
         }
       } catch (error) {
         console.error("Error creating case:", error);
         setShowSaveSearchDialog(true);
+        return;
       }
+    }
+    
+    if (activeCaseId) {
+      setResultsSaved(true);
+      
+      if (aiAnalysis?.conflicts && aiAnalysis.conflicts.length > 0) {
+        sessionStorage.setItem('risikoanalyse_conflicts', JSON.stringify({
+          conflicts: aiAnalysis.conflicts,
+          markenname: searchQuery,
+          laender: selectedLaender,
+          klassen: aiSelectedClasses,
+          analysis: aiAnalysis.analysis,
+        }));
+      }
+      
+      startStreamingAnalysis(activeCaseId);
     }
   };
 
@@ -2461,6 +2619,11 @@ export default function RecherchePage() {
       setShowSuccessBanner(true);
       setTimeout(() => setShowSuccessBanner(false), 3000);
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+      
+      // Automatically trigger streaming risk analysis after search completes
+      if (caseId) {
+        startStreamingAnalysis(caseId);
+      }
     } catch (err: any) {
       if (err.name === "AbortError") {
         return;
@@ -2469,6 +2632,210 @@ export default function RecherchePage() {
       setAiLoading(false);
       setAiStartTime(null);
       abortControllerRef.current = null;
+    }
+  };
+
+  const startStreamingAnalysis = async (targetCaseId?: string) => {
+    const activeCaseId = targetCaseId || caseId || currentCaseNumber;
+    if (!activeCaseId) {
+      console.error("No caseId available for risk streaming");
+      return;
+    }
+    
+    setIsRiskStreaming(true);
+    setStreamedConflicts([]);
+    setExpertAnalysis(null);
+    setRiskStreamProgress({ phase: "connecting", message: "Verbinde mit Analyse-Server...", conflictsAnalyzed: 0, totalConflicts: 0 });
+    
+    try {
+      const response = await fetch(`/api/risk-analysis/stream?caseId=${activeCaseId}`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to start risk analysis stream");
+      }
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      if (!reader) {
+        throw new Error("No reader available");
+      }
+      
+      let buffer = "";
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === "progress") {
+                setRiskStreamProgress({
+                  phase: "analyzing",
+                  message: data.message || "Analysiere Konflikte...",
+                  conflictsAnalyzed: data.conflictsAnalyzed || 0,
+                  totalConflicts: data.totalConflicts || 0
+                });
+              } else if (data.type === "conflict") {
+                setStreamedConflicts(prev => [...prev, data.conflict]);
+              } else if (data.type === "complete") {
+                setExpertAnalysis(data.analysis);
+                setRiskStreamProgress({
+                  phase: "complete",
+                  message: "Analyse abgeschlossen",
+                  conflictsAnalyzed: data.analysis?.conflictAnalyses?.length || 0,
+                  totalConflicts: data.analysis?.conflictAnalyses?.length || 0
+                });
+              } else if (data.type === "error") {
+                setRiskStreamProgress({
+                  phase: "error",
+                  message: data.error || "Fehler bei der Analyse",
+                  conflictsAnalyzed: 0,
+                  totalConflicts: 0
+                });
+              }
+            } catch (e) {
+              console.error("Error parsing stream data:", e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Streaming error:", error);
+      setRiskStreamProgress({
+        phase: "error",
+        message: "Verbindungsfehler",
+        conflictsAnalyzed: 0,
+        totalConflicts: 0
+      });
+    } finally {
+      setIsRiskStreaming(false);
+    }
+  };
+
+  const handleGenerateName = async () => {
+    if (!searchQuery.trim() || selectedClasses.length === 0) return;
+    
+    setIsGeneratingName(true);
+    try {
+      const response = await fetch("/api/ai/generate-trademark-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originalName: searchQuery.trim(),
+          classes: selectedClasses,
+          conflictNames: aiAnalysis?.conflicts?.map(c => c.name) || [],
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.suggestions && Array.isArray(data.suggestions)) {
+          setGeneratedNameSuggestions(data.suggestions);
+          data.suggestions.forEach((suggestion: { name: string; reasoning?: string }) => {
+            if (!nameShortlist.find(item => item.name === suggestion.name)) {
+              setNameShortlist(prev => [...prev, { 
+                name: suggestion.name, 
+                status: "unchecked",
+                reasoning: suggestion.reasoning 
+              }]);
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error generating name:", error);
+    } finally {
+      setIsGeneratingName(false);
+    }
+  };
+
+  const handleCheckRegistry = async (name: string) => {
+    setIsCheckingRegistry(true);
+    setNameShortlist(prev => prev.map(item => 
+      item.name === name ? { ...item, status: "checking" as const } : item
+    ));
+    
+    try {
+      const response = await fetch("/api/recherche/quick-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name,
+          classes: selectedClasses,
+          countries: selectedLaender,
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const hasConflict = data.conflictsFound > 0;
+        setNameShortlist(prev => prev.map(item => 
+          item.name === name ? { ...item, status: hasConflict ? "conflict" : "available" } : item
+        ));
+      } else {
+        setNameShortlist(prev => prev.map(item => 
+          item.name === name ? { ...item, status: "unchecked" } : item
+        ));
+      }
+    } catch (error) {
+      console.error("Error checking registry:", error);
+      setNameShortlist(prev => prev.map(item => 
+        item.name === name ? { ...item, status: "unchecked" } : item
+      ));
+    } finally {
+      setIsCheckingRegistry(false);
+    }
+  };
+
+  const handleAddCustomName = () => {
+    const name = customNameInput.trim();
+    if (name && !nameShortlist.find(item => item.name === name)) {
+      setNameShortlist(prev => [...prev, { name, status: "unchecked" }]);
+      setCustomNameInput("");
+    }
+  };
+
+  const handleRemoveFromShortlist = (name: string) => {
+    setNameShortlist(prev => prev.filter(item => item.name !== name));
+    if (selectedShortlistName === name) {
+      setSelectedShortlistName(null);
+    }
+  };
+
+  const handleSelectShortlistName = (name: string) => {
+    setSelectedShortlistName(selectedShortlistName === name ? null : name);
+  };
+
+  const getShortlistStatusIcon = (status: NameShortlistItem["status"]) => {
+    switch (status) {
+      case "available":
+        return <CheckCircle className="w-3.5 h-3.5 text-teal-600" />;
+      case "conflict":
+        return <XCircle className="w-3.5 h-3.5 text-red-600" />;
+      case "checking":
+        return <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />;
+      default:
+        return <Circle className="w-3.5 h-3.5 text-gray-400" />;
+    }
+  };
+
+  const getOverallRiskScore = (): number => {
+    if (!expertAnalysis || !expertAnalysis.conflictAnalyses?.length) return 0;
+    const avgOppositionRisk = expertAnalysis.conflictAnalyses.reduce((sum, c) => sum + (c.oppositionRisk || 0), 0) / expertAnalysis.conflictAnalyses.length;
+    return Math.round(avgOppositionRisk);
+  };
+
+  const handleAdoptAlternative = (name: string, reasoning?: string) => {
+    if (!nameShortlist.find(item => item.name === name)) {
+      setNameShortlist(prev => [...prev, { name, status: "unchecked", reasoning }]);
     }
   };
 
@@ -3086,15 +3453,313 @@ export default function RecherchePage() {
                   </div>
                 )}
 
-                <button
-                  onClick={handleContinueToRiskAnalysis}
-                  className="flex items-center justify-center gap-3 w-full px-6 py-4 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg hover:shadow-xl text-lg"
-                >
-                  <BarChart3 className="w-6 h-6" />
-                  Weiter zur Risikoanalyse
-                  <ArrowRight className="w-5 h-5" />
-                </button>
+                {!expertAnalysis && !isRiskStreaming && (
+                  <button
+                    onClick={handleContinueToRiskAnalysis}
+                    className="flex items-center justify-center gap-3 w-full px-6 py-4 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg hover:shadow-xl text-lg"
+                  >
+                    <BarChart3 className="w-6 h-6" />
+                    Detaillierte Risikoanalyse starten
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+                )}
+
+                {isRiskStreaming && (
+                  <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl p-6 border border-primary/20">
+                    <div className="flex items-center gap-4 mb-4">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      <div>
+                        <h4 className="font-semibold text-gray-900">Risikoanalyse läuft...</h4>
+                        <p className="text-sm text-gray-600">{riskStreamProgress.message}</p>
+                      </div>
+                    </div>
+                    {riskStreamProgress.totalConflicts > 0 && (
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary transition-all duration-300"
+                          style={{ width: `${(riskStreamProgress.conflictsAnalyzed / riskStreamProgress.totalConflicts) * 100}%` }}
+                        />
+                      </div>
+                    )}
+                    {streamedConflicts.length > 0 && (
+                      <div className="mt-4 text-sm text-gray-600">
+                        {streamedConflicts.length} von {riskStreamProgress.totalConflicts} Konflikten analysiert
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+          )}
+
+          {expertAnalysis && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <div className="lg:col-span-3 space-y-4">
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Scale className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <h2 className="font-semibold text-gray-900">Detaillierte Konfliktanalyse</h2>
+                          <p className="text-sm text-gray-500">{(expertAnalysis.conflictAnalyses || []).length} potenzielle Konflikte analysiert</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="max-h-[500px] overflow-y-auto space-y-3 pr-1">
+                      {(expertAnalysis.conflictAnalyses || []).length === 0 ? (
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
+                          <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                          <h3 className="font-semibold text-green-800">Keine kritischen Konflikte!</h3>
+                          <p className="text-sm text-green-700 mt-1">
+                            Die Marke scheint frei von relevanten Kollisionen zu sein.
+                          </p>
+                        </div>
+                      ) : (
+                        (expertAnalysis.conflictAnalyses || []).map((conflict, idx) => (
+                          <div 
+                            key={conflict.conflictId || idx}
+                            className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${
+                              expandedConflictId === conflict.conflictId 
+                                ? 'border-primary shadow-md' 
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                            onClick={() => setExpandedConflictId(expandedConflictId === conflict.conflictId ? null : conflict.conflictId)}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-semibold text-gray-900">{conflict.conflictName}</h4>
+                                  <span className="text-xs text-gray-500">
+                                    {OFFICE_NAMES[conflict.conflictOffice] || conflict.conflictOffice}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-600 line-clamp-1">{conflict.conflictHolder}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  conflict.oppositionRisk > 70 ? 'bg-red-100 text-red-700' :
+                                  conflict.oppositionRisk > 40 ? 'bg-orange-100 text-orange-700' :
+                                  'bg-green-100 text-green-700'
+                                }`}>
+                                  {conflict.oppositionRisk}% Risiko
+                                </span>
+                                {expandedConflictId === conflict.conflictId ? (
+                                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                                )}
+                              </div>
+                            </div>
+                            
+                            {expandedConflictId === conflict.conflictId && (
+                              <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+                                <div>
+                                  <h5 className="text-sm font-medium text-gray-700 mb-1">Rechtliche Bewertung</h5>
+                                  <p className="text-sm text-gray-600">{conflict.legalAssessment}</p>
+                                </div>
+                                <div>
+                                  <h5 className="text-sm font-medium text-gray-700 mb-1">Mögliche Konsequenzen</h5>
+                                  <p className="text-sm text-gray-600">{conflict.consequences}</p>
+                                </div>
+                                <OppositionRiskBar risk={conflict.oppositionRisk} />
+                                
+                                {conflict.solutions && conflict.solutions.length > 0 && (
+                                  <div className="mt-3">
+                                    <h5 className="text-sm font-medium text-gray-700 mb-2">Lösungsvorschläge</h5>
+                                    <div className="space-y-2">
+                                      {conflict.solutions.slice(0, 2).map((solution, sIdx) => (
+                                        <div key={sIdx} className="bg-gray-50 rounded-lg p-3">
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-sm font-medium text-gray-800">{solution.title}</span>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleAdoptAlternative(solution.suggestedValue, solution.reasoning);
+                                              }}
+                                              className="text-xs text-primary hover:underline"
+                                            >
+                                              + Shortlist
+                                            </button>
+                                          </div>
+                                          <p className="text-xs text-gray-600">{solution.description}</p>
+                                          {solution.suggestedValue && (
+                                            <p className="text-xs text-primary font-medium mt-1">
+                                              Vorschlag: {solution.suggestedValue}
+                                            </p>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="lg:col-span-2">
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-4">
+                    <div className="text-center mb-6">
+                      <AnimatedRiskScore 
+                        score={getOverallRiskScore()} 
+                        risk={expertAnalysis.overallRisk} 
+                      />
+                      <h3 className="mt-4 text-lg font-semibold text-gray-900">Gesamtrisiko</h3>
+                      <p className="text-sm text-gray-600 mt-1">für "{searchQuery}"</p>
+                    </div>
+                    
+                    <div className="border-t border-gray-100 pt-4 space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">Konflikte analysiert</span>
+                        <span className="font-medium text-gray-900">{(expertAnalysis.conflictAnalyses || []).length}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">Länder geprüft</span>
+                        <span className="font-medium text-gray-900">{selectedLaender.length}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">Klassen geprüft</span>
+                        <span className="font-medium text-gray-900">{aiSelectedClasses.length}</span>
+                      </div>
+                    </div>
+                    
+                    {expertAnalysis.summary && (
+                      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                        <p className="text-sm text-gray-700">{expertAnalysis.summary}</p>
+                      </div>
+                    )}
+                    
+                    <div className="mt-6 space-y-2">
+                      <a
+                        href={`/dashboard/anmeldung?markName=${encodeURIComponent(searchQuery)}`}
+                        className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Marke anmelden
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {(expertAnalysis.overallRisk === "high" || expertAnalysis.overallRisk === "medium") && (
+                <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl shadow-sm border border-orange-200 p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                      <Wand2 className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h2 className="font-semibold text-gray-900">Empfehlungs-Werkbank</h2>
+                      <p className="text-sm text-gray-600">Alternative Markennamen erkunden</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <button
+                          onClick={handleGenerateName}
+                          disabled={isGeneratingName}
+                          className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 text-sm font-medium"
+                        >
+                          {isGeneratingName ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Wand2 className="w-4 h-4" />
+                          )}
+                          Namen generieren
+                        </button>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={customNameInput}
+                          onChange={(e) => setCustomNameInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleAddCustomName()}
+                          placeholder="Eigenen Namen eingeben..."
+                          className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        />
+                        <button
+                          onClick={handleAddCustomName}
+                          className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      {nameShortlist.length > 0 ? (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-gray-700">Shortlist ({nameShortlist.length})</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {nameShortlist.map((item) => (
+                              <div 
+                                key={item.name}
+                                className={`group relative inline-flex items-center rounded-full text-sm font-medium ${
+                                  item.status === "available" 
+                                    ? "bg-green-100 text-green-800 border border-green-200" 
+                                    : item.status === "conflict"
+                                      ? "bg-red-100 text-red-800 border border-red-200"
+                                      : item.status === "checking"
+                                        ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                        : "bg-gray-100 text-gray-700 border border-gray-200"
+                                }`}
+                              >
+                                <button
+                                  onClick={() => handleSelectShortlistName(item.name)}
+                                  className="flex items-center gap-1.5 pl-3 py-1.5 hover:opacity-80 transition-opacity"
+                                  title={item.reasoning || `${item.name} auswählen`}
+                                >
+                                  {item.name}
+                                  {getShortlistStatusIcon(item.status)}
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveFromShortlist(item.name)}
+                                  className="pr-2 py-1.5 hover:text-red-600 transition-colors"
+                                  title="Entfernen"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {selectedShortlistName && (
+                            <button
+                              onClick={() => handleCheckRegistry(selectedShortlistName)}
+                              disabled={isCheckingRegistry}
+                              className="mt-3 flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm font-medium"
+                            >
+                              {isCheckingRegistry ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Search className="w-4 h-4" />
+                              )}
+                              "{selectedShortlistName}" im Register prüfen
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-white/50 rounded-lg p-4 border border-orange-100">
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">So geht's:</span> Generieren Sie Namensvorschläge oder geben Sie eigene ein und fügen Sie diese zur Shortlist hinzu.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
       {hasSearched && (
