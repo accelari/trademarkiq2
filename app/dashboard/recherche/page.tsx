@@ -3110,6 +3110,143 @@ export default function RecherchePage() {
     }
   };
 
+  const handleStartFullAnalysisForName = async (name: string) => {
+    setSearchQuery(name);
+    
+    setAiAnalysis(null);
+    setExpertAnalysis(null);
+    setStreamedConflicts([]);
+    setRiskAnalysisSteps(prev => prev.map(s => ({ ...s, status: "pending" as const, details: undefined, progress: undefined })));
+    
+    setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+    
+    setTimeout(async () => {
+      if (!name.trim() || selectedLaender.length === 0 || aiSelectedClasses.length === 0) {
+        return;
+      }
+      
+      setAiLoading(true);
+      setAiError(null);
+      setAiProgress({
+        step1: "pending",
+        step2: "pending",
+        step3: "pending",
+        step4: "pending",
+      });
+      setShowSuccessBanner(false);
+      setIsDeepSearch(true);
+      
+      const newProgressSteps = getInitialProgressSteps(true);
+      setProgressSteps(newProgressSteps);
+      
+      const effectiveClasses = aiSelectedClasses.length === 45 ? [] : aiSelectedClasses;
+      const relatedClasses = getAllRelatedClasses(aiSelectedClasses);
+      const searchClasses = includeRelatedClasses 
+        ? [...new Set([...effectiveClasses, ...relatedClasses])].sort((a, b) => a - b)
+        : effectiveClasses;
+      
+      try {
+        newProgressSteps[0] = { ...newProgressSteps[0], status: "running", startedAt: Date.now() };
+        setProgressSteps([...newProgressSteps]);
+        setAiProgress(prev => ({ ...prev, step1: "started", lastActivity: Date.now() }));
+        
+        const variantsRes = await fetch("/api/recherche/step1-variants", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            markenname: name.trim(),
+            klassen: effectiveClasses,
+            laender: selectedLaender,
+            deepSearch: true,
+          }),
+        });
+
+        if (!variantsRes.ok) {
+          throw new Error("Fehler bei der Suchstrategie");
+        }
+
+        const variantsData = await variantsRes.json();
+        newProgressSteps[0] = { ...newProgressSteps[0], status: "completed", endedAt: Date.now() };
+        newProgressSteps[1] = { ...newProgressSteps[1], status: "running", startedAt: Date.now() };
+        setProgressSteps([...newProgressSteps]);
+        setAiProgress(prev => ({ 
+          ...prev, 
+          step1: "completed", 
+          step2: "started",
+          step1Data: variantsData,
+          lastActivity: Date.now() 
+        }));
+
+        newProgressSteps[1] = { ...newProgressSteps[1], status: "completed", endedAt: Date.now() };
+        newProgressSteps[2] = { ...newProgressSteps[2], status: "running", startedAt: Date.now() };
+        setProgressSteps([...newProgressSteps]);
+        setAiProgress(prev => ({ ...prev, step2: "completed", step3: "started", lastActivity: Date.now() }));
+
+        const searchRes = await fetch("/api/recherche/step2-search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            queryTerms: variantsData.queryTerms,
+            klassen: searchClasses,
+            laender: selectedLaender,
+            extendedClassSearch: false,
+            originalKlassen: effectiveClasses,
+            relatedClasses: includeRelatedClasses ? relatedClasses : [],
+          }),
+        });
+
+        if (!searchRes.ok) {
+          throw new Error("Fehler bei der Markensuche");
+        }
+
+        const searchData = await searchRes.json();
+        newProgressSteps[2] = { ...newProgressSteps[2], status: "completed", endedAt: Date.now() };
+        newProgressSteps[3] = { ...newProgressSteps[3], status: "running", startedAt: Date.now() };
+        setProgressSteps([...newProgressSteps]);
+        setAiProgress(prev => ({ 
+          ...prev, 
+          step3: "completed", 
+          step4: "started",
+          step3Data: searchData,
+          lastActivity: Date.now() 
+        }));
+
+        const analyzeRes = await fetch("/api/recherche/step3-analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            markenname: name.trim(),
+            searchResults: searchData.results || searchData,
+            originalKlassen: effectiveClasses,
+            relatedClasses: includeRelatedClasses ? relatedClasses : [],
+            laender: selectedLaender,
+            expertStrategy: variantsData.expertStrategy,
+          }),
+        });
+
+        if (!analyzeRes.ok) {
+          throw new Error("Fehler bei der Analyse");
+        }
+
+        const analysisData = await analyzeRes.json();
+        newProgressSteps[3] = { ...newProgressSteps[3], status: "completed", endedAt: Date.now() };
+        setProgressSteps([...newProgressSteps]);
+        setAiProgress(prev => ({ ...prev, step4: "completed", lastActivity: Date.now() }));
+        
+        setAiAnalysis(analysisData);
+        setShowSuccessBanner(true);
+        
+        setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+      } catch (error: any) {
+        setAiError(error.message || "Ein Fehler ist aufgetreten");
+      } finally {
+        setAiLoading(false);
+      }
+    }, 200);
+  };
+
   const handleAddCustomName = () => {
     const name = customNameInput.trim();
     if (name && !nameShortlist.find(item => item.name === name)) {
@@ -3549,6 +3686,12 @@ export default function RecherchePage() {
 
           {aiAnalysis && (
               <div ref={resultsRef} className="mt-6 space-y-5 scroll-mt-4">
+                <div className="mb-4 flex items-center gap-2 text-sm">
+                  <span className="text-gray-600">Aktuelle Prüfung für:</span>
+                  <span className="font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">
+                    {searchQuery || activeSearchQuery}
+                  </span>
+                </div>
                 <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                   <div className="p-5 sm:p-6">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
@@ -4099,6 +4242,30 @@ export default function RecherchePage() {
                               )}
                               "{selectedShortlistName}" im Register prüfen
                             </button>
+                          )}
+                          
+                          {selectedShortlistName && nameShortlist.find(i => i.name === selectedShortlistName)?.status === "available" && (
+                            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <p className="text-sm text-green-800 mb-2">
+                                <CheckCircle className="w-4 h-4 inline mr-1" />
+                                Keine offensichtlichen Konflikte gefunden!
+                              </p>
+                              <button
+                                onClick={() => handleStartFullAnalysisForName(selectedShortlistName)}
+                                disabled={aiLoading}
+                                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium w-full justify-center disabled:opacity-50"
+                              >
+                                {aiLoading ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <BarChart3 className="w-4 h-4" />
+                                )}
+                                "{selectedShortlistName}" vollständig prüfen
+                              </button>
+                              <p className="text-xs text-green-700 mt-2">
+                                Führt die gleiche gründliche Analyse durch wie bei der ursprünglichen Suche
+                              </p>
+                            </div>
                           )}
                         </div>
                       ) : (
