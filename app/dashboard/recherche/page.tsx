@@ -1764,6 +1764,8 @@ export default function RecherchePage() {
     conflictsAnalyzed: number;
     totalConflicts: number;
   }>({ phase: "connecting", message: "", conflictsAnalyzed: 0, totalConflicts: 0 });
+  const [riskElapsedTime, setRiskElapsedTime] = useState(0);
+  const riskStartTimeRef = useRef<number | null>(null);
   
   const [nameShortlist, setNameShortlist] = useState<NameShortlistItem[]>([]);
   const [generatedNameSuggestions, setGeneratedNameSuggestions] = useState<string[]>([]);
@@ -1906,6 +1908,22 @@ export default function RecherchePage() {
     }, 1000);
     return () => clearInterval(timer);
   }, [aiStartTime, aiLoading]);
+
+  useEffect(() => {
+    if (!isRiskStreaming) {
+      riskStartTimeRef.current = null;
+      return;
+    }
+    if (!riskStartTimeRef.current) {
+      riskStartTimeRef.current = Date.now();
+    }
+    const timer = setInterval(() => {
+      if (riskStartTimeRef.current) {
+        setRiskElapsedTime(Math.floor((Date.now() - riskStartTimeRef.current) / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isRiskStreaming]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -2645,6 +2663,8 @@ export default function RecherchePage() {
     setIsRiskStreaming(true);
     setStreamedConflicts([]);
     setExpertAnalysis(null);
+    setRiskElapsedTime(0);
+    riskStartTimeRef.current = Date.now();
     setRiskStreamProgress({ phase: "connecting", message: "Verbinde mit Analyse-Server...", conflictsAnalyzed: 0, totalConflicts: 0 });
     
     try {
@@ -2680,8 +2700,8 @@ export default function RecherchePage() {
                 setRiskStreamProgress({
                   phase: "analyzing",
                   message: data.message || "Analysiere Konflikte...",
-                  conflictsAnalyzed: data.conflictsAnalyzed || 0,
-                  totalConflicts: data.totalConflicts || 0
+                  conflictsAnalyzed: data.current || data.conflictsAnalyzed || 0,
+                  totalConflicts: data.total || data.totalConflicts || 0
                 });
               } else if (data.type === "conflict") {
                 setStreamedConflicts(prev => [...prev, data.conflict]);
@@ -2717,6 +2737,7 @@ export default function RecherchePage() {
       });
     } finally {
       setIsRiskStreaming(false);
+      riskStartTimeRef.current = null;
     }
   };
 
@@ -3465,25 +3486,81 @@ export default function RecherchePage() {
                 )}
 
                 {isRiskStreaming && (
-                  <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl p-6 border border-primary/20">
-                    <div className="flex items-center gap-4 mb-4">
-                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                      <div>
-                        <h4 className="font-semibold text-gray-900">Risikoanalyse läuft...</h4>
-                        <p className="text-sm text-gray-600">{riskStreamProgress.message}</p>
+                  <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-2xl p-6 border border-primary/20 shadow-lg">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                            <BarChart3 className="w-6 h-6 text-primary animate-pulse" />
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white flex items-center justify-center shadow-sm">
+                            <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-gray-900">Risikoanalyse läuft...</h4>
+                          <p className="text-sm text-gray-600">{riskStreamProgress.message}</p>
+                        </div>
+                      </div>
+                      {riskElapsedTime > 0 && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm border border-gray-100">
+                          <Clock className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm font-medium text-gray-700">{riskElapsedTime}s</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-white rounded-xl p-3 text-center border border-gray-100">
+                        <p className="text-2xl font-bold text-primary">
+                          {riskStreamProgress.totalConflicts > 0 
+                            ? `${riskStreamProgress.conflictsAnalyzed}/${riskStreamProgress.totalConflicts}`
+                            : "..."
+                          }
+                        </p>
+                        <p className="text-xs text-gray-500">Konflikte analysiert</p>
+                      </div>
+                      <div className="bg-white rounded-xl p-3 text-center border border-gray-100">
+                        <p className="text-2xl font-bold text-primary">
+                          {riskStreamProgress.totalConflicts > 0 
+                            ? `${Math.round((riskStreamProgress.conflictsAnalyzed / riskStreamProgress.totalConflicts) * 100)}%`
+                            : "0%"
+                          }
+                        </p>
+                        <p className="text-xs text-gray-500">Fortschritt</p>
                       </div>
                     </div>
-                    {riskStreamProgress.totalConflicts > 0 && (
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>Analyse-Fortschritt</span>
+                        <span>
+                          {riskStreamProgress.totalConflicts > 0 
+                            ? `${Math.round((riskStreamProgress.conflictsAnalyzed / riskStreamProgress.totalConflicts) * 100)}%`
+                            : "Verbinde..."
+                          }
+                        </span>
+                      </div>
+                      <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-primary transition-all duration-300"
-                          style={{ width: `${(riskStreamProgress.conflictsAnalyzed / riskStreamProgress.totalConflicts) * 100}%` }}
+                          className="h-full bg-gradient-to-r from-primary to-teal-400 rounded-full transition-all duration-500 ease-out"
+                          style={{ 
+                            width: riskStreamProgress.totalConflicts > 0 
+                              ? `${(riskStreamProgress.conflictsAnalyzed / riskStreamProgress.totalConflicts) * 100}%`
+                              : "5%"
+                          }}
                         />
                       </div>
-                    )}
-                    {streamedConflicts.length > 0 && (
-                      <div className="mt-4 text-sm text-gray-600">
-                        {streamedConflicts.length} von {riskStreamProgress.totalConflicts} Konflikten analysiert
+                    </div>
+                    
+                    {riskStreamProgress.phase === "connecting" && (
+                      <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
+                          <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
+                          <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
+                        </div>
+                        <span>Claude Opus analysiert Ihre Konflikte...</span>
                       </div>
                     )}
                   </div>
