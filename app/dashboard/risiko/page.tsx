@@ -607,6 +607,7 @@ function RisikoPageContent() {
   
   const [suggestedName, setSuggestedName] = useState("");
   const [nameShortlist, setNameShortlist] = useState<{name: string; status: "unchecked" | "checking" | "available" | "conflict"}[]>([]);
+  const [selectedShortlistName, setSelectedShortlistName] = useState<string | null>(null);
   const [isGeneratingName, setIsGeneratingName] = useState(false);
   const [isCheckingRegistry, setIsCheckingRegistry] = useState(false);
   
@@ -741,11 +742,12 @@ function RisikoPageContent() {
   };
 
   const handleCheckRegistry = async () => {
-    if (!suggestedName.trim()) return;
+    if (!selectedShortlistName) return;
+    const nameToCheck = selectedShortlistName;
     setIsCheckingRegistry(true);
-    const existingIndex = nameShortlist.findIndex(item => item.name === suggestedName);
+    const existingIndex = nameShortlist.findIndex(item => item.name === nameToCheck);
     if (existingIndex === -1) {
-      setNameShortlist(prev => [...prev, { name: suggestedName, status: "checking" }]);
+      setNameShortlist(prev => [...prev, { name: nameToCheck, status: "checking" }]);
     } else {
       setNameShortlist(prev => prev.map((item, idx) => 
         idx === existingIndex ? { ...item, status: "checking" } : item
@@ -755,7 +757,7 @@ function RisikoPageContent() {
     const statuses: ("available" | "conflict")[] = ["available", "conflict"];
     const newStatus = statuses[Math.floor(Math.random() * statuses.length)];
     setNameShortlist(prev => prev.map(item => 
-      item.name === suggestedName ? { ...item, status: newStatus } : item
+      item.name === nameToCheck ? { ...item, status: newStatus } : item
     ));
     setIsCheckingRegistry(false);
   };
@@ -763,7 +765,25 @@ function RisikoPageContent() {
   const handleAddToShortlist = () => {
     if (!suggestedName.trim()) return;
     if (nameShortlist.some(item => item.name === suggestedName)) return;
-    setNameShortlist(prev => [...prev, { name: suggestedName, status: "unchecked" }]);
+    const newName = suggestedName.trim();
+    setNameShortlist(prev => [...prev, { name: newName, status: "unchecked" }]);
+    setSelectedShortlistName(newName);
+  };
+
+  const handleRemoveFromShortlist = (nameToRemove: string) => {
+    setNameShortlist(prev => prev.filter(item => item.name !== nameToRemove));
+    if (selectedShortlistName === nameToRemove) {
+      setSelectedShortlistName(null);
+    }
+  };
+
+  const handleSelectShortlistName = (name: string) => {
+    if (selectedShortlistName === name) {
+      setSelectedShortlistName(null);
+    } else {
+      setSelectedShortlistName(name);
+      setSuggestedName(name);
+    }
   };
 
   const getShortlistStatusIcon = (status: "unchecked" | "checking" | "available" | "conflict") => {
@@ -1946,8 +1966,9 @@ ${notesTextFromHistory}
                     </button>
                     <button
                       onClick={handleCheckRegistry}
-                      disabled={isCheckingRegistry || !suggestedName.trim()}
+                      disabled={isCheckingRegistry || !selectedShortlistName}
                       className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                      title={selectedShortlistName ? `"${selectedShortlistName}" im Register prüfen` : "Wählen Sie erst einen Namen aus der Shortlist"}
                     >
                       {isCheckingRegistry ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1960,15 +1981,25 @@ ${notesTextFromHistory}
                   </div>
                 </div>
                 
-                {nameShortlist.length > 0 && (
+                {nameShortlist.length > 0 ? (
                   <div>
-                    <p className="text-xs text-gray-500 mb-2 font-medium">Shortlist</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-gray-500 font-medium">
+                        Shortlist {selectedShortlistName && <span className="text-teal-600">– "{selectedShortlistName}" ausgewählt</span>}
+                      </p>
+                      <span className="text-[10px] text-gray-400" title="Simulation – echte Prüfung mit tmsearch.ai folgt">
+                        ⓘ Simulierte Prüfung
+                      </span>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {nameShortlist.map((item, idx) => (
-                        <button
+                        <div
                           key={idx}
-                          onClick={() => setSuggestedName(item.name)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                          className={`inline-flex items-center gap-1.5 rounded-full text-sm font-medium transition-all ${
+                            selectedShortlistName === item.name
+                              ? "ring-2 ring-teal-500 ring-offset-2"
+                              : ""
+                          } ${
                             item.status === "available" 
                               ? "bg-teal-100 text-teal-800 border border-teal-200" 
                               : item.status === "conflict"
@@ -1976,24 +2007,36 @@ ${notesTextFromHistory}
                                 : item.status === "checking"
                                   ? "bg-blue-100 text-blue-800 border border-blue-200"
                                   : "bg-gray-100 text-gray-700 border border-gray-200"
-                          } hover:shadow-sm`}
+                          }`}
                         >
-                          {item.name}
-                          {getShortlistStatusIcon(item.status)}
-                        </button>
+                          <button
+                            onClick={() => handleSelectShortlistName(item.name)}
+                            className="flex items-center gap-1.5 pl-3 py-1.5 hover:opacity-80 transition-opacity"
+                            title={`Klicken zum ${selectedShortlistName === item.name ? "Abwählen" : "Auswählen"}`}
+                          >
+                            {item.name}
+                            {getShortlistStatusIcon(item.status)}
+                          </button>
+                          <button
+                            onClick={() => handleRemoveFromShortlist(item.name)}
+                            className="pr-2 py-1.5 hover:text-red-600 transition-colors"
+                            title="Aus Shortlist entfernen"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                    <p className="text-xs text-gray-500">
+                      <span className="font-medium">So geht's:</span> Generieren Sie Namensvorschläge oder geben Sie eigene ein und fügen Sie diese zur Shortlist hinzu. 
+                      Wählen Sie dann einen Namen aus, um ihn im Register zu prüfen.
+                    </p>
+                  </div>
                 )}
               </div>
-            </div>
-            
-            <div className="flex-shrink-0 flex items-center justify-center lg:border-l lg:pl-6 border-gray-200">
-              <AnimatedRiskScore 
-                score={getOverallRiskScore()} 
-                risk={expertAnalysis.overallRisk}
-                size="small"
-              />
             </div>
           </div>
         </div>
@@ -2037,31 +2080,6 @@ ${notesTextFromHistory}
                   </div>
                 </div>
               </div>
-              
-              {expertAnalysis.bestOverallSolution && (
-                <div className="bg-gradient-to-r from-teal-50 to-teal-100 border border-teal-200 rounded-xl p-4 mb-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center text-white flex-shrink-0">
-                      <Lightbulb className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-teal-800">Beste Empfehlung</h3>
-                      <p className="text-sm text-teal-700 mt-1">{expertAnalysis.bestOverallSolution.title}</p>
-                      {expertAnalysis.bestOverallSolution.suggestedValue && (
-                        <p className="text-sm font-medium text-teal-900 mt-2 bg-white rounded-lg px-3 py-2 border border-teal-200">
-                          {expertAnalysis.bestOverallSolution.suggestedValue}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 mt-2 text-xs">
-                        <span className="text-teal-600">
-                          Erfolg: <strong>{expertAnalysis.bestOverallSolution.successProbability}%</strong>
-                        </span>
-                        <EffortBadge effort={expertAnalysis.bestOverallSolution.effort} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
               
               <div className="max-h-[500px] overflow-y-auto space-y-3 pr-1">
                 {(expertAnalysis.conflictAnalyses || []).length === 0 ? (
