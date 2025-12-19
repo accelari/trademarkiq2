@@ -1842,97 +1842,7 @@ ${notesTextFromHistory}
 
       {expertAnalysis && (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-3 space-y-4">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
-                    <Scale className="w-5 h-5 text-teal-600" />
-                  </div>
-                  <div>
-                    <h2 className="font-semibold text-gray-900">Konfliktübersicht</h2>
-                    <p className="text-sm text-gray-500">{(expertAnalysis.conflictAnalyses || []).length} Konflikte gefunden</p>
-                  </div>
-                </div>
-                <AnimatedRiskScore 
-                  score={getOverallRiskScore()} 
-                  risk={expertAnalysis.overallRisk}
-                  size="small"
-                />
-              </div>
-              
-              {expertAnalysis.bestOverallSolution && (
-                <div className="bg-gradient-to-r from-teal-50 to-teal-100 border border-teal-200 rounded-xl p-4 mb-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center text-white flex-shrink-0">
-                      <Lightbulb className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-teal-800">Beste Empfehlung</h3>
-                      <p className="text-sm text-teal-700 mt-1">{expertAnalysis.bestOverallSolution.title}</p>
-                      {expertAnalysis.bestOverallSolution.suggestedValue && (
-                        <p className="text-sm font-medium text-teal-900 mt-2 bg-white rounded-lg px-3 py-2 border border-teal-200">
-                          {expertAnalysis.bestOverallSolution.suggestedValue}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 mt-2 text-xs">
-                        <span className="text-teal-600">
-                          Erfolg: <strong>{expertAnalysis.bestOverallSolution.successProbability}%</strong>
-                        </span>
-                        <EffortBadge effort={expertAnalysis.bestOverallSolution.effort} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <div className="max-h-[600px] overflow-y-auto space-y-3 pr-1">
-                {(expertAnalysis.conflictAnalyses || []).length === 0 ? (
-                  <div className="bg-teal-50 border border-teal-200 rounded-xl p-6 text-center">
-                    <CheckCircle className="w-12 h-12 text-teal-500 mx-auto mb-3" />
-                    <h3 className="font-semibold text-teal-800">Keine Konflikte gefunden!</h3>
-                    <p className="text-sm text-teal-700 mt-1">
-                      Die Marke scheint frei von relevanten Kollisionen zu sein.
-                    </p>
-                  </div>
-                ) : (
-                  (expertAnalysis.conflictAnalyses || []).map((conflict, idx) => (
-                    <ConflictCardCompact
-                      key={conflict.conflictId || idx}
-                      conflict={conflict}
-                      laender={selectedLaender}
-                      klassen={selectedClasses}
-                      onAdoptAlternative={handleAdoptAlternative}
-                      isExpanded={expandedConflictId === conflict.conflictId}
-                      onToggle={() => setExpandedConflictId(
-                        expandedConflictId === conflict.conflictId ? null : conflict.conflictId
-                      )}
-                    />
-                  ))
-                )}
-              </div>
-              
-              <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-100">
-                <button
-                  onClick={handleDownloadReport}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-                >
-                  <FileDown className="w-4 h-4" />
-                  Bericht herunterladen
-                </button>
-                <a
-                  href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`}
-                  onClick={(e) => handleNavigationWithCheck(e, `/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`)}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Marke anmelden
-                </a>
-              </div>
-            </div>
-          </div>
-          
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-4">
               <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-4">
                 <div className="flex items-center gap-3 mb-3">
@@ -2004,11 +1914,9 @@ ${notesTextFromHistory}
                         const promptNotSent = inputMode === "sprache" ? !voicePromptSent : !textPromptSent;
                         
                         if (promptNotSent) {
-                          // Use pre-generated prompt for faster startup
                           if (advisorPrompt) {
                             return advisorPrompt;
                           }
-                          // Fallback: generate on-demand if not yet ready
                           const hasExistingNotes = meetingNotesRef.current.filter(n => n.type !== "system").length > 0;
                           return generateAdvisorPrompt(hasExistingNotes);
                         }
@@ -2123,6 +2031,96 @@ ${notesTextFromHistory}
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="lg:col-span-2 space-y-4">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                    <Scale className="w-5 h-5 text-teal-600" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-gray-900">Konfliktübersicht</h2>
+                    <p className="text-sm text-gray-500">{(expertAnalysis.conflictAnalyses || []).length} Konflikte gefunden</p>
+                  </div>
+                </div>
+                <AnimatedRiskScore 
+                  score={getOverallRiskScore()} 
+                  risk={expertAnalysis.overallRisk}
+                  size="small"
+                />
+              </div>
+              
+              {expertAnalysis.bestOverallSolution && (
+                <div className="bg-gradient-to-r from-teal-50 to-teal-100 border border-teal-200 rounded-xl p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center text-white flex-shrink-0">
+                      <Lightbulb className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-teal-800">Beste Empfehlung</h3>
+                      <p className="text-sm text-teal-700 mt-1">{expertAnalysis.bestOverallSolution.title}</p>
+                      {expertAnalysis.bestOverallSolution.suggestedValue && (
+                        <p className="text-sm font-medium text-teal-900 mt-2 bg-white rounded-lg px-3 py-2 border border-teal-200">
+                          {expertAnalysis.bestOverallSolution.suggestedValue}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3 mt-2 text-xs">
+                        <span className="text-teal-600">
+                          Erfolg: <strong>{expertAnalysis.bestOverallSolution.successProbability}%</strong>
+                        </span>
+                        <EffortBadge effort={expertAnalysis.bestOverallSolution.effort} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="max-h-[600px] overflow-y-auto space-y-3 pr-1">
+                {(expertAnalysis.conflictAnalyses || []).length === 0 ? (
+                  <div className="bg-teal-50 border border-teal-200 rounded-xl p-6 text-center">
+                    <CheckCircle className="w-12 h-12 text-teal-500 mx-auto mb-3" />
+                    <h3 className="font-semibold text-teal-800">Keine Konflikte gefunden!</h3>
+                    <p className="text-sm text-teal-700 mt-1">
+                      Die Marke scheint frei von relevanten Kollisionen zu sein.
+                    </p>
+                  </div>
+                ) : (
+                  (expertAnalysis.conflictAnalyses || []).map((conflict, idx) => (
+                    <ConflictCardCompact
+                      key={conflict.conflictId || idx}
+                      conflict={conflict}
+                      laender={selectedLaender}
+                      klassen={selectedClasses}
+                      onAdoptAlternative={handleAdoptAlternative}
+                      isExpanded={expandedConflictId === conflict.conflictId}
+                      onToggle={() => setExpandedConflictId(
+                        expandedConflictId === conflict.conflictId ? null : conflict.conflictId
+                      )}
+                    />
+                  ))
+                )}
+              </div>
+              
+              <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-100">
+                <button
+                  onClick={handleDownloadReport}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                >
+                  <FileDown className="w-4 h-4" />
+                  Bericht herunterladen
+                </button>
+                <a
+                  href={`/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`}
+                  onClick={(e) => handleNavigationWithCheck(e, `/dashboard/anmeldung?markName=${encodeURIComponent(markenname)}`)}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Marke anmelden
+                </a>
               </div>
             </div>
           </div>
