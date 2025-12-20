@@ -69,6 +69,7 @@ import {
   RiskScoreExplanation,
   SearchModeExplanation,
   ExecutiveSummaryView,
+  RiskAnalysisAccordion,
 } from "@/app/components/recherche";
 
 const fetcher = async (url: string) => {
@@ -2267,7 +2268,9 @@ export default function RecherchePage() {
   }, [aiAnalysis, caseId, currentCaseNumber, searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses]);
 
   useEffect(() => {
-    if (expertAnalysis && !klausAccessToken && !klausTokenLoading && !klausTokenError) {
+    // Load Klaus token when either aiAnalysis or expertAnalysis is available
+    const hasAnalysis = aiAnalysis || expertAnalysis;
+    if (hasAnalysis && !klausAccessToken && !klausTokenLoading && !klausTokenError) {
       const loadKlausToken = async () => {
         setKlausTokenLoading(true);
         try {
@@ -2285,7 +2288,7 @@ export default function RecherchePage() {
       };
       loadKlausToken();
     }
-  }, [expertAnalysis, klausAccessToken, klausTokenLoading, klausTokenError]);
+  }, [aiAnalysis, expertAnalysis, klausAccessToken, klausTokenLoading, klausTokenError]);
 
   const toggleClass = (classNum: number) => {
     setSelectedClasses((prev) =>
@@ -3582,26 +3585,75 @@ export default function RecherchePage() {
                   </div>
                 </div>
 
-                {/* Executive Summary View */}
+                {/* Executive Summary View - Accordion */}
                 {resultsViewMode === "executive" && (
-                  <ExecutiveSummaryView
+                  <RiskAnalysisAccordion
                     brandName={searchQuery || activeSearchQuery}
                     selectedClasses={aiSelectedClasses}
                     analysis={aiAnalysis.analysis}
                     conflicts={aiAnalysis.conflicts}
+                    totalResultsAnalyzed={aiAnalysis.totalResultsAnalyzed}
+                    searchTermsUsed={aiAnalysis.searchTermsUsed}
+                    includeRelatedClasses={includeRelatedClasses}
                     onContactLawyer={() => {
-                      // Open contact form or mailto
                       window.open("mailto:beratung@trademarkiq.de?subject=Markenrechtsberatung%20angefragt", "_blank");
                     }}
                     onDownloadPDF={() => {
-                      // TODO: Implement PDF download
                       alert("PDF-Download wird bald verfügbar sein.");
                     }}
                     onProceedToRegistration={() => {
-                      // Navigate to registration or show info
                       alert("Weiterleitung zur Anmeldung...");
                     }}
                     onConflictClick={(conflict) => setSelectedConflict(conflict)}
+                    voiceAssistantContent={
+                      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" style={{ minHeight: "300px" }}>
+                        {klausAccessToken ? (
+                          <VoiceProvider>
+                            <VoiceAssistant
+                              accessToken={klausAccessToken}
+                              contextMessage={`[SYSTEM-KONTEXT für Risikoberatung]\nMARKE: ${searchQuery}\nRISIKO: ${aiAnalysis?.analysis?.overallRisk || 'unbekannt'}\nKONFLIKTE: ${aiAnalysis?.conflicts?.length || 0} gefunden\nKLASSEN: ${aiSelectedClasses.join(', ') || 'Keine'}\nLÄNDER: ${selectedLaender.join(', ') || 'Keine'}`}
+                              embedded={true}
+                            />
+                          </VoiceProvider>
+                        ) : klausTokenLoading ? (
+                          <div className="flex flex-col items-center justify-center h-full py-12">
+                            <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+                            <p className="text-sm text-gray-600">Klaus wird vorbereitet...</p>
+                          </div>
+                        ) : klausTokenError ? (
+                          <div className="flex flex-col items-center justify-center h-full py-12">
+                            <div className="mb-4 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg">
+                              {klausTokenError}
+                            </div>
+                            <button
+                              onClick={() => {
+                                setKlausTokenError(null);
+                                setKlausTokenLoading(true);
+                                fetch('/api/token')
+                                  .then(res => res.json())
+                                  .then(data => {
+                                    if (data.accessToken) {
+                                      setKlausAccessToken(data.accessToken);
+                                    } else {
+                                      throw new Error('Kein Token in Antwort');
+                                    }
+                                  })
+                                  .catch(err => setKlausTokenError(err.message || 'Fehler beim Laden'))
+                                  .finally(() => setKlausTokenLoading(false));
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                            >
+                              Erneut versuchen
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center h-full py-12">
+                            <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+                            <p className="text-sm text-gray-600">Klaus wird vorbereitet...</p>
+                          </div>
+                        )}
+                      </div>
+                    }
                   />
                 )}
 

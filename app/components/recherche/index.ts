@@ -33,3 +33,6 @@ export type { ShortlistItem } from "./shortlist/ComparisonTable";
 
 // Main Executive Summary View
 export { ExecutiveSummaryView } from "./ExecutiveSummaryView";
+
+// Accordion components
+export { AccordionSection, RiskAnalysisAccordion } from "./accordion";
