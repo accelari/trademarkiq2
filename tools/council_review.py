@@ -57,16 +57,16 @@ def main():
     ```
     """)
 
-    arch = ask("anthropic/claude-sonnet-4.5",
+    arch = ask("anthropic/claude-3.5-sonnet",
                "Senior architect. Focus on design & maintainability.", prompt)
-    sec = ask("anthropic/claude-sonnet-4.5",
+    sec = ask("anthropic/claude-3.5-sonnet",
               "Security reviewer (OWASP). Find risks.", prompt)
-    bugs = ask("deepseek/deepseek-coder",
+    bugs = ask("deepseek/deepseek-chat",
                "Bug hunter. Find edge cases & logic issues.", prompt)
-    ux = ask("google/gemini-2.5-flash",
+    ux = ask("google/gemini-2.0-flash-001",
              "UX/Product reviewer. Clarity & user impact.", prompt)
 
-    summary = ask("google/gemini-2.5-flash",
+    summary = ask("google/gemini-2.0-flash-001",
                   "Chair. Summarize and prioritize P0/P1/P2.",
                   f"ARCH:\n{arch}\n\nSEC:\n{sec}\n\nBUGS:\n{bugs}\n\nUX:\n{ux}")
 
