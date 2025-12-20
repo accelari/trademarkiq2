@@ -2,6 +2,7 @@
 
 import { Globe, Tag, Star, Lightbulb, ExternalLink } from "lucide-react";
 import { getClassRelationInfo } from "@/lib/related-classes";
+import { getRegisterUrl, getRegisterName } from "@/lib/register-urls";
 
 export interface ConflictingMark {
   id: string;
@@ -40,19 +41,35 @@ function formatGermanDate(dateStr: string | null): string {
 }
 
 export function ConflictCard({ conflict, selectedClasses = [], includeRelatedClasses = false, onClick }: ConflictCardProps) {
-  const riskStyles = conflict.riskLevel === "high" 
-    ? "border-red-200 hover:border-red-300 bg-red-50/50" 
-    : conflict.riskLevel === "medium" 
-      ? "border-orange-200 hover:border-orange-300 bg-orange-50/50" 
+  const riskStyles = conflict.riskLevel === "high"
+    ? "border-red-200 hover:border-red-300 bg-red-50/50"
+    : conflict.riskLevel === "medium"
+      ? "border-orange-200 hover:border-orange-300 bg-orange-50/50"
       : "border-green-200 hover:border-green-300 bg-green-50/50";
   const riskEmoji = conflict.riskLevel === "high" ? "🔴" : conflict.riskLevel === "medium" ? "🟡" : "🟢";
-  
+
   const isInSelectedClasses = conflict.classes.some(cls => selectedClasses.includes(cls));
-  
+
   const relatedClassInfo = conflict.classes.length > 0 && !isInSelectedClasses
     ? conflict.classes.map(cls => getClassRelationInfo(selectedClasses, cls)).find(info => info.isRelated)
     : null;
   const isRelatedClass = !!relatedClassInfo;
+
+  // Berechne überlappende und verwandte Klassen
+  const overlappingClasses = conflict.classes.filter(cls => selectedClasses.includes(cls));
+  const relatedClasses = conflict.classes.filter(cls => {
+    if (selectedClasses.includes(cls)) return false;
+    const info = getClassRelationInfo(selectedClasses, cls);
+    return info.isRelated;
+  });
+
+  // Generiere Register-URL
+  const registerUrl = getRegisterUrl({
+    office: conflict.register,
+    applicationNumber: conflict.applicationNumber,
+    registrationNumber: conflict.registrationNumber,
+  });
+  const registerName = getRegisterName(conflict.register);
 
   return (
     <button
@@ -80,7 +97,17 @@ export function ConflictCard({ conflict, selectedClasses = [], includeRelatedCla
             </span>
             {conflict.classes.length > 0 && (
               <span className="flex items-center gap-1 text-xs text-gray-500 px-1.5 py-0.5 bg-gray-50 rounded">
-                <Tag className="w-3 h-3" /> {conflict.classes.length} Kl.
+                <Tag className="w-3 h-3" />
+                {overlappingClasses.length > 0 ? (
+                  <span>
+                    <span className="text-red-600 font-semibold">{overlappingClasses.join(", ")}</span>
+                    {conflict.classes.length > overlappingClasses.length && (
+                      <span className="text-gray-400">, {conflict.classes.filter(c => !overlappingClasses.includes(c)).join(", ")}</span>
+                    )}
+                  </span>
+                ) : (
+                  <span>{conflict.classes.join(", ")}</span>
+                )}
               </span>
             )}
             {conflict.isFamousMark && (
@@ -101,8 +128,25 @@ export function ConflictCard({ conflict, selectedClasses = [], includeRelatedCla
           <p>Reg: {conflict.registrationNumber || "-"}</p>
         </div>
       </div>
-      <div className="mt-1.5 flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-        <ExternalLink className="w-3 h-3" /> Details
+      <div className="mt-1.5 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onClick}
+          className="flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <ExternalLink className="w-3 h-3" /> Details
+        </button>
+        {registerUrl && (
+          <a
+            href={registerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium opacity-70 group-hover:opacity-100 transition-opacity hover:underline"
+          >
+            <Globe className="w-3 h-3" /> {registerName}
+          </a>
+        )}
       </div>
     </button>
   );
