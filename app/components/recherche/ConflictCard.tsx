@@ -129,13 +129,9 @@ export function ConflictCard({ conflict, selectedClasses = [], includeRelatedCla
         </div>
       </div>
       <div className="mt-1.5 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={onClick}
-          className="flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity"
-        >
+        <span className="flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
           <ExternalLink className="w-3 h-3" /> Details
-        </button>
+        </span>
         {registerUrl && (
           <a
             href={registerUrl}
