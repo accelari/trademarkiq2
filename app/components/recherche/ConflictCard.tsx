@@ -72,9 +72,11 @@ export function ConflictCard({ conflict, selectedClasses = [], includeRelatedCla
   const registerName = getRegisterName(conflict.register);
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.(); }}
       className={`p-3 rounded-xl border-2 ${riskStyles} transition-all text-left hover:shadow-md cursor-pointer group`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -144,6 +146,6 @@ export function ConflictCard({ conflict, selectedClasses = [], includeRelatedCla
           </a>
         )}
       </div>
-    </button>
+    </div>
   );
 }
