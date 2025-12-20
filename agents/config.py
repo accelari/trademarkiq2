@@ -6,8 +6,8 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 
-# Claude Model
-MODEL = "claude-sonnet-4-20250514"
+# Claude Model - Opus 4.5 für beste Qualität
+MODEL = "claude-opus-4-5-20251101"
 
 # API Key (from environment)
 def get_api_key() -> str:
