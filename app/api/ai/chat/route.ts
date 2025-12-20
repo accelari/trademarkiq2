@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       : SYSTEM_PROMPT;
 
     const response = await client.messages.create({
-      model: "claude-opus-4-1",
+      model: "claude-opus-4-5-20251101",
       max_tokens: 2048,
       system: fullSystemPrompt,
       messages: messages.map(m => ({

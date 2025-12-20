@@ -116,7 +116,7 @@ async function performMultiDimensionalAnalysis(
   }).join("\n");
 
   const response = await client.messages.create({
-    model: "claude-opus-4-1",
+    model: "claude-opus-4-5-20251101",
     max_tokens: 6000,
     system: SYSTEM_PROMPT,
     messages: [
@@ -313,7 +313,7 @@ Antworte NUR mit dem JSON, keine zusätzlichen Erklärungen.`
 
 async function generateSearchTerms(markenname: string): Promise<string[]> {
   const response = await client.messages.create({
-    model: "claude-opus-4-1",
+    model: "claude-opus-4-5-20251101",
     max_tokens: 512,
     messages: [{
       role: "user",
