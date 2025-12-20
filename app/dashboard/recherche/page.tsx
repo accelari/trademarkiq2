@@ -57,17 +57,18 @@ import ConsultationsModal from "@/app/components/ConsultationsModal";
 import { NICE_CLASSES, getPopularClasses, formatClassLabel } from "@/lib/nice-classes";
 import { getAllRelatedClasses, hasOverlappingClasses, getClassRelationInfo } from "@/lib/related-classes";
 import { useUnsavedData } from "@/app/contexts/UnsavedDataContext";
-import { 
-  RiskBadge, 
-  StatusBadge, 
-  OfficeBadge, 
+import {
+  RiskBadge,
+  StatusBadge,
+  OfficeBadge,
   getAccuracyColor as getAccuracyColorUtil,
   ConflictCard,
   QuickCheckResult,
   NoResultsFound,
   RiskScoreLegend,
   RiskScoreExplanation,
-  SearchModeExplanation 
+  SearchModeExplanation,
+  ExecutiveSummaryView,
 } from "@/app/components/recherche";
 
 const fetcher = async (url: string) => {
@@ -1721,6 +1722,7 @@ export default function RecherchePage() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiStartTime, setAiStartTime] = useState<number | null>(null);
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [resultsViewMode, setResultsViewMode] = useState<"executive" | "detailed">("executive");
   const analysisCache = useRef<Map<string, AIAnalysis>>(new Map());
   const abortControllerRef = useRef<AbortController | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -3549,12 +3551,63 @@ export default function RecherchePage() {
 
           {aiAnalysis && (
               <div ref={resultsRef} className="mt-6 space-y-5 scroll-mt-4">
-                <div className="mb-4 flex items-center gap-2 text-sm">
-                  <span className="text-gray-600">Aktuelle Prüfung für:</span>
-                  <span className="font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">
-                    {searchQuery || activeSearchQuery}
-                  </span>
+                <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-600">Aktuelle Prüfung für:</span>
+                    <span className="font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">
+                      {searchQuery || activeSearchQuery}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                    <button
+                      onClick={() => setResultsViewMode("executive")}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                        resultsViewMode === "executive"
+                          ? "bg-white text-primary shadow-sm"
+                          : "text-gray-600 hover:text-gray-800"
+                      }`}
+                    >
+                      Übersicht
+                    </button>
+                    <button
+                      onClick={() => setResultsViewMode("detailed")}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                        resultsViewMode === "detailed"
+                          ? "bg-white text-primary shadow-sm"
+                          : "text-gray-600 hover:text-gray-800"
+                      }`}
+                    >
+                      Detailansicht
+                    </button>
+                  </div>
                 </div>
+
+                {/* Executive Summary View */}
+                {resultsViewMode === "executive" && (
+                  <ExecutiveSummaryView
+                    brandName={searchQuery || activeSearchQuery}
+                    selectedClasses={aiSelectedClasses}
+                    analysis={aiAnalysis.analysis}
+                    conflicts={aiAnalysis.conflicts}
+                    onContactLawyer={() => {
+                      // Open contact form or mailto
+                      window.open("mailto:beratung@trademarkiq.de?subject=Markenrechtsberatung%20angefragt", "_blank");
+                    }}
+                    onDownloadPDF={() => {
+                      // TODO: Implement PDF download
+                      alert("PDF-Download wird bald verfügbar sein.");
+                    }}
+                    onProceedToRegistration={() => {
+                      // Navigate to registration or show info
+                      alert("Weiterleitung zur Anmeldung...");
+                    }}
+                    onConflictClick={(conflict) => setSelectedConflict(conflict)}
+                  />
+                )}
+
+                {/* Detailed View (original) */}
+                {resultsViewMode === "detailed" && (
+                  <>
                 <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                   <div className="p-5 sm:p-6">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
@@ -3889,6 +3942,8 @@ export default function RecherchePage() {
                       </div>
                     )}
                   </div>
+                )}
+                  </>
                 )}
                 <div ref={riskResultsEndRef} />
               </div>
