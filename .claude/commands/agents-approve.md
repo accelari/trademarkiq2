@@ -10,7 +10,12 @@ Führe folgendes aus:
 
 1. Lade die Task-Queue aus `/services/task_queue.py`
 
-2. Falls keine $ARGUMENTS:
+2. **SICHERHEITS-VALIDIERUNG** für $ARGUMENTS:
+   - Task-IDs müssen das Format Q-XXXXX haben (nur Zahlen)
+   - Keine anderen Zeichen akzeptieren
+   - Validiere dass Task existiert bevor Aktionen durchgeführt werden
+
+3. Falls keine $ARGUMENTS:
    - Liste alle Tasks mit Status "waiting_approval"
    - Zeige für jeden Task:
      - ID
@@ -19,14 +24,14 @@ Führe folgendes aus:
      - Vorgeschlagene Änderungen
    - Frage: "Welchen Task genehmigen? (ID eingeben oder 'alle')"
 
-3. Falls $ARGUMENTS eine Task-ID ist:
+4. Falls $ARGUMENTS eine validierte Task-ID ist:
    - Zeige die Details des Tasks
    - Zeige die vorgeschlagenen Änderungen
    - Frage: "Genehmigen? (ja/nein)"
    - Bei "ja": Führe die Änderungen aus
    - Bei "nein": Markiere als abgelehnt
 
-4. Format:
+5. Format:
 
 ```
 ⚠️ WARTENDE GENEHMIGUNGEN

@@ -25,8 +25,20 @@ Verfügbare Agenten:
 Führe folgendes aus:
 
 1. Parse "$ARGUMENTS" um agent_id und Frage zu extrahieren
-2. Initialisiere den entsprechenden Agenten
-3. Stelle die Frage mit dem aktuellen Datei-Kontext (falls relevant)
-4. Zeige die Antwort des Agenten
+   - Trenne bei erstem ":" in agent_id und Frage
+   - Falls kein ":" vorhanden: Zeige Fehlermeldung und Beispiel
+
+2. **SICHERHEITS-VALIDIERUNG (KRITISCH)**:
+   - Validiere agent_id gegen die ERLAUBTE LISTE:
+     `["architect", "frontend", "backend", "security", "trademark", "planner", "reviewer"]`
+   - Falls agent_id NICHT in der Liste: Zeige Fehler und verfügbare Agenten
+   - NIEMALS andere agent_ids akzeptieren oder dynamisch auswerten
+   - Entferne Sonderzeichen aus der Frage (keine Backticks, $, etc.)
+
+3. Initialisiere den entsprechenden Agenten aus `/agents/__init__.py`
+4. Stelle die Frage mit dem aktuellen Datei-Kontext (falls relevant)
+5. Zeige die Antwort des Agenten
 
 Falls die Frage Code-Kontext braucht, lies die relevanten Dateien zuerst.
+
+**Sicherheitshinweis**: Input wird validiert bevor er verarbeitet wird.

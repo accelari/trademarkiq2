@@ -23,6 +23,14 @@ from .specialists import (
 )
 
 
+# Security: Whitelist of allowed agent IDs
+ALLOWED_AGENT_IDS = frozenset([
+    "planner", "executor", "reviewer",
+    "architect", "frontend", "backend",
+    "security", "trademark"
+])
+
+
 class AgentSystem:
     """
     Main entry point for the TrademarkIQ Agent System.
@@ -127,10 +135,31 @@ class AgentSystem:
         if not question or not isinstance(question, str):
             raise ValueError("question must be a non-empty string")
 
-        # Sanitize agent_id (only allow alphanumeric and underscore)
+        # Normalize agent_id
         agent_id = agent_id.strip().lower()
-        if not agent_id.replace("_", "").isalnum():
-            raise ValueError(f"Invalid agent_id format: {agent_id}")
+
+        # SECURITY: Strict whitelist validation (prevents injection attacks)
+        if agent_id not in ALLOWED_AGENT_IDS:
+            allowed = ", ".join(sorted(ALLOWED_AGENT_IDS))
+            raise ValueError(
+                f"Invalid agent_id: '{agent_id}'. "
+                f"Allowed agents: {allowed}"
+            )
+
+        # SECURITY: Sanitize question (limit length, strip control chars)
+        question = question.strip()
+        if len(question) > 10000:
+            question = question[:10000]
+        # Remove null bytes and other control characters
+        question = "".join(c for c in question if ord(c) >= 32 or c in "\n\r\t")
+
+        # Sanitize context if provided
+        if context is not None:
+            if not isinstance(context, str):
+                context = str(context)
+            if len(context) > 50000:
+                context = context[:50000]
+            context = "".join(c for c in context if ord(c) >= 32 or c in "\n\r\t")
 
         agent = self.orchestrator.get_agent(agent_id)
         if not agent:
@@ -163,4 +192,5 @@ __all__ = [
     "BackendAgent",
     "SecurityAgent",
     "TrademarkAgent",
+    "ALLOWED_AGENT_IDS",
 ]

@@ -8,15 +8,20 @@ Argument: $ARGUMENTS (die Aufgabenbeschreibung)
 
 Führe folgendes aus:
 
-1. Initialisiere das Agent-System aus `/agents/__init__.py`
-2. Übergebe die Aufgabe "$ARGUMENTS" an den Orchestrator
-3. Der Orchestrator wird:
+1. **SICHERHEITS-VALIDIERUNG**:
+   - Prüfe dass "$ARGUMENTS" keine Shell-Befehle enthält
+   - Maximale Länge: 5000 Zeichen
+   - Keine Ausführung von Code direkt aus $ARGUMENTS
+
+2. Initialisiere das Agent-System aus `/agents/__init__.py`
+3. Übergebe die validierte Aufgabe an den Orchestrator
+4. Der Orchestrator wird:
    - Die Aufgabe analysieren
    - Einen Plan erstellen
    - Entscheiden welche Agenten benötigt werden
    - Bei Code-Änderungen um Genehmigung fragen
 
-4. Zeige das Ergebnis:
+5. Zeige das Ergebnis:
    - Zusammenfassung
    - Geplante Schritte
    - Beteiligte Agenten
