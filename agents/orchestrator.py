@@ -1,5 +1,9 @@
 """
 Orchestrator Agent - Coordinates all other agents
+
+Der Orchestrator ist der Koordinator aller Agenten.
+WICHTIG: Er fragt IMMER zuerst den Benutzer, bevor er handelt.
+Alle Gespräche werden im Projektgedächtnis protokolliert.
 """
 
 from typing import Optional
@@ -9,6 +13,7 @@ from enum import Enum
 
 from .base import Agent, TaskResult, Message
 from .config import AGENT_CONFIGS, SPECIALIST_CONFIGS, AgentConfig
+from .memory import get_memory, ProjectMemory
 
 
 class TaskStatus(Enum):
@@ -40,6 +45,9 @@ class Task:
 class Orchestrator(Agent):
     """
     The Orchestrator coordinates all agents and manages the workflow.
+
+    WICHTIG: Der Orchestrator fragt IMMER zuerst den Benutzer!
+    Er ist neugierig und will das Projekt verstehen.
     """
 
     def __init__(self):
@@ -47,6 +55,176 @@ class Orchestrator(Agent):
         self.agents: dict[str, Agent] = {}
         self.tasks: dict[str, Task] = {}
         self.task_counter = 0
+        self.memory: ProjectMemory = get_memory()
+
+    def ask_user_question(
+        self,
+        question: str,
+        context: str = None,
+        priority: str = "normal",
+        category: str = "general"
+    ) -> str:
+        """
+        Stellt eine Frage an den Benutzer und protokolliert sie.
+
+        Returns:
+            Die Frage-ID
+        """
+        return self.memory.ask_user(
+            agent_id="orchestrator",
+            agent_name="Orchestrator",
+            question=question,
+            context=context,
+            priority=priority,
+            category=category
+        )
+
+    def collect_agent_questions(self, request: str) -> list[dict]:
+        """
+        Sammelt Fragen von allen relevanten Agenten zu einer Anfrage.
+
+        Returns:
+            Liste von Fragen mit agent_id und question
+        """
+        questions = []
+
+        # Frage jeden registrierten Agenten nach seinen Fragen
+        question_prompt = f"""Du erhältst eine neue Aufgabe. Bevor wir starten:
+
+AUFGABE: {request}
+
+PROJEKTGEDÄCHTNIS:
+{self.memory.get_context_for_agent(self.name)}
+
+Sei NEUGIERIG! Stelle 1-3 wichtige Fragen an den Projektleiter (Benutzer),
+die du klären musst, bevor du diese Aufgabe bearbeiten kannst.
+
+Format:
+FRAGE 1: [Deine wichtigste Frage]
+KATEGORIE: [architecture/business/technical/design/security]
+PRIORITÄT: [critical/high/normal/low]
+
+FRAGE 2: ...
+"""
+
+        for agent_id, agent in self.agents.items():
+            # Nur spezialisierte Agenten fragen
+            if agent_id in ["planner", "executor"]:
+                continue
+
+            try:
+                response = agent.think(question_prompt)
+                agent_questions = self._parse_agent_questions(response, agent_id, agent.name)
+                questions.extend(agent_questions)
+            except Exception as e:
+                print(f"⚠️ Konnte {agent.name} nicht befragen: {e}")
+
+        return questions
+
+    def _parse_agent_questions(self, response: str, agent_id: str, agent_name: str) -> list[dict]:
+        """Parsed die Fragen aus einer Agent-Antwort."""
+        questions = []
+        lines = response.split("\n")
+
+        current_question = None
+        current_category = "general"
+        current_priority = "normal"
+
+        for line in lines:
+            line = line.strip()
+            if line.startswith("FRAGE"):
+                if current_question:
+                    questions.append({
+                        "agent_id": agent_id,
+                        "agent_name": agent_name,
+                        "question": current_question,
+                        "category": current_category,
+                        "priority": current_priority
+                    })
+                # Neue Frage beginnt
+                parts = line.split(":", 1)
+                if len(parts) > 1:
+                    current_question = parts[1].strip()
+                current_category = "general"
+                current_priority = "normal"
+            elif line.startswith("KATEGORIE:"):
+                current_category = line.replace("KATEGORIE:", "").strip().lower()
+            elif line.startswith("PRIORITÄT:"):
+                current_priority = line.replace("PRIORITÄT:", "").strip().lower()
+
+        # Letzte Frage hinzufügen
+        if current_question:
+            questions.append({
+                "agent_id": agent_id,
+                "agent_name": agent_name,
+                "question": current_question,
+                "category": current_category,
+                "priority": current_priority
+            })
+
+        return questions
+
+    def start_discovery(self, request: str) -> dict:
+        """
+        NEUER EINSTIEGSPUNKT: Startet die Erkundungsphase.
+
+        Statt direkt zu handeln, sammelt der Orchestrator erst Fragen
+        und präsentiert sie dem Benutzer.
+
+        Returns:
+            Dict mit Fragen und Status
+        """
+        print(f"\n{'='*60}")
+        print(f"🎯 NEUE ANFRAGE: {request[:80]}...")
+        print(f"{'='*60}")
+
+        # Protokolliere die Anfrage
+        self.memory.record_conversation(
+            source="user",
+            target="orchestrator",
+            content=request
+        )
+
+        print("\n🤔 Sammle Fragen von allen Agenten...")
+
+        # Eigene Fragen des Orchestrators
+        my_questions = [
+            {
+                "agent_id": "orchestrator",
+                "agent_name": "Orchestrator",
+                "question": "Was ist das Hauptziel dieser Aufgabe? Was soll am Ende erreicht sein?",
+                "category": "business",
+                "priority": "high"
+            }
+        ]
+
+        # Fragen von Spezialisten sammeln
+        agent_questions = self.collect_agent_questions(request)
+        all_questions = my_questions + agent_questions
+
+        # Alle Fragen ins Gedächtnis speichern
+        question_ids = []
+        for q in all_questions:
+            q_id = self.memory.ask_user(
+                agent_id=q["agent_id"],
+                agent_name=q["agent_name"],
+                question=q["question"],
+                context=request,
+                priority=q["priority"],
+                category=q["category"]
+            )
+            question_ids.append(q_id)
+
+        print(f"\n📋 {len(all_questions)} Fragen gesammelt!")
+
+        return {
+            "status": "discovery",
+            "request": request,
+            "question_count": len(all_questions),
+            "questions": all_questions,
+            "question_ids": question_ids,
+            "message": self.memory.format_pending_questions()
+        }
 
     def register_agent(self, agent_id: str, agent: Agent):
         """Register an agent with the orchestrator."""

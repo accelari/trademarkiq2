@@ -13,6 +13,7 @@ Usage:
 from .base import Agent, TaskResult, Message
 from .config import AgentConfig, ALL_AGENTS
 from .orchestrator import Orchestrator, Task, TaskStatus
+from .memory import ProjectMemory, get_memory
 from .core import PlannerAgent, ExecutorAgent, ReviewerAgent
 from .specialists import (
     ArchitectAgent,
@@ -193,4 +194,6 @@ __all__ = [
     "SecurityAgent",
     "TrademarkAgent",
     "ALLOWED_AGENT_IDS",
+    "ProjectMemory",
+    "get_memory",
 ]
