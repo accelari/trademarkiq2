@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const laenderText = (laender || []).length > 0 ? laender.join(", ") : "Alle Register";
 
     const response = await client.messages.create({
-      model: "claude-opus-4-1",
+      model: "claude-opus-4-5-20251101",
       max_tokens: 2000,
       messages: [
         {

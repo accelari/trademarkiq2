@@ -161,7 +161,7 @@ Erstelle für jede Klasse eine detaillierte, amtskonforme Formulierung basierend
   }
 
   const response = await client.messages.create({
-    model: "claude-opus-4-1",
+    model: "claude-opus-4-5-20251101",
     max_tokens: 8000,
     system: SYSTEM_PROMPT,
     messages: [

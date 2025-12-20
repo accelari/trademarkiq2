@@ -114,7 +114,7 @@ async function getExpertSearchStrategy(
   const allClassesMode = klassen.length === 0;
 
   const response = await client.messages.create({
-    model: "claude-opus-4-1",
+    model: "claude-opus-4-5-20251101",
     max_tokens: 3000,
     system: `Du bist ein weltweit führender Markenrechts-Experte mit Zulassung bei USPTO, EUIPO, DPMA, WIPO, JPO, CNIPA und KIPO.
 
@@ -418,7 +418,7 @@ async function analyzeResults(
   }).join("\n");
 
   const response = await client.messages.create({
-    model: "claude-opus-4-1",
+    model: "claude-opus-4-5-20251101",
     max_tokens: 6000,
     system: SYSTEM_PROMPT,
     messages: [
