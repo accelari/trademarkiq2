@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { ChevronDown, ChevronUp, List } from "lucide-react";
 import { useState } from "react";
 import {
@@ -69,10 +69,18 @@ export function ExecutiveSummaryView({
     startFullAnalysis,
   } = useAlternativeSearch();
 
-  // Initialize the search data
+  // Track if we've initialized to prevent infinite loops
+  const initializedRef = useRef(false);
+  const lastBrandRef = useRef(brandName);
+
+  // Initialize the search data - only when brand name changes
   useEffect(() => {
-    initializeSearch(brandName, selectedClasses, analysis.overallRisk);
-  }, [brandName, selectedClasses, analysis.overallRisk, initializeSearch]);
+    if (!initializedRef.current || lastBrandRef.current !== brandName) {
+      initializeSearch(brandName, selectedClasses, analysis.overallRisk);
+      initializedRef.current = true;
+      lastBrandRef.current = brandName;
+    }
+  }, [brandName, selectedClasses, analysis.overallRisk]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Calculate risk score based on conflicts
   const riskScore = useMemo(() => {
