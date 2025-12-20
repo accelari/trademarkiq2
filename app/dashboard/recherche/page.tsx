@@ -57,6 +57,15 @@ import ConsultationsModal from "@/app/components/ConsultationsModal";
 import { NICE_CLASSES, getPopularClasses, formatClassLabel } from "@/lib/nice-classes";
 import { getAllRelatedClasses, hasOverlappingClasses, getClassRelationInfo } from "@/lib/related-classes";
 import { useUnsavedData } from "@/app/contexts/UnsavedDataContext";
+import { 
+  RiskBadge, 
+  StatusBadge, 
+  OfficeBadge, 
+  getAccuracyColor as getAccuracyColorUtil,
+  ConflictCard,
+  QuickCheckResult,
+  NoResultsFound 
+} from "@/app/components/recherche";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -3199,29 +3208,6 @@ export default function RecherchePage() {
     }
   };
 
-  const getRiskBadge = (risk: "high" | "medium" | "low") => {
-    switch (risk) {
-      case "high":
-        return (
-          <span className="inline-flex items-center gap-2 px-4 py-2 bg-red-100 text-red-800 text-lg font-bold rounded-full">
-            🔴 Hohes Risiko
-          </span>
-        );
-      case "medium":
-        return (
-          <span className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 text-lg font-bold rounded-full">
-            🟡 Mittleres Risiko
-          </span>
-        );
-      case "low":
-        return (
-          <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 text-lg font-bold rounded-full">
-            🟢 Niedriges Risiko
-          </span>
-        );
-    }
-  };
-
   const getConflictRiskBadge = (risk: "high" | "medium" | "low") => {
     switch (risk) {
       case "high":
@@ -3240,40 +3226,6 @@ export default function RecherchePage() {
       month: "2-digit",
       year: "numeric",
     });
-  };
-
-  const getStatusBadge = (trademarkStatus: string) => {
-    switch (trademarkStatus) {
-      case "active":
-        return <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">Aktiv</span>;
-      case "expired":
-        return <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">Abgelaufen</span>;
-      default:
-        return <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">Unbekannt</span>;
-    }
-  };
-
-  const getOfficeBadge = (office: string) => {
-    const colors: Record<string, string> = {
-      WO: "bg-purple-100 text-purple-700",
-      EU: "bg-blue-100 text-blue-700",
-      DE: "bg-gray-100 text-gray-700",
-      US: "bg-red-100 text-red-700",
-      GB: "bg-indigo-100 text-indigo-700",
-      CH: "bg-orange-100 text-orange-700",
-    };
-    return (
-      <span className={`px-2 py-1 ${colors[office] || "bg-gray-100 text-gray-700"} text-xs font-medium rounded-full`}>
-        {office}
-      </span>
-    );
-  };
-
-  const getAccuracyColor = (accuracy: number) => {
-    if (accuracy >= 95) return "text-red-600";
-    if (accuracy >= 90) return "text-orange-600";
-    if (accuracy >= 85) return "text-yellow-600";
-    return "text-green-600";
   };
 
   if (status === "loading") {
@@ -3612,7 +3564,7 @@ export default function RecherchePage() {
                           <p className="text-sm text-gray-500">für "{searchQuery}"</p>
                         </div>
                       </div>
-                      {getRiskBadge(aiAnalysis.analysis.overallRisk)}
+                      <RiskBadge risk={aiAnalysis.analysis.overallRisk} />
                     </div>
                     
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
@@ -3705,100 +3657,24 @@ export default function RecherchePage() {
                     })()}
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {aiAnalysis.conflicts.map((conflict, idx) => {
-                        const riskStyles = conflict.riskLevel === "high" 
-                          ? "border-red-200 hover:border-red-300 bg-red-50/50" 
-                          : conflict.riskLevel === "medium" 
-                            ? "border-orange-200 hover:border-orange-300 bg-orange-50/50" 
-                            : "border-green-200 hover:border-green-300 bg-green-50/50";
-                        const riskEmoji = conflict.riskLevel === "high" ? "🔴" : conflict.riskLevel === "medium" ? "🟡" : "🟢";
-                        
-                        const isInSelectedClasses = conflict.classes.some(cls => aiSelectedClasses.includes(cls));
-                        const isCrossClass = includeRelatedClasses && !isInSelectedClasses && conflict.classes.length > 0;
-                        
-                        const relatedClassInfo = conflict.classes.length > 0 && !isInSelectedClasses
-                          ? conflict.classes.map(cls => getClassRelationInfo(aiSelectedClasses, cls)).find(info => info.isRelated)
-                          : null;
-                        const isRelatedClass = !!relatedClassInfo;
-                        
-                        const formatGermanDate = (dateStr: string | null) => {
-                          if (!dateStr) return "-";
-                          try {
-                            const date = new Date(dateStr);
-                            return date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-                          } catch {
-                            return "-";
-                          }
-                        };
-                        
-                        return (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setSelectedConflict(conflict)}
-                            className={`p-3 rounded-xl border-2 ${riskStyles} transition-all text-left hover:shadow-md cursor-pointer group`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <h4 className="font-semibold text-gray-900 group-hover:text-primary transition-colors truncate">{conflict.name}</h4>
-                                  <span className="flex items-center gap-1 text-sm font-bold whitespace-nowrap">
-                                    {riskEmoji} {conflict.accuracy}%
-                                  </span>
-                                </div>
-                                {conflict.holder && conflict.holder !== "Unbekannt" && conflict.holder !== "unbekannt" && (
-                                  <p className="text-sm text-gray-600 truncate mt-0.5">{conflict.holder}</p>
-                                )}
-                                <div className="flex flex-wrap gap-1 mt-1.5">
-                                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${conflict.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
-                                    {conflict.status === "active" ? "Aktiv" : conflict.status === "expired" ? "Abgelaufen" : "Unbekannt"}
-                                  </span>
-                                  <span className="flex items-center gap-1 text-xs text-gray-500 px-1.5 py-0.5 bg-gray-50 rounded">
-                                    <Globe className="w-3 h-3" /> {conflict.register}
-                                  </span>
-                                  {conflict.classes.length > 0 && (
-                                    <span className="flex items-center gap-1 text-xs text-gray-500 px-1.5 py-0.5 bg-gray-50 rounded">
-                                      <Tag className="w-3 h-3" /> {conflict.classes.length} Kl.
-                                    </span>
-                                  )}
-                                  {conflict.isFamousMark && (
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-800 text-xs font-medium rounded">
-                                      <Star className="w-3 h-3" /> Bekannt
-                                    </span>
-                                  )}
-                                  {isRelatedClass && (
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">
-                                      <Lightbulb className="w-3 h-3" /> Verwandt
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right text-xs text-gray-500 space-y-0.5 shrink-0">
-                                <p>Anm: {conflict.applicationNumber || "-"}</p>
-                                {conflict.applicationDate && <p>({formatGermanDate(conflict.applicationDate)})</p>}
-                                <p>Reg: {conflict.registrationNumber || "-"}</p>
-                              </div>
-                            </div>
-                            <div className="mt-1.5 flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                              <ExternalLink className="w-3 h-3" /> Details
-                            </div>
-                          </button>
-                        );
-                      })}
+                      {aiAnalysis.conflicts.map((conflict, idx) => (
+                        <ConflictCard
+                          key={idx}
+                          conflict={conflict}
+                          selectedClasses={aiSelectedClasses}
+                          includeRelatedClasses={includeRelatedClasses}
+                          onClick={() => setSelectedConflict(conflict)}
+                        />
+                      ))}
                     </div>
                   </div>
                 )}
 
                 {aiAnalysis.conflicts.length === 0 && (
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <Check className="w-6 h-6 text-green-600" />
-                    </div>
-                    <h4 className="font-semibold text-green-800 mb-1">Keine Konflikte gefunden</h4>
-                    <p className="text-sm text-green-700">
-                      Die KI-Analyse hat keine potenziellen Markenkonflikte identifiziert.
-                    </p>
-                  </div>
+                  <QuickCheckResult
+                    searchQuery={searchQuery}
+                    hasConflicts={false}
+                  />
                 )}
 
                 {!expertAnalysis && !isRiskStreaming && (
@@ -4328,26 +4204,10 @@ export default function RecherchePage() {
               {error.message || "Fehler beim Laden der Marken. Bitte versuchen Sie es erneut."}
             </div>
           ) : trademarks.length === 0 ? (
-            <div className="bg-green-50 rounded-xl p-8 text-center border border-green-200">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="w-8 h-8 text-green-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-green-800 mb-2">
-                Keine ähnlichen Marken gefunden
-              </h3>
-              <p className="text-green-700 mb-6">
-                Es gibt keine registrierten Marken, die "{activeSearchQuery}" ähneln. 
-                Sie können mit der Anmeldung fortfahren.
-              </p>
-              <a
-                href={`/dashboard/anmeldung?markName=${encodeURIComponent(activeSearchQuery)}`}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium"
-              >
-                <FilePlus className="w-5 h-5" />
-                Marke jetzt anmelden
-                <ArrowRight className="w-4 h-4" />
-              </a>
-            </div>
+            <NoResultsFound
+              searchQuery={activeSearchQuery}
+              onStartRegistration={() => window.location.href = `/dashboard/anmeldung?markName=${encodeURIComponent(activeSearchQuery)}`}
+            />
           ) : (
             <div className="space-y-4">
               {trademarks.map((trademark) => (
@@ -4369,9 +4229,9 @@ export default function RecherchePage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-2">
                           <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{trademark.name}</h3>
-                          {getStatusBadge(trademark.status)}
-                          {getOfficeBadge(trademark.office)}
-                          <span className={`flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-full text-xs font-semibold ${getAccuracyColor(trademark.accuracy)}`}>
+                          <StatusBadge status={trademark.status} />
+                          <OfficeBadge office={trademark.office} />
+                          <span className={`flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-full text-xs font-semibold ${getAccuracyColorUtil(trademark.accuracy)}`}>
                             <Percent className="w-3 h-3" />
                             {trademark.accuracy}%
                           </span>
