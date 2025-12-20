@@ -1804,6 +1804,13 @@ export default function RecherchePage() {
     setOnSaveBeforeLeave 
   } = useUnsavedData();
 
+  const resetAnalysisState = useCallback(() => {
+    setAiAnalysis(null);
+    setExpertAnalysis(null);
+    setStreamedConflicts([]);
+    setRiskAnalysisSteps(prev => prev.map(s => ({ ...s, status: "pending" as const, details: undefined, progress: undefined })));
+  }, []);
+
   useEffect(() => {
     setGlobalHasUnsavedData(hasUnsavedData);
   }, [hasUnsavedData, setGlobalHasUnsavedData]);
@@ -2647,8 +2654,11 @@ export default function RecherchePage() {
     setAiError("Analyse wurde abgebrochen.");
   };
 
-  const handleStartAiAnalysis = async (deepSearch: boolean = false) => {
-    if (!searchQuery.trim()) {
+  const runFullTrademarkAnalysis = useCallback(async (name: string, options: { deepSearch?: boolean; useCache?: boolean; useAbortController?: boolean } = {}) => {
+    const { deepSearch = false, useCache = true, useAbortController = true } = options;
+    
+    const markenname = name.trim();
+    if (!markenname) {
       setAiError("Bitte geben Sie einen Markennamen ein.");
       return;
     }
@@ -2658,25 +2668,31 @@ export default function RecherchePage() {
     const searchClasses = includeRelatedClasses 
       ? [...new Set([...effectiveClasses, ...relatedClasses])].sort((a, b) => a - b)
       : effectiveClasses;
-    const cacheKey = `${searchQuery.trim()}-${searchClasses.sort().join(",") || "all"}-${selectedLaender.sort().join(",") || "all"}-${deepSearch ? "deep" : "std"}-${includeRelatedClasses ? "rel" : "direct"}`;
-    const cachedResult = analysisCache.current.get(cacheKey);
-    if (cachedResult && !deepSearch) {
-      setAiAnalysis(cachedResult);
-      setAiError(null);
-      setShowSuccessBanner(true);
-      setTimeout(() => setShowSuccessBanner(false), 3000);
-      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-      return;
+    
+    const cacheKey = `${markenname}-${searchClasses.sort().join(",") || "all"}-${selectedLaender.sort().join(",") || "all"}-${deepSearch ? "deep" : "std"}-${includeRelatedClasses ? "rel" : "direct"}`;
+    
+    if (useCache) {
+      const cachedResult = analysisCache.current.get(cacheKey);
+      if (cachedResult && !deepSearch) {
+        setAiAnalysis(cachedResult);
+        setAiError(null);
+        setShowSuccessBanner(true);
+        setTimeout(() => setShowSuccessBanner(false), 3000);
+        setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+        return;
+      }
     }
 
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+    if (useAbortController) {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
     }
-    abortControllerRef.current = new AbortController();
 
+    resetAnalysisState();
     setAiLoading(true);
     setAiError(null);
-    setAiAnalysis(null);
     setAiStartTime(Date.now());
     setShowSuccessBanner(false);
     setIsDeepSearch(deepSearch);
@@ -2694,16 +2710,22 @@ export default function RecherchePage() {
       setProgressSteps([...steps]);
       setAiProgress(prev => ({ ...prev, step1: "started", lastActivity: Date.now() }));
 
-      const variantsRes = await fetch("/api/recherche/step1-variants", {
+      const fetchOptions: RequestInit = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+      };
+      if (useAbortController && abortControllerRef.current) {
+        fetchOptions.signal = abortControllerRef.current.signal;
+      }
+
+      const variantsRes = await fetch("/api/recherche/step1-variants", {
+        ...fetchOptions,
         body: JSON.stringify({
-          markenname: searchQuery.trim(),
+          markenname,
           klassen: effectiveClasses,
           laender: selectedLaender,
           deepSearch,
         }),
-        signal: abortControllerRef.current.signal,
       });
 
       if (!variantsRes.ok) {
@@ -2729,8 +2751,7 @@ export default function RecherchePage() {
       setAiProgress(prev => ({ ...prev, step2: "completed", step3: "started", lastActivity: Date.now() }));
 
       const searchRes = await fetch("/api/recherche/step2-search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        ...fetchOptions,
         body: JSON.stringify({
           queryTerms: variantsData.queryTerms,
           klassen: searchClasses,
@@ -2739,7 +2760,6 @@ export default function RecherchePage() {
           originalKlassen: effectiveClasses,
           relatedClasses: includeRelatedClasses ? relatedClasses : [],
         }),
-        signal: abortControllerRef.current.signal,
       });
 
       if (!searchRes.ok) {
@@ -2760,18 +2780,18 @@ export default function RecherchePage() {
       }));
 
       const analyzeRes = await fetch("/api/recherche/step3-analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        ...fetchOptions,
         body: JSON.stringify({
-          markenname: searchQuery.trim(),
+          markenname,
           results: searchData.results,
+          searchResults: searchData.results || searchData,
           klassen: effectiveClasses,
+          originalKlassen: effectiveClasses,
           laender: selectedLaender,
           expertStrategy: variantsData.expertStrategy,
           extendedClassSearch: false,
           relatedClasses: includeRelatedClasses ? relatedClasses : [],
         }),
-        signal: abortControllerRef.current.signal,
       });
 
       if (!analyzeRes.ok) {
@@ -2792,15 +2812,18 @@ export default function RecherchePage() {
       };
 
       setAiAnalysis(finalResult);
-      analysisCache.current.set(cacheKey, finalResult);
+      if (useCache) {
+        analysisCache.current.set(cacheKey, finalResult);
+      }
       setAiLoading(false);
       setAiStartTime(null);
-      abortControllerRef.current = null;
+      if (useAbortController) {
+        abortControllerRef.current = null;
+      }
       setShowSuccessBanner(true);
       setTimeout(() => setShowSuccessBanner(false), 3000);
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
       
-      // Automatically trigger streaming risk analysis after search completes
       if (caseId) {
         startStreamingAnalysis(caseId);
       }
@@ -2811,9 +2834,15 @@ export default function RecherchePage() {
       setAiError(err.message || "Ein unerwarteter Fehler ist aufgetreten.");
       setAiLoading(false);
       setAiStartTime(null);
-      abortControllerRef.current = null;
+      if (useAbortController) {
+        abortControllerRef.current = null;
+      }
     }
-  };
+  }, [resetAnalysisState, aiSelectedClasses, selectedLaender, includeRelatedClasses, caseId]);
+
+  const handleStartAiAnalysis = useCallback(async (deepSearch: boolean = false) => {
+    await runFullTrademarkAnalysis(searchQuery, { deepSearch, useCache: true, useAbortController: true });
+  }, [runFullTrademarkAnalysis, searchQuery]);
 
   const startStreamingAnalysis = async (targetCaseId?: string) => {
     const activeCaseId = targetCaseId || caseId || currentCaseNumber;
@@ -3110,13 +3139,8 @@ export default function RecherchePage() {
     }
   };
 
-  const handleStartFullAnalysisForName = async (name: string) => {
+  const handleStartFullAnalysisForName = useCallback(async (name: string) => {
     setSearchQuery(name);
-    
-    setAiAnalysis(null);
-    setExpertAnalysis(null);
-    setStreamedConflicts([]);
-    setRiskAnalysisSteps(prev => prev.map(s => ({ ...s, status: "pending" as const, details: undefined, progress: undefined })));
     
     setTimeout(() => {
       resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -3127,125 +3151,9 @@ export default function RecherchePage() {
         return;
       }
       
-      setAiLoading(true);
-      setAiError(null);
-      setAiProgress({
-        step1: "pending",
-        step2: "pending",
-        step3: "pending",
-        step4: "pending",
-      });
-      setShowSuccessBanner(false);
-      setIsDeepSearch(true);
-      
-      const newProgressSteps = getInitialProgressSteps(true);
-      setProgressSteps(newProgressSteps);
-      
-      const effectiveClasses = aiSelectedClasses.length === 45 ? [] : aiSelectedClasses;
-      const relatedClasses = getAllRelatedClasses(aiSelectedClasses);
-      const searchClasses = includeRelatedClasses 
-        ? [...new Set([...effectiveClasses, ...relatedClasses])].sort((a, b) => a - b)
-        : effectiveClasses;
-      
-      try {
-        newProgressSteps[0] = { ...newProgressSteps[0], status: "running", startedAt: Date.now() };
-        setProgressSteps([...newProgressSteps]);
-        setAiProgress(prev => ({ ...prev, step1: "started", lastActivity: Date.now() }));
-        
-        const variantsRes = await fetch("/api/recherche/step1-variants", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            markenname: name.trim(),
-            klassen: effectiveClasses,
-            laender: selectedLaender,
-            deepSearch: true,
-          }),
-        });
-
-        if (!variantsRes.ok) {
-          throw new Error("Fehler bei der Suchstrategie");
-        }
-
-        const variantsData = await variantsRes.json();
-        newProgressSteps[0] = { ...newProgressSteps[0], status: "completed", endedAt: Date.now() };
-        newProgressSteps[1] = { ...newProgressSteps[1], status: "running", startedAt: Date.now() };
-        setProgressSteps([...newProgressSteps]);
-        setAiProgress(prev => ({ 
-          ...prev, 
-          step1: "completed", 
-          step2: "started",
-          step1Data: variantsData,
-          lastActivity: Date.now() 
-        }));
-
-        newProgressSteps[1] = { ...newProgressSteps[1], status: "completed", endedAt: Date.now() };
-        newProgressSteps[2] = { ...newProgressSteps[2], status: "running", startedAt: Date.now() };
-        setProgressSteps([...newProgressSteps]);
-        setAiProgress(prev => ({ ...prev, step2: "completed", step3: "started", lastActivity: Date.now() }));
-
-        const searchRes = await fetch("/api/recherche/step2-search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            queryTerms: variantsData.queryTerms,
-            klassen: searchClasses,
-            laender: selectedLaender,
-            extendedClassSearch: false,
-            originalKlassen: effectiveClasses,
-            relatedClasses: includeRelatedClasses ? relatedClasses : [],
-          }),
-        });
-
-        if (!searchRes.ok) {
-          throw new Error("Fehler bei der Markensuche");
-        }
-
-        const searchData = await searchRes.json();
-        newProgressSteps[2] = { ...newProgressSteps[2], status: "completed", endedAt: Date.now() };
-        newProgressSteps[3] = { ...newProgressSteps[3], status: "running", startedAt: Date.now() };
-        setProgressSteps([...newProgressSteps]);
-        setAiProgress(prev => ({ 
-          ...prev, 
-          step3: "completed", 
-          step4: "started",
-          step3Data: searchData,
-          lastActivity: Date.now() 
-        }));
-
-        const analyzeRes = await fetch("/api/recherche/step3-analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            markenname: name.trim(),
-            searchResults: searchData.results || searchData,
-            originalKlassen: effectiveClasses,
-            relatedClasses: includeRelatedClasses ? relatedClasses : [],
-            laender: selectedLaender,
-            expertStrategy: variantsData.expertStrategy,
-          }),
-        });
-
-        if (!analyzeRes.ok) {
-          throw new Error("Fehler bei der Analyse");
-        }
-
-        const analysisData = await analyzeRes.json();
-        newProgressSteps[3] = { ...newProgressSteps[3], status: "completed", endedAt: Date.now() };
-        setProgressSteps([...newProgressSteps]);
-        setAiProgress(prev => ({ ...prev, step4: "completed", lastActivity: Date.now() }));
-        
-        setAiAnalysis(analysisData);
-        setShowSuccessBanner(true);
-        
-        setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
-      } catch (error: any) {
-        setAiError(error.message || "Ein Fehler ist aufgetreten");
-      } finally {
-        setAiLoading(false);
-      }
+      await runFullTrademarkAnalysis(name, { deepSearch: true, useCache: false, useAbortController: false });
     }, 200);
-  };
+  }, [runFullTrademarkAnalysis, selectedLaender, aiSelectedClasses]);
 
   const handleAddCustomName = () => {
     const name = customNameInput.trim();
