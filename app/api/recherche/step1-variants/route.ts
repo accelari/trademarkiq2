@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropicClient } from "@/lib/anthropic";
 import { NICE_CLASSES } from "@/lib/nice-classes";
 import { 
   generateDeterministicVariants, 
@@ -9,11 +9,6 @@ import {
   setCachedStrategy,
   type DeterministicStrategy 
 } from "@/lib/search-variants";
-
-const client = new Anthropic({
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-});
 
 interface SearchVariant {
   term: string;
@@ -48,7 +43,7 @@ async function getExpertSearchStrategy(
   const laenderText = laender.length > 0 ? laender.join(", ") : "Alle Register (DPMA, EUIPO, WIPO, etc.)";
   const allClassesMode = klassen.length === 0;
 
-  const response = await client.messages.create({
+  const response = await anthropicClient.messages.create({
     model: "claude-opus-4-1",
     max_tokens: 3000,
     system: `Du bist ein weltweit führender Markenrechts-Experte mit Zulassung bei USPTO, EUIPO, DPMA, WIPO, JPO, CNIPA und KIPO.

@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropicClient } from "@/lib/anthropic";
 import { NICE_CLASSES } from "@/lib/nice-classes";
 import { calculateSimilarity } from "@/lib/similarity";
 import { getTMSearchClient } from "@/lib/tmsearch/client";
-
-const client = new Anthropic({
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-});
 
 const SYSTEM_PROMPT = `Du bist ein weltweit anerkannter Markenrechts-Experte mit 25+ Jahren Erfahrung in internationaler Markenpraxis.
 
@@ -273,7 +268,7 @@ async function analyzeResults(
     return `- "${r.name}" (${r.applicationNumber || r.id}) | Register: ${officeName} | Klassen: ${classes} | Phonetik: ${r.ourPhonetic}% | Visuell: ${r.ourVisual}% | Gesamt: ${r.ourCombined}% | Begründung: ${r.ourExplanation}`;
   }).join("\n");
 
-  const response = await client.messages.create({
+  const response = await anthropicClient.messages.create({
     model: "claude-opus-4-1",
     max_tokens: 6000,
     system: SYSTEM_PROMPT,

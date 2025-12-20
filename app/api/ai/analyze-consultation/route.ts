@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic({
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-});
+import { anthropicClient } from "@/lib/anthropic";
 
 interface AnalysisResult {
   trademarkName: string | null;
@@ -83,7 +78,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const response = await client.messages.create({
+    const response = await anthropicClient.messages.create({
       model: "claude-opus-4-1",
       max_tokens: 1024,
       system: SYSTEM_PROMPT,

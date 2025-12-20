@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { trademarkCases } from "@/db/schema";
 import { eq, and, or } from "drizzle-orm";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropicClient } from "@/lib/anthropic";
 import { NICE_CLASSES } from "@/lib/nice-classes";
 import { getTMSearchClient } from "@/lib/tmsearch/client";
 
@@ -35,11 +35,6 @@ function createConcurrencyLimiter(concurrency: number) {
     });
   };
 }
-
-const client = new Anthropic({
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-});
 
 interface Solution {
   type: "name_modification" | "class_change" | "mark_type" | "geographic" | "coexistence";
@@ -203,7 +198,7 @@ Für die Erfolgswahrscheinlichkeit berücksichtige:
 
 Antworte NUR mit dem JSON, keine zusätzlichen Erklärungen.`;
 
-  const response = await client.messages.create({
+  const response = await anthropicClient.messages.create({
     model: "claude-opus-4-1",
     max_tokens: 4000,
     system: EXPERT_SYSTEM_PROMPT,
@@ -299,7 +294,7 @@ Antworte mit einem JSON-Objekt:
 Wähle die beste Lösung basierend auf dem Verhältnis von Erfolgswahrscheinlichkeit zu Aufwand.
 Antworte NUR mit dem JSON.`;
 
-  const response = await client.messages.create({
+  const response = await anthropicClient.messages.create({
     model: "claude-opus-4-1",
     max_tokens: 2000,
     system: EXPERT_SYSTEM_PROMPT,

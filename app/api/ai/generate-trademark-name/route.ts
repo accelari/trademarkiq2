@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic({
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-});
+import { anthropicClient } from "@/lib/anthropic";
 
 interface Conflict {
   name: string;
@@ -120,7 +115,7 @@ Beziehe dich in deiner Begründung auf die relevanten Gesetzesvorschriften der Z
 
 Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
 
-    const response = await client.messages.create({
+    const response = await anthropicClient.messages.create({
       model: "claude-opus-4-1",
       max_tokens: 1024,
       messages: [
