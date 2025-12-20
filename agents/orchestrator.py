@@ -166,64 +166,258 @@ FRAGE 2: ...
 
     def start_discovery(self, request: str) -> dict:
         """
-        NEUER EINSTIEGSPUNKT: Startet die Erkundungsphase.
+        Alte Methode für aufgabenbasierte Discovery.
+        Wird durch proactive_session ersetzt.
+        """
+        return self.proactive_session()
 
-        Statt direkt zu handeln, sammelt der Orchestrator erst Fragen
-        und präsentiert sie dem Benutzer.
+    def proactive_session(self) -> dict:
+        """
+        PROAKTIVER MODUS: Der Orchestrator übernimmt die Führung.
+
+        1. Analysiert das Projekt
+        2. Stellt strategische Fragen
+        3. Schlägt Aufgaben vor
+        4. Wartet auf Genehmigung
 
         Returns:
-            Dict mit Fragen und Status
+            Dict mit Fragen für den Benutzer
         """
-        print(f"\n{'='*60}")
-        print(f"🎯 NEUE ANFRAGE: {request[:80]}...")
-        print(f"{'='*60}")
+        print("\n" + "="*60)
+        print("🤖 ORCHESTRATOR STARTET PROAKTIVE SESSION")
+        print("="*60)
 
-        # Protokolliere die Anfrage
-        self.memory.record_conversation(
-            source="user",
-            target="orchestrator",
-            content=request
-        )
-
-        print("\n🤔 Sammle Fragen von allen Agenten...")
-
-        # Eigene Fragen des Orchestrators
-        my_questions = [
+        # Strategische Fragen für den Projektleiter
+        strategic_questions = [
             {
-                "agent_id": "orchestrator",
-                "agent_name": "Orchestrator",
-                "question": "Was ist das Hauptziel dieser Aufgabe? Was soll am Ende erreicht sein?",
+                "id": "vision",
+                "agent": "Orchestrator",
+                "question": "Was ist deine Vision für TrademarkIQ? Was soll die App in 6 Monaten können?",
                 "category": "business",
+                "priority": "critical"
+            },
+            {
+                "id": "customers",
+                "agent": "Orchestrator",
+                "question": "Wer sind deine Zielkunden? (Anwälte, Startups, Unternehmen, Privatpersonen?)",
+                "category": "business",
+                "priority": "critical"
+            },
+            {
+                "id": "priority",
+                "agent": "Orchestrator",
+                "question": "Was ist das WICHTIGSTE Feature, das jetzt funktionieren muss?",
+                "category": "business",
+                "priority": "critical"
+            },
+            {
+                "id": "pain",
+                "agent": "Orchestrator",
+                "question": "Was ist aktuell das größte Problem oder fehlt am meisten?",
+                "category": "business",
+                "priority": "high"
+            },
+            {
+                "id": "countries",
+                "agent": "Trademark-Experte",
+                "question": "Welche Länder/Markenämter haben Priorität? (DPMA, EUIPO, USPTO, WIPO?)",
+                "category": "trademark",
                 "priority": "high"
             }
         ]
 
-        # Fragen von Spezialisten sammeln
-        agent_questions = self.collect_agent_questions(request)
-        all_questions = my_questions + agent_questions
-
-        # Alle Fragen ins Gedächtnis speichern
-        question_ids = []
-        for q in all_questions:
-            q_id = self.memory.ask_user(
-                agent_id=q["agent_id"],
-                agent_name=q["agent_name"],
+        # Speichere im Gedächtnis
+        for q in strategic_questions:
+            self.memory.ask_user(
+                agent_id="orchestrator",
+                agent_name=q["agent"],
                 question=q["question"],
-                context=request,
                 priority=q["priority"],
                 category=q["category"]
             )
-            question_ids.append(q_id)
-
-        print(f"\n📋 {len(all_questions)} Fragen gesammelt!")
 
         return {
-            "status": "discovery",
-            "request": request,
-            "question_count": len(all_questions),
-            "questions": all_questions,
-            "question_ids": question_ids,
-            "message": self.memory.format_pending_questions()
+            "status": "awaiting_answers",
+            "questions": strategic_questions,
+            "message": self._format_strategic_questions(strategic_questions),
+            "next_step": "Beantworte die Fragen, dann schlage ich Aufgaben vor."
+        }
+
+    def _format_strategic_questions(self, questions: list) -> str:
+        """Formatiert die strategischen Fragen schön."""
+        lines = [
+            "",
+            "🎯 FRAGEN VOM ORCHESTRATOR",
+            "=" * 50,
+            "",
+            "Bevor ich Aufgaben vorschlagen kann, brauche ich",
+            "ein paar Informationen von dir:",
+            ""
+        ]
+
+        priority_icons = {
+            "critical": "🔴",
+            "high": "🟠",
+            "normal": "🟡",
+            "low": "🟢"
+        }
+
+        for i, q in enumerate(questions, 1):
+            icon = priority_icons.get(q["priority"], "⚪")
+            lines.append(f"{icon} {i}. [{q['agent']}]")
+            lines.append(f"   {q['question']}")
+            lines.append("")
+
+        lines.extend([
+            "=" * 50,
+            "",
+            "Beantworte so viele wie möglich.",
+            "Du kannst einfach hier antworten.",
+            ""
+        ])
+
+        return "\n".join(lines)
+
+    def receive_answers(self, answers: dict) -> dict:
+        """
+        Empfängt Antworten und schlägt Aufgaben vor.
+
+        Args:
+            answers: Dict mit Antworten auf die strategischen Fragen
+
+        Returns:
+            Dict mit vorgeschlagenen Aufgaben
+        """
+        # Speichere Antworten im Gedächtnis
+        for key, answer in answers.items():
+            self.memory.record_decision(
+                decision=f"{key}: {answer}",
+                tags=["strategic", key]
+            )
+
+        # Basierend auf Antworten, schlage Aufgaben vor
+        proposed_tasks = self._generate_task_proposals(answers)
+
+        return {
+            "status": "proposals_ready",
+            "proposed_tasks": proposed_tasks,
+            "message": self._format_task_proposals(proposed_tasks)
+        }
+
+    def _generate_task_proposals(self, answers: dict) -> list:
+        """Generiert Aufgabenvorschläge basierend auf Antworten."""
+        tasks = []
+
+        # Basis-Aufgaben die immer relevant sind
+        tasks.append({
+            "id": "T1",
+            "title": "Code-Review des aktuellen Stands",
+            "description": "Alle Agenten reviewen den aktuellen Code und identifizieren Verbesserungen",
+            "agents": ["architect", "security", "reviewer"],
+            "priority": "high",
+            "effort": "klein"
+        })
+
+        # Dynamische Vorschläge basierend auf Antworten
+        pain = answers.get("pain", "").lower()
+        priority = answers.get("priority", "").lower()
+
+        if "risiko" in pain or "risiko" in priority:
+            tasks.append({
+                "id": "T2",
+                "title": "Risikoanalyse verbessern",
+                "description": "Die Risikoanalyse-Ansicht optimieren und detaillierter machen",
+                "agents": ["frontend", "trademark"],
+                "priority": "critical",
+                "effort": "mittel"
+            })
+
+        if "such" in pain or "recherche" in priority:
+            tasks.append({
+                "id": "T3",
+                "title": "Markenrecherche optimieren",
+                "description": "Suchergebnisse verbessern, mehr Datenquellen anbinden",
+                "agents": ["backend", "trademark"],
+                "priority": "critical",
+                "effort": "groß"
+            })
+
+        if "ui" in pain or "design" in priority or "übersicht" in pain:
+            tasks.append({
+                "id": "T4",
+                "title": "UI/UX verbessern",
+                "description": "Benutzeroberfläche übersichtlicher und intuitiver gestalten",
+                "agents": ["frontend", "architect"],
+                "priority": "high",
+                "effort": "mittel"
+            })
+
+        # Immer: Sicherheits-Check
+        tasks.append({
+            "id": "T5",
+            "title": "Sicherheits-Audit",
+            "description": "Vollständiger Security-Check aller Komponenten",
+            "agents": ["security"],
+            "priority": "high",
+            "effort": "klein"
+        })
+
+        return tasks
+
+    def _format_task_proposals(self, tasks: list) -> str:
+        """Formatiert die Aufgabenvorschläge."""
+        lines = [
+            "",
+            "📋 VORGESCHLAGENE AUFGABEN",
+            "=" * 50,
+            ""
+        ]
+
+        priority_icons = {"critical": "🔴", "high": "🟠", "normal": "🟡", "low": "🟢"}
+        effort_icons = {"klein": "⚡", "mittel": "🔧", "groß": "🏗️"}
+
+        for task in tasks:
+            p_icon = priority_icons.get(task["priority"], "⚪")
+            e_icon = effort_icons.get(task["effort"], "📦")
+
+            lines.append(f"[{task['id']}] {p_icon} {task['title']}")
+            lines.append(f"     {task['description']}")
+            lines.append(f"     Agenten: {', '.join(task['agents'])} | Aufwand: {e_icon} {task['effort']}")
+            lines.append("")
+
+        lines.extend([
+            "=" * 50,
+            "",
+            "Welche Aufgaben soll ich ausführen?",
+            "Antworte z.B.: 'T1 und T2' oder 'alle' oder 'T3'",
+            ""
+        ])
+
+        return "\n".join(lines)
+
+    def approve_tasks(self, task_ids: list[str]) -> dict:
+        """
+        Genehmigt ausgewählte Aufgaben zur Ausführung.
+
+        Args:
+            task_ids: Liste der zu genehmigenden Task-IDs (z.B. ["T1", "T2"])
+
+        Returns:
+            Dict mit Status und nächsten Schritten
+        """
+        approved = []
+        for tid in task_ids:
+            # Speichere Genehmigung
+            self.memory.record_decision(
+                decision=f"Aufgabe {tid} genehmigt",
+                tags=["approval", tid]
+            )
+            approved.append(tid)
+
+        return {
+            "status": "tasks_approved",
+            "approved_tasks": approved,
+            "message": f"✅ {len(approved)} Aufgaben genehmigt: {', '.join(approved)}\n\nIch beginne jetzt mit der Ausführung..."
         }
 
     def register_agent(self, agent_id: str, agent: Agent):
