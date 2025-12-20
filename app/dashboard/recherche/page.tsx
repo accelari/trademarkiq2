@@ -64,7 +64,10 @@ import {
   getAccuracyColor as getAccuracyColorUtil,
   ConflictCard,
   QuickCheckResult,
-  NoResultsFound 
+  NoResultsFound,
+  RiskScoreLegend,
+  RiskScoreExplanation,
+  SearchModeExplanation 
 } from "@/app/components/recherche";
 
 const fetcher = async (url: string) => {
@@ -4148,7 +4151,12 @@ export default function RecherchePage() {
                       />
                       <h3 className="mt-4 text-lg font-semibold text-gray-900">Gesamtrisiko</h3>
                       <p className="text-sm text-gray-600 mt-1">für "{searchQuery}"</p>
+                      <div className="mt-3">
+                        <RiskScoreExplanation score={getOverallRiskScore()} />
+                      </div>
                     </div>
+                    
+                    <RiskScoreLegend currentScore={getOverallRiskScore()} variant="tooltip" />
                     
                     <div className="border-t border-gray-100 pt-4 space-y-3">
                       <div className="flex items-center justify-between text-sm">
