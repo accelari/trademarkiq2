@@ -36,12 +36,35 @@ class Agent:
     """Base class for all agents."""
 
     def __init__(self, config: AgentConfig):
+        """
+        Initialize an agent with the given configuration.
+
+        Args:
+            config: AgentConfig with name, role, prompts, etc.
+
+        Raises:
+            ValueError: If API key is not configured
+        """
+        if config is None:
+            raise ValueError("AgentConfig cannot be None")
+
         self.config = config
         self.name = config.name
         self.role = config.role
         self.conversation_history: list[Message] = []
-        self.client = anthropic.Anthropic(api_key=get_api_key())
-        self.project_context = load_project_context()
+
+        # Initialize API client with error handling
+        try:
+            api_key = get_api_key()
+            self.client = anthropic.Anthropic(api_key=api_key)
+        except ValueError as e:
+            raise ValueError(f"Failed to initialize agent '{self.name}': {e}")
+
+        # Load project context (non-critical, use fallback)
+        try:
+            self.project_context = load_project_context()
+        except Exception:
+            self.project_context = "TrademarkIQ - KI-gestützte Markenregistrierungsplattform"
 
     def _build_system_prompt(self) -> str:
         """Build the full system prompt with project context."""

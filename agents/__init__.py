@@ -45,29 +45,37 @@ class AgentSystem:
 
     def _register_all_agents(self):
         """Register all available agents with the orchestrator."""
-        # Core agents
-        self.planner = PlannerAgent()
-        self.executor = ExecutorAgent()
-        self.reviewer = ReviewerAgent()
+        registered = 0
+        errors = []
 
-        self.orchestrator.register_agent("planner", self.planner)
-        self.orchestrator.register_agent("executor", self.executor)
-        self.orchestrator.register_agent("reviewer", self.reviewer)
+        # Define agents to register
+        agent_definitions = [
+            ("planner", PlannerAgent, "Planner"),
+            ("executor", ExecutorAgent, "Executor"),
+            ("reviewer", ReviewerAgent, "Reviewer"),
+            ("architect", ArchitectAgent, "Architekt"),
+            ("frontend", FrontendAgent, "Frontend"),
+            ("backend", BackendAgent, "Backend"),
+            ("security", SecurityAgent, "Security"),
+            ("trademark", TrademarkAgent, "Trademark"),
+        ]
 
-        # Specialist agents
-        self.architect = ArchitectAgent()
-        self.frontend = FrontendAgent()
-        self.backend = BackendAgent()
-        self.security = SecurityAgent()
-        self.trademark = TrademarkAgent()
+        for agent_id, agent_class, name in agent_definitions:
+            try:
+                agent = agent_class()
+                self.orchestrator.register_agent(agent_id, agent)
+                setattr(self, agent_id, agent)
+                registered += 1
+            except Exception as e:
+                errors.append(f"{name}: {str(e)}")
+                print(f"⚠️ Fehler bei Agent '{name}': {e}")
 
-        self.orchestrator.register_agent("architect", self.architect)
-        self.orchestrator.register_agent("frontend", self.frontend)
-        self.orchestrator.register_agent("backend", self.backend)
-        self.orchestrator.register_agent("security", self.security)
-        self.orchestrator.register_agent("trademark", self.trademark)
+        if registered > 0:
+            print(f"\n✅ Agent System initialisiert mit {registered} Agenten")
+        if errors:
+            print(f"⚠️ {len(errors)} Agenten konnten nicht geladen werden")
 
-        print(f"\n✅ Agent System initialisiert mit {len(self.orchestrator.agents)} Agenten\n")
+        return registered
 
     def process(self, request: str, context: str = None) -> dict:
         """
@@ -109,12 +117,30 @@ class AgentSystem:
 
         Returns:
             The agent's response
+
+        Raises:
+            ValueError: If agent_id or question is invalid
         """
+        # Input validation
+        if not agent_id or not isinstance(agent_id, str):
+            raise ValueError("agent_id must be a non-empty string")
+        if not question or not isinstance(question, str):
+            raise ValueError("question must be a non-empty string")
+
+        # Sanitize agent_id (only allow alphanumeric and underscore)
+        agent_id = agent_id.strip().lower()
+        if not agent_id.replace("_", "").isalnum():
+            raise ValueError(f"Invalid agent_id format: {agent_id}")
+
         agent = self.orchestrator.get_agent(agent_id)
         if not agent:
-            return f"Agent '{agent_id}' nicht gefunden. Verfügbar: {', '.join(self.orchestrator.agents.keys())}"
+            available = ', '.join(self.orchestrator.agents.keys())
+            return f"Agent '{agent_id}' nicht gefunden. Verfügbar: {available}"
 
-        return agent.think(question, context)
+        try:
+            return agent.think(question, context)
+        except Exception as e:
+            return f"Fehler bei Agent '{agent_id}': {str(e)}"
 
     def list_agents(self) -> list[dict]:
         """List all available agents."""
