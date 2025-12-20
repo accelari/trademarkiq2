@@ -1,5 +1,6 @@
 # CareerSystem Voice Assistant
 
+.
 Eine minimalistische Voice-to-Voice Web-Applikation mit Hume's Empathic Voice Interface (EVI).
 
 ## Features
