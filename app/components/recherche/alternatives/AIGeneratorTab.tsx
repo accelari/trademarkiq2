@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Wand2, RefreshCw, Loader2, X } from "lucide-react";
+import { Wand2, RefreshCw, Loader2 } from "lucide-react";
 import { StyleSelector, type GeneratorStyle } from "./StyleSelector";
 import { NameSuggestionCard, type QuickCheckStatus } from "./NameSuggestionCard";
 
@@ -48,33 +47,6 @@ export function AIGeneratorTab({
   onQuickCheck,
   onToggleShortlist,
 }: AIGeneratorTabProps) {
-  const [keywordInput, setKeywordInput] = useState("");
-
-  const addKeyword = () => {
-    const keyword = keywordInput.trim();
-    if (keyword && !settings.keywords.includes(keyword)) {
-      onSettingsChange({
-        ...settings,
-        keywords: [...settings.keywords, keyword],
-      });
-    }
-    setKeywordInput("");
-  };
-
-  const removeKeyword = (keyword: string) => {
-    onSettingsChange({
-      ...settings,
-      keywords: settings.keywords.filter((k) => k !== keyword),
-    });
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addKeyword();
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Info Banner */}
@@ -98,73 +70,6 @@ export function AIGeneratorTab({
           selected={settings.style}
           onChange={(style) => onSettingsChange({ ...settings, style })}
         />
-      </div>
-
-      {/* Keywords */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Keywords (optional)
-        </label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={keywordInput}
-            onChange={(e) => setKeywordInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="z.B. Tech, Innovation, Digital..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
-          <button
-            onClick={addKeyword}
-            disabled={!keywordInput.trim()}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Hinzufügen
-          </button>
-        </div>
-        {settings.keywords.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3">
-            {settings.keywords.map((keyword) => (
-              <span
-                key={keyword}
-                className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
-              >
-                {keyword}
-                <button
-                  onClick={() => removeKeyword(keyword)}
-                  className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Language Selection */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Sprache
-        </label>
-        <div className="flex gap-3">
-          {[
-            { id: "de" as const, label: "Deutsch" },
-            { id: "en" as const, label: "Englisch" },
-            { id: "international" as const, label: "International" },
-          ].map((lang) => (
-            <label key={lang.id} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="language"
-                checked={settings.language === lang.id}
-                onChange={() => onSettingsChange({ ...settings, language: lang.id })}
-                className="w-4 h-4 text-primary focus:ring-primary"
-              />
-              <span className="text-sm text-gray-700">{lang.label}</span>
-            </label>
-          ))}
-        </div>
       </div>
 
       {/* Generate Button */}
