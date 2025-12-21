@@ -3567,42 +3567,6 @@ export default function RecherchePage() {
                       <RiskBadge risk={aiAnalysis.analysis.overallRisk} />
                     </div>
                     
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                      <button
-                        type="button"
-                        onClick={() => setWidgetPopup('conflicts')}
-                        className="bg-white rounded-xl p-3 border border-gray-100 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer text-left group"
-                      >
-                        <p className="text-2xl font-bold text-gray-900 group-hover:text-primary transition-colors">{aiAnalysis.conflicts.length}</p>
-                        <p className="text-xs text-gray-500 flex items-center gap-1">
-                          Konflikte gefunden
-                          <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setWidgetPopup('analyzed')}
-                        className="bg-white rounded-xl p-3 border border-gray-100 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer text-left group"
-                      >
-                        <p className="text-2xl font-bold text-gray-900 group-hover:text-primary transition-colors">{aiAnalysis.totalResultsAnalyzed}</p>
-                        <p className="text-xs text-gray-500 flex items-center gap-1">
-                          Marken analysiert
-                          <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setWidgetPopup('variants')}
-                        className="bg-white rounded-xl p-3 border border-gray-100 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer text-left col-span-2 sm:col-span-1 group"
-                      >
-                        <p className="text-2xl font-bold text-gray-900 group-hover:text-primary transition-colors">{aiAnalysis.searchTermsUsed.length}</p>
-                        <p className="text-xs text-gray-500 flex items-center gap-1">
-                          Suchvarianten
-                          <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </p>
-                      </button>
-                    </div>
-
                     {aiAnalysis.analysis.famousMarkDetected && (
                       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 mb-4">
                         <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
