@@ -1841,6 +1841,55 @@ export default function RecherchePage() {
     setRiskAnalysisSteps(prev => prev.map(s => ({ ...s, status: "pending" as const, details: undefined, progress: undefined })));
   }, []);
 
+  const saveToHistory = useCallback((analysis: AIAnalysis) => {
+    const riskScore = analysis.analysis?.overallRisk ?? null;
+    const newItem: SearchHistoryItem = {
+      id: crypto.randomUUID(),
+      searchQuery: searchQuery || activeSearchQuery,
+      countries: [...selectedLaender],
+      classes: [...aiSelectedClasses],
+      riskScore,
+      conflictsCount: analysis.conflicts?.length || 0,
+      timestamp: new Date(),
+      aiAnalysis: analysis,
+      expertAnalysis: expertAnalysis,
+      streamedConflicts: [...streamedConflicts],
+    };
+    setSearchHistory(prev => [newItem, ...prev]);
+    setActiveHistoryId(newItem.id);
+  }, [searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses, expertAnalysis, streamedConflicts]);
+
+  const loadFromHistory = useCallback((item: SearchHistoryItem) => {
+    setSearchQuery(item.searchQuery);
+    setActiveSearchQuery(item.searchQuery);
+    setSelectedLaender(item.countries);
+    setAiSelectedClasses(item.classes);
+    setAiAnalysis(item.aiAnalysis);
+    setExpertAnalysis(item.expertAnalysis);
+    setStreamedConflicts(item.streamedConflicts);
+    setActiveHistoryId(item.id);
+    setIsSearchFormExpanded(false);
+    setIsAnalysisExpanded(false);
+  }, []);
+
+  const startNewSearch = useCallback(() => {
+    if (aiAnalysis && activeHistoryId === null) {
+      saveToHistory(aiAnalysis);
+    }
+    setSearchQuery("");
+    setActiveSearchQuery("");
+    setAiAnalysis(null);
+    setExpertAnalysis(null);
+    setStreamedConflicts([]);
+    setActiveHistoryId(null);
+    setIsSearchFormExpanded(true);
+    setIsAnalysisExpanded(false);
+    setShowSuccessBanner(false);
+    setResultsSaved(false);
+    setNameShortlist([]);
+    setProgressSteps([]);
+  }, [aiAnalysis, activeHistoryId, saveToHistory]);
+
   useEffect(() => {
     setGlobalHasUnsavedData(hasUnsavedData);
   }, [hasUnsavedData, setGlobalHasUnsavedData]);
