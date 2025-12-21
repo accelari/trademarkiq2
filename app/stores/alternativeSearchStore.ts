@@ -49,6 +49,7 @@ interface AlternativeSearchState {
   originalBrand: string;
   selectedClasses: number[];
   originalRiskLevel: RiskLevel;
+  caseId: string | null;
 
   // Generator
   isGeneratorOpen: boolean;
@@ -68,7 +69,7 @@ interface AlternativeSearchState {
   checkedNames: CheckedName[];
 
   // Actions
-  setOriginalSearch: (brand: string, classes: number[], riskLevel: RiskLevel) => void;
+  setOriginalSearch: (brand: string, classes: number[], riskLevel: RiskLevel, caseId?: string | null) => void;
   openGenerator: () => void;
   closeGenerator: () => void;
   setGeneratorTab: (tab: "ai" | "manual") => void;
@@ -93,6 +94,7 @@ const initialState = {
   originalBrand: "",
   selectedClasses: [],
   originalRiskLevel: "unknown" as RiskLevel,
+  caseId: null as string | null,
   isGeneratorOpen: false,
   generatorTab: "ai" as const,
   generatorSettings: {
@@ -113,8 +115,8 @@ const initialState = {
 export const useAlternativeSearchStore = create<AlternativeSearchState>((set, get) => ({
   ...initialState,
 
-  setOriginalSearch: (brand, classes, riskLevel) =>
-    set({ originalBrand: brand, selectedClasses: classes, originalRiskLevel: riskLevel }),
+  setOriginalSearch: (brand, classes, riskLevel, caseId = null) =>
+    set({ originalBrand: brand, selectedClasses: classes, originalRiskLevel: riskLevel, caseId }),
 
   openGenerator: () => set({ isGeneratorOpen: true }),
 

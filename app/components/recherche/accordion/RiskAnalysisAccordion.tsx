@@ -25,6 +25,7 @@ import { ShortlistComparison } from "../shortlist";
 interface RiskAnalysisAccordionProps {
   brandName: string;
   selectedClasses: number[];
+  caseId?: string | null;
   analysis: {
     overallRisk: "high" | "medium" | "low";
     riskAssessment: string;
@@ -47,6 +48,7 @@ interface RiskAnalysisAccordionProps {
 export function RiskAnalysisAccordion({
   brandName,
   selectedClasses,
+  caseId = null,
   analysis,
   conflicts,
   totalResultsAnalyzed = 0,
@@ -84,13 +86,21 @@ export function RiskAnalysisAccordion({
   const initializedRef = useRef(false);
   const lastBrandRef = useRef(brandName);
 
+  const lastCaseIdRef = useRef(caseId);
+
   useEffect(() => {
-    if (!initializedRef.current || lastBrandRef.current !== brandName) {
-      initializeSearch(brandName, selectedClasses, analysis.overallRisk);
+    const shouldReinitialize = 
+      !initializedRef.current || 
+      lastBrandRef.current !== brandName ||
+      (caseId && lastCaseIdRef.current !== caseId);
+    
+    if (shouldReinitialize) {
+      initializeSearch(brandName, selectedClasses, analysis.overallRisk, caseId);
       initializedRef.current = true;
       lastBrandRef.current = brandName;
+      lastCaseIdRef.current = caseId;
     }
-  }, [brandName, selectedClasses, analysis.overallRisk]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [brandName, selectedClasses, analysis.overallRisk, caseId, initializeSearch]);
 
   // Calculate risk score
   const riskScore = useMemo(() => {

@@ -220,8 +220,8 @@ export function useAlternativeSearch() {
 
   // Initialize with original search data
   const initializeSearch = useCallback(
-    (brand: string, classes: number[], riskLevel: "low" | "medium" | "high") => {
-      store.setOriginalSearch(brand, classes, riskLevel);
+    (brand: string, classes: number[], riskLevel: "low" | "medium" | "high", caseId?: string | null) => {
+      store.setOriginalSearch(brand, classes, riskLevel, caseId);
     },
     [store]
   );
@@ -241,13 +241,41 @@ export function useAlternativeSearch() {
 
   // Confirm selection and close modals
   const confirmSelection = useCallback(
-    () => {
-      if (store.selectedName) {
-        console.log("Confirmed selection:", store.selectedName);
-        // TODO: Save to database (caseDecisions)
-        store.closeShortlist();
-        store.closeGenerator();
+    async (): Promise<{ success: boolean; error?: string }> => {
+      if (!store.selectedName) {
+        return { success: false, error: "Kein Name ausgewählt" };
       }
+      
+      const selectedItem = store.shortlist.find(item => item.name === store.selectedName);
+      
+      if (store.caseId && selectedItem) {
+        try {
+          const response = await fetch("/api/cases/select-alternative", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              caseId: store.caseId,
+              selectedName: store.selectedName,
+              riskScore: selectedItem.riskScore,
+              conflictCount: selectedItem.conflictCount,
+              criticalCount: selectedItem.criticalCount,
+            }),
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: "Speichern fehlgeschlagen" }));
+            console.error("Failed to save selection:", errorData.error);
+            return { success: false, error: errorData.error };
+          }
+        } catch (error) {
+          console.error("Failed to save selection:", error);
+          return { success: false, error: "Netzwerkfehler beim Speichern" };
+        }
+      }
+      
+      store.closeShortlist();
+      store.closeGenerator();
+      return { success: true };
     },
     [store]
   );

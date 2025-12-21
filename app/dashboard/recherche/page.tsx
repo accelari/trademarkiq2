@@ -3622,6 +3622,7 @@ export default function RecherchePage() {
                 <RiskAnalysisAccordion
                     brandName={searchQuery || activeSearchQuery}
                     selectedClasses={aiSelectedClasses}
+                    caseId={caseId || currentCaseNumber}
                     analysis={aiAnalysis.analysis}
                     conflicts={aiAnalysis.conflicts}
                     totalResultsAnalyzed={aiAnalysis.totalResultsAnalyzed}
