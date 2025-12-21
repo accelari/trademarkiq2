@@ -49,6 +49,7 @@ import {
   Scale,
   MessageCircle,
   Mic,
+  History as HistoryIcon,
 } from "lucide-react";
 import { VoiceProvider } from "@humeai/voice-react";
 import VoiceAssistant from "@/app/components/VoiceAssistant";
@@ -3458,6 +3459,81 @@ export default function RecherchePage() {
               <span className="font-medium text-gray-700">Meine Markenfälle</span>
             </button>
           </div>
+
+          {/* Search History */}
+          {(searchHistory.length > 0 || aiAnalysis) && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <HistoryIcon className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-700">Bisherige Recherchen</span>
+                </div>
+                <button
+                  onClick={startNewSearch}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Neue Recherche
+                </button>
+              </div>
+              <div className="space-y-2">
+                {searchHistory.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => loadFromHistory(item)}
+                    className={`w-full text-left p-3 rounded-xl border transition-colors flex items-center justify-between ${
+                      activeHistoryId === item.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        item.riskLevel === 'high' ? 'bg-red-100' :
+                        item.riskLevel === 'medium' ? 'bg-amber-100' :
+                        item.riskLevel === 'low' ? 'bg-green-100' : 'bg-gray-100'
+                      }`}>
+                        {item.riskLevel === 'high' ? (
+                          <XCircle className="w-4 h-4 text-red-600" />
+                        ) : item.riskLevel === 'medium' ? (
+                          <AlertCircle className="w-4 h-4 text-amber-600" />
+                        ) : item.riskLevel === 'low' ? (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Search className="w-4 h-4 text-gray-500" />
+                        )}
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-900">{item.searchQuery}</span>
+                        <p className="text-xs text-gray-500">
+                          {item.countries.length > 2 
+                            ? `${item.countries.slice(0, 2).join(', ')} +${item.countries.length - 2}` 
+                            : item.countries.join(', ')} • Klasse{item.classes.length > 1 ? 'n' : ''} {item.classes.length > 3 
+                            ? `${item.classes.slice(0, 3).join(', ')} +${item.classes.length - 3}` 
+                            : item.classes.join(', ')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {item.riskLevel && (
+                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                          item.riskLevel === 'high' ? 'bg-red-100 text-red-700' :
+                          item.riskLevel === 'medium' ? 'bg-amber-100 text-amber-700' :
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {item.riskLevel === 'high' ? 'Hohes Risiko' :
+                           item.riskLevel === 'medium' ? 'Mittleres Risiko' : 'Niedriges Risiko'}
+                        </span>
+                      )}
+                      {item.conflictsCount > 0 && (
+                        <span className="text-xs text-gray-500">{item.conflictsCount} Konflikte</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
             {/* Collapsible Header */}
