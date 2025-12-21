@@ -1707,6 +1707,7 @@ interface SearchHistoryItem {
   aiAnalysis: AIAnalysis;
   expertAnalysis: ExpertAnalysisResponse | null;
   streamedConflicts: ExpertConflictAnalysis[];
+  nameShortlist: NameShortlistItem[];
 }
 
 export default function RecherchePage() {
@@ -1842,7 +1843,7 @@ export default function RecherchePage() {
     setRiskAnalysisSteps(prev => prev.map(s => ({ ...s, status: "pending" as const, details: undefined, progress: undefined })));
   }, []);
 
-  const saveToHistory = useCallback((analysis: AIAnalysis) => {
+  const saveToHistory = useCallback((analysis: AIAnalysis, currentExpertAnalysis?: ExpertAnalysisResponse | null, currentConflicts?: ExpertConflictAnalysis[], currentShortlist?: NameShortlistItem[]) => {
     const riskLevel = analysis.analysis?.overallRisk ?? null;
     const newItem: SearchHistoryItem = {
       id: crypto.randomUUID(),
@@ -1853,12 +1854,13 @@ export default function RecherchePage() {
       conflictsCount: analysis.conflicts?.length || 0,
       timestamp: new Date(),
       aiAnalysis: analysis,
-      expertAnalysis: expertAnalysis,
-      streamedConflicts: [...streamedConflicts],
+      expertAnalysis: currentExpertAnalysis ?? expertAnalysis,
+      streamedConflicts: currentConflicts ?? [...streamedConflicts],
+      nameShortlist: currentShortlist ?? [...nameShortlist],
     };
     setSearchHistory(prev => [newItem, ...prev]);
     setActiveHistoryId(newItem.id);
-  }, [searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses, expertAnalysis, streamedConflicts]);
+  }, [searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses, expertAnalysis, streamedConflicts, nameShortlist]);
 
   const loadFromHistory = useCallback((item: SearchHistoryItem) => {
     setSearchQuery(item.searchQuery);
@@ -1868,6 +1870,7 @@ export default function RecherchePage() {
     setAiAnalysis(item.aiAnalysis);
     setExpertAnalysis(item.expertAnalysis);
     setStreamedConflicts(item.streamedConflicts);
+    setNameShortlist(item.nameShortlist || []);
     setActiveHistoryId(item.id);
     setIsSearchFormExpanded(false);
     setIsAnalysisExpanded(false);
@@ -1875,7 +1878,7 @@ export default function RecherchePage() {
 
   const startNewSearch = useCallback(() => {
     if (aiAnalysis && activeHistoryId === null) {
-      saveToHistory(aiAnalysis);
+      saveToHistory(aiAnalysis, expertAnalysis, streamedConflicts, nameShortlist);
     }
     setSearchQuery("");
     setActiveSearchQuery("");
@@ -1889,7 +1892,7 @@ export default function RecherchePage() {
     setResultsSaved(false);
     setNameShortlist([]);
     setProgressSteps([]);
-  }, [aiAnalysis, activeHistoryId, saveToHistory]);
+  }, [aiAnalysis, activeHistoryId, saveToHistory, expertAnalysis, streamedConflicts, nameShortlist]);
 
   useEffect(() => {
     setGlobalHasUnsavedData(hasUnsavedData);
