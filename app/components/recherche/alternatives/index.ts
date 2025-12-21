@@ -1,5 +1,2 @@
-export { AlternativeGeneratorModal } from "./AlternativeGeneratorModal";
-export { AIGeneratorTab, type GeneratorSettings, type NameSuggestion, type GeneratorLanguage } from "./AIGeneratorTab";
-export { ManualEntryTab } from "./ManualEntryTab";
+export { SimpleAlternativeCards, type NameSuggestion, type QuickCheckStatus } from "./SimpleAlternativeCards";
 export { StyleSelector, type GeneratorStyle } from "./StyleSelector";
-export { NameSuggestionCard, type QuickCheckStatus } from "./NameSuggestionCard";

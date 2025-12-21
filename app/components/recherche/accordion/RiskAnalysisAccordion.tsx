@@ -19,8 +19,7 @@ import { AccordionSection } from "./AccordionSection";
 import { RiskBadge } from "../RiskBadge";
 import { ConflictCard, type ConflictingMark } from "../ConflictCard";
 import { useAlternativeSearch } from "@/app/hooks/useAlternativeSearch";
-import { AlternativeGeneratorModal } from "../alternatives";
-import { ShortlistComparison } from "../shortlist";
+import { SimpleAlternativeCards } from "../alternatives";
 
 interface RiskAnalysisAccordionProps {
   brandName: string;
@@ -40,11 +39,8 @@ interface RiskAnalysisAccordionProps {
   onContactLawyer?: () => void;
   onDownloadPDF?: () => void;
   onProceedToRegistration?: () => void;
-  // Callback when user selects an alternative name from shortlist
   onSelectAlternativeName?: (name: string) => void;
-  // Callback when user requests full analysis for a name
   onFullAnalysisRequest?: (name: string) => void;
-  // Voice assistant section (pass as children or render prop)
   voiceAssistantContent?: ReactNode;
 }
 
@@ -65,26 +61,14 @@ export function RiskAnalysisAccordion({
   voiceAssistantContent,
 }: RiskAnalysisAccordionProps) {
   const {
-    isGeneratorOpen,
-    isShortlistOpen,
-    shortlist,
-    recommendation,
-    generatorSettings,
-    openGenerator,
-    closeGenerator,
-    openShortlist,
-    closeShortlist,
+    suggestions,
+    isGenerating,
     generateAlternatives,
     quickCheck,
-    addToShortlist,
-    removeFromShortlist,
-    selectName,
-    downloadPDF,
-    startFullAnalysis,
+    clearSuggestions,
     initializeSearch,
   } = useAlternativeSearch();
 
-  // Track initialization
   const initializedRef = useRef(false);
   const lastBrandRef = useRef(brandName);
 
@@ -96,7 +80,6 @@ export function RiskAnalysisAccordion({
     }
   }, [brandName, selectedClasses, analysis.overallRisk]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Calculate risk score
   const riskScore = useMemo(() => {
     const criticalCount = conflicts.filter((c) => c.riskLevel === "high").length;
     const mediumCount = conflicts.filter((c) => c.riskLevel === "medium").length;
@@ -110,21 +93,6 @@ export function RiskAnalysisAccordion({
     }
   }, [conflicts, analysis.overallRisk]);
 
-  // Conflict counts
-  const conflictCounts = useMemo(() => ({
-    critical: conflicts.filter((c) => c.accuracy >= 80).length,
-    review: conflicts.filter((c) => c.accuracy >= 60 && c.accuracy < 80).length,
-    okay: conflicts.filter((c) => c.accuracy < 60).length,
-  }), [conflicts]);
-
-  // Top conflicts for summary
-  const topConflicts = useMemo(() => {
-    return conflicts
-      .filter((c) => c.accuracy >= 60)
-      .slice(0, 3);
-  }, [conflicts]);
-
-  // Critical classes
   const criticalClasses = useMemo(() => {
     const classConflicts = new Map<number, number>();
     conflicts
@@ -139,15 +107,6 @@ export function RiskAnalysisAccordion({
       .map(([cls]) => cls);
   }, [conflicts]);
 
-  // Cross-class conflicts
-  const crossClassConflicts = useMemo(() => {
-    if (!includeRelatedClasses) return [];
-    return conflicts.filter(c =>
-      !c.classes.some(cls => selectedClasses.includes(cls))
-    );
-  }, [conflicts, selectedClasses, includeRelatedClasses]);
-
-  // Risk color config
   const riskConfig = {
     high: {
       color: "red",
@@ -184,35 +143,13 @@ export function RiskAnalysisAccordion({
   const config = riskConfig[analysis.overallRisk];
   const RiskIcon = config.icon;
 
-  // Shortlist names for modal
-  const shortlistNames = useMemo(() => shortlist.map((item) => item.name), [shortlist]);
-
-  // Handler functions
-  const handleGenerateAlternatives = async () => {
-    return generateAlternatives(generatorSettings);
-  };
-
-  const handleQuickCheck = async (name: string) => {
-    return quickCheck(name);
-  };
-
-  const handleAddToShortlist = (name: string, data: { riskScore: number; riskLevel: string }) => {
-    addToShortlist(name, data);
-  };
-
   const handleSelectName = (name: string) => {
-    selectName(name); // Close modals
-    onSelectAlternativeName?.(name); // Trigger external callback
-  };
-
-  const handleFullAnalysis = (name: string) => {
-    closeShortlist(); // Close the modal
-    onFullAnalysisRequest?.(name); // Trigger external callback for full analysis
+    onSelectAlternativeName?.(name);
   };
 
   return (
     <div className="space-y-4">
-      {/* Risk Score Header - Always visible */}
+      {/* Risk Score Header */}
       <div className={`${config.lightBg} ${config.border} border rounded-2xl p-5 shadow-sm`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -232,7 +169,6 @@ export function RiskAnalysisAccordion({
             <div className="text-sm text-gray-500">Risiko-Score</div>
           </div>
         </div>
-
       </div>
 
       {/* Famous Mark Warning */}
@@ -248,8 +184,6 @@ export function RiskAnalysisAccordion({
         </div>
       )}
 
-      {/* Accordion Sections */}
-
       {/* 1. Conflict Overview */}
       <AccordionSection
         title="Konfliktübersicht"
@@ -259,7 +193,6 @@ export function RiskAnalysisAccordion({
         defaultOpen={true}
       >
         <div className="space-y-4">
-          {/* All Conflicts */}
           {conflicts.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -337,12 +270,10 @@ export function RiskAnalysisAccordion({
         </div>
       </AccordionSection>
 
-      {/* 3. Alternative Names */}
+      {/* 3. Alternative Names - Simplified Inline Cards */}
       <AccordionSection
         title="Alternative Namen"
         icon={Lightbulb}
-        badge={shortlist.length > 0 ? shortlist.length : undefined}
-        badgeColor="blue"
         defaultOpen={false}
       >
         <div className="space-y-4">
@@ -355,28 +286,20 @@ export function RiskAnalysisAccordion({
             }
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={openGenerator}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors"
-            >
-              <Sparkles className="w-5 h-5" />
-              KI-Namensvorschläge generieren
-            </button>
-            {shortlist.length > 0 && (
-              <button
-                onClick={openShortlist}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary/10 text-primary font-medium rounded-xl hover:bg-primary/20 transition-colors"
-              >
-                <FileText className="w-5 h-5" />
-                Shortlist anzeigen ({shortlist.length})
-              </button>
-            )}
-          </div>
+          <SimpleAlternativeCards
+            originalBrand={brandName}
+            selectedClasses={selectedClasses}
+            suggestions={suggestions}
+            isGenerating={isGenerating}
+            onGenerateAlternatives={generateAlternatives}
+            onQuickCheck={quickCheck}
+            onSelectName={handleSelectName}
+            onClearSuggestions={clearSuggestions}
+          />
         </div>
       </AccordionSection>
 
-      {/* 5. Voice Assistant (Klaus) */}
+      {/* 4. Voice Assistant (Klaus) */}
       {voiceAssistantContent && (
         <AccordionSection
           title="KI-Markenberater Klaus"
@@ -387,7 +310,7 @@ export function RiskAnalysisAccordion({
         </AccordionSection>
       )}
 
-      {/* 6. Actions */}
+      {/* 5. Actions */}
       <AccordionSection
         title="Nächste Schritte"
         icon={Shield}
@@ -430,35 +353,6 @@ export function RiskAnalysisAccordion({
           )}
         </div>
       </AccordionSection>
-
-      {/* Modals */}
-      <AlternativeGeneratorModal
-        isOpen={isGeneratorOpen}
-        onClose={closeGenerator}
-        originalBrand={brandName}
-        selectedClasses={selectedClasses}
-        shortlist={shortlistNames}
-        onOpenShortlist={openShortlist}
-        onGenerateAlternatives={handleGenerateAlternatives}
-        onQuickCheck={handleQuickCheck}
-        onAddToShortlist={handleAddToShortlist}
-        onRemoveFromShortlist={removeFromShortlist}
-      />
-
-      <ShortlistComparison
-        isOpen={isShortlistOpen}
-        onClose={closeShortlist}
-        items={shortlist}
-        recommendation={recommendation}
-        onSelectName={handleSelectName}
-        onRemoveFromShortlist={removeFromShortlist}
-        onFullAnalysis={handleFullAnalysis}
-        onAddMore={() => {
-          closeShortlist();
-          openGenerator();
-        }}
-        onDownloadPDF={downloadPDF}
-      />
     </div>
   );
 }

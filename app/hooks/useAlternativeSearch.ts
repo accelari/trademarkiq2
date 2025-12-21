@@ -3,17 +3,15 @@
 import { useCallback } from "react";
 import {
   useAlternativeSearchStore,
-  type GeneratorSettings,
-  type ShortlistItem,
+  type GeneratorStyle,
   type NameSuggestion,
 } from "@/app/stores/alternativeSearchStore";
 
 export function useAlternativeSearch() {
   const store = useAlternativeSearchStore();
 
-  // Generate alternatives via API
   const generateAlternatives = useCallback(
-    async (settings: GeneratorSettings): Promise<NameSuggestion[]> => {
+    async (style: GeneratorStyle): Promise<NameSuggestion[]> => {
       store.setIsGenerating(true);
       store.setGeneratorError(null);
 
@@ -24,9 +22,9 @@ export function useAlternativeSearch() {
           body: JSON.stringify({
             originalBrand: store.originalBrand,
             classes: store.selectedClasses,
-            style: settings.style,
-            keywords: settings.keywords,
-            language: settings.language,
+            style: style,
+            keywords: [],
+            language: "de",
             count: 5,
           }),
         });
@@ -38,7 +36,6 @@ export function useAlternativeSearch() {
 
         const data = await response.json();
         
-        // Handle smart generation response (names already checked)
         const suggestions: NameSuggestion[] = data.suggestions.map((s: {
           name: string;
           explanation: string;
@@ -54,8 +51,6 @@ export function useAlternativeSearch() {
         }));
 
         store.setSuggestions(suggestions);
-        
-        // Return the suggestions array (the modal expects an array)
         return suggestions;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Ein Fehler ist aufgetreten";
@@ -68,63 +63,10 @@ export function useAlternativeSearch() {
     [store]
   );
 
-  // Quick check a name via API
   const quickCheck = useCallback(
-    async (name: string): Promise<{ riskLevel: "low" | "medium" | "high"; riskScore: number; conflicts: number; criticalCount: number }> => {
+    async (name: string): Promise<{ riskLevel: "low" | "medium" | "high"; riskScore: number; conflicts: number }> => {
       store.updateSuggestion(name, { quickCheckStatus: "checking" });
 
-      try {
-        const response = await fetch("/api/recherche/quick-check", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name,
-            classes: store.selectedClasses,
-            countries: [], // Use defaults
-          }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Prüfung fehlgeschlagen");
-        }
-
-        const data = await response.json();
-        const result = {
-          riskLevel: data.riskLevel as "low" | "medium" | "high",
-          riskScore: data.riskScore,
-          conflicts: data.conflicts,
-          criticalCount: data.criticalCount ?? 0,
-        };
-
-        store.updateSuggestion(name, {
-          quickCheckStatus: result.riskLevel,
-          quickCheckScore: result.riskScore,
-          quickCheckConflicts: result.conflicts,
-        });
-
-        // Add to checked names history
-        store.addCheckedName({
-          name,
-          riskLevel: result.riskLevel,
-          riskScore: result.riskScore,
-          conflictCount: result.conflicts,
-          criticalCount: result.criticalCount,
-          timestamp: new Date(),
-        });
-
-        return result;
-      } catch (error) {
-        store.updateSuggestion(name, { quickCheckStatus: "error" });
-        throw error;
-      }
-    },
-    [store]
-  );
-
-  // Quick check for manual entry
-  const quickCheckManual = useCallback(
-    async (name: string): Promise<{ riskLevel: "low" | "medium" | "high"; riskScore: number; conflicts: number; criticalCount: number }> => {
       try {
         const response = await fetch("/api/recherche/quick-check", {
           method: "POST",
@@ -146,76 +88,23 @@ export function useAlternativeSearch() {
           riskLevel: data.riskLevel as "low" | "medium" | "high",
           riskScore: data.riskScore,
           conflicts: data.conflicts,
-          criticalCount: data.criticalCount ?? 0,
         };
 
-        // Add to checked names history
-        store.addCheckedName({
-          name,
-          riskLevel: result.riskLevel,
-          riskScore: result.riskScore,
-          conflictCount: result.conflicts,
-          criticalCount: result.criticalCount,
-          timestamp: new Date(),
+        store.updateSuggestion(name, {
+          quickCheckStatus: result.riskLevel,
+          quickCheckScore: result.riskScore,
+          quickCheckConflicts: result.conflicts,
         });
 
         return result;
       } catch (error) {
+        store.updateSuggestion(name, { quickCheckStatus: "error" });
         throw error;
       }
     },
     [store]
   );
 
-  // Add to shortlist
-  const addToShortlist = useCallback(
-    (name: string, data: { riskScore: number; riskLevel: string; conflicts?: number; criticalCount?: number }) => {
-      const item: ShortlistItem = {
-        name,
-        riskScore: data.riskScore,
-        riskLevel: data.riskLevel as "low" | "medium" | "high" | "unknown",
-        conflictCount: data.conflicts ?? 0,
-        criticalCount: data.criticalCount ?? 0,
-        domainDe: "unknown",
-        domainCom: "unknown",
-        pronunciation: 4, // Default to 4 stars
-        aiTip: "Prüfung abgeschlossen",
-        hasFullAnalysis: false,
-      };
-      store.addToShortlist(item);
-    },
-    [store]
-  );
-
-  // Remove from shortlist
-  const removeFromShortlist = useCallback(
-    (name: string) => {
-      store.removeFromShortlist(name);
-    },
-    [store]
-  );
-
-  // Open generator modal
-  const openGenerator = useCallback(() => {
-    store.openGenerator();
-  }, [store]);
-
-  // Close generator modal
-  const closeGenerator = useCallback(() => {
-    store.closeGenerator();
-  }, [store]);
-
-  // Open shortlist modal
-  const openShortlist = useCallback(() => {
-    store.openShortlist();
-  }, [store]);
-
-  // Close shortlist modal
-  const closeShortlist = useCallback(() => {
-    store.closeShortlist();
-  }, [store]);
-
-  // Initialize with original search data
   const initializeSearch = useCallback(
     (brand: string, classes: number[], riskLevel: "low" | "medium" | "high") => {
       store.setOriginalSearch(brand, classes, riskLevel);
@@ -223,59 +112,17 @@ export function useAlternativeSearch() {
     [store]
   );
 
-  // Select a name and proceed
-  const selectName = useCallback(
-    (name: string) => {
-      // This would typically navigate or perform an action
-      console.log("Selected name:", name);
-      store.closeShortlist();
-      store.closeGenerator();
-    },
-    [store]
-  );
-
-  // Download PDF (placeholder)
-  const downloadPDF = useCallback(() => {
-    console.log("Download PDF - to be implemented");
-  }, []);
-
-  // Full analysis (placeholder)
-  const startFullAnalysis = useCallback((name: string) => {
-    console.log("Start full analysis for:", name);
-  }, []);
-
   return {
-    // State
     originalBrand: store.originalBrand,
     selectedClasses: store.selectedClasses,
     originalRiskLevel: store.originalRiskLevel,
-    isGeneratorOpen: store.isGeneratorOpen,
-    generatorTab: store.generatorTab,
-    generatorSettings: store.generatorSettings,
     suggestions: store.suggestions,
     isGenerating: store.isGenerating,
     generatorError: store.generatorError,
-    shortlist: store.shortlist,
-    isShortlistOpen: store.isShortlistOpen,
-    recommendation: store.recommendation,
-    checkedNames: store.checkedNames,
 
-    // Actions
     initializeSearch,
-    openGenerator,
-    closeGenerator,
-    setGeneratorTab: store.setGeneratorTab,
-    setGeneratorSettings: store.setGeneratorSettings,
     generateAlternatives,
     quickCheck,
-    quickCheckManual,
-    addToShortlist,
-    removeFromShortlist,
-    openShortlist,
-    closeShortlist,
-    selectName,
-    downloadPDF,
-    startFullAnalysis,
     clearSuggestions: store.clearSuggestions,
     reset: store.reset,
   };
