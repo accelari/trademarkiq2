@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Plus, FileDown, ArrowLeft } from "lucide-react";
+import { X, Plus, FileDown, ArrowLeft, Check } from "lucide-react";
 import { ComparisonTable, type ShortlistItem } from "./ComparisonTable";
 import { MobileShortlistCarousel } from "./MobileShortlistCarousel";
 import { AIRecommendation } from "./AIRecommendation";
@@ -16,7 +16,9 @@ interface ShortlistComparisonProps {
   onClose: () => void;
   items: ShortlistItem[];
   recommendation: Recommendation | null;
+  selectedName: string | null;
   onSelectName: (name: string) => void;
+  onConfirmSelection: () => void;
   onRemoveFromShortlist: (name: string) => void;
   onFullAnalysis: (name: string) => void;
   onAddMore: () => void;
@@ -28,7 +30,9 @@ export function ShortlistComparison({
   onClose,
   items,
   recommendation,
+  selectedName,
   onSelectName,
+  onConfirmSelection,
   onRemoveFromShortlist,
   onFullAnalysis,
   onAddMore,
@@ -78,6 +82,7 @@ export function ShortlistComparison({
           {isMobile ? (
             <MobileShortlistCarousel
               items={items}
+              selectedName={selectedName}
               onSelectName={onSelectName}
               onRemoveFromShortlist={onRemoveFromShortlist}
               onFullAnalysis={onFullAnalysis}
@@ -85,6 +90,7 @@ export function ShortlistComparison({
           ) : (
             <ComparisonTable
               items={items}
+              selectedName={selectedName}
               onSelectName={onSelectName}
               onRemoveFromShortlist={onRemoveFromShortlist}
               onFullAnalysis={onFullAnalysis}
@@ -110,13 +116,24 @@ export function ShortlistComparison({
             <Plus className="w-4 h-4" />
             Weitere Namen hinzufügen
           </button>
-          <button
-            onClick={onDownloadPDF}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
-          >
-            <FileDown className="w-4 h-4" />
-            Vergleich als PDF
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onDownloadPDF}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
+            >
+              <FileDown className="w-4 h-4" />
+              Vergleich als PDF
+            </button>
+            {selectedName && (
+              <button
+                onClick={onConfirmSelection}
+                className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors shadow-lg"
+              >
+                <Check className="w-4 h-4" />
+                "{selectedName}" übernehmen
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

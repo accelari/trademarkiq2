@@ -6,6 +6,7 @@ import type { ShortlistItem } from "./ComparisonTable";
 
 interface MobileShortlistCarouselProps {
   items: ShortlistItem[];
+  selectedName: string | null;
   onSelectName: (name: string) => void;
   onRemoveFromShortlist: (name: string) => void;
   onFullAnalysis: (name: string) => void;
@@ -50,6 +51,7 @@ function PronunciationStars({ rating }: { rating: number }) {
 
 export function MobileShortlistCarousel({
   items,
+  selectedName,
   onSelectName,
   onRemoveFromShortlist,
   onFullAnalysis,

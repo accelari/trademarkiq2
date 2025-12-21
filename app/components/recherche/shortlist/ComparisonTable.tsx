@@ -17,6 +17,7 @@ export interface ShortlistItem {
 
 interface ComparisonTableProps {
   items: ShortlistItem[];
+  selectedName: string | null;
   onSelectName: (name: string) => void;
   onRemoveFromShortlist: (name: string) => void;
   onFullAnalysis: (name: string) => void;
@@ -66,6 +67,7 @@ function PronunciationStars({ rating }: { rating: number }) {
 
 export function ComparisonTable({
   items,
+  selectedName,
   onSelectName,
   onRemoveFromShortlist,
   onFullAnalysis,
@@ -85,11 +87,26 @@ export function ComparisonTable({
         <thead>
           <tr className="border-b border-gray-200">
             <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Merkmal</th>
-            {items.map((item) => (
-              <th key={item.name} className="text-center py-3 px-4 min-w-[140px]">
-                <span className="font-semibold text-gray-900">{item.name}</span>
-              </th>
-            ))}
+            {items.map((item) => {
+              const isSelected = selectedName === item.name;
+              return (
+                <th 
+                  key={item.name} 
+                  className={`text-center py-3 px-4 min-w-[140px] transition-colors ${
+                    isSelected ? "bg-primary/10" : ""
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <span className={`font-semibold ${isSelected ? "text-primary" : "text-gray-900"}`}>
+                      {item.name}
+                    </span>
+                    {isSelected && (
+                      <span className="text-xs text-primary font-medium">Ausgewählt</span>
+                    )}
+                  </div>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -176,34 +193,41 @@ export function ComparisonTable({
           {/* Actions */}
           <tr>
             <td className="py-4 px-4"></td>
-            {items.map((item) => (
-              <td key={item.name} className="py-4 px-4">
-                <div className="flex flex-col gap-2">
-                  {!item.hasFullAnalysis && (
+            {items.map((item) => {
+              const isSelected = selectedName === item.name;
+              return (
+                <td key={item.name} className={`py-4 px-4 ${isSelected ? "bg-primary/10" : ""}`}>
+                  <div className="flex flex-col gap-2">
+                    {!item.hasFullAnalysis && (
+                      <button
+                        onClick={() => onFullAnalysis(item.name)}
+                        className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors"
+                      >
+                        <BarChart3 className="w-3 h-3" />
+                        Vollanalyse
+                      </button>
+                    )}
                     <button
-                      onClick={() => onFullAnalysis(item.name)}
-                      className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors"
+                      onClick={() => onSelectName(item.name)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                        isSelected 
+                          ? "bg-green-600 text-white ring-2 ring-green-300" 
+                          : "bg-primary text-white hover:bg-primary/90"
+                      }`}
                     >
-                      <BarChart3 className="w-3 h-3" />
-                      Vollanalyse
+                      {isSelected ? "✓ Ausgewählt" : "Wählen"}
                     </button>
-                  )}
-                  <button
-                    onClick={() => onSelectName(item.name)}
-                    className="px-3 py-1.5 text-xs font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
-                  >
-                    Wählen
-                  </button>
-                  <button
-                    onClick={() => onRemoveFromShortlist(item.name)}
-                    className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    Entfernen
-                  </button>
-                </div>
-              </td>
-            ))}
+                    <button
+                      onClick={() => onRemoveFromShortlist(item.name)}
+                      className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Entfernen
+                    </button>
+                  </div>
+                </td>
+              );
+            })}
           </tr>
         </tbody>
       </table>

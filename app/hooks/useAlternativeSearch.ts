@@ -45,12 +45,14 @@ export function useAlternativeSearch() {
           quickCheckStatus?: string;
           quickCheckScore?: number;
           quickCheckConflicts?: number;
+          quickCheckCriticalCount?: number;
         }) => ({
           name: s.name,
           explanation: s.explanation,
           quickCheckStatus: (s.quickCheckStatus || "idle") as "idle" | "checking" | "low" | "medium" | "high" | "error",
           quickCheckScore: s.quickCheckScore,
           quickCheckConflicts: s.quickCheckConflicts,
+          quickCheckCriticalCount: s.quickCheckCriticalCount,
         }));
 
         store.setSuggestions(suggestions);
@@ -101,6 +103,7 @@ export function useAlternativeSearch() {
           quickCheckStatus: result.riskLevel,
           quickCheckScore: result.riskScore,
           quickCheckConflicts: result.conflicts,
+          quickCheckCriticalCount: result.criticalCount,
         });
 
         // Add to checked names history
@@ -223,13 +226,28 @@ export function useAlternativeSearch() {
     [store]
   );
 
-  // Select a name and proceed
+  // Select a name (highlight it in shortlist)
   const selectName = useCallback(
     (name: string) => {
-      // This would typically navigate or perform an action
-      console.log("Selected name:", name);
-      store.closeShortlist();
-      store.closeGenerator();
+      // Toggle selection - if already selected, deselect
+      if (store.selectedName === name) {
+        store.setSelectedName(null);
+      } else {
+        store.setSelectedName(name);
+      }
+    },
+    [store]
+  );
+
+  // Confirm selection and close modals
+  const confirmSelection = useCallback(
+    () => {
+      if (store.selectedName) {
+        console.log("Confirmed selection:", store.selectedName);
+        // TODO: Save to database (caseDecisions)
+        store.closeShortlist();
+        store.closeGenerator();
+      }
     },
     [store]
   );
@@ -258,6 +276,7 @@ export function useAlternativeSearch() {
     shortlist: store.shortlist,
     isShortlistOpen: store.isShortlistOpen,
     recommendation: store.recommendation,
+    selectedName: store.selectedName,
     checkedNames: store.checkedNames,
 
     // Actions
@@ -274,6 +293,7 @@ export function useAlternativeSearch() {
     openShortlist,
     closeShortlist,
     selectName,
+    confirmSelection,
     downloadPDF,
     startFullAnalysis,
     clearSuggestions: store.clearSuggestions,

@@ -63,6 +63,7 @@ export function RiskAnalysisAccordion({
     isShortlistOpen,
     shortlist,
     recommendation,
+    selectedName,
     generatorSettings,
     openGenerator,
     closeGenerator,
@@ -73,6 +74,7 @@ export function RiskAnalysisAccordion({
     addToShortlist,
     removeFromShortlist,
     selectName,
+    confirmSelection,
     downloadPDF,
     startFullAnalysis,
     initializeSearch,
@@ -434,7 +436,9 @@ export function RiskAnalysisAccordion({
         onClose={closeShortlist}
         items={shortlist}
         recommendation={recommendation}
+        selectedName={selectedName}
         onSelectName={selectName}
+        onConfirmSelection={confirmSelection}
         onRemoveFromShortlist={removeFromShortlist}
         onFullAnalysis={startFullAnalysis}
         onAddMore={() => {

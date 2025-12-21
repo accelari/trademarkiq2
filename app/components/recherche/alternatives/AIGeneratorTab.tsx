@@ -18,6 +18,7 @@ export interface NameSuggestion {
   quickCheckStatus: QuickCheckStatus;
   quickCheckScore?: number;
   quickCheckConflicts?: number;
+  quickCheckCriticalCount?: number;
 }
 
 interface AIGeneratorTabProps {

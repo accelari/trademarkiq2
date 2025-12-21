@@ -13,6 +13,7 @@ export interface NameSuggestion {
   quickCheckStatus: QuickCheckStatus;
   quickCheckScore?: number;
   quickCheckConflicts?: number;
+  quickCheckCriticalCount?: number;
 }
 
 export interface ShortlistItem {
@@ -61,6 +62,7 @@ interface AlternativeSearchState {
   shortlist: ShortlistItem[];
   isShortlistOpen: boolean;
   recommendation: { name: string; reasons: string[] } | null;
+  selectedName: string | null;
 
   // History
   checkedNames: CheckedName[];
@@ -81,6 +83,7 @@ interface AlternativeSearchState {
   openShortlist: () => void;
   closeShortlist: () => void;
   setRecommendation: (recommendation: { name: string; reasons: string[] } | null) => void;
+  setSelectedName: (name: string | null) => void;
   addCheckedName: (checked: CheckedName) => void;
   clearSuggestions: () => void;
   reset: () => void;
@@ -103,6 +106,7 @@ const initialState = {
   shortlist: [],
   isShortlistOpen: false,
   recommendation: null,
+  selectedName: null,
   checkedNames: [],
 };
 
@@ -184,6 +188,8 @@ export const useAlternativeSearchStore = create<AlternativeSearchState>((set, ge
   closeShortlist: () => set({ isShortlistOpen: false }),
 
   setRecommendation: (recommendation) => set({ recommendation }),
+
+  setSelectedName: (name) => set({ selectedName: name }),
 
   addCheckedName: (checked) =>
     set((state) => ({

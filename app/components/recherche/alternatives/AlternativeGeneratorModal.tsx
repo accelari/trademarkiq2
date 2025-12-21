@@ -11,6 +11,8 @@ interface CheckedName {
   name: string;
   riskLevel: "low" | "medium" | "high";
   riskScore: number;
+  conflictCount: number;
+  criticalCount: number;
   timestamp: Date;
 }
 
@@ -23,7 +25,7 @@ interface AlternativeGeneratorModalProps {
   onOpenShortlist: () => void;
   // Callbacks
   onGenerateAlternatives: (settings: GeneratorSettings) => Promise<NameSuggestion[]>;
-  onQuickCheck: (name: string) => Promise<{ riskLevel: "low" | "medium" | "high"; riskScore: number; conflicts: number }>;
+  onQuickCheck: (name: string) => Promise<{ riskLevel: "low" | "medium" | "high"; riskScore: number; conflicts: number; criticalCount: number }>;
   onAddToShortlist: (name: string, data: { riskScore: number; riskLevel: string; conflicts?: number; criticalCount?: number }) => void;
   onRemoveFromShortlist: (name: string) => void;
 }
@@ -97,6 +99,7 @@ export function AlternativeGeneratorModal({
                 quickCheckStatus: result.riskLevel,
                 quickCheckScore: result.riskScore,
                 quickCheckConflicts: result.conflicts,
+                quickCheckCriticalCount: result.criticalCount,
               }
             : s
         )
@@ -115,7 +118,14 @@ export function AlternativeGeneratorModal({
     try {
       const result = await onQuickCheck(name);
       setCheckedNames((prev) => [
-        { name, riskLevel: result.riskLevel, riskScore: result.riskScore, timestamp: new Date() },
+        { 
+          name, 
+          riskLevel: result.riskLevel, 
+          riskScore: result.riskScore, 
+          conflictCount: result.conflicts,
+          criticalCount: result.criticalCount,
+          timestamp: new Date() 
+        },
         ...prev,
       ]);
     } catch (error) {
@@ -135,6 +145,7 @@ export function AlternativeGeneratorModal({
           riskScore: suggestion.quickCheckScore || 0,
           riskLevel: suggestion.quickCheckStatus || "idle",
           conflicts: suggestion.quickCheckConflicts || 0,
+          criticalCount: suggestion.quickCheckCriticalCount || 0,
         });
       }
     }
