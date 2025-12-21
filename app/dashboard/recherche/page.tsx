@@ -72,6 +72,7 @@ import {
   ExecutiveSummaryView,
   RiskAnalysisAccordion,
 } from "@/app/components/recherche";
+import { useAlternativeSearch } from "@/app/hooks/useAlternativeSearch";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -1773,6 +1774,8 @@ interface SearchHistoryItem {
   expertAnalysis: ExpertAnalysisResponse | null;
   streamedConflicts: ExpertConflictAnalysis[];
   nameShortlist: NameShortlistItem[];
+  caseId?: string | null;
+  caseNumber?: string | null;
 }
 
 export default function RecherchePage() {
@@ -1780,6 +1783,9 @@ export default function RecherchePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const caseId = searchParams.get("caseId");
+  
+  // Alternative names store reset
+  const { reset: resetAlternativeStore } = useAlternativeSearch();
 
   const [prefillData, setPrefillData] = useState<PrefillData | null>(null);
   const [prefillLoading, setPrefillLoading] = useState(false);
@@ -1893,6 +1899,10 @@ export default function RecherchePage() {
   
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+  const [previewHistoryId, setPreviewHistoryId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [creatingCaseForId, setCreatingCaseForId] = useState<string | null>(null);
   
   const hasUnsavedData = aiAnalysis !== null && !resultsSaved;
   
@@ -1927,7 +1937,20 @@ export default function RecherchePage() {
     setActiveHistoryId(newItem.id);
   }, [searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses, expertAnalysis, streamedConflicts, nameShortlist]);
 
+  const togglePreviewHistory = useCallback((item: SearchHistoryItem) => {
+    if (previewHistoryId === item.id) {
+      // Close preview if clicking the same item
+      setPreviewHistoryId(null);
+    } else {
+      // Open preview for this item
+      setPreviewHistoryId(item.id);
+    }
+  }, [previewHistoryId]);
+
   const loadFromHistory = useCallback((item: SearchHistoryItem) => {
+    // Reset alternative names store when loading different search
+    resetAlternativeStore();
+    
     setSearchQuery(item.searchQuery);
     setActiveSearchQuery(item.searchQuery);
     setSelectedLaender(item.countries);
@@ -1937,14 +1960,84 @@ export default function RecherchePage() {
     setStreamedConflicts(item.streamedConflicts);
     setNameShortlist(item.nameShortlist || []);
     setActiveHistoryId(item.id);
+    setPreviewHistoryId(null);
     setIsSearchFormExpanded(false);
     setIsAnalysisExpanded(false);
+  }, [resetAlternativeStore]);
+
+  const confirmDeleteHistory = useCallback((itemId: string) => {
+    setDeleteTargetId(itemId);
+    setShowDeleteConfirm(true);
+  }, []);
+
+  const executeDeleteHistory = useCallback(() => {
+    if (deleteTargetId) {
+      setSearchHistory(prev => prev.filter(item => item.id !== deleteTargetId));
+      if (activeHistoryId === deleteTargetId) {
+        setActiveHistoryId(null);
+        setAiAnalysis(null);
+        setExpertAnalysis(null);
+        setStreamedConflicts([]);
+      }
+      if (previewHistoryId === deleteTargetId) {
+        setPreviewHistoryId(null);
+      }
+    }
+    setShowDeleteConfirm(false);
+    setDeleteTargetId(null);
+  }, [deleteTargetId, activeHistoryId, previewHistoryId]);
+
+  const cancelDeleteHistory = useCallback(() => {
+    setShowDeleteConfirm(false);
+    setDeleteTargetId(null);
+  }, []);
+
+  const createCaseForHistory = useCallback(async (item: SearchHistoryItem) => {
+    setCreatingCaseForId(item.id);
+    try {
+      const response = await fetch("/api/cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trademarkName: item.searchQuery,
+          skipBeratung: true,
+          completeRecherche: true,
+          searchData: {
+            query: item.searchQuery,
+            countries: item.countries,
+            classes: item.classes,
+            conflictsCount: item.aiAnalysis?.conflicts?.length || 0,
+            totalAnalyzed: item.aiAnalysis?.totalResultsAnalyzed || 0,
+          },
+        }),
+      });
+      
+      if (response.ok) {
+        const caseData = await response.json();
+        const newCaseId = caseData.case?.id;
+        const newCaseNumber = caseData.case?.caseNumber || caseData.case?.id;
+        
+        // Update the history item with the new case info
+        setSearchHistory(prev => prev.map(h => 
+          h.id === item.id 
+            ? { ...h, caseId: newCaseId, caseNumber: newCaseNumber }
+            : h
+        ));
+      }
+    } catch (error) {
+      console.error("Error creating case:", error);
+    } finally {
+      setCreatingCaseForId(null);
+    }
   }, []);
 
   const startNewSearch = useCallback(() => {
     if (aiAnalysis && activeHistoryId === null) {
       saveToHistory(aiAnalysis, expertAnalysis, streamedConflicts, nameShortlist);
     }
+    // Reset alternative names store for new search
+    resetAlternativeStore();
+    
     setSearchQuery("");
     setActiveSearchQuery("");
     setAiAnalysis(null);
@@ -1957,7 +2050,7 @@ export default function RecherchePage() {
     setResultsSaved(false);
     setNameShortlist([]);
     setProgressSteps([]);
-  }, [aiAnalysis, activeHistoryId, saveToHistory, expertAnalysis, streamedConflicts, nameShortlist]);
+  }, [aiAnalysis, activeHistoryId, saveToHistory, expertAnalysis, streamedConflicts, nameShortlist, resetAlternativeStore]);
 
   useEffect(() => {
     setGlobalHasUnsavedData(hasUnsavedData);
@@ -3528,6 +3621,40 @@ export default function RecherchePage() {
             </button>
           </div>
 
+          {/* Delete Confirmation Modal */}
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={cancelDeleteHistory}>
+              <div 
+                className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                    <Trash2 className="w-6 h-6 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Recherche löschen?</h3>
+                    <p className="text-sm text-gray-500">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={cancelDeleteHistory}
+                    className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    onClick={executeDeleteHistory}
+                    className="flex-1 px-4 py-2.5 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors"
+                  >
+                    Löschen
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Search History */}
           {(searchHistory.length > 0 || aiAnalysis) && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
@@ -3546,58 +3673,191 @@ export default function RecherchePage() {
               </div>
               <div className="space-y-2">
                 {searchHistory.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => loadFromHistory(item)}
-                    className={`w-full text-left p-3 rounded-xl border transition-colors flex items-center justify-between ${
-                      activeHistoryId === item.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        item.riskLevel === 'high' ? 'bg-red-100' :
-                        item.riskLevel === 'medium' ? 'bg-amber-100' :
-                        item.riskLevel === 'low' ? 'bg-green-100' : 'bg-gray-100'
-                      }`}>
-                        {item.riskLevel === 'high' ? (
-                          <XCircle className="w-4 h-4 text-red-600" />
-                        ) : item.riskLevel === 'medium' ? (
-                          <AlertCircle className="w-4 h-4 text-amber-600" />
-                        ) : item.riskLevel === 'low' ? (
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <Search className="w-4 h-4 text-gray-500" />
-                        )}
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-900">{item.searchQuery}</span>
-                        <p className="text-xs text-gray-500">
-                          {item.countries.length > 2 
-                            ? `${item.countries.slice(0, 2).join(', ')} +${item.countries.length - 2}` 
-                            : item.countries.join(', ')} • Klasse{item.classes.length > 1 ? 'n' : ''} {item.classes.length > 3 
-                            ? `${item.classes.slice(0, 3).join(', ')} +${item.classes.length - 3}` 
-                            : item.classes.join(', ')}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {item.riskLevel && (
-                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                          item.riskLevel === 'high' ? 'bg-red-100 text-red-700' :
-                          item.riskLevel === 'medium' ? 'bg-amber-100 text-amber-700' :
-                          'bg-green-100 text-green-700'
+                  <div key={item.id} className="transition-all duration-300">
+                    {/* History Item Row */}
+                    <button
+                      onClick={() => togglePreviewHistory(item)}
+                      className={`w-full text-left p-3 rounded-xl border transition-all duration-200 flex items-center justify-between group ${
+                        activeHistoryId === item.id
+                          ? 'border-primary bg-primary/5'
+                          : previewHistoryId === item.id
+                          ? 'border-primary/50 bg-primary/5'
+                          : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {/* Chevron indicator */}
+                        <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ${
+                          previewHistoryId === item.id ? 'rotate-90' : ''
+                        }`} />
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          item.riskLevel === 'high' ? 'bg-red-100' :
+                          item.riskLevel === 'medium' ? 'bg-amber-100' :
+                          item.riskLevel === 'low' ? 'bg-green-100' : 'bg-gray-100'
                         }`}>
-                          {item.riskLevel === 'high' ? 'Hohes Risiko' :
-                           item.riskLevel === 'medium' ? 'Mittleres Risiko' : 'Niedriges Risiko'}
-                        </span>
-                      )}
-                      {item.conflictsCount > 0 && (
-                        <span className="text-xs text-gray-500">{item.conflictsCount} Konflikte</span>
-                      )}
+                          {item.riskLevel === 'high' ? (
+                            <XCircle className="w-4 h-4 text-red-600" />
+                          ) : item.riskLevel === 'medium' ? (
+                            <AlertCircle className="w-4 h-4 text-amber-600" />
+                          ) : item.riskLevel === 'low' ? (
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Search className="w-4 h-4 text-gray-500" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium text-gray-900 truncate block">{item.searchQuery}</span>
+                          <p className="text-xs text-gray-500 truncate">
+                            {item.countries.length > 2 
+                              ? `${item.countries.slice(0, 2).join(', ')} +${item.countries.length - 2}` 
+                              : item.countries.join(', ')} • Klasse{item.classes.length > 1 ? 'n' : ''} {item.classes.length > 3 
+                              ? `${item.classes.slice(0, 3).join(', ')} +${item.classes.length - 3}` 
+                              : item.classes.join(', ')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* Case Status Badge */}
+                        {item.caseNumber ? (
+                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                            Fall {item.caseNumber}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 hidden sm:inline">Kein Fall</span>
+                        )}
+                        {/* Risk Level Badge */}
+                        {item.riskLevel && (
+                          <span className={`text-xs font-medium px-2 py-1 rounded-full hidden sm:inline-flex ${
+                            item.riskLevel === 'high' ? 'bg-red-100 text-red-700' :
+                            item.riskLevel === 'medium' ? 'bg-amber-100 text-amber-700' :
+                            'bg-green-100 text-green-700'
+                          }`}>
+                            {item.riskLevel === 'high' ? 'Hohes Risiko' :
+                             item.riskLevel === 'medium' ? 'Mittleres Risiko' : 'Niedriges Risiko'}
+                          </span>
+                        )}
+                        {/* Delete Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            confirmDeleteHistory(item.id);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                          title="Recherche löschen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </button>
+
+                    {/* Preview Card (expandable) */}
+                    <div 
+                      className="grid transition-all duration-300 ease-in-out"
+                      style={{ gridTemplateRows: previewHistoryId === item.id ? '1fr' : '0fr' }}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="mt-2 p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+                          {/* Preview Header */}
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-semibold text-gray-900 text-lg">{item.searchQuery}</h4>
+                              <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                                <Clock className="w-3.5 h-3.5" />
+                                {item.timestamp ? new Date(item.timestamp).toLocaleString('de-DE', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : 'Unbekannt'}
+                              </p>
+                            </div>
+                            {item.riskLevel && (
+                              <span className={`text-sm font-medium px-3 py-1.5 rounded-full ${
+                                item.riskLevel === 'high' ? 'bg-red-100 text-red-700' :
+                                item.riskLevel === 'medium' ? 'bg-amber-100 text-amber-700' :
+                                'bg-green-100 text-green-700'
+                              }`}>
+                                {item.riskLevel === 'high' ? 'Hohes Risiko' :
+                                 item.riskLevel === 'medium' ? 'Mittleres Risiko' : 'Niedriges Risiko'}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Preview Details */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <Globe className="w-4 h-4 text-gray-400" />
+                              <span>{item.countries.length} {item.countries.length === 1 ? 'Land' : 'Länder'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <Tag className="w-4 h-4 text-gray-400" />
+                              <span>{item.classes.length} Klasse{item.classes.length > 1 ? 'n' : ''}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <AlertTriangle className="w-4 h-4 text-gray-400" />
+                              <span>{item.conflictsCount} Konflikte</span>
+                            </div>
+                          </div>
+
+                          {/* Case Badge / Create Case */}
+                          <div className="pt-2 border-t border-gray-200">
+                            {item.caseId || item.caseNumber ? (
+                              <div className="flex items-center gap-2 text-sm">
+                                <FolderOpen className="w-4 h-4 text-blue-600" />
+                                <span className="text-gray-700">Verknüpft mit <span className="font-medium text-blue-600">Fall {item.caseNumber || item.caseId}</span></span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  createCaseForHistory(item);
+                                }}
+                                disabled={creatingCaseForId === item.id}
+                                className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50"
+                              >
+                                {creatingCaseForId === item.id ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Fall wird erstellt...
+                                  </>
+                                ) : (
+                                  <>
+                                    <FilePlus className="w-4 h-4" />
+                                    Fall erstellen
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-2 pt-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                loadFromHistory(item);
+                              }}
+                              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors"
+                            >
+                              <Eye className="w-4 h-4" />
+                              Details öffnen
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                confirmDeleteHistory(item.id);
+                              }}
+                              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 font-medium rounded-xl hover:bg-red-100 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Löschen
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
