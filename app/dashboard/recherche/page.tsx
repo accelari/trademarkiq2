@@ -1695,6 +1695,19 @@ interface PrefillData {
   missingFields?: string[];
 }
 
+interface SearchHistoryItem {
+  id: string;
+  searchQuery: string;
+  countries: string[];
+  classes: number[];
+  riskScore: number | null;
+  conflictsCount: number;
+  timestamp: Date;
+  aiAnalysis: AIAnalysis;
+  expertAnalysis: ExpertAnalysisResponse | null;
+  streamedConflicts: ExpertConflictAnalysis[];
+}
+
 export default function RecherchePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -1810,6 +1823,9 @@ export default function RecherchePage() {
   const [klausAccessToken, setKlausAccessToken] = useState<string | null>(null);
   const [klausTokenLoading, setKlausTokenLoading] = useState(false);
   const [klausTokenError, setKlausTokenError] = useState<string | null>(null);
+  
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
   
   const hasUnsavedData = aiAnalysis !== null && !resultsSaved;
   
