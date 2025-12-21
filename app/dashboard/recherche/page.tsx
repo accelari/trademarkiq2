@@ -3420,7 +3420,7 @@ export default function RecherchePage() {
               className="grid transition-all duration-300 ease-in-out"
               style={{ gridTemplateRows: isSearchFormExpanded ? '1fr' : '0fr' }}
             >
-              <div className={`overflow-hidden ${isSearchFormExpanded ? 'overflow-visible' : ''}`}>
+              <div style={{ overflow: isSearchFormExpanded ? 'visible' : 'hidden' }}>
               <div className="p-6 pt-2 space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
