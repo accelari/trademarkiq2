@@ -55,13 +55,8 @@ export function useAlternativeSearch() {
 
         store.setSuggestions(suggestions);
         
-        // Return extra info for UI to display
-        return {
-          suggestions,
-          smartGeneration: data.smartGeneration || false,
-          smartGenerationMessage: data.smartGenerationMessage || "",
-          stats: data.stats,
-        } as unknown as NameSuggestion[];
+        // Return the suggestions array (the modal expects an array)
+        return suggestions;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Ein Fehler ist aufgetreten";
         store.setGeneratorError(message);
