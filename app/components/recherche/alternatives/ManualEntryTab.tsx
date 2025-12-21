@@ -7,6 +7,8 @@ interface CheckedName {
   name: string;
   riskLevel: "low" | "medium" | "high";
   riskScore: number;
+  conflictCount: number;
+  criticalCount: number;
   timestamp: Date;
 }
 
@@ -16,7 +18,7 @@ interface ManualEntryTabProps {
   isChecking: boolean;
   shortlist: string[];
   onQuickCheck: (name: string) => void;
-  onAddToShortlist: (name: string, data: { riskScore: number; riskLevel: string }) => void;
+  onAddToShortlist: (name: string, data: { riskScore: number; riskLevel: string; conflicts?: number; criticalCount?: number }) => void;
   onRemoveFromShortlist: (name: string) => void;
 }
 
@@ -155,7 +157,9 @@ export function ManualEntryTab({
                 <button
                   onClick={() => onAddToShortlist(latestCheck.name, { 
                     riskScore: latestCheck.riskScore, 
-                    riskLevel: latestCheck.riskLevel 
+                    riskLevel: latestCheck.riskLevel,
+                    conflicts: latestCheck.conflictCount,
+                    criticalCount: latestCheck.criticalCount
                   })}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg hover:shadow-xl"
                 >
@@ -207,7 +211,9 @@ export function ManualEntryTab({
                     <button
                       onClick={() => onAddToShortlist(checked.name, { 
                         riskScore: checked.riskScore, 
-                        riskLevel: checked.riskLevel 
+                        riskLevel: checked.riskLevel,
+                        conflicts: checked.conflictCount,
+                        criticalCount: checked.criticalCount
                       })}
                       className="text-xs text-gray-500 hover:text-primary flex items-center gap-1"
                     >

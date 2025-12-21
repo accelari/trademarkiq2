@@ -70,7 +70,7 @@ export function useAlternativeSearch() {
 
   // Quick check a name via API
   const quickCheck = useCallback(
-    async (name: string): Promise<{ riskLevel: "low" | "medium" | "high"; riskScore: number; conflicts: number }> => {
+    async (name: string): Promise<{ riskLevel: "low" | "medium" | "high"; riskScore: number; conflicts: number; criticalCount: number }> => {
       store.updateSuggestion(name, { quickCheckStatus: "checking" });
 
       try {
@@ -94,6 +94,7 @@ export function useAlternativeSearch() {
           riskLevel: data.riskLevel as "low" | "medium" | "high",
           riskScore: data.riskScore,
           conflicts: data.conflicts,
+          criticalCount: data.criticalCount ?? 0,
         };
 
         store.updateSuggestion(name, {
@@ -107,6 +108,8 @@ export function useAlternativeSearch() {
           name,
           riskLevel: result.riskLevel,
           riskScore: result.riskScore,
+          conflictCount: result.conflicts,
+          criticalCount: result.criticalCount,
           timestamp: new Date(),
         });
 
@@ -121,7 +124,7 @@ export function useAlternativeSearch() {
 
   // Quick check for manual entry
   const quickCheckManual = useCallback(
-    async (name: string): Promise<{ riskLevel: "low" | "medium" | "high"; riskScore: number; conflicts: number }> => {
+    async (name: string): Promise<{ riskLevel: "low" | "medium" | "high"; riskScore: number; conflicts: number; criticalCount: number }> => {
       try {
         const response = await fetch("/api/recherche/quick-check", {
           method: "POST",
@@ -143,6 +146,7 @@ export function useAlternativeSearch() {
           riskLevel: data.riskLevel as "low" | "medium" | "high",
           riskScore: data.riskScore,
           conflicts: data.conflicts,
+          criticalCount: data.criticalCount ?? 0,
         };
 
         // Add to checked names history
@@ -150,6 +154,8 @@ export function useAlternativeSearch() {
           name,
           riskLevel: result.riskLevel,
           riskScore: result.riskScore,
+          conflictCount: result.conflicts,
+          criticalCount: result.criticalCount,
           timestamp: new Date(),
         });
 
