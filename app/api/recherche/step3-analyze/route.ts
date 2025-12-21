@@ -143,6 +143,16 @@ function detectFamousMarks(conflicts: ConflictingMark[]): { detected: boolean; n
   return { detected: foundFamous.size > 0, names: Array.from(foundFamous) };
 }
 
+function sanitizeHolder(holder: string): string {
+  if (!holder) return "";
+  return holder
+    .replace(/\s*\(vermutlich\)\s*/gi, "")
+    .replace(/\s*\(geschätzt\)\s*/gi, "")
+    .replace(/\s*\(inferred\)\s*/gi, "")
+    .replace(/\s*\(estimated\)\s*/gi, "")
+    .trim();
+}
+
 interface ConflictingMark {
   id: string;
   mid?: number;
@@ -318,6 +328,7 @@ ERSTELLE EINE WELTKLASSE-ANALYSE:
 
 6. KONFLIKTE (conflicts):
    - Liste die TOP 5-10 kritischsten Konflikte
+   - WICHTIG: Für "holder" NUR exakte Werte aus den Eingabedaten verwenden. NIEMALS Inhaber raten oder erschließen. Wenn der Inhaber nicht in den Daten steht, leer lassen ("").
 
 Antworte mit diesem JSON-Format:
 {
@@ -331,7 +342,7 @@ Antworte mit diesem JSON-Format:
       "id": "Registernummer",
       "name": "Markenname",
       "register": "USPTO/DPMA/EUIPO/WIPO/etc.",
-      "holder": "Inhaber (falls bekannt)",
+      "holder": "Exakter Inhaber aus Daten oder leer",
       "classes": [9, 35],
       "accuracy": 95,
       "riskLevel": "high" | "medium" | "low",
@@ -401,7 +412,7 @@ Antworte NUR mit dem JSON.`
           mid: matchedResult?.mid || undefined,
           name: markName,
           register: registerName,
-          holder: matchedResult?.holder || (c.holder && c.holder !== "Unbekannt" && c.holder !== "unbekannt" ? String(c.holder) : ""),
+          holder: sanitizeHolder(matchedResult?.holder || (c.holder && c.holder !== "Unbekannt" && c.holder !== "unbekannt" ? String(c.holder) : "")),
           classes: Array.isArray(c.classes) ? c.classes.filter((cls: any) => typeof cls === "number") : [],
           accuracy: finalAccuracy,
           riskLevel: calculatedRiskLevel as "high" | "medium" | "low",
@@ -438,7 +449,7 @@ Antworte NUR mit dem JSON.`
       mid: r.mid || undefined,
       name: r.name || "",
       register: OFFICE_CODE_TO_NAME[r.office] || r.office || "Unbekannt",
-      holder: r.holder || "",
+      holder: sanitizeHolder(r.holder || ""),
       classes: r.niceClasses || [],
       accuracy: r.ourCombined || 0,
       riskLevel: (r.ourCombined || 0) >= 80 ? "high" : (r.ourCombined || 0) >= 60 ? "medium" : "low" as "high" | "medium" | "low",

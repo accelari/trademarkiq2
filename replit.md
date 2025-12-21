@@ -124,3 +124,4 @@ Bei jeder Programmieranfrage sollte der KI-Assistent den **[Architect Thinking P
 - **Hume Voice**: Niemals `connect()` im `useEffect` - nur auf User-Geste (Klick)
 - **Port 5000**: Einziger exponierter Port für Frontend im Replit-Iframe
 - **Consultations**: Chronologisch laden (`asc`) für Langzeit-Gedächtnis
+- **Holder/Inhaber Daten**: API-Daten von tmsearch.ai direkt anzeigen. `sanitizeHolder()` Funktion entfernt "(vermutlich)" und ähnliche Disclaimers von Claude-Inferenzen. Claude-Prompt explizit angewiesen, KEINE Inhaber zu erraten.
