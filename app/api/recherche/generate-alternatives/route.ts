@@ -90,7 +90,7 @@ Antworte NUR mit diesem JSON-Format:
 }`;
 
     const response = await anthropicClient.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-opus-4-1",
       max_tokens: 1500,
       messages: [
         {
