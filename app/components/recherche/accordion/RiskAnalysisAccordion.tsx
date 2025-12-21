@@ -320,46 +320,7 @@ export function RiskAnalysisAccordion({
         </div>
       </AccordionSection>
 
-      {/* 3. All Conflicts */}
-      {conflicts.length > 0 && (
-        <AccordionSection
-          title="Alle Konflikte"
-          icon={AlertTriangle}
-          badge={conflicts.length}
-          badgeColor="gray"
-          defaultOpen={false}
-        >
-          <div className="space-y-3">
-            {crossClassConflicts.length > 0 && (
-              <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-start gap-3 mb-4">
-                <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-orange-800">
-                    {crossClassConflicts.length} Marke{crossClassConflicts.length !== 1 ? 'n' : ''} in anderen Klassen
-                  </p>
-                  <p className="text-sm text-orange-700 mt-1">
-                    Diese könnten trotzdem relevant sein bei überschneidenden Waren/Dienstleistungen.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-              {conflicts.map((conflict, idx) => (
-                <ConflictCard
-                  key={idx}
-                  conflict={conflict}
-                  selectedClasses={selectedClasses}
-                  includeRelatedClasses={includeRelatedClasses}
-                  onClick={() => onConflictClick?.(conflict)}
-                />
-              ))}
-            </div>
-          </div>
-        </AccordionSection>
-      )}
-
-      {/* 4. Alternative Names */}
+      {/* 3. Alternative Names */}
       <AccordionSection
         title="Alternative Namen"
         icon={Lightbulb}
