@@ -135,12 +135,12 @@ export function NameSuggestionCard({
           {isInShortlist ? (
             <>
               <Check className="w-4 h-4" />
-              In Shortlist
+              In meinen Marken
             </>
           ) : (
             <>
               <Plus className="w-4 h-4" />
-              Zur Shortlist
+              Zu meinen Marken
             </>
           )}
         </button>

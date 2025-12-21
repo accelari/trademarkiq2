@@ -75,7 +75,7 @@ export function ComparisonTable({
   if (items.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
-        <p>Keine Namen in der Shortlist.</p>
+        <p>Keine Namen in Ihrer Liste.</p>
         <p className="text-sm mt-1">Fügen Sie Namen hinzu, um sie zu vergleichen.</p>
       </div>
     );

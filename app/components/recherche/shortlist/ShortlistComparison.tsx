@@ -76,7 +76,7 @@ export function ShortlistComparison({
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Shortlist-Vergleich</h2>
+              <h2 className="text-xl font-bold text-gray-900">Meine Marken – Vergleich</h2>
               <p className="text-sm text-gray-500">
                 {items.length} Name{items.length !== 1 ? "n" : ""} im Vergleich
               </p>
@@ -135,7 +135,7 @@ export function ShortlistComparison({
               <button
                 onClick={() => setShowClearDialog(true)}
                 className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 hover:border-red-300 transition-colors"
-                title="Shortlist leeren"
+                title="Liste leeren"
               >
                 <Trash2 className="w-4 h-4" />
                 <span className="hidden sm:inline">Leeren</span>
@@ -198,7 +198,7 @@ export function ShortlistComparison({
           </div>
         )}
 
-        {/* Clear Shortlist Dialog */}
+        {/* Clear List Dialog */}
         {showClearDialog && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
@@ -207,7 +207,7 @@ export function ShortlistComparison({
                   <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Shortlist leeren?</h3>
+                  <h3 className="font-semibold text-gray-900">Liste leeren?</h3>
                   <p className="text-sm text-gray-500">Diese Aktion kann nicht rückgängig gemacht werden</p>
                 </div>
               </div>
@@ -215,7 +215,7 @@ export function ShortlistComparison({
                 Folgendes wird unwiderruflich gelöscht:
               </p>
               <ul className="text-sm text-gray-600 space-y-2 ml-4 list-disc list-inside">
-                <li><span className="font-semibold">{items.length} Namen</span> in der Shortlist</li>
+                <li><span className="font-semibold">{items.length} Namen</span> in Ihrer Liste</li>
                 <li>Alle Quick-Check Ergebnisse und Prüfhistorie</li>
                 <li>Die KI-Empfehlung</li>
               </ul>

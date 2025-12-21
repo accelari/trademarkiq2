@@ -369,7 +369,7 @@ export function RiskAnalysisAccordion({
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary/10 text-primary font-medium rounded-xl hover:bg-primary/20 transition-colors"
               >
                 <FileText className="w-5 h-5" />
-                Shortlist anzeigen ({shortlist.length})
+                Meine Marken anzeigen ({shortlist.length})
               </button>
             )}
           </div>

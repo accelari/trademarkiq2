@@ -176,7 +176,7 @@ export function AlternativeGeneratorModal({
                 className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm font-medium hover:bg-primary/20 transition-colors"
               >
                 <List className="w-4 h-4" />
-                Shortlist ({shortlist.length})
+                Meine Marken ({shortlist.length})
               </button>
             )}
             <button
