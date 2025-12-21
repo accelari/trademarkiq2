@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, ReactNode } from "react";
+import { useState, useRef, useEffect, ReactNode } from "react";
 import { ChevronDown, ChevronUp, LucideIcon } from "lucide-react";
 
 interface AccordionSectionProps {
@@ -11,6 +11,7 @@ interface AccordionSectionProps {
   defaultOpen?: boolean;
   children: ReactNode;
   className?: string;
+  scrollOnOpen?: boolean;
 }
 
 export function AccordionSection({
@@ -21,8 +22,20 @@ export function AccordionSection({
   defaultOpen = false,
   children,
   className,
+  scrollOnOpen = false,
 }: AccordionSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const wasOpenRef = useRef(defaultOpen);
+
+  useEffect(() => {
+    if (scrollOnOpen && isOpen && !wasOpenRef.current) {
+      setTimeout(() => {
+        sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen, scrollOnOpen]);
 
   const badgeColors = {
     red: "bg-red-100 text-red-700",
@@ -33,7 +46,7 @@ export function AccordionSection({
   };
 
   return (
-    <div className={`border border-gray-200 rounded-xl overflow-hidden ${className || ""}`}>
+    <div ref={sectionRef} className={`border border-gray-200 rounded-xl overflow-hidden ${className || ""}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between px-5 py-4 bg-gray-50 hover:bg-gray-100 transition-colors"

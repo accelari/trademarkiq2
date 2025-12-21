@@ -289,6 +289,7 @@ export function RiskAnalysisAccordion({
         title="KI-Risikoanalyse"
         icon={Sparkles}
         defaultOpen={false}
+        scrollOnOpen={true}
       >
         <div className="space-y-4">
           <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
