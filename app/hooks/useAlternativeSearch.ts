@@ -37,14 +37,31 @@ export function useAlternativeSearch() {
         }
 
         const data = await response.json();
-        const suggestions: NameSuggestion[] = data.suggestions.map((s: { name: string; explanation: string }) => ({
+        
+        // Handle smart generation response (names already checked)
+        const suggestions: NameSuggestion[] = data.suggestions.map((s: {
+          name: string;
+          explanation: string;
+          quickCheckStatus?: string;
+          quickCheckScore?: number;
+          quickCheckConflicts?: number;
+        }) => ({
           name: s.name,
           explanation: s.explanation,
-          quickCheckStatus: "idle" as const,
+          quickCheckStatus: (s.quickCheckStatus || "idle") as "idle" | "checking" | "low" | "medium" | "high" | "error",
+          quickCheckScore: s.quickCheckScore,
+          quickCheckConflicts: s.quickCheckConflicts,
         }));
 
         store.setSuggestions(suggestions);
-        return suggestions;
+        
+        // Return extra info for UI to display
+        return {
+          suggestions,
+          smartGeneration: data.smartGeneration || false,
+          smartGenerationMessage: data.smartGenerationMessage || "",
+          stats: data.stats,
+        } as unknown as NameSuggestion[];
       } catch (error) {
         const message = error instanceof Error ? error.message : "Ein Fehler ist aufgetreten";
         store.setGeneratorError(message);
@@ -151,13 +168,13 @@ export function useAlternativeSearch() {
 
   // Add to shortlist
   const addToShortlist = useCallback(
-    (name: string, data: { riskScore: number; riskLevel: string }) => {
+    (name: string, data: { riskScore: number; riskLevel: string; conflicts?: number; criticalCount?: number }) => {
       const item: ShortlistItem = {
         name,
         riskScore: data.riskScore,
         riskLevel: data.riskLevel as "low" | "medium" | "high" | "unknown",
-        conflictCount: 0,
-        criticalCount: 0,
+        conflictCount: data.conflicts ?? 0,
+        criticalCount: data.criticalCount ?? 0,
         domainDe: "unknown",
         domainCom: "unknown",
         pronunciation: 4, // Default to 4 stars

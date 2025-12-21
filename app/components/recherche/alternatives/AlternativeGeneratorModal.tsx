@@ -24,7 +24,7 @@ interface AlternativeGeneratorModalProps {
   // Callbacks
   onGenerateAlternatives: (settings: GeneratorSettings) => Promise<NameSuggestion[]>;
   onQuickCheck: (name: string) => Promise<{ riskLevel: "low" | "medium" | "high"; riskScore: number; conflicts: number }>;
-  onAddToShortlist: (name: string, data: { riskScore: number; riskLevel: string }) => void;
+  onAddToShortlist: (name: string, data: { riskScore: number; riskLevel: string; conflicts?: number; criticalCount?: number }) => void;
   onRemoveFromShortlist: (name: string) => void;
 }
 
@@ -134,6 +134,7 @@ export function AlternativeGeneratorModal({
         onAddToShortlist(name, {
           riskScore: suggestion.quickCheckScore || 0,
           riskLevel: suggestion.quickCheckStatus || "idle",
+          conflicts: suggestion.quickCheckConflicts || 0,
         });
       }
     }
