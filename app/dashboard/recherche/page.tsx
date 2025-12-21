@@ -1938,6 +1938,64 @@ export default function RecherchePage() {
     setActiveHistoryId(newItem.id);
   }, [searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses, expertAnalysis, streamedConflicts, nameShortlist]);
 
+  const saveSearchToDatabase = useCallback(async (analysis: AIAnalysis, currentExpertAnalysis?: ExpertAnalysisResponse | null, currentConflicts?: ExpertConflictAnalysis[], currentShortlist?: NameShortlistItem[]) => {
+    try {
+      const riskLevel = analysis.analysis?.overallRisk ?? "low";
+      const riskScore = riskLevel === "high" ? 80 : riskLevel === "medium" ? 50 : 20;
+      
+      const response = await fetch("/api/searches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: searchQuery || activeSearchQuery,
+          classes: aiSelectedClasses,
+          countries: selectedLaender,
+          riskScore,
+          riskLevel,
+          conflicts: analysis.conflicts?.length || 0,
+          similarMarks: analysis.totalResultsAnalyzed || 0,
+          recommendation: analysis.analysis?.recommendation || "",
+          riskCompleted: true,
+          aiAnalysis: analysis,
+          streamedConflicts: currentConflicts ?? streamedConflicts,
+          expertAnalysis: currentExpertAnalysis ?? expertAnalysis,
+          nameShortlist: (currentShortlist ?? nameShortlist).map(item => item.name),
+          caseId: caseId || null,
+          caseNumber: currentCaseNumber || null,
+        }),
+      });
+
+      if (response.ok) {
+        const savedSearch = await response.json();
+        const newItem: SearchHistoryItem = {
+          id: savedSearch.id,
+          searchQuery: savedSearch.name,
+          countries: savedSearch.countries || [],
+          classes: savedSearch.classes || [],
+          riskLevel: savedSearch.riskLevel as "high" | "medium" | "low",
+          conflictsCount: savedSearch.conflicts || 0,
+          timestamp: new Date(savedSearch.createdAt),
+          aiAnalysis: savedSearch.aiAnalysis || analysis,
+          expertAnalysis: savedSearch.expertAnalysis || currentExpertAnalysis || null,
+          streamedConflicts: savedSearch.streamedConflicts || currentConflicts || [],
+          nameShortlist: (savedSearch.nameShortlist || []).map((name: string) => ({ name, status: "unchecked" as const })),
+          caseId: savedSearch.caseId,
+          caseNumber: savedSearch.caseNumber,
+        };
+        setSearchHistory(prev => {
+          const filtered = prev.filter(item => item.searchQuery !== newItem.searchQuery || item.id === newItem.id);
+          return [newItem, ...filtered.filter(item => item.id !== newItem.id)];
+        });
+        setActiveHistoryId(newItem.id);
+        setResultsSaved(true);
+        return savedSearch;
+      }
+    } catch (error) {
+      console.error("Error saving search to database:", error);
+    }
+    return null;
+  }, [searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses, expertAnalysis, streamedConflicts, nameShortlist, caseId, currentCaseNumber]);
+
   const togglePreviewHistory = useCallback((item: SearchHistoryItem) => {
     if (previewHistoryId === item.id) {
       // Close preview if clicking the same item
@@ -2168,6 +2226,53 @@ export default function RecherchePage() {
       router.push("/login");
     }
   }, [status, router]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !session?.user?.id) return;
+    
+    const loadSavedSearches = async () => {
+      try {
+        const response = await fetch("/api/searches");
+        if (response.ok) {
+          const searches = await response.json();
+          if (Array.isArray(searches) && searches.length > 0) {
+            const historyItems: SearchHistoryItem[] = searches.map((search: any) => ({
+              id: search.id,
+              searchQuery: search.name,
+              countries: search.countries || [],
+              classes: search.classes || [],
+              riskLevel: search.riskLevel as "high" | "medium" | "low" | null,
+              conflictsCount: search.conflicts || 0,
+              timestamp: new Date(search.createdAt),
+              aiAnalysis: search.aiAnalysis || null,
+              expertAnalysis: search.expertAnalysis || null,
+              streamedConflicts: search.streamedConflicts || [],
+              nameShortlist: (search.nameShortlist || []).map((name: string) => ({ name, status: "unchecked" as const })),
+              caseId: search.caseId,
+              caseNumber: search.caseNumber,
+            }));
+            setSearchHistory(historyItems);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading saved searches:", error);
+      }
+    };
+    
+    loadSavedSearches();
+  }, [status, session?.user?.id]);
+
+  const lastSavedSearchRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    if (!aiAnalysis || aiLoading || !activeSearchQuery) return;
+    
+    const searchKey = `${activeSearchQuery}-${selectedLaender.join(",")}-${aiSelectedClasses.join(",")}`;
+    if (lastSavedSearchRef.current === searchKey) return;
+    
+    lastSavedSearchRef.current = searchKey;
+    saveSearchToDatabase(aiAnalysis, expertAnalysis, streamedConflicts, nameShortlist);
+  }, [aiAnalysis, aiLoading, activeSearchQuery, selectedLaender, aiSelectedClasses, expertAnalysis, streamedConflicts, nameShortlist, saveSearchToDatabase]);
 
   useEffect(() => {
     if (!aiStartTime || !aiLoading) {
