@@ -1720,6 +1720,7 @@ export default function RecherchePage() {
   const [aiSelectedClasses, setAiSelectedClasses] = useState<number[]>([]);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [isSearchFormExpanded, setIsSearchFormExpanded] = useState(true);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiStartTime, setAiStartTime] = useState<number | null>(null);
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
@@ -2689,6 +2690,7 @@ export default function RecherchePage() {
       const cachedResult = analysisCache.current.get(cacheKey);
       if (cachedResult && !deepSearch) {
         setAiAnalysis(cachedResult);
+        setIsSearchFormExpanded(false);
         setAiError(null);
         setShowSuccessBanner(true);
         setTimeout(() => setShowSuccessBanner(false), 3000);
@@ -2826,6 +2828,7 @@ export default function RecherchePage() {
       };
 
       setAiAnalysis(finalResult);
+      setIsSearchFormExpanded(false);
       if (useCache) {
         analysisCache.current.set(cacheKey, finalResult);
       }
@@ -3390,9 +3393,31 @@ export default function RecherchePage() {
             </button>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            {/* Collapsible Header */}
+            <button
+              onClick={() => setIsSearchFormExpanded(!isSearchFormExpanded)}
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Search className="w-5 h-5 text-primary" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900">Neue Recherche</h3>
+                  {!isSearchFormExpanded && searchQuery && (
+                    <p className="text-sm text-gray-500">
+                      {searchQuery} • {selectedLaender.length} {selectedLaender.length === 1 ? 'Land' : 'Länder'} • {aiSelectedClasses.length} {aiSelectedClasses.length === 1 ? 'Klasse' : 'Klassen'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isSearchFormExpanded ? 'rotate-180' : ''}`} />
+            </button>
 
-        <div className="space-y-5">
+            {/* Collapsible Content */}
+            <div className={`transition-all duration-300 ease-in-out ${isSearchFormExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+              <div className="p-6 pt-2 space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Markenname
@@ -3495,8 +3520,9 @@ export default function RecherchePage() {
               </>
             )}
           </button>
-        </div>
-      </div>
+              </div>
+            </div>
+          </div>
 
           {aiLoading && progressSteps.length > 0 && (
             <div className="mt-6">
