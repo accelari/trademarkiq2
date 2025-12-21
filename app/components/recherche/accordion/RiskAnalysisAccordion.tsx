@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
-  ChevronRight,
+  Eye,
 } from "lucide-react";
 import { AccordionSection } from "./AccordionSection";
 import { RiskBadge } from "../RiskBadge";
@@ -246,20 +246,23 @@ export function RiskAnalysisAccordion({
           {/* All Conflicts */}
           {conflicts.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Alle Konflikte ({conflicts.length}):</h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-medium text-gray-700">Alle Konflikte ({conflicts.length}):</h4>
+                <p className="text-xs text-gray-500">Klicken Sie auf einen Konflikt für Details</p>
+              </div>
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {conflicts.map((conflict, idx) => (
                   <button
                     key={idx}
                     onClick={() => onConflictClick?.(conflict)}
-                    className="w-full text-left p-3 bg-white border border-gray-200 rounded-lg hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm transition-all flex items-center justify-between group cursor-pointer"
+                    className="w-full text-left p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 hover:shadow-md transition-all flex items-center justify-between group cursor-pointer"
                   >
-                    <div>
-                      <span className="font-medium text-gray-900">{conflict.name}</span>
+                    <div className="flex-1">
+                      <span className="font-semibold text-gray-900">{conflict.name}</span>
                       <span className="text-sm text-gray-500 ml-2">• {conflict.register}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
                         conflict.accuracy >= 80
                           ? "bg-red-100 text-red-700"
                           : conflict.accuracy >= 60
@@ -268,7 +271,10 @@ export function RiskAnalysisAccordion({
                       }`}>
                         {conflict.accuracy}%
                       </span>
-                      <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors" />
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg group-hover:bg-primary/90 transition-colors">
+                        <Eye className="w-3.5 h-3.5" />
+                        Details
+                      </span>
                     </div>
                   </button>
                 ))}
