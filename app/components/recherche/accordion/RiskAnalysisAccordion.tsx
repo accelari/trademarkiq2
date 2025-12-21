@@ -216,21 +216,6 @@ export function RiskAnalysisAccordion({
           </div>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-200">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{conflicts.length}</div>
-            <div className="text-xs text-gray-500">Konflikte</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{totalResultsAnalyzed}</div>
-            <div className="text-xs text-gray-500">Analysiert</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{searchTermsUsed.length}</div>
-            <div className="text-xs text-gray-500">Suchvarianten</div>
-          </div>
-        </div>
       </div>
 
       {/* Famous Mark Warning */}
@@ -257,25 +242,6 @@ export function RiskAnalysisAccordion({
         defaultOpen={true}
       >
         <div className="space-y-4">
-          {/* Category Cards */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
-              <div className="text-3xl font-bold text-red-600">{conflictCounts.critical}</div>
-              <div className="text-sm text-red-700 font-medium">Kritisch</div>
-              <div className="text-xs text-red-600 mt-1">≥80% Ähnlichkeit</div>
-            </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
-              <div className="text-3xl font-bold text-yellow-600">{conflictCounts.review}</div>
-              <div className="text-sm text-yellow-700 font-medium">Prüfen</div>
-              <div className="text-xs text-yellow-600 mt-1">60-79% Ähnlichkeit</div>
-            </div>
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-              <div className="text-3xl font-bold text-green-600">{conflictCounts.okay}</div>
-              <div className="text-sm text-green-700 font-medium">Unbedenklich</div>
-              <div className="text-xs text-green-600 mt-1">&lt;60% Ähnlichkeit</div>
-            </div>
-          </div>
-
           {/* Top Conflicts Preview */}
           {topConflicts.length > 0 && (
             <div>
