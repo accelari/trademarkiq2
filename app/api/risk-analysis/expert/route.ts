@@ -182,7 +182,7 @@ Für die Erfolgswahrscheinlichkeit berücksichtige:
 Antworte NUR mit dem JSON, keine zusätzlichen Erklärungen.`;
 
   const response = await client.messages.create({
-    model: "claude-opus-4-1",
+    model: "claude-opus-4-5-20251101",
     max_tokens: 4000,
     system: EXPERT_SYSTEM_PROMPT,
     messages: [{ role: "user", content: prompt }]
@@ -278,7 +278,7 @@ Wähle die beste Lösung basierend auf dem Verhältnis von Erfolgswahrscheinlich
 Antworte NUR mit dem JSON.`;
 
   const response = await client.messages.create({
-    model: "claude-opus-4-1",
+    model: "claude-opus-4-5-20251101",
     max_tokens: 2000,
     system: EXPERT_SYSTEM_PROMPT,
     messages: [{ role: "user", content: prompt }]
