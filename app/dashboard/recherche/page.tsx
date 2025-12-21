@@ -3393,11 +3393,11 @@ export default function RecherchePage() {
             </button>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
             {/* Collapsible Header */}
             <button
               onClick={() => setIsSearchFormExpanded(!isSearchFormExpanded)}
-              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors rounded-2xl"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
@@ -3415,8 +3415,12 @@ export default function RecherchePage() {
               <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isSearchFormExpanded ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Collapsible Content */}
-            <div className={`transition-all duration-300 ease-in-out ${isSearchFormExpanded ? 'opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+            {/* Collapsible Content - using grid for smooth animation without overflow:hidden */}
+            <div 
+              className="grid transition-all duration-300 ease-in-out"
+              style={{ gridTemplateRows: isSearchFormExpanded ? '1fr' : '0fr' }}
+            >
+              <div className={`overflow-hidden ${isSearchFormExpanded ? 'overflow-visible' : ''}`}>
               <div className="p-6 pt-2 space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -3520,6 +3524,7 @@ export default function RecherchePage() {
               </>
             )}
           </button>
+              </div>
               </div>
             </div>
           </div>
