@@ -1721,7 +1721,7 @@ export default function RecherchePage() {
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [isSearchFormExpanded, setIsSearchFormExpanded] = useState(true);
-  const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(true);
+  const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiStartTime, setAiStartTime] = useState<number | null>(null);
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
