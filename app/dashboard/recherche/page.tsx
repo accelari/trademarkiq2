@@ -600,17 +600,6 @@ interface NiceClassDropdownProps {
 function NiceClassDropdown({ selectedClasses, onToggleClass, onClearAll }: NiceClassDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const allClassesSorted = [...NICE_CLASSES].sort((a, b) => a.id - b.id);
 
@@ -627,10 +616,10 @@ function NiceClassDropdown({ selectedClasses, onToggleClass, onClearAll }: NiceC
   const filteredClasses = filterClasses(allClassesSorted);
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(true)}
         className={`w-full flex items-center justify-between gap-2 px-4 py-3 border rounded-xl transition-all text-left ${
           selectedClasses.length > 0
             ? "bg-primary/5 border-primary text-gray-800"
@@ -702,106 +691,149 @@ function NiceClassDropdown({ selectedClasses, onToggleClass, onClearAll }: NiceC
       )}
 
       {isOpen && (
-        <div className="absolute top-full mt-2 left-0 right-0 z-50 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
-          <div className="p-3 border-b border-gray-100">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Klasse suchen..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-          </div>
-          
-          <div className="max-h-[320px] overflow-y-auto">
-            {!searchTerm && (
-              <label
-                className="flex items-start gap-3 px-4 py-3 hover:bg-primary/5 cursor-pointer transition-colors border-b border-gray-100 bg-gray-50/50"
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setIsOpen(false);
+              setSearchTerm("");
+            }}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <Tag className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Nizza-Klassifikation</h3>
+                  <p className="text-sm text-gray-500">{selectedClasses.length} ausgewählt</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setSearchTerm("");
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                  selectedClasses.length === 45 
-                    ? 'bg-primary border-primary' 
-                    : 'border-gray-300 hover:border-primary'
-                }`}>
-                  {selectedClasses.length === 45 && (
-                    <Check className="w-3.5 h-3.5 text-white" />
-                  )}
-                </div>
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="p-4 border-b border-gray-100">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={selectedClasses.length === 45}
-                  onChange={() => {
-                    if (selectedClasses.length === 45) {
-                      onClearAll();
-                    } else {
-                      allClassesSorted.forEach(c => {
-                        if (!selectedClasses.includes(c.id)) {
-                          onToggleClass(c.id);
-                        }
-                      });
-                    }
-                  }}
+                  type="text"
+                  placeholder="Klasse suchen..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  autoFocus
                 />
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-primary flex items-center gap-2">
-                    Alle Klassen auswählen
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              {!searchTerm && (
+                <label
+                  className="flex items-start gap-3 px-4 py-3 hover:bg-primary/5 cursor-pointer transition-colors border-b border-gray-100 bg-gray-50/50"
+                >
+                  <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                    selectedClasses.length === 45 
+                      ? 'bg-primary border-primary' 
+                      : 'border-gray-300 hover:border-primary'
+                  }`}>
+                    {selectedClasses.length === 45 && (
+                      <Check className="w-3.5 h-3.5 text-white" />
+                    )}
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    Alle 45 Nizza-Klassen auf einmal auswählen
-                  </div>
-                </div>
-              </label>
-            )}
-            {filteredClasses.length > 0 && (
-              <div>
-                <div className="px-4 py-2 bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wide">
-                  Alle 45 Nizza-Klassen
-                </div>
-                {filteredClasses.map(niceClass => (
-                  <label
-                    key={niceClass.id}
-                    className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                  >
-                    <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                      selectedClasses.includes(niceClass.id) 
-                        ? 'bg-primary border-primary' 
-                        : 'border-gray-300 hover:border-primary'
-                    }`}>
-                      {selectedClasses.includes(niceClass.id) && (
-                        <Check className="w-3.5 h-3.5 text-white" />
-                      )}
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={selectedClasses.length === 45}
+                    onChange={() => {
+                      if (selectedClasses.length === 45) {
+                        onClearAll();
+                      } else {
+                        allClassesSorted.forEach(c => {
+                          if (!selectedClasses.includes(c.id)) {
+                            onToggleClass(c.id);
+                          }
+                        });
+                      }
+                    }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-primary flex items-center gap-2">
+                      Alle Klassen auswählen
                     </div>
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={selectedClasses.includes(niceClass.id)}
-                      onChange={() => onToggleClass(niceClass.id)}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900 flex items-center gap-2">
-                        Klasse {niceClass.id} – {niceClass.name}
-                        {niceClass.popular && (
-                          <span className="text-xs bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded">beliebt</span>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      Alle 45 Nizza-Klassen auf einmal auswählen
+                    </div>
+                  </div>
+                </label>
+              )}
+              {filteredClasses.length > 0 && (
+                <div>
+                  <div className="px-4 py-2 bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wide sticky top-0">
+                    Alle 45 Nizza-Klassen
+                  </div>
+                  {filteredClasses.map(niceClass => (
+                    <label
+                      key={niceClass.id}
+                      className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                        selectedClasses.includes(niceClass.id) 
+                          ? 'bg-primary border-primary' 
+                          : 'border-gray-300 hover:border-primary'
+                      }`}>
+                        {selectedClasses.includes(niceClass.id) && (
+                          <Check className="w-3.5 h-3.5 text-white" />
                         )}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                        {niceClass.description}
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={selectedClasses.includes(niceClass.id)}
+                        onChange={() => onToggleClass(niceClass.id)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 flex items-center gap-2">
+                          Klasse {niceClass.id} – {niceClass.name}
+                          {niceClass.popular && (
+                            <span className="text-xs bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded">beliebt</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                          {niceClass.description}
+                        </div>
                       </div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            )}
+                    </label>
+                  ))}
+                </div>
+              )}
 
-            {filteredClasses.length === 0 && (
-              <div className="p-8 text-center text-gray-500">
-                <p>Keine Klassen gefunden für "{searchTerm}"</p>
-              </div>
-            )}
+              {filteredClasses.length === 0 && (
+                <div className="p-8 text-center text-gray-500">
+                  <p>Keine Klassen gefunden für "{searchTerm}"</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setSearchTerm("");
+                }}
+                className="w-full px-4 py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors"
+              >
+                Auswahl bestätigen ({selectedClasses.length})
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -938,17 +970,6 @@ interface LaenderDropdownProps {
 function LaenderDropdown({ selectedLaender, onToggleLand, onClearAll }: LaenderDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const filteredLaender = laenderOptions.filter(option =>
     option.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -956,10 +977,10 @@ function LaenderDropdown({ selectedLaender, onToggleLand, onClearAll }: LaenderD
   );
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(true)}
         className={`w-full flex items-center justify-between gap-2 px-4 py-3 border rounded-xl transition-all text-left ${
           selectedLaender.length > 0
             ? "bg-primary/5 border-primary text-gray-800"
@@ -1014,53 +1035,97 @@ function LaenderDropdown({ selectedLaender, onToggleLand, onClearAll }: LaenderD
       )}
 
       {isOpen && (
-        <div className="absolute top-full mt-2 left-0 right-0 z-30 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
-          <div className="p-3 border-b border-gray-100">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Land suchen..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-          </div>
-          <div className="max-h-[280px] overflow-y-auto">
-            {filteredLaender.length > 0 ? (
-              filteredLaender.map(option => (
-                <label
-                  key={option.value}
-                  className="flex items-start gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors"
-                >
-                  <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                    selectedLaender.includes(option.value) 
-                      ? 'bg-primary border-primary' 
-                      : 'border-gray-300 hover:border-primary'
-                  }`}>
-                    {selectedLaender.includes(option.value) && (
-                      <Check className="w-3.5 h-3.5 text-white" />
-                    )}
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={selectedLaender.includes(option.value)}
-                    onChange={() => onToggleLand(option.value)}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-gray-900">
-                      {option.value} - {option.label}
-                    </div>
-                  </div>
-                </label>
-              ))
-            ) : (
-              <div className="p-4 text-center text-gray-500 text-sm">
-                Keine Länder gefunden für "{searchTerm}"
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setIsOpen(false);
+              setSearchTerm("");
+            }}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <Globe className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Länder / Register</h3>
+                  <p className="text-sm text-gray-500">{selectedLaender.length} ausgewählt</p>
+                </div>
               </div>
-            )}
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setSearchTerm("");
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="p-4 border-b border-gray-100">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Land suchen..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  autoFocus
+                />
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              {filteredLaender.length > 0 ? (
+                filteredLaender.map(option => (
+                  <label
+                    key={option.value}
+                    className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                      selectedLaender.includes(option.value) 
+                        ? 'bg-primary border-primary' 
+                        : 'border-gray-300 hover:border-primary'
+                    }`}>
+                      {selectedLaender.includes(option.value) && (
+                        <Check className="w-3.5 h-3.5 text-white" />
+                      )}
+                    </div>
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={selectedLaender.includes(option.value)}
+                      onChange={() => onToggleLand(option.value)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-900">
+                        {option.value} - {option.label}
+                      </div>
+                    </div>
+                  </label>
+                ))
+              ) : (
+                <div className="p-8 text-center text-gray-500">
+                  <p>Keine Länder gefunden für "{searchTerm}"</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setSearchTerm("");
+                }}
+                className="w-full px-4 py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors"
+              >
+                Auswahl bestätigen ({selectedLaender.length})
+              </button>
+            </div>
           </div>
         </div>
       )}
