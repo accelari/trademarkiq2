@@ -1721,6 +1721,7 @@ export default function RecherchePage() {
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [isSearchFormExpanded, setIsSearchFormExpanded] = useState(true);
+  const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(true);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiStartTime, setAiStartTime] = useState<number | null>(null);
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
@@ -3404,8 +3405,8 @@ export default function RecherchePage() {
                   <Search className="w-5 h-5 text-primary" />
                 </div>
                 <div className="text-left">
-                  <h3 className="font-semibold text-gray-900">Neue Recherche</h3>
-                  {!isSearchFormExpanded && searchQuery && (
+                  <h3 className="font-semibold text-gray-900">Recherche</h3>
+                  {searchQuery && (
                     <p className="text-sm text-gray-500">
                       {searchQuery} • {selectedLaender.length} {selectedLaender.length === 1 ? 'Land' : 'Länder'} • {aiSelectedClasses.length} {aiSelectedClasses.length === 1 ? 'Klasse' : 'Klassen'}
                     </p>
@@ -3541,29 +3542,57 @@ export default function RecherchePage() {
           )}
 
           {aiAnalysis && (
-            <div className="mt-6 space-y-4">
-              <AIProcessOverview
-                searchTerm={searchQuery}
-                progress={aiProgress}
-                analysis={aiAnalysis}
-                selectedCountries={selectedLaender}
-                selectedClasses={aiSelectedClasses}
-              />
-              
-              {/* Verwendete Suchvarianten anzeigen */}
-              {aiAnalysis.searchTermsUsed && aiAnalysis.searchTermsUsed.length > 0 && (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Verwendete Suchbegriffe ({aiAnalysis.searchTermsUsed.length}):</p>
-                  <div className="flex flex-wrap gap-2">
-                    {aiAnalysis.searchTermsUsed.map((term: string, idx: number) => (
-                      <span key={idx} className="px-2 py-1 bg-white border border-gray-200 text-gray-700 text-sm rounded-lg">
-                        {term}
-                      </span>
-                    ))}
+            <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100">
+              {/* Collapsible Analysis Header */}
+              <button
+                onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors rounded-2xl"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <Check className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900">Analyse</h3>
+                    <p className="text-sm text-gray-500">
+                      {searchQuery} • {aiAnalysis.searchTermsUsed?.length || 0} Suchbegriffe
+                    </p>
                   </div>
                 </div>
-              )}
-              
+                <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isAnalysisExpanded ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Collapsible Analysis Content */}
+              <div 
+                className="grid transition-all duration-300 ease-in-out"
+                style={{ gridTemplateRows: isAnalysisExpanded ? '1fr' : '0fr' }}
+              >
+                <div style={{ overflow: isAnalysisExpanded ? 'visible' : 'hidden' }}>
+                  <div className="p-4 pt-0 space-y-4">
+                    <AIProcessOverview
+                      searchTerm={searchQuery}
+                      progress={aiProgress}
+                      analysis={aiAnalysis}
+                      selectedCountries={selectedLaender}
+                      selectedClasses={aiSelectedClasses}
+                    />
+                    
+                    {/* Verwendete Suchvarianten anzeigen */}
+                    {aiAnalysis.searchTermsUsed && aiAnalysis.searchTermsUsed.length > 0 && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Verwendete Suchbegriffe ({aiAnalysis.searchTermsUsed.length}):</p>
+                        <div className="flex flex-wrap gap-2">
+                          {aiAnalysis.searchTermsUsed.map((term: string, idx: number) => (
+                            <span key={idx} className="px-2 py-1 bg-white border border-gray-200 text-gray-700 text-sm rounded-lg">
+                              {term}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
