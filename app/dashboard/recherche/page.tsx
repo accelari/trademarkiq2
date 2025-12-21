@@ -3812,7 +3812,13 @@ export default function RecherchePage() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <span className="font-medium text-gray-900 truncate block">{item.searchQuery}</span>
+                          <span className="font-medium text-gray-900 truncate block">
+                            Recherche: {item.searchQuery} – {item.timestamp ? new Date(item.timestamp).toLocaleDateString('de-DE', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            }) : ''}
+                          </span>
                           <p className="text-xs text-gray-500 truncate">
                             {item.countries.length > 2 
                               ? `${item.countries.slice(0, 2).join(', ')} +${item.countries.length - 2}` 
