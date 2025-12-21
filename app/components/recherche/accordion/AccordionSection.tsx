@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, ReactNode } from "react";
-import { ChevronDown, ChevronUp, LucideIcon } from "lucide-react";
+import { ChevronDown, LucideIcon } from "lucide-react";
 
 interface AccordionSectionProps {
   title: string;
@@ -60,17 +60,23 @@ export function AccordionSection({
             </span>
           )}
         </div>
-        {isOpen ? (
-          <ChevronUp className="w-5 h-5 text-gray-500" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-gray-500" />
-        )}
+        <ChevronDown 
+          className={`w-5 h-5 text-gray-500 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} 
+        />
       </button>
-      {isOpen && (
-        <div className="p-5 bg-white">
-          {children}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateRows: isOpen ? "1fr" : "0fr",
+          transition: "grid-template-rows 300ms ease-out",
+        }}
+      >
+        <div style={{ overflow: "hidden" }}>
+          <div className="p-5 bg-white">
+            {children}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
