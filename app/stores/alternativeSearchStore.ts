@@ -32,6 +32,8 @@ export interface CheckedName {
   name: string;
   riskLevel: RiskLevel;
   riskScore: number;
+  conflictCount: number;
+  criticalCount: number;
   timestamp: Date;
 }
 
