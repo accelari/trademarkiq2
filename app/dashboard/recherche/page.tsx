@@ -4111,6 +4111,7 @@ export default function RecherchePage() {
                       alert("Weiterleitung zur Anmeldung...");
                     }}
                     onConflictClick={(conflict) => setSelectedConflict(conflict)}
+                    onFullAnalysis={handleStartFullAnalysisForName}
                     voiceAssistantContent={
                       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" style={{ minHeight: "300px" }}>
                         {klausAccessToken ? (

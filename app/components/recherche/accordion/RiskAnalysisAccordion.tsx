@@ -41,6 +41,7 @@ interface RiskAnalysisAccordionProps {
   onContactLawyer?: () => void;
   onDownloadPDF?: () => void;
   onProceedToRegistration?: () => void;
+  onFullAnalysis?: (name: string) => void;
   // Voice assistant section (pass as children or render prop)
   voiceAssistantContent?: ReactNode;
 }
@@ -58,6 +59,7 @@ export function RiskAnalysisAccordion({
   onContactLawyer,
   onDownloadPDF,
   onProceedToRegistration,
+  onFullAnalysis,
   voiceAssistantContent,
 }: RiskAnalysisAccordionProps) {
   const {
@@ -79,7 +81,6 @@ export function RiskAnalysisAccordion({
     selectName,
     confirmSelection,
     downloadPDF,
-    startFullAnalysis,
     initializeSearch,
   } = useAlternativeSearch();
 
@@ -456,7 +457,13 @@ export function RiskAnalysisAccordion({
         onConfirmSelection={confirmSelection}
         onRemoveFromShortlist={removeFromShortlist}
         onClearShortlist={clearShortlist}
-        onFullAnalysis={startFullAnalysis}
+        onFullAnalysis={(name) => {
+          closeShortlist();
+          closeGenerator();
+          if (onFullAnalysis) {
+            onFullAnalysis(name);
+          }
+        }}
         onAddMore={() => {
           closeShortlist();
           openGenerator();
