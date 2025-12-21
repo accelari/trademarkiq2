@@ -242,12 +242,12 @@ export function RiskAnalysisAccordion({
         defaultOpen={true}
       >
         <div className="space-y-4">
-          {/* Top Conflicts Preview */}
-          {topConflicts.length > 0 && (
+          {/* All Conflicts */}
+          {conflicts.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Wichtigste Konflikte:</h4>
-              <div className="space-y-2">
-                {topConflicts.map((conflict, idx) => (
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Alle Konflikte ({conflicts.length}):</h4>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {conflicts.map((conflict, idx) => (
                   <button
                     key={idx}
                     onClick={() => onConflictClick?.(conflict)}
