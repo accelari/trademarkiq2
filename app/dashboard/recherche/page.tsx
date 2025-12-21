@@ -736,7 +736,7 @@ function NiceClassDropdown({ selectedClasses, onToggleClass, onClearAll }: NiceC
               </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto min-h-[300px]">
               {!searchTerm && (
                 <label
                   className="flex items-start gap-3 px-4 py-3 hover:bg-primary/5 cursor-pointer transition-colors border-b border-gray-100 bg-gray-50/50"
@@ -1564,9 +1564,10 @@ interface ConflictDetailModalProps {
   conflict: ConflictingMark;
   onClose: () => void;
   selectedClasses?: number[];
+  includeRelatedClasses?: boolean;
 }
 
-function ConflictDetailModal({ conflict, onClose, selectedClasses = [] }: ConflictDetailModalProps) {
+function ConflictDetailModal({ conflict, onClose, selectedClasses = [], includeRelatedClasses = true }: ConflictDetailModalProps) {
   const getRiskStyles = () => {
     switch (conflict.riskLevel) {
       case "high": return { bg: "bg-red-50", border: "border-red-200", badge: "bg-red-100 text-red-700", icon: "text-red-600" };
@@ -1692,18 +1693,18 @@ function ConflictDetailModal({ conflict, onClose, selectedClasses = [] }: Confli
                     <div key={cls} className="flex flex-col gap-1">
                       <span className={`px-3 py-1.5 text-sm font-medium rounded-lg ${
                         isDirectMatch ? 'bg-primary/10 text-primary' :
-                        isRelated ? 'bg-yellow-100 text-yellow-800' :
+                        (isRelated && includeRelatedClasses) ? 'bg-yellow-100 text-yellow-800' :
                         'bg-gray-100 text-gray-700'
                       }`}>
                         Klasse {cls}
                         {isDirectMatch && <span className="ml-1 text-xs">(direkt)</span>}
-                        {isRelated && <span className="ml-1 text-xs">(verwandt)</span>}
+                        {isRelated && includeRelatedClasses && <span className="ml-1 text-xs">(verwandt)</span>}
                       </span>
                     </div>
                   );
                 })}
               </div>
-              {selectedClasses.length > 0 && conflict.classes.some(cls => {
+              {includeRelatedClasses && selectedClasses.length > 0 && conflict.classes.some(cls => {
                 const info = getClassRelationInfo(selectedClasses, cls);
                 return info.isRelated;
               }) && (
@@ -4648,6 +4649,7 @@ export default function RecherchePage() {
           conflict={selectedConflict}
           onClose={() => setSelectedConflict(null)}
           selectedClasses={aiSelectedClasses}
+          includeRelatedClasses={includeRelatedClasses}
         />
       )}
 
