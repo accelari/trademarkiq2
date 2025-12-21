@@ -253,6 +253,7 @@ export function RiskAnalysisAccordion({
         badge={conflicts.length}
         badgeColor={analysis.overallRisk === "high" ? "red" : analysis.overallRisk === "medium" ? "yellow" : "green"}
         defaultOpen={true}
+        scrollOnOpen={true}
       >
         <div className="space-y-4">
           {/* All Conflicts */}
@@ -340,6 +341,7 @@ export function RiskAnalysisAccordion({
         badge={shortlist.length > 0 ? shortlist.length : undefined}
         badgeColor="blue"
         defaultOpen={false}
+        scrollOnOpen={true}
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
@@ -378,6 +380,7 @@ export function RiskAnalysisAccordion({
           title="KI-Markenberater Klaus"
           icon={Mic}
           defaultOpen={false}
+          scrollOnOpen={true}
         >
           {voiceAssistantContent}
         </AccordionSection>
@@ -388,6 +391,7 @@ export function RiskAnalysisAccordion({
         title="Nächste Schritte"
         icon={Shield}
         defaultOpen={analysis.overallRisk === "low"}
+        scrollOnOpen={true}
       >
         <div className="space-y-3">
           {analysis.overallRisk === "high" && (

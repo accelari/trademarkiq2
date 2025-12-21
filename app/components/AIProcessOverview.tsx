@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   ChevronDown,
   Search,
@@ -67,8 +67,20 @@ interface StepSectionProps {
 }
 
 function StepSection({ stepNumber, title, icon, status, isOpen, onToggle, children }: StepSectionProps) {
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const wasOpenRef = useRef(isOpen);
+
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      setTimeout(() => {
+        sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen]);
+
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+    <div ref={sectionRef} className="border border-gray-200 rounded-lg overflow-hidden bg-white">
       <button
         type="button"
         onClick={onToggle}
