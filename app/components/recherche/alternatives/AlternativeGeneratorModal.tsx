@@ -221,7 +221,10 @@ export function AlternativeGeneratorModal({
               selectedClasses={selectedClasses}
               checkedNames={checkedNames}
               isChecking={isChecking}
+              shortlist={shortlist}
               onQuickCheck={handleQuickCheckManual}
+              onAddToShortlist={onAddToShortlist}
+              onRemoveFromShortlist={onRemoveFromShortlist}
             />
           )}
         </div>

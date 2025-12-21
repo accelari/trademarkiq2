@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Lightbulb, AlertCircle, CheckCircle, AlertTriangle } from "lucide-react";
+import { Search, Lightbulb, AlertCircle, CheckCircle, AlertTriangle, Plus, Check } from "lucide-react";
 
 interface CheckedName {
   name: string;
@@ -14,14 +14,20 @@ interface ManualEntryTabProps {
   selectedClasses: number[];
   checkedNames: CheckedName[];
   isChecking: boolean;
+  shortlist: string[];
   onQuickCheck: (name: string) => void;
+  onAddToShortlist: (name: string, data: { riskScore: number; riskLevel: string }) => void;
+  onRemoveFromShortlist: (name: string) => void;
 }
 
 export function ManualEntryTab({
   selectedClasses,
   checkedNames,
   isChecking,
+  shortlist,
   onQuickCheck,
+  onAddToShortlist,
+  onRemoveFromShortlist,
 }: ManualEntryTabProps) {
   const [nameInput, setNameInput] = useState("");
 
@@ -105,22 +111,48 @@ export function ManualEntryTab({
             {checkedNames.slice(0, 5).map((checked) => {
               const config = getRiskConfig(checked.riskLevel);
               const Icon = config.icon;
+              const isInShortlist = shortlist.includes(checked.name);
               return (
                 <div
                   key={`${checked.name}-${checked.timestamp.getTime()}`}
-                  className={`${config.bg} border border-gray-200 rounded-lg p-3 flex items-center justify-between`}
+                  className={`${config.bg} border border-gray-200 rounded-lg p-3`}
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-5 h-5 ${config.color}`} />
-                    <span className="font-medium text-gray-900">{checked.name}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Icon className={`w-5 h-5 ${config.color}`} />
+                      <span className="font-medium text-gray-900">{checked.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-sm font-semibold ${config.color}`}>
+                        {config.label}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        Score: {checked.riskScore}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-sm font-semibold ${config.color}`}>
-                      {config.label}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      Score: {checked.riskScore}
-                    </span>
+                  {/* Shortlist Button */}
+                  <div className="mt-2 pt-2 border-t border-gray-200/50">
+                    {isInShortlist ? (
+                      <button
+                        onClick={() => onRemoveFromShortlist(checked.name)}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
+                      >
+                        <Check className="w-4 h-4" />
+                        In Shortlist
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => onAddToShortlist(checked.name, { 
+                          riskScore: checked.riskScore, 
+                          riskLevel: checked.riskLevel 
+                        })}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 hover:border-primary hover:text-primary transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Zur Shortlist hinzufügen
+                      </button>
+                    )}
                   </div>
                 </div>
               );
