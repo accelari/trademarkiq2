@@ -32,12 +32,14 @@ export function ManualEntryTab({
   onRemoveFromShortlist,
 }: ManualEntryTabProps) {
   const [nameInput, setNameInput] = useState("");
+  const [lastCheckedName, setLastCheckedName] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (nameInput.trim()) {
-      onQuickCheck(nameInput.trim());
-      setNameInput("");
+      const trimmedName = nameInput.trim();
+      onQuickCheck(trimmedName);
+      setLastCheckedName(trimmedName);
     }
   };
 

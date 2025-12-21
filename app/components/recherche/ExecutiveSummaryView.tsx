@@ -49,6 +49,7 @@ export function ExecutiveSummaryView({
     isShortlistOpen,
     shortlist,
     recommendation,
+    selectedName,
     suggestions,
     isGenerating,
     generatorSettings,
@@ -63,8 +64,10 @@ export function ExecutiveSummaryView({
     quickCheckManual,
     addToShortlist,
     removeFromShortlist,
+    clearShortlist,
     setGeneratorSettings,
     selectName,
+    confirmSelection,
     downloadPDF,
     startFullAnalysis,
   } = useAlternativeSearch();
@@ -310,8 +313,11 @@ export function ExecutiveSummaryView({
         onClose={closeShortlist}
         items={shortlistItems}
         recommendation={recommendation}
+        selectedName={selectedName}
         onSelectName={selectName}
+        onConfirmSelection={confirmSelection}
         onRemoveFromShortlist={removeFromShortlist}
+        onClearShortlist={clearShortlist}
         onFullAnalysis={startFullAnalysis}
         onAddMore={() => {
           closeShortlist();

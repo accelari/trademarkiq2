@@ -160,14 +160,14 @@ export function AIGeneratorTab({
             <button
               onClick={onRegenerate}
               disabled={isGenerating}
-              className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary/80 hover:bg-primary rounded-lg disabled:opacity-50 transition-all shadow-sm hover:shadow"
             >
               {isGenerating ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <RefreshCw className="w-4 h-4" />
               )}
-              Andere Vorschläge
+              Neue Vorschläge generieren
             </button>
           </div>
 

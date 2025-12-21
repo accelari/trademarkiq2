@@ -75,6 +75,7 @@ export function RiskAnalysisAccordion({
     quickCheck,
     addToShortlist,
     removeFromShortlist,
+    clearShortlist,
     selectName,
     confirmSelection,
     downloadPDF,
@@ -454,6 +455,7 @@ export function RiskAnalysisAccordion({
         onSelectName={selectName}
         onConfirmSelection={confirmSelection}
         onRemoveFromShortlist={removeFromShortlist}
+        onClearShortlist={clearShortlist}
         onFullAnalysis={startFullAnalysis}
         onAddMore={() => {
           closeShortlist();

@@ -80,6 +80,7 @@ interface AlternativeSearchState {
   setGeneratorError: (error: string | null) => void;
   addToShortlist: (item: ShortlistItem) => void;
   removeFromShortlist: (name: string) => void;
+  clearShortlist: () => void;
   updateShortlistItem: (name: string, update: Partial<ShortlistItem>) => void;
   openShortlist: () => void;
   closeShortlist: () => void;
@@ -177,6 +178,14 @@ export const useAlternativeSearchStore = create<AlternativeSearchState>((set, ge
       recommendation:
         state.recommendation?.name === name ? null : state.recommendation,
     })),
+
+  clearShortlist: () =>
+    set({
+      shortlist: [],
+      recommendation: null,
+      selectedName: null,
+      checkedNames: [],
+    }),
 
   updateShortlistItem: (name, update) =>
     set((state) => ({
