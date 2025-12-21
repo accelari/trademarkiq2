@@ -4,3 +4,4 @@ export { ConflictCard } from "./ConflictCard";
 export type { ConflictingMark } from "./ConflictCard";
 export { MinimalProgressIndicator, ThinkingStep } from "./ProgressSteps";
 export { QuickCheckResult, NoResultsFound } from "./QuickCheckResult";
+export { RiskAnalysisAccordion } from "./accordion/RiskAnalysisAccordion";

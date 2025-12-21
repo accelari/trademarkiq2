@@ -64,7 +64,8 @@ import {
   getAccuracyColor as getAccuracyColorUtil,
   ConflictCard,
   QuickCheckResult,
-  NoResultsFound 
+  NoResultsFound,
+  RiskAnalysisAccordion 
 } from "@/app/components/recherche";
 
 const fetcher = async (url: string) => {
@@ -3587,49 +3588,12 @@ export default function RecherchePage() {
                 </div>
 
                 {aiAnalysis.conflicts.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5 text-orange-500" />
-                      Kollidierende Marken ({aiAnalysis.conflicts.length})
-                    </h3>
-                    
-                    {(() => {
-                      const crossClassConflicts = includeRelatedClasses 
-                        ? aiAnalysis.conflicts.filter(c => 
-                            !c.classes.some(cls => aiSelectedClasses.includes(cls))
-                          )
-                        : [];
-                      
-                      if (crossClassConflicts.length > 0) {
-                        return (
-                          <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-start gap-3">
-                            <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                            <div>
-                              <p className="font-medium text-orange-800">
-                                {crossClassConflicts.length} Marke{crossClassConflicts.length !== 1 ? 'n' : ''} in anderen Klassen gefunden
-                              </p>
-                              <p className="text-sm text-orange-700 mt-1">
-                                Diese könnten trotzdem relevant sein, wenn sich die Waren-/Dienstleistungsbeschreibungen überschneiden.
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {aiAnalysis.conflicts.map((conflict, idx) => (
-                        <ConflictCard
-                          key={idx}
-                          conflict={conflict}
-                          selectedClasses={aiSelectedClasses}
-                          includeRelatedClasses={includeRelatedClasses}
-                          onClick={() => setSelectedConflict(conflict)}
-                        />
-                      ))}
-                    </div>
-                  </div>
+                  <RiskAnalysisAccordion
+                    conflicts={aiAnalysis.conflicts}
+                    selectedClasses={aiSelectedClasses}
+                    includeRelatedClasses={includeRelatedClasses}
+                    onConflictClick={setSelectedConflict}
+                  />
                 )}
 
                 {aiAnalysis.conflicts.length === 0 && (
