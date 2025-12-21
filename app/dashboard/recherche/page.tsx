@@ -1700,7 +1700,7 @@ interface SearchHistoryItem {
   searchQuery: string;
   countries: string[];
   classes: number[];
-  riskScore: number | null;
+  riskLevel: "high" | "medium" | "low" | null;
   conflictsCount: number;
   timestamp: Date;
   aiAnalysis: AIAnalysis;
@@ -1842,13 +1842,13 @@ export default function RecherchePage() {
   }, []);
 
   const saveToHistory = useCallback((analysis: AIAnalysis) => {
-    const riskScore = analysis.analysis?.overallRisk ?? null;
+    const riskLevel = analysis.analysis?.overallRisk ?? null;
     const newItem: SearchHistoryItem = {
       id: crypto.randomUUID(),
       searchQuery: searchQuery || activeSearchQuery,
       countries: [...selectedLaender],
       classes: [...aiSelectedClasses],
-      riskScore,
+      riskLevel,
       conflictsCount: analysis.conflicts?.length || 0,
       timestamp: new Date(),
       aiAnalysis: analysis,
