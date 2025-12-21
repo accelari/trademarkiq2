@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   ChevronDown,
-  ChevronUp,
   Search,
   FileSearch,
   Shield,
@@ -89,17 +88,27 @@ function StepSection({ stepNumber, title, icon, status, isOpen, onToggle, childr
             <Check className="w-3 h-3" />
             Abgeschlossen
           </span>
-          {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+          <ChevronDown 
+            className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} 
+          />
         </div>
       </button>
       
-      {isOpen && (
-        <div className="px-4 pb-4 border-t border-gray-100 bg-gray-50/50">
-          <div className="pt-3">
-            {children}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateRows: isOpen ? "1fr" : "0fr",
+          transition: "grid-template-rows 300ms ease-out",
+        }}
+      >
+        <div style={{ overflow: "hidden" }}>
+          <div className="px-4 pb-4 border-t border-gray-100 bg-gray-50/50">
+            <div className="pt-3">
+              {children}
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
