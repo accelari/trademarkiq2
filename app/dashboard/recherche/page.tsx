@@ -3408,7 +3408,11 @@ export default function RecherchePage() {
                   <h3 className="font-semibold text-gray-900">Recherche</h3>
                   {searchQuery && (
                     <p className="text-sm text-gray-500">
-                      {searchQuery} • {selectedLaender.length} {selectedLaender.length === 1 ? 'Land' : 'Länder'} • {aiSelectedClasses.length} {aiSelectedClasses.length === 1 ? 'Klasse' : 'Klassen'}
+                      {searchQuery} • {selectedLaender.length > 3 
+                        ? `${selectedLaender.slice(0, 3).join(', ')} +${selectedLaender.length - 3}` 
+                        : selectedLaender.join(', ')} • {aiSelectedClasses.length > 5 
+                        ? `Klassen ${aiSelectedClasses.slice(0, 5).join(', ')} +${aiSelectedClasses.length - 5}` 
+                        : `Klasse${aiSelectedClasses.length > 1 ? 'n' : ''} ${aiSelectedClasses.join(', ')}`}
                     </p>
                   )}
                 </div>
