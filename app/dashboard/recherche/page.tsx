@@ -3416,7 +3416,7 @@ export default function RecherchePage() {
             </button>
 
             {/* Collapsible Content */}
-            <div className={`transition-all duration-300 ease-in-out ${isSearchFormExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+            <div className={`transition-all duration-300 ease-in-out ${isSearchFormExpanded ? 'opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
               <div className="p-6 pt-2 space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
