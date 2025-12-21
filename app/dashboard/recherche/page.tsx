@@ -1720,10 +1720,11 @@ export default function RecherchePage() {
   const [aiSelectedClasses, setAiSelectedClasses] = useState<number[]>([]);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [isSearchFormExpanded, setIsSearchFormExpanded] = useState(true);
+  const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(true);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiStartTime, setAiStartTime] = useState<number | null>(null);
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
-  const [resultsViewMode, setResultsViewMode] = useState<"executive" | "detailed">("executive");
   const analysisCache = useRef<Map<string, AIAnalysis>>(new Map());
   const abortControllerRef = useRef<AbortController | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -2690,6 +2691,7 @@ export default function RecherchePage() {
       const cachedResult = analysisCache.current.get(cacheKey);
       if (cachedResult && !deepSearch) {
         setAiAnalysis(cachedResult);
+        setIsSearchFormExpanded(false);
         setAiError(null);
         setShowSuccessBanner(true);
         setTimeout(() => setShowSuccessBanner(false), 3000);
@@ -2827,6 +2829,7 @@ export default function RecherchePage() {
       };
 
       setAiAnalysis(finalResult);
+      setIsSearchFormExpanded(false);
       if (useCache) {
         analysisCache.current.set(cacheKey, finalResult);
       }
@@ -3391,9 +3394,35 @@ export default function RecherchePage() {
             </button>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+            {/* Collapsible Header */}
+            <button
+              onClick={() => setIsSearchFormExpanded(!isSearchFormExpanded)}
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors rounded-2xl"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Search className="w-5 h-5 text-primary" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900">Recherche</h3>
+                  {searchQuery && (
+                    <p className="text-sm text-gray-500">
+                      {searchQuery} • {selectedLaender.length} {selectedLaender.length === 1 ? 'Land' : 'Länder'} • {aiSelectedClasses.length} {aiSelectedClasses.length === 1 ? 'Klasse' : 'Klassen'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isSearchFormExpanded ? 'rotate-180' : ''}`} />
+            </button>
 
-        <div className="space-y-5">
+            {/* Collapsible Content - using grid for smooth animation without overflow:hidden */}
+            <div 
+              className="grid transition-all duration-300 ease-in-out"
+              style={{ gridTemplateRows: isSearchFormExpanded ? '1fr' : '0fr' }}
+            >
+              <div style={{ overflow: isSearchFormExpanded ? 'visible' : 'hidden' }}>
+              <div className="p-6 pt-2 space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Markenname
@@ -3496,8 +3525,10 @@ export default function RecherchePage() {
               </>
             )}
           </button>
-        </div>
-      </div>
+              </div>
+              </div>
+            </div>
+          </div>
 
           {aiLoading && progressSteps.length > 0 && (
             <div className="mt-6">
@@ -3511,29 +3542,57 @@ export default function RecherchePage() {
           )}
 
           {aiAnalysis && (
-            <div className="mt-6 space-y-4">
-              <AIProcessOverview
-                searchTerm={searchQuery}
-                progress={aiProgress}
-                analysis={aiAnalysis}
-                selectedCountries={selectedLaender}
-                selectedClasses={aiSelectedClasses}
-              />
-              
-              {/* Verwendete Suchvarianten anzeigen */}
-              {aiAnalysis.searchTermsUsed && aiAnalysis.searchTermsUsed.length > 0 && (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Verwendete Suchbegriffe ({aiAnalysis.searchTermsUsed.length}):</p>
-                  <div className="flex flex-wrap gap-2">
-                    {aiAnalysis.searchTermsUsed.map((term: string, idx: number) => (
-                      <span key={idx} className="px-2 py-1 bg-white border border-gray-200 text-gray-700 text-sm rounded-lg">
-                        {term}
-                      </span>
-                    ))}
+            <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100">
+              {/* Collapsible Analysis Header */}
+              <button
+                onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors rounded-2xl"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <Check className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900">Analyse</h3>
+                    <p className="text-sm text-gray-500">
+                      {searchQuery} • {aiAnalysis.searchTermsUsed?.length || 0} Suchbegriffe
+                    </p>
                   </div>
                 </div>
-              )}
-              
+                <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isAnalysisExpanded ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Collapsible Analysis Content */}
+              <div 
+                className="grid transition-all duration-300 ease-in-out"
+                style={{ gridTemplateRows: isAnalysisExpanded ? '1fr' : '0fr' }}
+              >
+                <div style={{ overflow: isAnalysisExpanded ? 'visible' : 'hidden' }}>
+                  <div className="p-4 pt-0 space-y-4">
+                    <AIProcessOverview
+                      searchTerm={searchQuery}
+                      progress={aiProgress}
+                      analysis={aiAnalysis}
+                      selectedCountries={selectedLaender}
+                      selectedClasses={aiSelectedClasses}
+                    />
+                    
+                    {/* Verwendete Suchvarianten anzeigen */}
+                    {aiAnalysis.searchTermsUsed && aiAnalysis.searchTermsUsed.length > 0 && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Verwendete Suchbegriffe ({aiAnalysis.searchTermsUsed.length}):</p>
+                        <div className="flex flex-wrap gap-2">
+                          {aiAnalysis.searchTermsUsed.map((term: string, idx: number) => (
+                            <span key={idx} className="px-2 py-1 bg-white border border-gray-200 text-gray-700 text-sm rounded-lg">
+                              {term}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -3552,40 +3611,15 @@ export default function RecherchePage() {
 
           {aiAnalysis && (
               <div ref={resultsRef} className="mt-6 space-y-5 scroll-mt-4">
-                <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-600">Aktuelle Prüfung für:</span>
-                    <span className="font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">
-                      {searchQuery || activeSearchQuery}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-                    <button
-                      onClick={() => setResultsViewMode("executive")}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                        resultsViewMode === "executive"
-                          ? "bg-white text-primary shadow-sm"
-                          : "text-gray-600 hover:text-gray-800"
-                      }`}
-                    >
-                      Übersicht
-                    </button>
-                    <button
-                      onClick={() => setResultsViewMode("detailed")}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                        resultsViewMode === "detailed"
-                          ? "bg-white text-primary shadow-sm"
-                          : "text-gray-600 hover:text-gray-800"
-                      }`}
-                    >
-                      Detailansicht
-                    </button>
-                  </div>
+                <div className="mb-4 flex items-center gap-2 text-sm">
+                  <span className="text-gray-600">Aktuelle Prüfung für:</span>
+                  <span className="font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">
+                    {searchQuery || activeSearchQuery}
+                  </span>
                 </div>
 
                 {/* Executive Summary View - Accordion */}
-                {resultsViewMode === "executive" && (
-                  <RiskAnalysisAccordion
+                <RiskAnalysisAccordion
                     brandName={searchQuery || activeSearchQuery}
                     selectedClasses={aiSelectedClasses}
                     analysis={aiAnalysis.analysis}
@@ -3653,312 +3687,7 @@ export default function RecherchePage() {
                       </div>
                     }
                   />
-                )}
 
-                {/* Detailed View (original) */}
-                {resultsViewMode === "detailed" && (
-                  <>
-                <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="p-5 sm:p-6">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                          <Sparkles className="w-6 h-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900">KI-Analyseergebnis</h3>
-                          <p className="text-sm text-gray-500">für "{searchQuery}"</p>
-                        </div>
-                      </div>
-                      <RiskBadge risk={aiAnalysis.analysis.overallRisk} />
-                    </div>
-                    
-                    {aiAnalysis.analysis.famousMarkDetected && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 mb-4">
-                        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-medium text-amber-800">Bekannte Marke erkannt</p>
-                          <p className="text-sm text-amber-700">
-                            {aiAnalysis.analysis.famousMarkNames.join(", ")} - Bekannte Marken haben erweiterten Schutz (Verwässerungsschutz). 
-                            Das Risiko von Widersprüchen ist auch bei niedrigerer Ähnlichkeit erhöht.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        {aiAnalysis.analysis.recommendation.split('.').slice(0, 2).join('.') + '.'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {aiAnalysis.conflicts.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5 text-orange-500" />
-                      Kollidierende Marken ({aiAnalysis.conflicts.length})
-                    </h3>
-                    
-                    {(() => {
-                      const crossClassConflicts = includeRelatedClasses 
-                        ? aiAnalysis.conflicts.filter(c => 
-                            !c.classes.some(cls => aiSelectedClasses.includes(cls))
-                          )
-                        : [];
-                      
-                      if (crossClassConflicts.length > 0) {
-                        return (
-                          <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-start gap-3">
-                            <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                            <div>
-                              <p className="font-medium text-orange-800">
-                                {crossClassConflicts.length} Marke{crossClassConflicts.length !== 1 ? 'n' : ''} in anderen Klassen gefunden
-                              </p>
-                              <p className="text-sm text-orange-700 mt-1">
-                                Diese könnten trotzdem relevant sein, wenn sich die Waren-/Dienstleistungsbeschreibungen überschneiden.
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {aiAnalysis.conflicts.map((conflict, idx) => (
-                        <ConflictCard
-                          key={idx}
-                          conflict={conflict}
-                          selectedClasses={aiSelectedClasses}
-                          includeRelatedClasses={includeRelatedClasses}
-                          onClick={() => setSelectedConflict(conflict)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {aiAnalysis.conflicts.length === 0 && (
-                  <QuickCheckResult
-                    searchQuery={searchQuery}
-                    hasConflicts={false}
-                  />
-                )}
-
-                {!expertAnalysis && !isRiskStreaming && (
-                  <button
-                    onClick={handleContinueToRiskAnalysis}
-                    className="flex items-center justify-center gap-3 w-full px-6 py-4 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg hover:shadow-xl text-lg"
-                  >
-                    <BarChart3 className="w-6 h-6" />
-                    Detaillierte Risikoanalyse starten
-                    <ArrowRight className="w-5 h-5" />
-                  </button>
-                )}
-
-                {isRiskStreaming && (
-                  <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-2xl p-6 border border-primary/20 shadow-lg">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
-                          <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                            <BarChart3 className="w-6 h-6 text-primary animate-pulse" />
-                          </div>
-                          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white flex items-center justify-center shadow-sm">
-                            <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                          </div>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-900">Risikoanalyse läuft...</h4>
-                          <p className="text-sm text-gray-600">{riskStreamProgress.message}</p>
-                        </div>
-                      </div>
-                      {riskElapsedTime > 0 && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm border border-gray-100">
-                          <Clock className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm font-medium text-gray-700">{riskElapsedTime}s</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-white rounded-xl p-3 text-center border border-gray-100">
-                        <p className="text-2xl font-bold text-primary">
-                          {riskStreamProgress.totalConflicts > 0 
-                            ? `${riskStreamProgress.conflictsAnalyzed}/${riskStreamProgress.totalConflicts}`
-                            : "..."
-                          }
-                        </p>
-                        <p className="text-xs text-gray-500">Konflikte analysiert</p>
-                      </div>
-                      <div className="bg-white rounded-xl p-3 text-center border border-gray-100">
-                        <p className="text-2xl font-bold text-primary">
-                          {riskStreamProgress.totalConflicts > 0 
-                            ? `${Math.round((riskStreamProgress.conflictsAnalyzed / riskStreamProgress.totalConflicts) * 100)}%`
-                            : riskStreamProgress.phase === "complete" ? "100%" 
-                            : riskStreamProgress.phase === "error" ? "0%"
-                            : riskElapsedTime < 10 ? "..." : "0%"
-                          }
-                        </p>
-                        <p className="text-xs text-gray-500">Fortschritt</p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>Analyse-Fortschritt</span>
-                        <span>
-                          {riskStreamProgress.totalConflicts > 0 
-                            ? `${Math.round((riskStreamProgress.conflictsAnalyzed / riskStreamProgress.totalConflicts) * 100)}%`
-                            : "Verbinde..."
-                          }
-                        </span>
-                      </div>
-                      <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-primary to-teal-400 rounded-full transition-all duration-500 ease-out"
-                          style={{ 
-                            width: riskStreamProgress.totalConflicts > 0 
-                              ? `${(riskStreamProgress.conflictsAnalyzed / riskStreamProgress.totalConflicts) * 100}%`
-                              : riskStreamProgress.phase === "complete" ? "100%" 
-                              : `${Math.min(5, riskElapsedTime * 0.5)}%`
-                          }}
-                        />
-                      </div>
-                    </div>
-                    
-                    {riskStreamProgress.phase === "connecting" && (
-                      <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-                        <div className="flex gap-1">
-                          <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
-                          <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
-                          <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
-                        </div>
-                        <span>Claude Opus analysiert Ihre Konflikte...</span>
-                      </div>
-                    )}
-
-                    {riskAnalysisSteps.length > 0 && (
-                      <div className="mt-6 border-t border-primary/20 pt-4">
-                        <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                          <Brain className="w-4 h-4 text-primary" />
-                          Analyse-Schritte
-                        </h5>
-                        <div className="space-y-2">
-                          {riskAnalysisSteps.map((step) => (
-                            <div
-                              key={step.id}
-                              className={`bg-white rounded-lg border transition-all ${
-                                step.status === "completed" 
-                                  ? "border-green-200" 
-                                  : step.status === "running" 
-                                    ? "border-primary/30 shadow-sm" 
-                                    : "border-gray-200"
-                              }`}
-                            >
-                              <button
-                                onClick={() => setExpandedRiskStep(expandedRiskStep === step.id ? null : step.id)}
-                                className="w-full flex items-center justify-between p-3 text-left"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                                    step.status === "completed" 
-                                      ? "bg-green-100 text-green-700" 
-                                      : step.status === "running" 
-                                        ? "bg-primary/20 text-primary" 
-                                        : "bg-gray-100 text-gray-500"
-                                  }`}>
-                                    {step.status === "completed" ? (
-                                      <Check className="w-3.5 h-3.5" />
-                                    ) : step.status === "running" ? (
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    ) : (
-                                      step.id
-                                    )}
-                                  </div>
-                                  <div>
-                                    <span className={`text-sm font-medium ${
-                                      step.status === "completed" 
-                                        ? "text-green-700" 
-                                        : step.status === "running" 
-                                          ? "text-primary" 
-                                          : "text-gray-500"
-                                    }`}>
-                                      Schritt {step.id}: {step.title}
-                                    </span>
-                                    {step.progress && step.status === "running" && (
-                                      <span className="ml-2 text-xs text-gray-500">
-                                        ({step.progress.current}/{step.progress.total})
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${
-                                  expandedRiskStep === step.id ? "rotate-180" : ""
-                                }`} />
-                              </button>
-                              {expandedRiskStep === step.id && step.details && (
-                                <div className="px-3 pb-3 pt-0">
-                                  <p className="text-xs text-gray-600 bg-gray-50 rounded p-2 ml-9">
-                                    {step.details}
-                                  </p>
-                                </div>
-                              )}
-                              {step.id === 2 && step.status === "running" && (
-                                <div className="px-3 pb-3 pt-0 ml-9 space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                      <div 
-                                        className="h-full bg-primary rounded-full transition-all duration-1000"
-                                        style={{ 
-                                          width: riskStreamProgress.conflictsAnalyzed > 0 
-                                            ? `${Math.min(100, (riskStreamProgress.conflictsAnalyzed / Math.max(1, riskStreamProgress.totalConflicts)) * 80)}%` 
-                                            : `${Math.min(30, riskElapsedTime * 0.3)}%` 
-                                        }}
-                                      />
-                                    </div>
-                                    <span className="text-xs text-gray-500 min-w-[40px] text-right">
-                                      {riskStreamProgress.conflictsAnalyzed > 0 
-                                        ? `${riskStreamProgress.conflictsAnalyzed}/${riskStreamProgress.totalConflicts}`
-                                        : `${Math.min(100, Math.round(riskElapsedTime * 0.5))}%`}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                                    <span className="flex gap-1">
-                                      <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                                      <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                                      <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                                    </span>
-                                    <span>{riskStreamProgress.message || "Claude Opus analysiert..."}</span>
-                                  </div>
-                                </div>
-                              )}
-                              {step.id === 3 && step.status === "running" && step.progress && (
-                                <div className="px-3 pb-3 pt-0 ml-9">
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                      <div 
-                                        className="h-full bg-primary rounded-full transition-all duration-300"
-                                        style={{ width: `${(step.progress.current / step.progress.total) * 100}%` }}
-                                      />
-                                    </div>
-                                    <span className="text-xs text-gray-500 min-w-[40px] text-right">
-                                      {step.progress.current}/{step.progress.total}
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                  </>
-                )}
                 <div ref={riskResultsEndRef} />
               </div>
           )}

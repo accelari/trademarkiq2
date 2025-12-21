@@ -56,6 +56,16 @@ interface AdvisorResponse {
   expertStrategy?: ExpertStrategy;
 }
 
+function sanitizeHolder(holder: string): string {
+  if (!holder) return "";
+  return holder
+    .replace(/\s*\(vermutlich\)\s*/gi, "")
+    .replace(/\s*\(geschätzt\)\s*/gi, "")
+    .replace(/\s*\(inferred\)\s*/gi, "")
+    .replace(/\s*\(estimated\)\s*/gi, "")
+    .trim();
+}
+
 const SYSTEM_PROMPT = `Du bist ein weltweit anerkannter Markenrechts-Experte mit 25+ Jahren Erfahrung in internationaler Markenpraxis.
 
 DEINE QUALIFIKATIONEN:
@@ -564,7 +574,7 @@ Antworte NUR mit dem JSON.`
           id: conflictId,
           name: String(c.name || ""),
           register: registerName,
-          holder: matchedResult?.holder || (c.holder && c.holder !== "Unbekannt" && c.holder !== "unbekannt" ? String(c.holder) : ""),
+          holder: sanitizeHolder(matchedResult?.holder || (c.holder && c.holder !== "Unbekannt" && c.holder !== "unbekannt" ? String(c.holder) : "")),
           classes: Array.isArray(c.classes) ? c.classes.filter((cls: any) => typeof cls === "number") : [],
           accuracy: finalAccuracy,
           riskLevel: calculatedRiskLevel as "high" | "medium" | "low",
@@ -588,7 +598,7 @@ Antworte NUR mit dem JSON.`
       id: r.applicationNumber || r.id || "",
       name: r.name || "",
       register: OFFICE_CODE_TO_NAME[r.office] || r.office || "Unbekannt",
-      holder: r.holder || "",
+      holder: sanitizeHolder(r.holder || ""),
       classes: r.niceClasses || [],
       accuracy: r.ourCombined || 0,
       riskLevel: (r.ourCombined || 0) >= 80 ? "high" : (r.ourCombined || 0) >= 60 ? "medium" : "low" as "high" | "medium" | "low",

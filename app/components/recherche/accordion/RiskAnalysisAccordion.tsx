@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Eye,
 } from "lucide-react";
 import { AccordionSection } from "./AccordionSection";
 import { RiskBadge } from "../RiskBadge";
@@ -216,21 +217,6 @@ export function RiskAnalysisAccordion({
           </div>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-200">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{conflicts.length}</div>
-            <div className="text-xs text-gray-500">Konflikte</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{totalResultsAnalyzed}</div>
-            <div className="text-xs text-gray-500">Analysiert</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{searchTermsUsed.length}</div>
-            <div className="text-xs text-gray-500">Suchvarianten</div>
-          </div>
-        </div>
       </div>
 
       {/* Famous Mark Warning */}
@@ -257,47 +243,39 @@ export function RiskAnalysisAccordion({
         defaultOpen={true}
       >
         <div className="space-y-4">
-          {/* Category Cards */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
-              <div className="text-3xl font-bold text-red-600">{conflictCounts.critical}</div>
-              <div className="text-sm text-red-700 font-medium">Kritisch</div>
-              <div className="text-xs text-red-600 mt-1">≥80% Ähnlichkeit</div>
-            </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
-              <div className="text-3xl font-bold text-yellow-600">{conflictCounts.review}</div>
-              <div className="text-sm text-yellow-700 font-medium">Prüfen</div>
-              <div className="text-xs text-yellow-600 mt-1">60-79% Ähnlichkeit</div>
-            </div>
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-              <div className="text-3xl font-bold text-green-600">{conflictCounts.okay}</div>
-              <div className="text-sm text-green-700 font-medium">Unbedenklich</div>
-              <div className="text-xs text-green-600 mt-1">&lt;60% Ähnlichkeit</div>
-            </div>
-          </div>
-
-          {/* Top Conflicts Preview */}
-          {topConflicts.length > 0 && (
+          {/* All Conflicts */}
+          {conflicts.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Wichtigste Konflikte:</h4>
-              <div className="space-y-2">
-                {topConflicts.map((conflict, idx) => (
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-medium text-gray-700">Alle Konflikte ({conflicts.length}):</h4>
+                <p className="text-xs text-gray-500">Klicken Sie auf einen Konflikt für Details</p>
+              </div>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {conflicts.map((conflict, idx) => (
                   <button
                     key={idx}
                     onClick={() => onConflictClick?.(conflict)}
-                    className="w-full text-left p-3 bg-white border border-gray-200 rounded-lg hover:border-primary/30 hover:bg-primary/5 transition-all flex items-center justify-between"
+                    className="w-full text-left p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 hover:shadow-md transition-all flex items-center justify-between group cursor-pointer"
                   >
-                    <div>
-                      <span className="font-medium text-gray-900">{conflict.name}</span>
+                    <div className="flex-1">
+                      <span className="font-semibold text-gray-900">{conflict.name}</span>
                       <span className="text-sm text-gray-500 ml-2">• {conflict.register}</span>
                     </div>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      conflict.accuracy >= 80
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}>
-                      {conflict.accuracy}%
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
+                        conflict.accuracy >= 80
+                          ? "bg-red-100 text-red-700"
+                          : conflict.accuracy >= 60
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-green-100 text-green-700"
+                      }`}>
+                        {conflict.accuracy}%
+                      </span>
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg group-hover:bg-primary/90 transition-colors">
+                        <Eye className="w-3.5 h-3.5" />
+                        Details
+                      </span>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -311,6 +289,7 @@ export function RiskAnalysisAccordion({
         title="KI-Risikoanalyse"
         icon={Sparkles}
         defaultOpen={false}
+        scrollOnOpen={true}
       >
         <div className="space-y-4">
           <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
@@ -342,46 +321,7 @@ export function RiskAnalysisAccordion({
         </div>
       </AccordionSection>
 
-      {/* 3. All Conflicts */}
-      {conflicts.length > 0 && (
-        <AccordionSection
-          title="Alle Konflikte"
-          icon={AlertTriangle}
-          badge={conflicts.length}
-          badgeColor="gray"
-          defaultOpen={false}
-        >
-          <div className="space-y-3">
-            {crossClassConflicts.length > 0 && (
-              <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-start gap-3 mb-4">
-                <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-orange-800">
-                    {crossClassConflicts.length} Marke{crossClassConflicts.length !== 1 ? 'n' : ''} in anderen Klassen
-                  </p>
-                  <p className="text-sm text-orange-700 mt-1">
-                    Diese könnten trotzdem relevant sein bei überschneidenden Waren/Dienstleistungen.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-              {conflicts.map((conflict, idx) => (
-                <ConflictCard
-                  key={idx}
-                  conflict={conflict}
-                  selectedClasses={selectedClasses}
-                  includeRelatedClasses={includeRelatedClasses}
-                  onClick={() => onConflictClick?.(conflict)}
-                />
-              ))}
-            </div>
-          </div>
-        </AccordionSection>
-      )}
-
-      {/* 4. Alternative Names */}
+      {/* 3. Alternative Names */}
       <AccordionSection
         title="Alternative Namen"
         icon={Lightbulb}

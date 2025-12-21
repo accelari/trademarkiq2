@@ -31,7 +31,12 @@ The application is built with Next.js 16 (App Router) and TypeScript, utilizing 
   - **Trademark Search**: AI-powered search with `tmsearch.ai` integration, accuracy scores, office badges
   - **Streaming Risk Analysis**: Automatic risk assessment after search completes with SSE progress updates
   - **Two-Column Results Layout**: Left: Conflict cards with legal assessment, opposition risk, solutions. Right: AnimatedRiskScore + statistics
-  - **Empfehlungs-Werkbank**: AI-powered alternative name generation with immediate registry checking for medium/high risk cases
+  - **Empfehlungs-Werkbank (Smart Generation)**: AI-powered alternative name generation with automatic registry checking. Generates 15 candidates internally, checks each against the trademark registry, and returns only the safest 5 names. Features include:
+    - Automatic risk scoring for every generated name
+    - Prioritizes low-risk names, fills with medium-risk if needed
+    - Never shows high-risk names unless ALL candidates are high-risk
+    - Informative banner showing how many safe names were found
+    - Simplified UI: Only style selector needed (removed confusing keyword/language options)
   - World-class international search strategy generation using Claude Opus 4.1
   - Multilingual phonetic analysis (EN, DE, FR, ES, ZH, JP, KR, AR)
   - Famous marks detection with dilution protection warnings
@@ -119,3 +124,4 @@ Bei jeder Programmieranfrage sollte der KI-Assistent den **[Architect Thinking P
 - **Hume Voice**: Niemals `connect()` im `useEffect` - nur auf User-Geste (Klick)
 - **Port 5000**: Einziger exponierter Port für Frontend im Replit-Iframe
 - **Consultations**: Chronologisch laden (`asc`) für Langzeit-Gedächtnis
+- **Holder/Inhaber Daten**: API-Daten von tmsearch.ai direkt anzeigen. `sanitizeHolder()` Funktion entfernt "(vermutlich)" und ähnliche Disclaimers von Claude-Inferenzen. Claude-Prompt explizit angewiesen, KEINE Inhaber zu erraten.
