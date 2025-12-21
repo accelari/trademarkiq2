@@ -15,12 +15,17 @@ export { AIExecutiveSummary } from "./results/AIExecutiveSummary";
 export { RecommendedAction } from "./results/RecommendedAction";
 
 // Alternative Generator components
-export { SimpleAlternativeCards } from "./alternatives/SimpleAlternativeCards";
+export { AlternativeGeneratorModal } from "./alternatives/AlternativeGeneratorModal";
+export { AIGeneratorTab } from "./alternatives/AIGeneratorTab";
+export { ManualEntryTab } from "./alternatives/ManualEntryTab";
 export { StyleSelector } from "./alternatives/StyleSelector";
+export { NameSuggestionCard } from "./alternatives/NameSuggestionCard";
 export type { GeneratorStyle } from "./alternatives/StyleSelector";
-export type { NameSuggestion, QuickCheckStatus } from "./alternatives/SimpleAlternativeCards";
+export type { GeneratorSettings, NameSuggestion, GeneratorLanguage } from "./alternatives/AIGeneratorTab";
+export type { QuickCheckStatus } from "./alternatives/NameSuggestionCard";
 
 // Shortlist components
+export { ShortlistComparison } from "./shortlist/ShortlistComparison";
 export { ComparisonTable } from "./shortlist/ComparisonTable";
 export { MobileShortlistCarousel } from "./shortlist/MobileShortlistCarousel";
 export { AIRecommendation } from "./shortlist/AIRecommendation";

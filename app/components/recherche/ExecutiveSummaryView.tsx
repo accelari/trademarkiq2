@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, List } from "lucide-react";
 import { useState } from "react";
 import {
   RiskAmpel,
@@ -9,7 +9,8 @@ import {
   AIExecutiveSummary,
   RecommendedAction,
 } from "./results";
-import { SimpleAlternativeCards } from "./alternatives";
+import { AlternativeGeneratorModal } from "./alternatives";
+import { ShortlistComparison } from "./shortlist";
 import { useAlternativeSearch } from "@/app/hooks/useAlternativeSearch";
 import type { ConflictingMark } from "./ConflictCard";
 
@@ -28,7 +29,6 @@ interface ExecutiveSummaryViewProps {
   onDownloadPDF?: () => void;
   onProceedToRegistration?: () => void;
   onConflictClick?: (conflict: ConflictingMark) => void;
-  onSelectAlternativeName?: (name: string) => void;
 }
 
 export function ExecutiveSummaryView({
@@ -40,24 +40,40 @@ export function ExecutiveSummaryView({
   onDownloadPDF,
   onProceedToRegistration,
   onConflictClick,
-  onSelectAlternativeName,
 }: ExecutiveSummaryViewProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [detailsCategory, setDetailsCategory] = useState<"critical" | "review" | "okay" | null>(null);
-  const [showAlternatives, setShowAlternatives] = useState(false);
 
   const {
+    isGeneratorOpen,
+    isShortlistOpen,
+    shortlist,
+    recommendation,
     suggestions,
     isGenerating,
+    generatorSettings,
+    checkedNames,
     initializeSearch,
+    openGenerator,
+    closeGenerator,
+    openShortlist,
+    closeShortlist,
     generateAlternatives,
     quickCheck,
-    clearSuggestions,
+    quickCheckManual,
+    addToShortlist,
+    removeFromShortlist,
+    setGeneratorSettings,
+    selectName,
+    downloadPDF,
+    startFullAnalysis,
   } = useAlternativeSearch();
 
+  // Track if we've initialized to prevent infinite loops
   const initializedRef = useRef(false);
   const lastBrandRef = useRef(brandName);
 
+  // Initialize the search data - only when brand name changes
   useEffect(() => {
     if (!initializedRef.current || lastBrandRef.current !== brandName) {
       initializeSearch(brandName, selectedClasses, analysis.overallRisk);
@@ -66,6 +82,7 @@ export function ExecutiveSummaryView({
     }
   }, [brandName, selectedClasses, analysis.overallRisk]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Calculate risk score based on conflicts
   const riskScore = useMemo(() => {
     const criticalCount = conflicts.filter((c) => c.riskLevel === "high").length;
     const mediumCount = conflicts.filter((c) => c.riskLevel === "medium").length;
@@ -79,6 +96,7 @@ export function ExecutiveSummaryView({
     }
   }, [conflicts, analysis.overallRisk]);
 
+  // Get short explanation based on risk level
   const shortExplanation = useMemo(() => {
     if (analysis.overallRisk === "high") {
       return "Die Marke kollidiert wahrscheinlich mit bestehenden Marken. Eine Anmeldung wird voraussichtlich abgelehnt oder angefochten.";
@@ -89,6 +107,7 @@ export function ExecutiveSummaryView({
     }
   }, [analysis.overallRisk]);
 
+  // Count conflicts by category
   const conflictCounts = useMemo(() => {
     return {
       critical: conflicts.filter((c) => c.accuracy >= 80).length,
@@ -97,6 +116,7 @@ export function ExecutiveSummaryView({
     };
   }, [conflicts]);
 
+  // Get top conflicts for AI summary
   const topConflicts = useMemo(() => {
     return conflicts
       .filter((c) => c.accuracy >= 60)
@@ -106,10 +126,11 @@ export function ExecutiveSummaryView({
         office: c.register,
         classes: c.classes,
         similarity: c.accuracy,
-        similarityType: "phonetic" as const,
+        similarityType: "phonetic" as const, // Simplified
       }));
   }, [conflicts]);
 
+  // Get critical classes
   const criticalClasses = useMemo(() => {
     const classConflicts = new Map<number, number>();
     conflicts
@@ -124,6 +145,7 @@ export function ExecutiveSummaryView({
       .map(([cls]) => cls);
   }, [conflicts]);
 
+  // Handle category click
   const handleCategoryClick = (category: "critical" | "review" | "okay") => {
     if (detailsCategory === category) {
       setShowDetails(!showDetails);
@@ -133,6 +155,7 @@ export function ExecutiveSummaryView({
     }
   };
 
+  // Filter conflicts by category
   const filteredConflicts = useMemo(() => {
     if (!detailsCategory) return conflicts;
     switch (detailsCategory) {
@@ -147,9 +170,27 @@ export function ExecutiveSummaryView({
     }
   }, [conflicts, detailsCategory]);
 
-  const handleSelectName = (name: string) => {
-    onSelectAlternativeName?.(name);
+  // Handle alternative generator callbacks
+  const handleGenerateAlternatives = async () => {
+    return generateAlternatives(generatorSettings);
   };
+
+  const handleQuickCheck = async (name: string) => {
+    const result = await quickCheck(name);
+    return result;
+  };
+
+  const handleAddToShortlist = (name: string, data: { riskScore: number; riskLevel: string }) => {
+    addToShortlist(name, data);
+  };
+
+  // Extract shortlist names for the modal (which expects string[])
+  const shortlistNames = useMemo(() => {
+    return shortlist.map((item) => item.name);
+  }, [shortlist]);
+
+  // Shortlist items for comparison modal - already in the correct format
+  const shortlistItems = shortlist;
 
   return (
     <div className="space-y-6">
@@ -181,36 +222,25 @@ export function ExecutiveSummaryView({
       {/* Recommended Action */}
       <RecommendedAction
         riskLevel={analysis.overallRisk}
-        onGenerateAlternatives={() => setShowAlternatives(true)}
-        onEnterOwn={() => setShowAlternatives(true)}
+        onGenerateAlternatives={openGenerator}
+        onEnterOwn={() => {
+          openGenerator();
+          // Switch to manual tab after opening
+        }}
         onContactLawyer={onContactLawyer || (() => {})}
         onDownloadPDF={onDownloadPDF || (() => {})}
         onProceedToRegistration={onProceedToRegistration}
       />
 
-      {/* Inline Alternative Names Section */}
-      {showAlternatives && (
-        <div className="border border-gray-200 rounded-xl p-5 bg-white">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">Alternative Namen</h3>
-            <button
-              onClick={() => setShowAlternatives(false)}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
-              Schließen
-            </button>
-          </div>
-          <SimpleAlternativeCards
-            originalBrand={brandName}
-            selectedClasses={selectedClasses}
-            suggestions={suggestions}
-            isGenerating={isGenerating}
-            onGenerateAlternatives={generateAlternatives}
-            onQuickCheck={quickCheck}
-            onSelectName={handleSelectName}
-            onClearSuggestions={clearSuggestions}
-          />
-        </div>
+      {/* Shortlist Badge (if items exist) */}
+      {shortlistItems.length > 0 && (
+        <button
+          onClick={openShortlist}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary/10 text-primary border border-primary/20 rounded-xl hover:bg-primary/20 transition-colors"
+        >
+          <List className="w-5 h-5" />
+          <span className="font-medium">Shortlist anzeigen ({shortlistItems.length} Namen)</span>
+        </button>
       )}
 
       {/* Expandable Details */}
@@ -259,6 +289,36 @@ export function ExecutiveSummaryView({
           )}
         </div>
       )}
+
+      {/* Alternative Generator Modal */}
+      <AlternativeGeneratorModal
+        isOpen={isGeneratorOpen}
+        onClose={closeGenerator}
+        originalBrand={brandName}
+        selectedClasses={selectedClasses}
+        shortlist={shortlistNames}
+        onOpenShortlist={openShortlist}
+        onGenerateAlternatives={handleGenerateAlternatives}
+        onQuickCheck={handleQuickCheck}
+        onAddToShortlist={handleAddToShortlist}
+        onRemoveFromShortlist={removeFromShortlist}
+      />
+
+      {/* Shortlist Comparison Modal */}
+      <ShortlistComparison
+        isOpen={isShortlistOpen}
+        onClose={closeShortlist}
+        items={shortlistItems}
+        recommendation={recommendation}
+        onSelectName={selectName}
+        onRemoveFromShortlist={removeFromShortlist}
+        onFullAnalysis={startFullAnalysis}
+        onAddMore={() => {
+          closeShortlist();
+          openGenerator();
+        }}
+        onDownloadPDF={downloadPDF}
+      />
     </div>
   );
 }
