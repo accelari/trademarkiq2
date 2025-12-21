@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Lightbulb, AlertCircle, CheckCircle, AlertTriangle, Plus, Check } from "lucide-react";
+import { Search, Lightbulb, AlertCircle, CheckCircle, AlertTriangle, Plus, Check, ChevronDown } from "lucide-react";
 
 interface CheckedName {
   name: string;
@@ -101,64 +101,124 @@ export function ManualEntryTab({
         </div>
       </div>
 
-      {/* Checked Names History */}
-      {checkedNames.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="font-medium text-gray-700 text-sm uppercase tracking-wider">
-            Letzte Eingaben
-          </h4>
-          <div className="space-y-2">
-            {checkedNames.slice(0, 5).map((checked) => {
+      {/* Current Check Result - Most Recent */}
+      {checkedNames.length > 0 && (() => {
+        const latestCheck = checkedNames[0];
+        const config = getRiskConfig(latestCheck.riskLevel);
+        const Icon = config.icon;
+        const isInShortlist = shortlist.includes(latestCheck.name);
+        
+        return (
+          <div className="space-y-4">
+            {/* Main Result Card */}
+            <div className={`${config.bg} border-2 ${
+              latestCheck.riskLevel === 'low' ? 'border-green-300' : 
+              latestCheck.riskLevel === 'medium' ? 'border-yellow-300' : 'border-red-300'
+            } rounded-xl p-5`}>
+              <div className="text-center mb-4">
+                <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full ${
+                  latestCheck.riskLevel === 'low' ? 'bg-green-200' : 
+                  latestCheck.riskLevel === 'medium' ? 'bg-yellow-200' : 'bg-red-200'
+                } mb-3`}>
+                  <Icon className={`w-6 h-6 ${config.color}`} />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-1">"{latestCheck.name}"</h3>
+                <div className="flex items-center justify-center gap-3">
+                  <span className={`text-lg font-semibold ${config.color}`}>
+                    {config.label}
+                  </span>
+                  <span className="text-gray-400">•</span>
+                  <span className="text-gray-600">Score: {latestCheck.riskScore}</span>
+                </div>
+              </div>
+
+              {/* Explanation based on risk level */}
+              <p className="text-sm text-gray-600 text-center mb-4">
+                {latestCheck.riskLevel === 'low' && 
+                  "Dieser Name hat wenige Konflikte im Markenregister. Eine Anmeldung ist vielversprechend."}
+                {latestCheck.riskLevel === 'medium' && 
+                  "Es gibt ähnliche Marken. Prüfen Sie die Konflikte genauer oder testen Sie andere Namen."}
+                {latestCheck.riskLevel === 'high' && 
+                  "Hohe Überschneidung mit bestehenden Marken. Wir empfehlen, einen anderen Namen zu wählen."}
+              </p>
+
+              {/* Primary CTA */}
+              {isInShortlist ? (
+                <button
+                  onClick={() => onRemoveFromShortlist(latestCheck.name)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white font-semibold rounded-xl shadow-lg"
+                >
+                  <Check className="w-5 h-5" />
+                  In Shortlist - zum Vergleichen bereit
+                </button>
+              ) : (
+                <button
+                  onClick={() => onAddToShortlist(latestCheck.name, { 
+                    riskScore: latestCheck.riskScore, 
+                    riskLevel: latestCheck.riskLevel 
+                  })}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg hover:shadow-xl"
+                >
+                  <Plus className="w-5 h-5" />
+                  In Shortlist übernehmen
+                </button>
+              )}
+              
+              <p className="text-xs text-center text-gray-500 mt-2">
+                Fügen Sie Namen zur Shortlist hinzu, um sie später zu vergleichen
+              </p>
+            </div>
+
+            {/* Helper for next action */}
+            <p className="text-sm text-center text-gray-500">
+              Nicht überzeugt? Geben Sie oben einen weiteren Namen ein.
+            </p>
+          </div>
+        );
+      })()}
+      
+      {/* Previous Checks - Collapsed */}
+      {checkedNames.length > 1 && (
+        <details className="group">
+          <summary className="flex items-center justify-between cursor-pointer text-sm text-gray-500 hover:text-gray-700 py-2">
+            <span>Vergangene Prüfungen ({checkedNames.length - 1})</span>
+            <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-2 space-y-2">
+            {checkedNames.slice(1, 6).map((checked) => {
               const config = getRiskConfig(checked.riskLevel);
-              const Icon = config.icon;
               const isInShortlist = shortlist.includes(checked.name);
               return (
                 <div
                   key={`${checked.name}-${checked.timestamp.getTime()}`}
-                  className={`${config.bg} border border-gray-200 rounded-lg p-3`}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Icon className={`w-5 h-5 ${config.color}`} />
-                      <span className="font-medium text-gray-900">{checked.name}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-sm font-semibold ${config.color}`}>
-                        {config.label}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        Score: {checked.riskScore}
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium text-gray-900">{checked.name}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${config.bg} ${config.color}`}>
+                      {checked.riskScore}
+                    </span>
                   </div>
-                  {/* Shortlist Button */}
-                  <div className="mt-2 pt-2 border-t border-gray-200/50">
-                    {isInShortlist ? (
-                      <button
-                        onClick={() => onRemoveFromShortlist(checked.name)}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
-                      >
-                        <Check className="w-4 h-4" />
-                        In Shortlist
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => onAddToShortlist(checked.name, { 
-                          riskScore: checked.riskScore, 
-                          riskLevel: checked.riskLevel 
-                        })}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 hover:border-primary hover:text-primary transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Zur Shortlist hinzufügen
-                      </button>
-                    )}
-                  </div>
+                  {isInShortlist ? (
+                    <span className="text-xs text-primary font-medium flex items-center gap-1">
+                      <Check className="w-3 h-3" /> In Shortlist
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => onAddToShortlist(checked.name, { 
+                        riskScore: checked.riskScore, 
+                        riskLevel: checked.riskLevel 
+                      })}
+                      className="text-xs text-gray-500 hover:text-primary flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Hinzufügen
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
-        </div>
+        </details>
       )}
     </div>
   );
