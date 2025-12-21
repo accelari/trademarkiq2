@@ -11,6 +11,8 @@ interface CheckedName {
   name: string;
   riskLevel: "low" | "medium" | "high";
   riskScore: number;
+  conflictCount: number;
+  criticalCount: number;
   timestamp: Date;
 }
 
@@ -115,7 +117,14 @@ export function AlternativeGeneratorModal({
     try {
       const result = await onQuickCheck(name);
       setCheckedNames((prev) => [
-        { name, riskLevel: result.riskLevel, riskScore: result.riskScore, timestamp: new Date() },
+        {
+          name,
+          riskLevel: result.riskLevel,
+          riskScore: result.riskScore,
+          conflictCount: result.conflicts,
+          criticalCount: 0, // Quick check doesn't return criticalCount separately
+          timestamp: new Date()
+        },
         ...prev,
       ]);
     } catch (error) {
@@ -200,7 +209,7 @@ export function AlternativeGeneratorModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 relative">
           {activeTab === "ai" && (
             <AIGeneratorTab
               originalBrand={originalBrand}
@@ -228,6 +237,19 @@ export function AlternativeGeneratorModal({
             />
           )}
         </div>
+
+        {/* Sticky Footer - Shortlist CTA */}
+        {shortlist.length > 0 && (
+          <div className="border-t border-gray-200 bg-gradient-to-t from-white via-white to-white/95 px-6 py-4">
+            <button
+              onClick={onOpenShortlist}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg"
+            >
+              <List className="w-5 h-5" />
+              Shortlist vergleichen ({shortlist.length} Namen)
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

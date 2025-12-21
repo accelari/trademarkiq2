@@ -3637,6 +3637,28 @@ export default function RecherchePage() {
                       alert("Weiterleitung zur Anmeldung...");
                     }}
                     onConflictClick={(conflict) => setSelectedConflict(conflict)}
+                    onSelectAlternativeName={(name) => {
+                      // Reset state and trigger a new search with the selected name
+                      setAiAnalysis(null);
+                      setStatusUpdated(false);
+                      setSearchQuery(name);
+                      setActiveSearchQuery(name);
+                      setHasSearched(true);
+                      setCurrentPage(1);
+                      // Scroll to top
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    onFullAnalysisRequest={(name) => {
+                      // Trigger full analysis for the selected name
+                      setAiAnalysis(null);
+                      setStatusUpdated(false);
+                      setSearchQuery(name);
+                      setActiveSearchQuery(name);
+                      setHasSearched(true);
+                      setCurrentPage(1);
+                      // Scroll to top
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
                     voiceAssistantContent={
                       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" style={{ minHeight: "300px" }}>
                         {klausAccessToken ? (

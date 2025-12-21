@@ -40,6 +40,10 @@ interface RiskAnalysisAccordionProps {
   onContactLawyer?: () => void;
   onDownloadPDF?: () => void;
   onProceedToRegistration?: () => void;
+  // Callback when user selects an alternative name from shortlist
+  onSelectAlternativeName?: (name: string) => void;
+  // Callback when user requests full analysis for a name
+  onFullAnalysisRequest?: (name: string) => void;
   // Voice assistant section (pass as children or render prop)
   voiceAssistantContent?: ReactNode;
 }
@@ -56,6 +60,8 @@ export function RiskAnalysisAccordion({
   onContactLawyer,
   onDownloadPDF,
   onProceedToRegistration,
+  onSelectAlternativeName,
+  onFullAnalysisRequest,
   voiceAssistantContent,
 }: RiskAnalysisAccordionProps) {
   const {
@@ -192,6 +198,16 @@ export function RiskAnalysisAccordion({
 
   const handleAddToShortlist = (name: string, data: { riskScore: number; riskLevel: string }) => {
     addToShortlist(name, data);
+  };
+
+  const handleSelectName = (name: string) => {
+    selectName(name); // Close modals
+    onSelectAlternativeName?.(name); // Trigger external callback
+  };
+
+  const handleFullAnalysis = (name: string) => {
+    closeShortlist(); // Close the modal
+    onFullAnalysisRequest?.(name); // Trigger external callback for full analysis
   };
 
   return (
@@ -434,9 +450,9 @@ export function RiskAnalysisAccordion({
         onClose={closeShortlist}
         items={shortlist}
         recommendation={recommendation}
-        onSelectName={selectName}
+        onSelectName={handleSelectName}
         onRemoveFromShortlist={removeFromShortlist}
-        onFullAnalysis={startFullAnalysis}
+        onFullAnalysis={handleFullAnalysis}
         onAddMore={() => {
           closeShortlist();
           openGenerator();
