@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  ChevronRight,
 } from "lucide-react";
 import { AccordionSection } from "./AccordionSection";
 import { RiskBadge } from "../RiskBadge";
@@ -251,19 +252,24 @@ export function RiskAnalysisAccordion({
                   <button
                     key={idx}
                     onClick={() => onConflictClick?.(conflict)}
-                    className="w-full text-left p-3 bg-white border border-gray-200 rounded-lg hover:border-primary/30 hover:bg-primary/5 transition-all flex items-center justify-between"
+                    className="w-full text-left p-3 bg-white border border-gray-200 rounded-lg hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm transition-all flex items-center justify-between group cursor-pointer"
                   >
                     <div>
                       <span className="font-medium text-gray-900">{conflict.name}</span>
                       <span className="text-sm text-gray-500 ml-2">• {conflict.register}</span>
                     </div>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      conflict.accuracy >= 80
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}>
-                      {conflict.accuracy}%
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        conflict.accuracy >= 80
+                          ? "bg-red-100 text-red-700"
+                          : conflict.accuracy >= 60
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-green-100 text-green-700"
+                      }`}>
+                        {conflict.accuracy}%
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors" />
+                    </div>
                   </button>
                 ))}
               </div>
