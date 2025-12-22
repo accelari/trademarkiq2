@@ -1905,10 +1905,6 @@ export default function RecherchePage() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [creatingCaseForId, setCreatingCaseForId] = useState<string | null>(null);
   
-  const [showSavedBanner, setShowSavedBanner] = useState(false);
-  const [historyExpanded, setHistoryExpanded] = useState(true);
-  const [highlightedHistoryId, setHighlightedHistoryId] = useState<string | null>(null);
-  
   const hasUnsavedData = aiAnalysis !== null && !resultsSaved;
   
   const { 
@@ -1940,10 +1936,6 @@ export default function RecherchePage() {
     };
     setSearchHistory(prev => [newItem, ...prev]);
     setActiveHistoryId(newItem.id);
-    setHistoryExpanded(true);
-    setHighlightedHistoryId(newItem.id);
-    // Remove highlight after 4 seconds
-    setTimeout(() => setHighlightedHistoryId(null), 4000);
   }, [searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses, expertAnalysis, streamedConflicts, nameShortlist]);
 
   const saveSearchToDatabase = useCallback(async (analysis: AIAnalysis, currentExpertAnalysis?: ExpertAnalysisResponse | null, currentConflicts?: ExpertConflictAnalysis[], currentShortlist?: NameShortlistItem[]) => {
@@ -3499,34 +3491,20 @@ export default function RecherchePage() {
   };
 
   const handleStartFullAnalysisForName = useCallback(async (name: string) => {
-    // Save previous search to history if it exists (show banner whenever replacing existing results)
-    if (aiAnalysis) {
-      // Only save to history if not already viewing a history item
-      if (activeHistoryId === null) {
-        saveToHistory(aiAnalysis, expertAnalysis, streamedConflicts, nameShortlist);
-      }
-      setShowSavedBanner(true);
-      setHistoryExpanded(true);
-      // Auto-dismiss banner after 3.5 seconds
-      setTimeout(() => setShowSavedBanner(false), 3500);
-    }
-    
-    // Update search query first
     setSearchQuery(name);
     
-    // Scroll to results
     setTimeout(() => {
       resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
     
-    // Validate inputs before running analysis
-    if (!name.trim() || selectedLaender.length === 0 || aiSelectedClasses.length === 0) {
-      return;
-    }
-    
-    // Run analysis directly with the passed name parameter (not searchQuery state)
-    await runFullTrademarkAnalysis(name, { deepSearch: true, useCache: false, useAbortController: false });
-  }, [runFullTrademarkAnalysis, selectedLaender, aiSelectedClasses, aiAnalysis, activeHistoryId, saveToHistory, expertAnalysis, streamedConflicts, nameShortlist]);
+    setTimeout(async () => {
+      if (!name.trim() || selectedLaender.length === 0 || aiSelectedClasses.length === 0) {
+        return;
+      }
+      
+      await runFullTrademarkAnalysis(name, { deepSearch: true, useCache: false, useAbortController: false });
+    }, 200);
+  }, [runFullTrademarkAnalysis, selectedLaender, aiSelectedClasses]);
 
   const handleAddCustomName = () => {
     const name = customNameInput.trim();
@@ -3614,22 +3592,6 @@ export default function RecherchePage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast notification for saved search */}
-      {showSavedBanner && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
-          <div className="flex items-center gap-2 px-4 py-3 bg-primary text-white rounded-xl shadow-lg">
-            <Check className="w-5 h-5" />
-            <span className="font-medium">Vorherige Recherche gespeichert</span>
-            <button 
-              onClick={() => setShowSavedBanner(false)}
-              className="ml-2 p-1 hover:bg-primary/80 rounded-lg transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
       <WorkflowProgress 
         currentStep={2} 
         stepStatuses={caseId ? { beratung: "completed" } : { beratung: "skipped" }}
@@ -3802,20 +3764,11 @@ export default function RecherchePage() {
           {/* Search History */}
           {(searchHistory.length > 0 || aiAnalysis) && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
-              <div className="w-full flex items-center justify-between mb-3">
-                <button 
-                  onClick={() => setHistoryExpanded(!historyExpanded)}
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
                   <HistoryIcon className="w-4 h-4 text-gray-500" />
                   <span className="text-sm font-medium text-gray-700">Bisherige Recherchen</span>
-                  {searchHistory.length > 0 && (
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                      {searchHistory.length}
-                    </span>
-                  )}
-                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${historyExpanded ? 'rotate-180' : ''}`} />
-                </button>
+                </div>
                 <button
                   onClick={startNewSearch}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
@@ -3824,35 +3777,20 @@ export default function RecherchePage() {
                   Neue Recherche
                 </button>
               </div>
-              <div 
-                className="grid transition-all duration-300 ease-in-out"
-                style={{ gridTemplateRows: historyExpanded ? '1fr' : '0fr' }}
-              >
-                <div className="overflow-hidden">
-                  <div className="space-y-2">
-                    {searchHistory.map((item) => (
-                      <div 
-                        key={item.id} 
-                        className={`transition-all duration-500 ${
-                          highlightedHistoryId === item.id ? 'ring-2 ring-primary ring-offset-2 rounded-xl' : ''
-                        }`}
-                      >
-                        {/* History Item Row */}
-                        <div
-                          onClick={() => togglePreviewHistory(item)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') togglePreviewHistory(item); }}
-                          className={`w-full text-left p-3 rounded-xl border transition-all duration-200 flex items-center justify-between group cursor-pointer ${
-                            highlightedHistoryId === item.id
-                              ? 'border-primary bg-primary/10'
-                              : activeHistoryId === item.id
-                              ? 'border-primary bg-primary/5'
-                              : previewHistoryId === item.id
-                              ? 'border-primary/50 bg-primary/5'
-                              : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
-                          }`}
-                        >
+              <div className="space-y-2">
+                {searchHistory.map((item) => (
+                  <div key={item.id} className="transition-all duration-300">
+                    {/* History Item Row */}
+                    <button
+                      onClick={() => togglePreviewHistory(item)}
+                      className={`w-full text-left p-3 rounded-xl border transition-all duration-200 flex items-center justify-between group ${
+                        activeHistoryId === item.id
+                          ? 'border-primary bg-primary/5'
+                          : previewHistoryId === item.id
+                          ? 'border-primary/50 bg-primary/5'
+                          : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         {/* Chevron indicator */}
                         <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ${
@@ -3922,7 +3860,7 @@ export default function RecherchePage() {
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
-                    </div>
+                    </button>
 
                     {/* Preview Card (expandable) */}
                     <div 
@@ -4032,9 +3970,7 @@ export default function RecherchePage() {
                       </div>
                     </div>
                   </div>
-                    ))}
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           )}
