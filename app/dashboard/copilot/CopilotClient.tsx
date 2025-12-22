@@ -12,7 +12,6 @@ import HelpDrawer from "../../components/HelpDrawer";
 import GuidedTour from "../../components/GuidedTour";
 import ConsultationsModal from "../../components/ConsultationsModal";
 import { useUnsavedData } from "@/app/contexts/UnsavedDataContext";
-import { useActiveCaseStore } from "@/app/stores/activeCaseStore";
 
 interface CopilotClientProps {
   accessToken: string;
@@ -110,7 +109,6 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [catchUpCaseId, setCatchUpCaseId] = useState<string | null>(null);
-  const [isCatchUpMode, setIsCatchUpMode] = useState(false);
   const [catchUpCaseInfo, setCatchUpCaseInfo] = useState<{ 
     caseNumber: string; 
     trademarkName: string;
@@ -170,26 +168,6 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     console.log("[CopilotClient] Syncing hasUnsavedData:", hasUnsavedData, "| meetingNotes.length:", meetingNotes.length, "| savedSuccessfully:", savedSuccessfully, "| sessionAnalyzed:", sessionAnalyzed);
     setGlobalHasUnsavedData(hasUnsavedData);
   }, [hasUnsavedData, setGlobalHasUnsavedData, meetingNotes.length, savedSuccessfully, sessionAnalyzed]);
-
-  // Sync active case to global store for sidebar navigation
-  const { setActiveCase, updateMetadata, clearActiveCase } = useActiveCaseStore();
-  
-  useEffect(() => {
-    if (currentCaseId || currentCaseNumber) {
-      setActiveCase(currentCaseId, currentCaseNumber);
-      console.log("[CopilotClient] Active case synced to store:", currentCaseId, currentCaseNumber);
-    }
-  }, [currentCaseId, currentCaseNumber, setActiveCase]);
-  
-  useEffect(() => {
-    if (analysisResults?.trademarkName || welcomeMessage?.trademarkName) {
-      updateMetadata({
-        trademarkName: analysisResults?.trademarkName || welcomeMessage?.trademarkName || undefined,
-        countries: analysisResults?.targetCountries || welcomeMessage?.countries,
-        niceClasses: analysisResults?.niceClasses?.map(c => parseInt(c)) || welcomeMessage?.niceClasses,
-      });
-    }
-  }, [analysisResults, welcomeMessage, updateMetadata]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -391,7 +369,6 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     const catchUpCase = searchParams.get("catchUpCase");
     const resumeCase = searchParams.get("resumeCase");
     const caseToResume = catchUpCase || resumeCase;
-    const isCatchUp = !!catchUpCase;
     
     if (topic) {
       setContextTopic(topic);
@@ -402,7 +379,6 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     }
     if (caseToResume) {
       setCatchUpCaseId(caseToResume);
-      setIsCatchUpMode(isCatchUp);
       
       const loadCaseData = async () => {
         try {
@@ -410,10 +386,6 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
           const data = await caseRes.json();
           
           if (!data.case) return;
-          
-          setCurrentCaseId(data.case.id);
-          setCurrentCaseNumber(data.case.caseNumber);
-          caseCreatedRef.current = true;
           
           const allConsultations = data.case.consultations || [];
           const latestConsultation = allConsultations[allConsultations.length - 1];
@@ -1412,14 +1384,6 @@ ${notesText}`,
     setMeetingDurationSeconds(0);
     setSessionAnalyzed(false);
     setRestoredFromCase(false);
-    setCurrentCaseId(null);
-    setCurrentCaseNumber(null);
-    setCatchUpCaseId(null);
-    setCatchUpCaseInfo(null);
-    setIsCatchUpMode(false);
-    setWelcomeMessage(null);
-    caseCreatedRef.current = false;
-    clearActiveCase();
   };
 
   const handleMessageSent = (content: string, type: "user" | "assistant") => {
@@ -1449,7 +1413,7 @@ ${notesText}`,
       onNavigateToRecherche={() => handleNavigationWithCheck('/dashboard/recherche')}
       copilotSubtitle={`${inputMode === "sprache" ? "Sprachgesteuerte Beratung" : "Text-Beratung"} • ${meetingDuration !== "00:00" ? meetingDuration : "Bereit"}`}
     >
-      {catchUpCaseInfo && isCatchUpMode && (
+      {catchUpCaseInfo && (
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -1466,7 +1430,6 @@ ${notesText}`,
               onClick={() => {
                 setCatchUpCaseId(null);
                 setCatchUpCaseInfo(null);
-                setIsCatchUpMode(false);
                 router.push("/dashboard/copilot");
               }}
               className="text-amber-600 hover:text-amber-800 p-1"
@@ -1478,7 +1441,7 @@ ${notesText}`,
         </div>
       )}
 
-      {welcomeMessage && !isCatchUpMode && (
+      {welcomeMessage && (
         <div className="mb-6 bg-gradient-to-r from-primary/5 to-teal-50 border border-primary/20 rounded-2xl p-5 shadow-sm">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">

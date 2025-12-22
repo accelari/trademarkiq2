@@ -58,7 +58,6 @@ import ConsultationsModal from "@/app/components/ConsultationsModal";
 import { NICE_CLASSES, getPopularClasses, formatClassLabel } from "@/lib/nice-classes";
 import { getAllRelatedClasses, hasOverlappingClasses, getClassRelationInfo } from "@/lib/related-classes";
 import { useUnsavedData } from "@/app/contexts/UnsavedDataContext";
-import { useActiveCaseStore } from "@/app/stores/activeCaseStore";
 import {
   RiskBadge,
   StatusBadge,
@@ -1819,15 +1818,6 @@ export default function RecherchePage() {
     setHasUnsavedData: setGlobalHasUnsavedData, 
     setOnSaveBeforeLeave 
   } = useUnsavedData();
-
-  const { setActiveCase } = useActiveCaseStore();
-
-  useEffect(() => {
-    if (caseId || currentCaseNumber) {
-      setActiveCase(caseId || null, currentCaseNumber);
-      console.log("[RecherchePage] Active case synced to store:", caseId, currentCaseNumber);
-    }
-  }, [caseId, currentCaseNumber, setActiveCase]);
 
   const resetAnalysisState = useCallback(() => {
     setAiAnalysis(null);
