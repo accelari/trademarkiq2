@@ -133,75 +133,75 @@ export default function WorkflowProgress({ currentStep, searchName, stepStatuses
           Marke: <span className="font-medium text-gray-900">{searchName}</span>
         </p>
       )}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center justify-between flex-1">
-        {steps.map((step, index) => {
-          const Icon = step.icon;
-          const status = getStepStatus(step.id);
-          const isCurrent = currentStep === step.id;
-          const showHelp = isCurrent || status === "skipped";
-          
-          return (
-            <div key={step.id} className="flex items-center flex-1">
-              <div 
-                className="flex flex-col items-center flex-1 relative"
-                onMouseEnter={() => setHoveredStep(step.id)}
-                onMouseLeave={() => setHoveredStep(null)}
-              >
-                <div className="relative">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${getStatusStyles(status, isCurrent)}`}
-                  >
-                    {status === "completed" ? (
-                      <Check className="w-5 h-5" />
-                    ) : status === "skipped" ? (
-                      <SkipForward className="w-4 h-4" />
-                    ) : (
-                      <Icon className="w-5 h-5" />
+      <div className="flex items-center gap-6">
+        <div className="flex items-center flex-1">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            const status = getStepStatus(step.id);
+            const isCurrent = currentStep === step.id;
+            const showHelp = isCurrent || status === "skipped";
+            
+            return (
+              <div key={step.id} className="contents">
+                <div 
+                  className="flex flex-col items-center relative"
+                  onMouseEnter={() => setHoveredStep(step.id)}
+                  onMouseLeave={() => setHoveredStep(null)}
+                >
+                  <div className="relative">
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${getStatusStyles(status, isCurrent)}`}
+                    >
+                      {status === "completed" ? (
+                        <Check className="w-5 h-5" />
+                      ) : status === "skipped" ? (
+                        <SkipForward className="w-4 h-4" />
+                      ) : (
+                        <Icon className="w-5 h-5" />
+                      )}
+                    </div>
+                    
+                    {showHelp && (
+                      <button
+                        onClick={() => handleHelpClick(step)}
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary-hover transition-colors shadow-sm"
+                        title={`Hilfe zu ${step.name}`}
+                      >
+                        <HelpCircle className="w-3 h-3" />
+                      </button>
                     )}
                   </div>
-                  
-                  {showHelp && (
-                    <button
-                      onClick={() => handleHelpClick(step)}
-                      className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary-hover transition-colors shadow-sm"
-                      title={`Hilfe zu ${step.name}`}
-                    >
-                      <HelpCircle className="w-3 h-3" />
-                    </button>
+
+                  <span className={`mt-1.5 text-xs whitespace-nowrap ${getTextStyles(status)}`}>
+                    {step.name}
+                  </span>
+
+                  {status === "skipped" && hoveredStep === step.id && (
+                    <div className="absolute top-full mt-1 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
+                      Übersprungen – kann später nachgeholt werden
+                    </div>
+                  )}
+
+                  {isCurrent && status === "in_progress" && hoveredStep === step.id && (
+                    <div className="absolute top-full mt-1 bg-primary text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
+                      Aktueller Schritt
+                    </div>
                   )}
                 </div>
-
-                <span className={`mt-2 text-xs ${getTextStyles(status)}`}>
-                  {step.name}
-                </span>
-
-                {status === "skipped" && hoveredStep === step.id && (
-                  <div className="absolute top-full mt-1 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-                    Übersprungen – kann später nachgeholt werden
-                  </div>
-                )}
-
-                {isCurrent && status === "in_progress" && hoveredStep === step.id && (
-                  <div className="absolute top-full mt-1 bg-primary text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-                    Aktueller Schritt
-                  </div>
+                
+                {index < steps.length - 1 && (
+                  <div className={`h-0.5 flex-1 min-w-8 mx-2 transition-colors ${getLineColor(status)}`} />
                 )}
               </div>
-              
-              {index < steps.length - 1 && (
-                <div className={`h-0.5 flex-1 mx-1 transition-colors ${getLineColor(status)}`} />
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
         </div>
         
         {onOpenConsultations && (
           <button
             onClick={onOpenConsultations}
             data-tour="my-consultations"
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm whitespace-nowrap"
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm whitespace-nowrap flex-shrink-0"
           >
             <FolderOpen className="w-4 h-4 text-primary" />
             <span className="font-medium text-gray-700 text-sm">Meine Markenfälle</span>
