@@ -20,7 +20,6 @@ interface WorkflowProgressProps {
   searchName?: string;
   stepStatuses?: Record<string, StepStatus>;
   onHelpClick?: () => void;
-  compact?: boolean;
 }
 
 const steps: StepConfig[] = [
@@ -74,7 +73,7 @@ const statusIdMap: Record<number, string> = {
   5: "watchlist"
 };
 
-export default function WorkflowProgress({ currentStep, searchName, stepStatuses = {}, onHelpClick, compact = false }: WorkflowProgressProps) {
+export default function WorkflowProgress({ currentStep, searchName, stepStatuses = {}, onHelpClick }: WorkflowProgressProps) {
   const router = useRouter();
   const [hoveredStep, setHoveredStep] = useState<number | null>(null);
 
@@ -127,8 +126,8 @@ export default function WorkflowProgress({ currentStep, searchName, stepStatuses
   };
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${compact ? 'p-2 flex-1' : 'p-4'}`}>
-      {searchName && !compact && (
+    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      {searchName && (
         <p className="text-sm text-gray-600 mb-3 text-center">
           Marke: <span className="font-medium text-gray-900">{searchName}</span>
         </p>
@@ -138,7 +137,7 @@ export default function WorkflowProgress({ currentStep, searchName, stepStatuses
           const Icon = step.icon;
           const status = getStepStatus(step.id);
           const isCurrent = currentStep === step.id;
-          const showHelp = !compact && (isCurrent || status === "skipped");
+          const showHelp = isCurrent || status === "skipped";
           
           return (
             <div key={step.id} className="flex items-center flex-1">
@@ -149,14 +148,14 @@ export default function WorkflowProgress({ currentStep, searchName, stepStatuses
               >
                 <div className="relative">
                   <div
-                    className={`${compact ? 'w-8 h-8' : 'w-10 h-10'} rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${getStatusStyles(status, isCurrent)}`}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${getStatusStyles(status, isCurrent)}`}
                   >
                     {status === "completed" ? (
-                      <Check className={compact ? "w-4 h-4" : "w-5 h-5"} />
+                      <Check className="w-5 h-5" />
                     ) : status === "skipped" ? (
-                      <SkipForward className={compact ? "w-3 h-3" : "w-4 h-4"} />
+                      <SkipForward className="w-4 h-4" />
                     ) : (
-                      <Icon className={compact ? "w-4 h-4" : "w-5 h-5"} />
+                      <Icon className="w-5 h-5" />
                     )}
                   </div>
                   
@@ -171,7 +170,7 @@ export default function WorkflowProgress({ currentStep, searchName, stepStatuses
                   )}
                 </div>
 
-                <span className={`${compact ? 'mt-1' : 'mt-2'} text-xs ${getTextStyles(status)} ${compact ? 'hidden sm:block' : ''}`}>
+                <span className={`mt-2 text-xs ${getTextStyles(status)}`}>
                   {step.name}
                 </span>
 
@@ -189,7 +188,7 @@ export default function WorkflowProgress({ currentStep, searchName, stepStatuses
               </div>
               
               {index < steps.length - 1 && (
-                <div className={`h-0.5 flex-1 ${compact ? 'mx-1' : 'mx-2'} transition-colors ${getLineColor(status)}`} />
+                <div className={`h-0.5 flex-1 mx-2 transition-colors ${getLineColor(status)}`} />
               )}
             </div>
           );
