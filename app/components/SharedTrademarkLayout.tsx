@@ -40,25 +40,16 @@ export default function SharedTrademarkLayout({
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">
-              {isCopilot ? "Markenberatung" : "Markenrecherche"}
-            </h1>
-            <p className="text-gray-600 mt-1">
-              {isCopilot 
-                ? "Ihr KI-gestützter Assistent für internationales Markenrecht"
-                : "Prüfen Sie, ob Ihr gewünschter Markenname bereits registriert ist"
-              }
-            </p>
-          </div>
-          <button
-            onClick={onHelpClick || (() => router.push(`/dashboard/copilot?topic=${isCopilot ? 'beratung' : 'recherche'}`))}
-            className="w-10 h-10 bg-primary/10 hover:bg-primary/20 text-primary rounded-full flex items-center justify-center transition-colors"
-            title="Hilfe & Anleitungen"
-          >
-            <HelpCircle className="w-5 h-5" />
-          </button>
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">
+            {isCopilot ? "Markenberatung" : "Markenrecherche"}
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {isCopilot 
+              ? "Ihr KI-gestützter Assistent für internationales Markenrecht"
+              : "Prüfen Sie, ob Ihr gewünschter Markenname bereits registriert ist"
+            }
+          </p>
         </div>
         <button
           onClick={onOpenConsultations}

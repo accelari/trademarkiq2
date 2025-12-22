@@ -1471,6 +1471,16 @@ ${notesText}`,
             <button
               onClick={(e) => {
                 e.stopPropagation();
+                setShowHelpDrawer(true);
+              }}
+              className="w-8 h-8 bg-primary/10 hover:bg-primary/20 text-primary rounded-full flex items-center justify-center transition-colors"
+              title="Hilfe & Anleitungen"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
                 setShowGuidedTour(true);
               }}
               className="text-xs text-primary hover:text-primary/80 underline transition-colors"
