@@ -83,6 +83,7 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
   const [contextTopic, setContextTopic] = useState<string | null>(null);
   const [contextPrompt, setContextPrompt] = useState<string | null>(null);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [isVoiceAssistantExpanded, setIsVoiceAssistantExpanded] = useState(true);
   const [showHelpDrawer, setShowHelpDrawer] = useState(false);
   const [showGuidedTour, setShowGuidedTour] = useState(false);
   const [autoStartConsultation, setAutoStartConsultation] = useState(false);
@@ -1601,89 +1602,125 @@ ${notesText}`,
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-        <div className="lg:col-span-2 order-1">
-          {hasVoiceAssistant ? (
-            <VoiceProvider>
-              <VoiceAssistant 
-                ref={voiceAssistantRef}
-                accessToken={accessToken} 
-                inputMode={inputMode} 
-                onMessageSent={handleMessageSent}
-                autoStart={autoStartConsultation}
-                onAutoStartConsumed={() => setAutoStartConsultation(false)}
-                contextMessage={contextMessage}
-                onContextMessageConsumed={() => setContextMessage(null)}
-              />
-            </VoiceProvider>
-          ) : (
-            <div className="bg-white rounded-xl p-8 text-center shadow-sm border border-gray-100">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Mic className="w-8 h-8 text-gray-400" />
-              </div>
-              <p className="text-gray-600 font-medium">
-                Der Sprachassistent ist derzeit nicht verfügbar.
-              </p>
-              <p className="text-sm text-gray-500 mt-2">
-                Bitte stellen Sie sicher, dass die Hume AI Zugangsdaten konfiguriert sind.
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+        {/* Accordion Header */}
+        <button
+          onClick={() => setIsVoiceAssistantExpanded(!isVoiceAssistantExpanded)}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors rounded-2xl"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+              <MessageCircle className="w-5 h-5 text-white" />
+            </div>
+            <div className="text-left">
+              <h3 className="font-semibold text-gray-900">KI-Markenberater</h3>
+              <p className="text-sm text-gray-500">
+                {inputMode === "sprache" ? "Sprachgesteuerte Beratung" : "Text-Beratung"} • {meetingDuration !== "00:00" ? meetingDuration : "Bereit"}
               </p>
             </div>
-          )}
-        </div>
+          </div>
+          <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isVoiceAssistantExpanded ? 'rotate-180' : ''}`} />
+        </button>
 
-        <div className="space-y-4 order-2">
-          {meetingNotes.length > 1 && (
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-primary" />
-                Sitzungsprotokoll
-              </h3>
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {meetingNotes.filter(n => n.type !== "system").slice(-10).map((note) => (
-                  <div key={note.id} className={`text-sm p-3 rounded-lg ${
-                    note.type === "user"
-                      ? "bg-primary/10 text-gray-800"
-                      : "bg-gray-50 text-gray-700"
-                  }`}>
-                    <span className="text-xs font-medium text-gray-500 block mb-1">
-                      {note.type === "user" ? "Frage:" : "Antwort:"}
-                    </span>
-                    <span className="whitespace-pre-wrap">{note.content}</span>
+        {/* Accordion Content */}
+        <div 
+          className="grid transition-all duration-300 ease-in-out"
+          style={{ gridTemplateRows: isVoiceAssistantExpanded ? '1fr' : '0fr' }}
+        >
+          <div style={{ overflow: isVoiceAssistantExpanded ? 'visible' : 'hidden' }}>
+            <div className="p-4 pt-0">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+                <div className="lg:col-span-2 order-1">
+                  {hasVoiceAssistant ? (
+                    <VoiceProvider>
+                      <VoiceAssistant 
+                        ref={voiceAssistantRef}
+                        accessToken={accessToken} 
+                        inputMode={inputMode} 
+                        onMessageSent={handleMessageSent}
+                        autoStart={autoStartConsultation}
+                        onAutoStartConsumed={() => setAutoStartConsultation(false)}
+                        contextMessage={contextMessage}
+                        onContextMessageConsumed={() => setContextMessage(null)}
+                      />
+                    </VoiceProvider>
+                  ) : (
+                    <div className="bg-white rounded-xl p-8 text-center shadow-sm border border-gray-100">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Mic className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-gray-600 font-medium">
+                        Der Sprachassistent ist derzeit nicht verfügbar.
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Bitte stellen Sie sicher, dass die Hume AI Zugangsdaten konfiguriert sind.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4 order-2">
+                  {meetingNotes.length > 1 && (
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-primary" />
+                        Sitzungsprotokoll
+                      </h3>
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        {meetingNotes.filter(n => n.type !== "system").slice(-10).map((note) => (
+                          <div key={note.id} className={`text-sm p-3 rounded-lg ${
+                            note.type === "user"
+                              ? "bg-primary/10 text-gray-800"
+                              : "bg-gray-50 text-gray-700"
+                          }`}>
+                            <span className="text-xs font-medium text-gray-500 block mb-1">
+                              {note.type === "user" ? "Frage:" : "Antwort:"}
+                            </span>
+                            <span className="whitespace-pre-wrap">{note.content}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-gradient-to-br from-primary to-teal-600 rounded-xl overflow-hidden text-white">
+                    <button 
+                      onClick={() => setShowHowItWorks(!showHowItWorks)}
+                      className="w-full p-5 flex items-center justify-between hover:bg-white/5 transition-colors"
+                    >
+                      <h3 className="font-semibold flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        So funktioniert's
+                      </h3>
+                      <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${showHowItWorks ? 'rotate-180' : ''}`} />
+                    </button>
+                    <div 
+                      className="grid transition-all duration-300 ease-in-out"
+                      style={{ gridTemplateRows: showHowItWorks ? '1fr' : '0fr' }}
+                    >
+                      <div style={{ overflow: 'hidden' }}>
+                        <ul className="text-sm text-white/90 space-y-2 px-5 pb-5">
+                          <li className="flex items-start gap-2">
+                            <span className="font-bold">1.</span>
+                            {inputMode === "sprache" 
+                              ? "Klicken Sie auf 'Starten' und sprechen Sie Ihre Fragen"
+                              : "Tippen Sie Ihre Fragen ins Textfeld"}
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="font-bold">2.</span>
+                            Stellen Sie alle Fragen, die Sie haben
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="font-bold">3.</span>
+                            Klicken Sie auf "Bericht erstellen" - die Beratung wird automatisch gespeichert
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
-                ))}
+                </div>
               </div>
             </div>
-          )}
-
-          <div className="bg-gradient-to-br from-primary to-teal-600 rounded-xl overflow-hidden text-white">
-            <button 
-              onClick={() => setShowHowItWorks(!showHowItWorks)}
-              className="w-full p-5 flex items-center justify-between hover:bg-white/5 transition-colors"
-            >
-              <h3 className="font-semibold flex items-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                So funktioniert's
-              </h3>
-              <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${showHowItWorks ? 'rotate-180' : ''}`} />
-            </button>
-            {showHowItWorks && (
-              <ul className="text-sm text-white/90 space-y-2 px-5 pb-5">
-                <li className="flex items-start gap-2">
-                  <span className="font-bold">1.</span>
-                  {inputMode === "sprache" 
-                    ? "Klicken Sie auf 'Starten' und sprechen Sie Ihre Fragen"
-                    : "Tippen Sie Ihre Fragen ins Textfeld"}
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="font-bold">2.</span>
-                  Stellen Sie alle Fragen, die Sie haben
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="font-bold">3.</span>
-                  Klicken Sie auf "Bericht erstellen" - die Beratung wird automatisch gespeichert
-                </li>
-              </ul>
-            )}
           </div>
         </div>
       </div>
