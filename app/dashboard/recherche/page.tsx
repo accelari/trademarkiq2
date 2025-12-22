@@ -3271,37 +3271,6 @@ export default function RecherchePage() {
       stepStatuses={caseId ? { beratung: "completed" } : { beratung: "skipped" }}
       rechercheSubtitle={rechercheSubtitle}
     >
-      {(!searchQuery.trim() || selectedLaender.length === 0 || aiSelectedClasses.length === 0) && (
-        <div className="p-4 bg-primary/10 border border-primary/20 rounded-xl">
-          <div className="flex items-start gap-3">
-            <Lightbulb className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-primary">Bitte füllen Sie alle Felder aus:</p>
-              <ul className="mt-2 space-y-1 text-sm text-gray-700">
-                {!searchQuery.trim() && (
-                  <li className="flex items-center gap-2">
-                    <X className="w-3.5 h-3.5 text-primary" />
-                    Markenname eingeben
-                  </li>
-                )}
-                {selectedLaender.length === 0 && (
-                  <li className="flex items-center gap-2">
-                    <X className="w-3.5 h-3.5 text-primary" />
-                    Mindestens ein Land / Register auswählen
-                  </li>
-                )}
-                {aiSelectedClasses.length === 0 && (
-                  <li className="flex items-center gap-2">
-                    <X className="w-3.5 h-3.5 text-primary" />
-                    Mindestens eine Nizza-Klasse auswählen
-                  </li>
-                )}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-
       {isAdmin && (
         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-1">
           <div className="flex gap-1">
@@ -3409,6 +3378,36 @@ export default function RecherchePage() {
             >
               <div style={{ overflow: isSearchFormExpanded ? 'visible' : 'hidden' }}>
               <div className="p-6 pt-2 space-y-5">
+                {(!searchQuery.trim() || selectedLaender.length === 0 || aiSelectedClasses.length === 0) && (
+                  <div className="p-4 bg-primary/10 border border-primary/20 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <Lightbulb className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-primary">Bitte füllen Sie alle Felder aus:</p>
+                        <ul className="mt-2 space-y-1 text-sm text-gray-700">
+                          {!searchQuery.trim() && (
+                            <li className="flex items-center gap-2">
+                              <X className="w-3.5 h-3.5 text-primary" />
+                              Markenname eingeben
+                            </li>
+                          )}
+                          {selectedLaender.length === 0 && (
+                            <li className="flex items-center gap-2">
+                              <X className="w-3.5 h-3.5 text-primary" />
+                              Mindestens ein Land / Register auswählen
+                            </li>
+                          )}
+                          {aiSelectedClasses.length === 0 && (
+                            <li className="flex items-center gap-2">
+                              <X className="w-3.5 h-3.5 text-primary" />
+                              Mindestens eine Nizza-Klasse auswählen
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Markenname
