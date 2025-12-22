@@ -1768,6 +1768,10 @@ export default function RecherchePage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   
   const caseCreatedRef = useRef(false);
+  const analysisLoadedRef = useRef(false);
+  
+  const [analysisLoadedFromCase, setAnalysisLoadedFromCase] = useState(false);
+  const [analysisLoadedDate, setAnalysisLoadedDate] = useState<string | null>(null);
   
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([]);
   const [isDeepSearch, setIsDeepSearch] = useState(false);
@@ -2239,6 +2243,121 @@ export default function RecherchePage() {
         });
     }
   }, [caseId, prefillApplied]);
+
+  useEffect(() => {
+    if (!caseId || analysisLoadedRef.current || aiAnalysis) {
+      return;
+    }
+
+    const loadSavedAnalysis = async () => {
+      try {
+        const res = await fetch(`/api/cases/${caseId}/analysis`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (!data.analysis) return;
+
+        analysisLoadedRef.current = true;
+        const analysis = data.analysis;
+
+        if (analysis.searchQuery?.trademarkName) {
+          setSearchQuery(analysis.searchQuery.trademarkName);
+          setActiveSearchQuery(analysis.searchQuery.trademarkName);
+        }
+
+        if (analysis.searchQuery?.countries?.length > 0) {
+          setSelectedLaender(analysis.searchQuery.countries);
+        }
+
+        if (analysis.searchQuery?.niceClasses?.length > 0) {
+          setSelectedClasses(analysis.searchQuery.niceClasses);
+          setAiSelectedClasses(analysis.searchQuery.niceClasses);
+        }
+
+        const reconstructedAiAnalysis: AIAnalysis = {
+          success: true,
+          analysis: analysis.aiAnalysis || {
+            nameAnalysis: "",
+            searchStrategy: "",
+            riskAssessment: "",
+            overallRisk: analysis.riskLevel || "low",
+            recommendation: "",
+            famousMarkDetected: false,
+            famousMarkNames: [],
+          },
+          conflicts: (analysis.conflicts || []).map((c: any) => ({
+            id: c.id || crypto.randomUUID(),
+            name: c.name,
+            register: c.register,
+            holder: c.holder,
+            classes: c.classes || [],
+            accuracy: c.accuracy || 0,
+            riskLevel: c.riskLevel || "low",
+            reasoning: c.reasoning || "",
+            status: c.status || "active",
+            applicationNumber: c.applicationNumber || "",
+            applicationDate: c.applicationDate || null,
+            registrationNumber: c.registrationNumber || "",
+            registrationDate: c.registrationDate || null,
+            isFamousMark: c.isFamousMark || false,
+            isDirectClass: c.isDirectClass,
+            isRelatedClass: c.isRelatedClass,
+          })),
+          searchTermsUsed: analysis.searchTermsUsed || [],
+          totalResultsAnalyzed: analysis.totalResultsAnalyzed || 0,
+          expertStrategy: analysis.expertStrategy || undefined,
+        };
+
+        setAiAnalysis(reconstructedAiAnalysis);
+
+        if (analysis.conflicts?.length > 0) {
+          const expertConflictAnalyses: ExpertConflictAnalysis[] = analysis.conflicts.map((c: any) => ({
+            conflictId: c.id || crypto.randomUUID(),
+            conflictName: c.name,
+            conflictHolder: c.holder,
+            conflictClasses: c.classes || [],
+            conflictOffice: c.register,
+            similarity: c.accuracy || 0,
+            legalAssessment: c.reasoning || "",
+            oppositionRisk: c.accuracy || 0,
+            consequences: "",
+            solutions: [],
+          }));
+
+          setStreamedConflicts(expertConflictAnalyses);
+
+          setExpertAnalysis({
+            success: true,
+            trademarkName: analysis.searchQuery?.trademarkName || "",
+            overallRisk: analysis.riskLevel || "low",
+            conflictAnalyses: expertConflictAnalyses,
+            bestOverallSolution: null,
+            summary: "",
+          });
+        }
+
+        setHasSearched(true);
+        setIsSearchFormExpanded(false);
+        setIsAnalysisExpanded(true);
+        setResultsSaved(true);
+        setAnalysisLoadedFromCase(true);
+        
+        if (analysis.createdAt || analysis.updatedAt) {
+          const dateStr = analysis.updatedAt || analysis.createdAt;
+          const formattedDate = new Date(dateStr).toLocaleDateString("de-DE", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          });
+          setAnalysisLoadedDate(formattedDate);
+        }
+      } catch (err) {
+        console.error("Error loading saved analysis:", err);
+      }
+    };
+
+    loadSavedAnalysis();
+  }, [caseId, aiAnalysis]);
 
   const handleSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -3391,6 +3510,21 @@ export default function RecherchePage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {analysisLoadedFromCase && !prefillData && (
+            <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-4 h-4 text-primary" />
+                </div>
+                <p className="text-sm text-primary font-medium">
+                  {analysisLoadedDate 
+                    ? `Basierend auf Ihrer Analyse vom ${analysisLoadedDate}` 
+                    : "Gespeicherte Analyse geladen"}
+                </p>
+              </div>
             </div>
           )}
 
