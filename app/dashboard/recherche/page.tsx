@@ -3615,12 +3615,12 @@ export default function RecherchePage() {
       {/* Toast notification for saved search */}
       {showSavedBanner && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
-          <div className="flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl shadow-lg">
+          <div className="flex items-center gap-2 px-4 py-3 bg-primary text-white rounded-xl shadow-lg">
             <Check className="w-5 h-5" />
             <span className="font-medium">Vorherige Recherche gespeichert</span>
             <button 
               onClick={() => setShowSavedBanner(false)}
-              className="ml-2 p-1 hover:bg-green-700 rounded-lg transition-colors"
+              className="ml-2 p-1 hover:bg-primary/80 rounded-lg transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -3832,7 +3832,7 @@ export default function RecherchePage() {
                       <div 
                         key={item.id} 
                         className={`transition-all duration-500 ${
-                          highlightedHistoryId === item.id ? 'ring-2 ring-green-400 ring-offset-2 rounded-xl' : ''
+                          highlightedHistoryId === item.id ? 'ring-2 ring-primary ring-offset-2 rounded-xl' : ''
                         }`}
                       >
                         {/* History Item Row */}
@@ -3840,7 +3840,7 @@ export default function RecherchePage() {
                           onClick={() => togglePreviewHistory(item)}
                           className={`w-full text-left p-3 rounded-xl border transition-all duration-200 flex items-center justify-between group ${
                             highlightedHistoryId === item.id
-                              ? 'border-green-400 bg-green-50'
+                              ? 'border-primary bg-primary/10'
                               : activeHistoryId === item.id
                               ? 'border-primary bg-primary/5'
                               : previewHistoryId === item.id
