@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { MessageCircle, Search, ChevronDown } from "lucide-react";
+import { MessageCircle, Search, ChevronDown, Check } from "lucide-react";
 import WorkflowProgress from "./WorkflowProgress";
 
 interface SharedTrademarkLayoutProps {
@@ -30,6 +30,7 @@ export default function SharedTrademarkLayout({
   const contentRef = useRef<HTMLDivElement>(null);
   const isCopilot = activeSection === "copilot";
   const isRecherche = activeSection === "recherche";
+  const beratungCompleted = stepStatuses.beratung === "completed";
 
   useEffect(() => {
     if (isRecherche && contentRef.current) {
@@ -79,13 +80,13 @@ export default function SharedTrademarkLayout({
         </>
       ) : (
         <>
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+          <div className={`bg-white rounded-2xl shadow-sm border ${beratungCompleted ? 'border-primary/30' : 'border-gray-100'}`}>
             <button
               onClick={() => router.push('/dashboard/copilot')}
               className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors rounded-2xl"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${beratungCompleted ? 'bg-primary' : 'bg-primary'}`}>
                   <MessageCircle className="w-5 h-5 text-white" />
                 </div>
                 <div className="text-left">
@@ -96,10 +97,21 @@ export default function SharedTrademarkLayout({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 hidden sm:inline">Aufklappen</span>
-                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                  <ChevronDown className="w-5 h-5 text-gray-600" />
-                </div>
+                {beratungCompleted ? (
+                  <>
+                    <span className="text-xs text-primary hidden sm:inline">Abgeschlossen</span>
+                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                      <Check className="w-5 h-5 text-primary" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-xs text-gray-400 hidden sm:inline">Aufklappen</span>
+                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                      <ChevronDown className="w-5 h-5 text-gray-600" />
+                    </div>
+                  </>
+                )}
               </div>
             </button>
           </div>
