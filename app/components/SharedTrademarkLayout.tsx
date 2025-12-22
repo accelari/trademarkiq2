@@ -40,17 +40,6 @@ export default function SharedTrademarkLayout({
         />
       </div>
 
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">
-          {isCopilot ? "Markenberatung" : "Markenrecherche"}
-        </h1>
-        <p className="text-gray-600 mt-1">
-          {isCopilot 
-            ? "Ihr KI-gestützter Assistent für internationales Markenrecht"
-            : "Prüfen Sie, ob Ihr gewünschter Markenname bereits registriert ist"
-          }
-        </p>
-      </div>
 
       {isCopilot ? (
         <>
