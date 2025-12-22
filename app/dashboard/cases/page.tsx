@@ -13,6 +13,8 @@ import {
   Check,
   Circle,
   AlertCircle,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 const fetcher = async (url: string) => {
@@ -123,16 +125,20 @@ function StepProgress({ steps }: { steps: CaseStep[] }) {
 function CaseCard({
   caseData,
   onClick,
+  onDelete,
+  isDeleting,
 }: {
   caseData: TrademarkCase;
   onClick: () => void;
+  onDelete: (e: React.MouseEvent) => void;
+  isDeleting: boolean;
 }) {
   const statusBadge = getStatusBadge(caseData.status);
 
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-teal-200 transition-all cursor-pointer group"
+      className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-teal-200 transition-all cursor-pointer group relative"
     >
       <div className="flex items-start justify-between mb-3">
         <div>
@@ -143,11 +149,25 @@ function CaseCard({
             {caseData.trademarkName || "Kein Markenname"}
           </h3>
         </div>
-        <span
-          className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusBadge.className}`}
-        >
-          {statusBadge.label}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusBadge.className}`}
+          >
+            {statusBadge.label}
+          </span>
+          <button
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+            title="Fall löschen"
+          >
+            {isDeleting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-4 text-sm text-gray-500 mb-2">
@@ -248,6 +268,55 @@ function NewCaseModal({
   );
 }
 
+function DeleteConfirmDialog({
+  isOpen,
+  onClose,
+  onConfirm,
+  isLoading,
+  title,
+  message,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  isLoading: boolean;
+  title: string;
+  message: string;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+        </div>
+        <p className="text-gray-600 mb-6">{message}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={isLoading}
+            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+          >
+            Abbrechen
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 font-medium"
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            Löschen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({ onCreateCase }: { onCreateCase: () => void }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
@@ -278,6 +347,9 @@ export default function CasesPage() {
   const [status, setStatus] = useState("alle");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [deletingCaseId, setDeletingCaseId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: "single" | "all"; caseId?: string; caseName?: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const queryParams = new URLSearchParams();
   if (search) queryParams.set("search", search);
@@ -314,6 +386,49 @@ export default function CasesPage() {
     }
   };
 
+  const handleDeleteCase = async (caseId: string) => {
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/cases/${caseId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        throw new Error("Fehler beim Löschen");
+      }
+
+      mutate(`/api/cases${queryString ? `?${queryString}` : ""}`);
+      setDeleteConfirm(null);
+    } catch (error) {
+      console.error("Error deleting case:", error);
+      alert("Fehler beim Löschen des Falls. Bitte versuchen Sie es erneut.");
+    } finally {
+      setIsDeleting(false);
+      setDeletingCaseId(null);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    setIsDeleting(true);
+    try {
+      const res = await fetch("/api/cases", {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        throw new Error("Fehler beim Löschen");
+      }
+
+      mutate(`/api/cases${queryString ? `?${queryString}` : ""}`);
+      setDeleteConfirm(null);
+    } catch (error) {
+      console.error("Error deleting all cases:", error);
+      alert("Fehler beim Löschen aller Fälle. Bitte versuchen Sie es erneut.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const cases = data?.cases || [];
 
   return (
@@ -327,13 +442,24 @@ export default function CasesPage() {
             Verwalten Sie Ihre Markenrecherchen und Anmeldungen
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors shadow-sm"
-        >
-          <Plus className="w-5 h-5" />
-          Neuer Fall
-        </button>
+        <div className="flex items-center gap-3">
+          {cases.length > 0 && (
+            <button
+              onClick={() => setDeleteConfirm({ type: "all" })}
+              className="inline-flex items-center gap-2 px-4 py-2.5 border border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Alle löschen
+            </button>
+          )}
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors shadow-sm"
+          >
+            <Plus className="w-5 h-5" />
+            Neuer Fall
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
@@ -395,6 +521,15 @@ export default function CasesPage() {
               key={caseData.id}
               caseData={caseData}
               onClick={() => router.push(`/dashboard/case/${caseData.id}`)}
+              onDelete={(e) => {
+                e.stopPropagation();
+                setDeleteConfirm({ 
+                  type: "single", 
+                  caseId: caseData.id, 
+                  caseName: caseData.trademarkName || caseData.caseNumber 
+                });
+              }}
+              isDeleting={deletingCaseId === caseData.id}
             />
           ))}
         </div>
@@ -405,6 +540,26 @@ export default function CasesPage() {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleCreateCase}
         isLoading={isCreating}
+      />
+
+      <DeleteConfirmDialog
+        isOpen={deleteConfirm !== null}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => {
+          if (deleteConfirm?.type === "single" && deleteConfirm.caseId) {
+            setDeletingCaseId(deleteConfirm.caseId);
+            handleDeleteCase(deleteConfirm.caseId);
+          } else if (deleteConfirm?.type === "all") {
+            handleDeleteAll();
+          }
+        }}
+        isLoading={isDeleting}
+        title={deleteConfirm?.type === "all" ? "Alle Fälle löschen?" : "Fall löschen?"}
+        message={
+          deleteConfirm?.type === "all"
+            ? `Möchten Sie wirklich alle ${cases.length} Fälle unwiderruflich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
+            : `Möchten Sie den Fall "${deleteConfirm?.caseName}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
+        }
       />
     </div>
   );

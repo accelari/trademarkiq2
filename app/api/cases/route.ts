@@ -151,3 +151,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Fehler beim Erstellen des Falls" }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+    }
+
+    // Get all cases for this user
+    const userCases = await db.query.trademarkCases.findMany({
+      where: eq(trademarkCases.userId, session.user.id),
+    });
+
+    if (userCases.length === 0) {
+      return NextResponse.json({ success: true, deleted: 0 });
+    }
+
+    // Unlink consultations from all cases
+    for (const caseItem of userCases) {
+      await db
+        .update(consultations)
+        .set({ caseId: null })
+        .where(eq(consultations.caseId, caseItem.id));
+    }
+
+    // Delete all cases (cascade will handle steps, events, etc.)
+    const result = await db
+      .delete(trademarkCases)
+      .where(eq(trademarkCases.userId, session.user.id));
+
+    return NextResponse.json({ success: true, deleted: userCases.length });
+  } catch (error) {
+    console.error("Error deleting all cases:", error);
+    return NextResponse.json({ error: "Fehler beim Löschen aller Fälle" }, { status: 500 });
+  }
+}
