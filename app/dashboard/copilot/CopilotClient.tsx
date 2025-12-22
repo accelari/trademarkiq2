@@ -1467,7 +1467,7 @@ ${notesText}`,
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1488,6 +1488,8 @@ ${notesText}`,
             >
               Tour starten
             </button>
+          </div>
+          <div className="flex items-center gap-2">
             <span className="text-xs text-gray-400 hidden sm:inline">
               {isVoiceAssistantExpanded ? 'Zuklappen' : 'Aufklappen'}
             </span>
