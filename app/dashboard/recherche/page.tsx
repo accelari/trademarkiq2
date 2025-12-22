@@ -2088,6 +2088,68 @@ export default function RecherchePage() {
     }
   }, [expertAnalysis, isRiskStreaming]);
 
+  const saveAnalysisToCase = useCallback(async () => {
+    const activeCaseId = caseId || currentCaseNumber;
+    
+    if (!activeCaseId || !expertAnalysis) {
+      return;
+    }
+
+    try {
+      const riskScore = expertAnalysis.conflictAnalyses?.length > 0
+        ? Math.round(
+            expertAnalysis.conflictAnalyses.reduce((sum, c) => sum + (c.oppositionRisk || 0), 0) / 
+            expertAnalysis.conflictAnalyses.length
+          )
+        : 0;
+
+      const conflicts = (aiAnalysis?.conflicts || expertAnalysis.conflictAnalyses || []).map((c: any) => ({
+        id: c.id || c.conflictId,
+        name: c.name || c.conflictName,
+        holder: c.holder || c.conflictHolder,
+        register: c.register || c.conflictOffice,
+        classes: c.classes || c.conflictClasses || c.niceClasses || [],
+        accuracy: c.accuracy || c.similarity || c.oppositionRisk || 0,
+        riskLevel: c.riskLevel || (c.oppositionRisk > 70 ? 'high' : c.oppositionRisk > 40 ? 'medium' : 'low'),
+        reasoning: c.reasoning || c.legalAssessment || '',
+        status: c.status || 'active',
+        applicationNumber: c.applicationNumber || '',
+        applicationDate: c.applicationDate || null,
+        registrationNumber: c.registrationNumber || '',
+        registrationDate: c.registrationDate || null,
+      }));
+
+      const payload = {
+        searchQuery: {
+          trademarkName: activeSearchQuery || searchQuery,
+          countries: selectedLaender,
+          niceClasses: aiSelectedClasses,
+        },
+        searchTermsUsed: aiAnalysis?.searchTermsUsed || [],
+        conflicts,
+        aiAnalysis: aiAnalysis?.analysis || null,
+        riskScore,
+        riskLevel: expertAnalysis.overallRisk || 'low',
+        totalResultsAnalyzed: aiAnalysis?.totalResultsAnalyzed || 0,
+        expertStrategy: aiAnalysis?.expertStrategy || null,
+      };
+
+      await fetch(`/api/cases/${activeCaseId}/analysis`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.error('Error saving analysis to case:', error);
+    }
+  }, [caseId, currentCaseNumber, expertAnalysis, aiAnalysis, activeSearchQuery, searchQuery, selectedLaender, aiSelectedClasses]);
+
+  useEffect(() => {
+    if (riskStreamProgress.phase === 'complete' && expertAnalysis && !isRiskStreaming) {
+      saveAnalysisToCase();
+    }
+  }, [riskStreamProgress.phase, expertAnalysis, isRiskStreaming, saveAnalysisToCase]);
+
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedData) {
