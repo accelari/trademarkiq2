@@ -3800,11 +3800,11 @@ export default function RecherchePage() {
           {/* Search History */}
           {(searchHistory.length > 0 || aiAnalysis) && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
-              <button 
-                onClick={() => setHistoryExpanded(!historyExpanded)}
-                className="w-full flex items-center justify-between mb-3"
-              >
-                <div className="flex items-center gap-2">
+              <div className="w-full flex items-center justify-between mb-3">
+                <button 
+                  onClick={() => setHistoryExpanded(!historyExpanded)}
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                >
                   <HistoryIcon className="w-4 h-4 text-gray-500" />
                   <span className="text-sm font-medium text-gray-700">Bisherige Recherchen</span>
                   {searchHistory.length > 0 && (
@@ -3813,15 +3813,15 @@ export default function RecherchePage() {
                     </span>
                   )}
                   <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${historyExpanded ? 'rotate-180' : ''}`} />
-                </div>
+                </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); startNewSearch(); }}
+                  onClick={startNewSearch}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Neue Recherche
                 </button>
-              </button>
+              </div>
               <div 
                 className="grid transition-all duration-300 ease-in-out"
                 style={{ gridTemplateRows: historyExpanded ? '1fr' : '0fr' }}
@@ -3836,9 +3836,12 @@ export default function RecherchePage() {
                         }`}
                       >
                         {/* History Item Row */}
-                        <button
+                        <div
                           onClick={() => togglePreviewHistory(item)}
-                          className={`w-full text-left p-3 rounded-xl border transition-all duration-200 flex items-center justify-between group ${
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') togglePreviewHistory(item); }}
+                          className={`w-full text-left p-3 rounded-xl border transition-all duration-200 flex items-center justify-between group cursor-pointer ${
                             highlightedHistoryId === item.id
                               ? 'border-primary bg-primary/10'
                               : activeHistoryId === item.id
@@ -3917,7 +3920,7 @@ export default function RecherchePage() {
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
-                    </button>
+                    </div>
 
                     {/* Preview Card (expandable) */}
                     <div 
