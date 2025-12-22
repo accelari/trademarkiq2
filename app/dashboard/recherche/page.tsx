@@ -49,7 +49,6 @@ import {
   Scale,
   MessageCircle,
   Mic,
-  History as HistoryIcon,
 } from "lucide-react";
 import { VoiceProvider } from "@humeai/voice-react";
 import VoiceAssistant from "@/app/components/VoiceAssistant";
@@ -72,7 +71,6 @@ import {
   ExecutiveSummaryView,
   RiskAnalysisAccordion,
 } from "@/app/components/recherche";
-import { useAlternativeSearch } from "@/app/hooks/useAlternativeSearch";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -601,6 +599,17 @@ interface NiceClassDropdownProps {
 function NiceClassDropdown({ selectedClasses, onToggleClass, onClearAll }: NiceClassDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const allClassesSorted = [...NICE_CLASSES].sort((a, b) => a.id - b.id);
 
@@ -617,10 +626,10 @@ function NiceClassDropdown({ selectedClasses, onToggleClass, onClearAll }: NiceC
   const filteredClasses = filterClasses(allClassesSorted);
 
   return (
-    <div className="relative">
+    <div ref={dropdownRef} className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={() => setIsOpen(!isOpen)}
         className={`w-full flex items-center justify-between gap-2 px-4 py-3 border rounded-xl transition-all text-left ${
           selectedClasses.length > 0
             ? "bg-primary/5 border-primary text-gray-800"
@@ -692,149 +701,106 @@ function NiceClassDropdown({ selectedClasses, onToggleClass, onClearAll }: NiceC
       )}
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div 
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => {
-              setIsOpen(false);
-              setSearchTerm("");
-            }}
-          />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                  <Tag className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Nizza-Klassifikation</h3>
-                  <p className="text-sm text-gray-500">{selectedClasses.length} ausgewählt</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  setSearchTerm("");
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        <div className="absolute top-full mt-2 left-0 right-0 z-50 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+          <div className="p-3 border-b border-gray-100">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Klasse suchen..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+          </div>
+          
+          <div className="max-h-[320px] overflow-y-auto">
+            {!searchTerm && (
+              <label
+                className="flex items-start gap-3 px-4 py-3 hover:bg-primary/5 cursor-pointer transition-colors border-b border-gray-100 bg-gray-50/50"
               >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            
-            <div className="p-4 border-b border-gray-100">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                  selectedClasses.length === 45 
+                    ? 'bg-primary border-primary' 
+                    : 'border-gray-300 hover:border-primary'
+                }`}>
+                  {selectedClasses.length === 45 && (
+                    <Check className="w-3.5 h-3.5 text-white" />
+                  )}
+                </div>
                 <input
-                  type="text"
-                  placeholder="Klasse suchen..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  autoFocus
+                  type="checkbox"
+                  className="sr-only"
+                  checked={selectedClasses.length === 45}
+                  onChange={() => {
+                    if (selectedClasses.length === 45) {
+                      onClearAll();
+                    } else {
+                      allClassesSorted.forEach(c => {
+                        if (!selectedClasses.includes(c.id)) {
+                          onToggleClass(c.id);
+                        }
+                      });
+                    }
+                  }}
                 />
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto min-h-[300px]">
-              {!searchTerm && (
-                <label
-                  className="flex items-start gap-3 px-4 py-3 hover:bg-primary/5 cursor-pointer transition-colors border-b border-gray-100 bg-gray-50/50"
-                >
-                  <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                    selectedClasses.length === 45 
-                      ? 'bg-primary border-primary' 
-                      : 'border-gray-300 hover:border-primary'
-                  }`}>
-                    {selectedClasses.length === 45 && (
-                      <Check className="w-3.5 h-3.5 text-white" />
-                    )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-primary flex items-center gap-2">
+                    Alle Klassen auswählen
                   </div>
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={selectedClasses.length === 45}
-                    onChange={() => {
-                      if (selectedClasses.length === 45) {
-                        onClearAll();
-                      } else {
-                        allClassesSorted.forEach(c => {
-                          if (!selectedClasses.includes(c.id)) {
-                            onToggleClass(c.id);
-                          }
-                        });
-                      }
-                    }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-primary flex items-center gap-2">
-                      Alle Klassen auswählen
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    Alle 45 Nizza-Klassen auf einmal auswählen
+                  </div>
+                </div>
+              </label>
+            )}
+            {filteredClasses.length > 0 && (
+              <div>
+                <div className="px-4 py-2 bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wide">
+                  Alle 45 Nizza-Klassen
+                </div>
+                {filteredClasses.map(niceClass => (
+                  <label
+                    key={niceClass.id}
+                    className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                      selectedClasses.includes(niceClass.id) 
+                        ? 'bg-primary border-primary' 
+                        : 'border-gray-300 hover:border-primary'
+                    }`}>
+                      {selectedClasses.includes(niceClass.id) && (
+                        <Check className="w-3.5 h-3.5 text-white" />
+                      )}
                     </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      Alle 45 Nizza-Klassen auf einmal auswählen
-                    </div>
-                  </div>
-                </label>
-              )}
-              {filteredClasses.length > 0 && (
-                <div>
-                  <div className="px-4 py-2 bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wide sticky top-0">
-                    Alle 45 Nizza-Klassen
-                  </div>
-                  {filteredClasses.map(niceClass => (
-                    <label
-                      key={niceClass.id}
-                      className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                    >
-                      <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                        selectedClasses.includes(niceClass.id) 
-                          ? 'bg-primary border-primary' 
-                          : 'border-gray-300 hover:border-primary'
-                      }`}>
-                        {selectedClasses.includes(niceClass.id) && (
-                          <Check className="w-3.5 h-3.5 text-white" />
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={selectedClasses.includes(niceClass.id)}
+                      onChange={() => onToggleClass(niceClass.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 flex items-center gap-2">
+                        Klasse {niceClass.id} – {niceClass.name}
+                        {niceClass.popular && (
+                          <span className="text-xs bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded">beliebt</span>
                         )}
                       </div>
-                      <input
-                        type="checkbox"
-                        className="sr-only"
-                        checked={selectedClasses.includes(niceClass.id)}
-                        onChange={() => onToggleClass(niceClass.id)}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 flex items-center gap-2">
-                          Klasse {niceClass.id} – {niceClass.name}
-                          {niceClass.popular && (
-                            <span className="text-xs bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded">beliebt</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                          {niceClass.description}
-                        </div>
+                      <div className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                        {niceClass.description}
                       </div>
-                    </label>
-                  ))}
-                </div>
-              )}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
 
-              {filteredClasses.length === 0 && (
-                <div className="p-8 text-center text-gray-500">
-                  <p>Keine Klassen gefunden für "{searchTerm}"</p>
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  setSearchTerm("");
-                }}
-                className="w-full px-4 py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors"
-              >
-                Auswahl bestätigen ({selectedClasses.length})
-              </button>
-            </div>
+            {filteredClasses.length === 0 && (
+              <div className="p-8 text-center text-gray-500">
+                <p>Keine Klassen gefunden für "{searchTerm}"</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -971,6 +937,17 @@ interface LaenderDropdownProps {
 function LaenderDropdown({ selectedLaender, onToggleLand, onClearAll }: LaenderDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const filteredLaender = laenderOptions.filter(option =>
     option.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -978,10 +955,10 @@ function LaenderDropdown({ selectedLaender, onToggleLand, onClearAll }: LaenderD
   );
 
   return (
-    <div className="relative">
+    <div ref={dropdownRef} className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={() => setIsOpen(!isOpen)}
         className={`w-full flex items-center justify-between gap-2 px-4 py-3 border rounded-xl transition-all text-left ${
           selectedLaender.length > 0
             ? "bg-primary/5 border-primary text-gray-800"
@@ -1036,97 +1013,53 @@ function LaenderDropdown({ selectedLaender, onToggleLand, onClearAll }: LaenderD
       )}
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div 
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => {
-              setIsOpen(false);
-              setSearchTerm("");
-            }}
-          />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                  <Globe className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Länder / Register</h3>
-                  <p className="text-sm text-gray-500">{selectedLaender.length} ausgewählt</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  setSearchTerm("");
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
+        <div className="absolute top-full mt-2 left-0 right-0 z-30 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+          <div className="p-3 border-b border-gray-100">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Land suchen..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
             </div>
-            
-            <div className="p-4 border-b border-gray-100">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Land suchen..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  autoFocus
-                />
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto">
-              {filteredLaender.length > 0 ? (
-                filteredLaender.map(option => (
-                  <label
-                    key={option.value}
-                    className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                  >
-                    <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                      selectedLaender.includes(option.value) 
-                        ? 'bg-primary border-primary' 
-                        : 'border-gray-300 hover:border-primary'
-                    }`}>
-                      {selectedLaender.includes(option.value) && (
-                        <Check className="w-3.5 h-3.5 text-white" />
-                      )}
+          </div>
+          <div className="max-h-[280px] overflow-y-auto">
+            {filteredLaender.length > 0 ? (
+              filteredLaender.map(option => (
+                <label
+                  key={option.value}
+                  className="flex items-start gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors"
+                >
+                  <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                    selectedLaender.includes(option.value) 
+                      ? 'bg-primary border-primary' 
+                      : 'border-gray-300 hover:border-primary'
+                  }`}>
+                    {selectedLaender.includes(option.value) && (
+                      <Check className="w-3.5 h-3.5 text-white" />
+                    )}
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={selectedLaender.includes(option.value)}
+                    onChange={() => onToggleLand(option.value)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-gray-900">
+                      {option.value} - {option.label}
                     </div>
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={selectedLaender.includes(option.value)}
-                      onChange={() => onToggleLand(option.value)}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-900">
-                        {option.value} - {option.label}
-                      </div>
-                    </div>
-                  </label>
-                ))
-              ) : (
-                <div className="p-8 text-center text-gray-500">
-                  <p>Keine Länder gefunden für "{searchTerm}"</p>
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  setSearchTerm("");
-                }}
-                className="w-full px-4 py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors"
-              >
-                Auswahl bestätigen ({selectedLaender.length})
-              </button>
-            </div>
+                  </div>
+                </label>
+              ))
+            ) : (
+              <div className="p-4 text-center text-gray-500 text-sm">
+                Keine Länder gefunden für "{searchTerm}"
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1564,10 +1497,9 @@ interface ConflictDetailModalProps {
   conflict: ConflictingMark;
   onClose: () => void;
   selectedClasses?: number[];
-  includeRelatedClasses?: boolean;
 }
 
-function ConflictDetailModal({ conflict, onClose, selectedClasses = [], includeRelatedClasses = true }: ConflictDetailModalProps) {
+function ConflictDetailModal({ conflict, onClose, selectedClasses = [] }: ConflictDetailModalProps) {
   const getRiskStyles = () => {
     switch (conflict.riskLevel) {
       case "high": return { bg: "bg-red-50", border: "border-red-200", badge: "bg-red-100 text-red-700", icon: "text-red-600" };
@@ -1693,18 +1625,18 @@ function ConflictDetailModal({ conflict, onClose, selectedClasses = [], includeR
                     <div key={cls} className="flex flex-col gap-1">
                       <span className={`px-3 py-1.5 text-sm font-medium rounded-lg ${
                         isDirectMatch ? 'bg-primary/10 text-primary' :
-                        (isRelated && includeRelatedClasses) ? 'bg-yellow-100 text-yellow-800' :
+                        isRelated ? 'bg-yellow-100 text-yellow-800' :
                         'bg-gray-100 text-gray-700'
                       }`}>
                         Klasse {cls}
                         {isDirectMatch && <span className="ml-1 text-xs">(direkt)</span>}
-                        {isRelated && includeRelatedClasses && <span className="ml-1 text-xs">(verwandt)</span>}
+                        {isRelated && <span className="ml-1 text-xs">(verwandt)</span>}
                       </span>
                     </div>
                   );
                 })}
               </div>
-              {includeRelatedClasses && selectedClasses.length > 0 && conflict.classes.some(cls => {
+              {selectedClasses.length > 0 && conflict.classes.some(cls => {
                 const info = getClassRelationInfo(selectedClasses, cls);
                 return info.isRelated;
               }) && (
@@ -1763,30 +1695,11 @@ interface PrefillData {
   missingFields?: string[];
 }
 
-interface SearchHistoryItem {
-  id: string;
-  searchQuery: string;
-  countries: string[];
-  classes: number[];
-  riskLevel: "high" | "medium" | "low" | null;
-  conflictsCount: number;
-  timestamp: Date;
-  aiAnalysis: AIAnalysis;
-  expertAnalysis: ExpertAnalysisResponse | null;
-  streamedConflicts: ExpertConflictAnalysis[];
-  nameShortlist: NameShortlistItem[];
-  caseId?: string | null;
-  caseNumber?: string | null;
-}
-
 export default function RecherchePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const caseId = searchParams.get("caseId");
-  
-  // Alternative names store reset
-  const { reset: resetAlternativeStore } = useAlternativeSearch();
 
   const [prefillData, setPrefillData] = useState<PrefillData | null>(null);
   const [prefillLoading, setPrefillLoading] = useState(false);
@@ -1898,17 +1811,6 @@ export default function RecherchePage() {
   const [klausTokenLoading, setKlausTokenLoading] = useState(false);
   const [klausTokenError, setKlausTokenError] = useState<string | null>(null);
   
-  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
-  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
-  const [previewHistoryId, setPreviewHistoryId] = useState<string | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [creatingCaseForId, setCreatingCaseForId] = useState<string | null>(null);
-  
-  const [showSavedBanner, setShowSavedBanner] = useState(false);
-  const [historyExpanded, setHistoryExpanded] = useState(true);
-  const [highlightedHistoryId, setHighlightedHistoryId] = useState<string | null>(null);
-  
   const hasUnsavedData = aiAnalysis !== null && !resultsSaved;
   
   const { 
@@ -1922,202 +1824,6 @@ export default function RecherchePage() {
     setStreamedConflicts([]);
     setRiskAnalysisSteps(prev => prev.map(s => ({ ...s, status: "pending" as const, details: undefined, progress: undefined })));
   }, []);
-
-  const saveToHistory = useCallback((analysis: AIAnalysis, currentExpertAnalysis?: ExpertAnalysisResponse | null, currentConflicts?: ExpertConflictAnalysis[], currentShortlist?: NameShortlistItem[]) => {
-    const riskLevel = analysis.analysis?.overallRisk ?? null;
-    const newItem: SearchHistoryItem = {
-      id: crypto.randomUUID(),
-      searchQuery: searchQuery || activeSearchQuery,
-      countries: [...selectedLaender],
-      classes: [...aiSelectedClasses],
-      riskLevel,
-      conflictsCount: analysis.conflicts?.length || 0,
-      timestamp: new Date(),
-      aiAnalysis: analysis,
-      expertAnalysis: currentExpertAnalysis ?? expertAnalysis,
-      streamedConflicts: currentConflicts ?? [...streamedConflicts],
-      nameShortlist: currentShortlist ?? [...nameShortlist],
-    };
-    setSearchHistory(prev => [newItem, ...prev]);
-    setActiveHistoryId(newItem.id);
-    setHistoryExpanded(true);
-    setHighlightedHistoryId(newItem.id);
-    // Remove highlight after 4 seconds
-    setTimeout(() => setHighlightedHistoryId(null), 4000);
-  }, [searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses, expertAnalysis, streamedConflicts, nameShortlist]);
-
-  const saveSearchToDatabase = useCallback(async (analysis: AIAnalysis, currentExpertAnalysis?: ExpertAnalysisResponse | null, currentConflicts?: ExpertConflictAnalysis[], currentShortlist?: NameShortlistItem[]) => {
-    try {
-      const riskLevel = analysis.analysis?.overallRisk ?? "low";
-      const riskScore = riskLevel === "high" ? 80 : riskLevel === "medium" ? 50 : 20;
-      
-      const response = await fetch("/api/searches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: searchQuery || activeSearchQuery,
-          classes: aiSelectedClasses,
-          countries: selectedLaender,
-          riskScore,
-          riskLevel,
-          conflicts: analysis.conflicts?.length || 0,
-          similarMarks: analysis.totalResultsAnalyzed || 0,
-          recommendation: analysis.analysis?.recommendation || "",
-          riskCompleted: true,
-          aiAnalysis: analysis,
-          streamedConflicts: currentConflicts ?? streamedConflicts,
-          expertAnalysis: currentExpertAnalysis ?? expertAnalysis,
-          nameShortlist: (currentShortlist ?? nameShortlist).map(item => item.name),
-          caseId: caseId || null,
-          caseNumber: currentCaseNumber || null,
-        }),
-      });
-
-      if (response.ok) {
-        const savedSearch = await response.json();
-        const newItem: SearchHistoryItem = {
-          id: savedSearch.id,
-          searchQuery: savedSearch.name,
-          countries: savedSearch.countries || [],
-          classes: savedSearch.classes || [],
-          riskLevel: savedSearch.riskLevel as "high" | "medium" | "low",
-          conflictsCount: savedSearch.conflicts || 0,
-          timestamp: new Date(savedSearch.createdAt),
-          aiAnalysis: savedSearch.aiAnalysis || analysis,
-          expertAnalysis: savedSearch.expertAnalysis || currentExpertAnalysis || null,
-          streamedConflicts: savedSearch.streamedConflicts || currentConflicts || [],
-          nameShortlist: (savedSearch.nameShortlist || []).map((name: string) => ({ name, status: "unchecked" as const })),
-          caseId: savedSearch.caseId,
-          caseNumber: savedSearch.caseNumber,
-        };
-        setSearchHistory(prev => {
-          const filtered = prev.filter(item => item.searchQuery !== newItem.searchQuery || item.id === newItem.id);
-          return [newItem, ...filtered.filter(item => item.id !== newItem.id)];
-        });
-        setActiveHistoryId(newItem.id);
-        setResultsSaved(true);
-        return savedSearch;
-      }
-    } catch (error) {
-      console.error("Error saving search to database:", error);
-    }
-    return null;
-  }, [searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses, expertAnalysis, streamedConflicts, nameShortlist, caseId, currentCaseNumber]);
-
-  const togglePreviewHistory = useCallback((item: SearchHistoryItem) => {
-    if (previewHistoryId === item.id) {
-      // Close preview if clicking the same item
-      setPreviewHistoryId(null);
-    } else {
-      // Open preview for this item
-      setPreviewHistoryId(item.id);
-    }
-  }, [previewHistoryId]);
-
-  const loadFromHistory = useCallback((item: SearchHistoryItem) => {
-    // Reset alternative names store when loading different search
-    resetAlternativeStore();
-    
-    setSearchQuery(item.searchQuery);
-    setActiveSearchQuery(item.searchQuery);
-    setSelectedLaender(item.countries);
-    setAiSelectedClasses(item.classes);
-    setAiAnalysis(item.aiAnalysis);
-    setExpertAnalysis(item.expertAnalysis);
-    setStreamedConflicts(item.streamedConflicts);
-    setNameShortlist(item.nameShortlist || []);
-    setActiveHistoryId(item.id);
-    setPreviewHistoryId(null);
-    setIsSearchFormExpanded(false);
-    setIsAnalysisExpanded(false);
-  }, [resetAlternativeStore]);
-
-  const confirmDeleteHistory = useCallback((itemId: string) => {
-    setDeleteTargetId(itemId);
-    setShowDeleteConfirm(true);
-  }, []);
-
-  const executeDeleteHistory = useCallback(() => {
-    if (deleteTargetId) {
-      setSearchHistory(prev => prev.filter(item => item.id !== deleteTargetId));
-      if (activeHistoryId === deleteTargetId) {
-        setActiveHistoryId(null);
-        setAiAnalysis(null);
-        setExpertAnalysis(null);
-        setStreamedConflicts([]);
-      }
-      if (previewHistoryId === deleteTargetId) {
-        setPreviewHistoryId(null);
-      }
-    }
-    setShowDeleteConfirm(false);
-    setDeleteTargetId(null);
-  }, [deleteTargetId, activeHistoryId, previewHistoryId]);
-
-  const cancelDeleteHistory = useCallback(() => {
-    setShowDeleteConfirm(false);
-    setDeleteTargetId(null);
-  }, []);
-
-  const createCaseForHistory = useCallback(async (item: SearchHistoryItem) => {
-    setCreatingCaseForId(item.id);
-    try {
-      const response = await fetch("/api/cases", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          trademarkName: item.searchQuery,
-          skipBeratung: true,
-          completeRecherche: true,
-          searchData: {
-            query: item.searchQuery,
-            countries: item.countries,
-            classes: item.classes,
-            conflictsCount: item.aiAnalysis?.conflicts?.length || 0,
-            totalAnalyzed: item.aiAnalysis?.totalResultsAnalyzed || 0,
-          },
-        }),
-      });
-      
-      if (response.ok) {
-        const caseData = await response.json();
-        const newCaseId = caseData.case?.id;
-        const newCaseNumber = caseData.case?.caseNumber || caseData.case?.id;
-        
-        // Update the history item with the new case info
-        setSearchHistory(prev => prev.map(h => 
-          h.id === item.id 
-            ? { ...h, caseId: newCaseId, caseNumber: newCaseNumber }
-            : h
-        ));
-      }
-    } catch (error) {
-      console.error("Error creating case:", error);
-    } finally {
-      setCreatingCaseForId(null);
-    }
-  }, []);
-
-  const startNewSearch = useCallback(() => {
-    if (aiAnalysis && activeHistoryId === null) {
-      saveToHistory(aiAnalysis, expertAnalysis, streamedConflicts, nameShortlist);
-    }
-    // Reset alternative names store for new search
-    resetAlternativeStore();
-    
-    setSearchQuery("");
-    setActiveSearchQuery("");
-    setAiAnalysis(null);
-    setExpertAnalysis(null);
-    setStreamedConflicts([]);
-    setActiveHistoryId(null);
-    setIsSearchFormExpanded(true);
-    setIsAnalysisExpanded(false);
-    setShowSuccessBanner(false);
-    setResultsSaved(false);
-    setNameShortlist([]);
-    setProgressSteps([]);
-  }, [aiAnalysis, activeHistoryId, saveToHistory, expertAnalysis, streamedConflicts, nameShortlist, resetAlternativeStore]);
 
   useEffect(() => {
     setGlobalHasUnsavedData(hasUnsavedData);
@@ -2234,53 +1940,6 @@ export default function RecherchePage() {
       router.push("/login");
     }
   }, [status, router]);
-
-  useEffect(() => {
-    if (status !== "authenticated" || !session?.user?.id) return;
-    
-    const loadSavedSearches = async () => {
-      try {
-        const response = await fetch("/api/searches");
-        if (response.ok) {
-          const searches = await response.json();
-          if (Array.isArray(searches) && searches.length > 0) {
-            const historyItems: SearchHistoryItem[] = searches.map((search: any) => ({
-              id: search.id,
-              searchQuery: search.name,
-              countries: search.countries || [],
-              classes: search.classes || [],
-              riskLevel: search.riskLevel as "high" | "medium" | "low" | null,
-              conflictsCount: search.conflicts || 0,
-              timestamp: new Date(search.createdAt),
-              aiAnalysis: search.aiAnalysis || null,
-              expertAnalysis: search.expertAnalysis || null,
-              streamedConflicts: search.streamedConflicts || [],
-              nameShortlist: (search.nameShortlist || []).map((name: string) => ({ name, status: "unchecked" as const })),
-              caseId: search.caseId,
-              caseNumber: search.caseNumber,
-            }));
-            setSearchHistory(historyItems);
-          }
-        }
-      } catch (error) {
-        console.error("Error loading saved searches:", error);
-      }
-    };
-    
-    loadSavedSearches();
-  }, [status, session?.user?.id]);
-
-  const lastSavedSearchRef = useRef<string | null>(null);
-  
-  useEffect(() => {
-    if (!aiAnalysis || aiLoading || !activeSearchQuery) return;
-    
-    const searchKey = `${activeSearchQuery}-${selectedLaender.join(",")}-${aiSelectedClasses.join(",")}`;
-    if (lastSavedSearchRef.current === searchKey) return;
-    
-    lastSavedSearchRef.current = searchKey;
-    saveSearchToDatabase(aiAnalysis, expertAnalysis, streamedConflicts, nameShortlist);
-  }, [aiAnalysis, aiLoading, activeSearchQuery, selectedLaender, aiSelectedClasses, expertAnalysis, streamedConflicts, nameShortlist, saveSearchToDatabase]);
 
   useEffect(() => {
     if (!aiStartTime || !aiLoading) {
@@ -3499,18 +3158,6 @@ export default function RecherchePage() {
   };
 
   const handleStartFullAnalysisForName = useCallback(async (name: string) => {
-    // Save previous search to history if it exists (show banner whenever replacing existing results)
-    if (aiAnalysis) {
-      // Only save to history if not already viewing a history item
-      if (activeHistoryId === null) {
-        saveToHistory(aiAnalysis, expertAnalysis, streamedConflicts, nameShortlist);
-      }
-      setShowSavedBanner(true);
-      setHistoryExpanded(true);
-      // Auto-dismiss banner after 3.5 seconds
-      setTimeout(() => setShowSavedBanner(false), 3500);
-    }
-    
     setSearchQuery(name);
     
     setTimeout(() => {
@@ -3524,7 +3171,7 @@ export default function RecherchePage() {
       
       await runFullTrademarkAnalysis(name, { deepSearch: true, useCache: false, useAbortController: false });
     }, 200);
-  }, [runFullTrademarkAnalysis, selectedLaender, aiSelectedClasses, aiAnalysis, activeHistoryId, saveToHistory, expertAnalysis, streamedConflicts, nameShortlist]);
+  }, [runFullTrademarkAnalysis, selectedLaender, aiSelectedClasses]);
 
   const handleAddCustomName = () => {
     const name = customNameInput.trim();
@@ -3612,22 +3259,6 @@ export default function RecherchePage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast notification for saved search */}
-      {showSavedBanner && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
-          <div className="flex items-center gap-2 px-4 py-3 bg-primary text-white rounded-xl shadow-lg">
-            <Check className="w-5 h-5" />
-            <span className="font-medium">Vorherige Recherche gespeichert</span>
-            <button 
-              onClick={() => setShowSavedBanner(false)}
-              className="ml-2 p-1 hover:bg-primary/80 rounded-lg transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
       <WorkflowProgress 
         currentStep={2} 
         stepStatuses={caseId ? { beratung: "completed" } : { beratung: "skipped" }}
@@ -3762,280 +3393,6 @@ export default function RecherchePage() {
               <span className="font-medium text-gray-700">Meine Markenfälle</span>
             </button>
           </div>
-
-          {/* Delete Confirmation Modal */}
-          {showDeleteConfirm && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={cancelDeleteHistory}>
-              <div 
-                className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-200"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                    <Trash2 className="w-6 h-6 text-red-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Recherche löschen?</h3>
-                    <p className="text-sm text-gray-500">Diese Aktion kann nicht rückgängig gemacht werden.</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={cancelDeleteHistory}
-                    className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
-                  >
-                    Abbrechen
-                  </button>
-                  <button
-                    onClick={executeDeleteHistory}
-                    className="flex-1 px-4 py-2.5 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors"
-                  >
-                    Löschen
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Search History */}
-          {(searchHistory.length > 0 || aiAnalysis) && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
-              <div className="w-full flex items-center justify-between mb-3">
-                <button 
-                  onClick={() => setHistoryExpanded(!historyExpanded)}
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                >
-                  <HistoryIcon className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">Bisherige Recherchen</span>
-                  {searchHistory.length > 0 && (
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                      {searchHistory.length}
-                    </span>
-                  )}
-                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${historyExpanded ? 'rotate-180' : ''}`} />
-                </button>
-                <button
-                  onClick={startNewSearch}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Neue Recherche
-                </button>
-              </div>
-              <div 
-                className="grid transition-all duration-300 ease-in-out"
-                style={{ gridTemplateRows: historyExpanded ? '1fr' : '0fr' }}
-              >
-                <div className="overflow-hidden">
-                  <div className="space-y-2">
-                    {searchHistory.map((item) => (
-                      <div 
-                        key={item.id} 
-                        className={`transition-all duration-500 ${
-                          highlightedHistoryId === item.id ? 'ring-2 ring-primary ring-offset-2 rounded-xl' : ''
-                        }`}
-                      >
-                        {/* History Item Row */}
-                        <div
-                          onClick={() => togglePreviewHistory(item)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') togglePreviewHistory(item); }}
-                          className={`w-full text-left p-3 rounded-xl border transition-all duration-200 flex items-center justify-between group cursor-pointer ${
-                            highlightedHistoryId === item.id
-                              ? 'border-primary bg-primary/10'
-                              : activeHistoryId === item.id
-                              ? 'border-primary bg-primary/5'
-                              : previewHistoryId === item.id
-                              ? 'border-primary/50 bg-primary/5'
-                              : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
-                          }`}
-                        >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {/* Chevron indicator */}
-                        <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ${
-                          previewHistoryId === item.id ? 'rotate-90' : ''
-                        }`} />
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          item.riskLevel === 'high' ? 'bg-red-100' :
-                          item.riskLevel === 'medium' ? 'bg-amber-100' :
-                          item.riskLevel === 'low' ? 'bg-green-100' : 'bg-gray-100'
-                        }`}>
-                          {item.riskLevel === 'high' ? (
-                            <XCircle className="w-4 h-4 text-red-600" />
-                          ) : item.riskLevel === 'medium' ? (
-                            <AlertCircle className="w-4 h-4 text-amber-600" />
-                          ) : item.riskLevel === 'low' ? (
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                          ) : (
-                            <Search className="w-4 h-4 text-gray-500" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <span className="font-medium text-gray-900 truncate block">
-                            Recherche: {item.searchQuery} – {item.timestamp ? new Date(item.timestamp).toLocaleDateString('de-DE', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric'
-                            }) : ''}
-                          </span>
-                          <p className="text-xs text-gray-500 truncate">
-                            {item.countries.length > 2 
-                              ? `${item.countries.slice(0, 2).join(', ')} +${item.countries.length - 2}` 
-                              : item.countries.join(', ')} • Klasse{item.classes.length > 1 ? 'n' : ''} {item.classes.length > 3 
-                              ? `${item.classes.slice(0, 3).join(', ')} +${item.classes.length - 3}` 
-                              : item.classes.join(', ')}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {/* Case Status Badge */}
-                        {item.caseNumber ? (
-                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700">
-                            Fall {item.caseNumber}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400 hidden sm:inline">Kein Fall</span>
-                        )}
-                        {/* Risk Level Badge */}
-                        {item.riskLevel && (
-                          <span className={`text-xs font-medium px-2 py-1 rounded-full hidden sm:inline-flex ${
-                            item.riskLevel === 'high' ? 'bg-red-100 text-red-700' :
-                            item.riskLevel === 'medium' ? 'bg-amber-100 text-amber-700' :
-                            'bg-green-100 text-green-700'
-                          }`}>
-                            {item.riskLevel === 'high' ? 'Hohes Risiko' :
-                             item.riskLevel === 'medium' ? 'Mittleres Risiko' : 'Niedriges Risiko'}
-                          </span>
-                        )}
-                        {/* Delete Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            confirmDeleteHistory(item.id);
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                          title="Recherche löschen"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Preview Card (expandable) */}
-                    <div 
-                      className="grid transition-all duration-300 ease-in-out"
-                      style={{ gridTemplateRows: previewHistoryId === item.id ? '1fr' : '0fr' }}
-                    >
-                      <div className="overflow-hidden">
-                        <div className="mt-2 p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
-                          {/* Preview Header */}
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h4 className="font-semibold text-gray-900 text-lg">{item.searchQuery}</h4>
-                              <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
-                                <Clock className="w-3.5 h-3.5" />
-                                {item.timestamp ? new Date(item.timestamp).toLocaleString('de-DE', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                }) : 'Unbekannt'}
-                              </p>
-                            </div>
-                            {item.riskLevel && (
-                              <span className={`text-sm font-medium px-3 py-1.5 rounded-full ${
-                                item.riskLevel === 'high' ? 'bg-red-100 text-red-700' :
-                                item.riskLevel === 'medium' ? 'bg-amber-100 text-amber-700' :
-                                'bg-green-100 text-green-700'
-                              }`}>
-                                {item.riskLevel === 'high' ? 'Hohes Risiko' :
-                                 item.riskLevel === 'medium' ? 'Mittleres Risiko' : 'Niedriges Risiko'}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Preview Details */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <Globe className="w-4 h-4 text-gray-400" />
-                              <span>{item.countries.length} {item.countries.length === 1 ? 'Land' : 'Länder'}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <Tag className="w-4 h-4 text-gray-400" />
-                              <span>{item.classes.length} Klasse{item.classes.length > 1 ? 'n' : ''}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <AlertTriangle className="w-4 h-4 text-gray-400" />
-                              <span>{item.conflictsCount} Konflikte</span>
-                            </div>
-                          </div>
-
-                          {/* Case Badge / Create Case */}
-                          <div className="pt-2 border-t border-gray-200">
-                            {item.caseId || item.caseNumber ? (
-                              <div className="flex items-center gap-2 text-sm">
-                                <FolderOpen className="w-4 h-4 text-blue-600" />
-                                <span className="text-gray-700">Verknüpft mit <span className="font-medium text-blue-600">Fall {item.caseNumber || item.caseId}</span></span>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  createCaseForHistory(item);
-                                }}
-                                disabled={creatingCaseForId === item.id}
-                                className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50"
-                              >
-                                {creatingCaseForId === item.id ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Fall wird erstellt...
-                                  </>
-                                ) : (
-                                  <>
-                                    <FilePlus className="w-4 h-4" />
-                                    Fall erstellen
-                                  </>
-                                )}
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex gap-2 pt-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                loadFromHistory(item);
-                              }}
-                              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors"
-                            >
-                              <Eye className="w-4 h-4" />
-                              Details öffnen
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                confirmDeleteHistory(item.id);
-                              }}
-                              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 font-medium rounded-xl hover:bg-red-100 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Löschen
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
             {/* Collapsible Header */}
@@ -4285,7 +3642,6 @@ export default function RecherchePage() {
                       alert("Weiterleitung zur Anmeldung...");
                     }}
                     onConflictClick={(conflict) => setSelectedConflict(conflict)}
-                    onFullAnalysis={handleStartFullAnalysisForName}
                     voiceAssistantContent={
                       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" style={{ minHeight: "300px" }}>
                         {klausAccessToken ? (
@@ -4822,7 +4178,6 @@ export default function RecherchePage() {
           conflict={selectedConflict}
           onClose={() => setSelectedConflict(null)}
           selectedClasses={aiSelectedClasses}
-          includeRelatedClasses={includeRelatedClasses}
         />
       )}
 

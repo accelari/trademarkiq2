@@ -34,23 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { 
-      name, 
-      classes, 
-      countries,
-      riskScore: providedRiskScore, 
-      riskLevel: providedRiskLevel, 
-      conflicts: providedConflicts, 
-      similarMarks: providedSimilarMarks, 
-      recommendation: providedRecommendation, 
-      riskCompleted,
-      aiAnalysis,
-      streamedConflicts,
-      expertAnalysis,
-      nameShortlist,
-      caseId,
-      caseNumber,
-    } = body;
+    const { name, classes, riskScore: providedRiskScore, riskLevel: providedRiskLevel, conflicts: providedConflicts, similarMarks: providedSimilarMarks, recommendation: providedRecommendation, riskCompleted } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Name erforderlich" }, { status: 400 });
@@ -73,7 +57,6 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
         name,
         classes: classes || [],
-        countries: countries || [],
         riskScore,
         riskLevel,
         conflicts,
@@ -81,12 +64,6 @@ export async function POST(request: NextRequest) {
         recommendation: providedRecommendation ?? recommendations[riskLevel],
         status: "completed",
         riskCompleted: riskCompleted ?? false,
-        aiAnalysis: aiAnalysis || null,
-        streamedConflicts: streamedConflicts || [],
-        expertAnalysis: expertAnalysis || null,
-        nameShortlist: nameShortlist || [],
-        caseId: caseId || null,
-        caseNumber: caseNumber || null,
       })
       .returning();
 

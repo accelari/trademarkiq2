@@ -75,7 +75,7 @@ export function ComparisonTable({
   if (items.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
-        <p>Keine Namen in Ihrer Liste.</p>
+        <p>Keine Namen in der Shortlist.</p>
         <p className="text-sm mt-1">Fügen Sie Namen hinzu, um sie zu vergleichen.</p>
       </div>
     );
@@ -204,7 +204,7 @@ export function ComparisonTable({
                         className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors"
                       >
                         <BarChart3 className="w-3 h-3" />
-                        Recherche durchführen
+                        Vollanalyse
                       </button>
                     )}
                     <button

@@ -61,7 +61,7 @@ export function MobileShortlistCarousel({
   if (items.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
-        <p>Keine Namen in Ihrer Liste.</p>
+        <p>Keine Namen in der Shortlist.</p>
         <p className="text-sm mt-1">Fügen Sie Namen hinzu, um sie zu vergleichen.</p>
       </div>
     );
@@ -162,7 +162,7 @@ export function MobileShortlistCarousel({
               className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors"
             >
               <BarChart3 className="w-4 h-4" />
-              Recherche durchführen
+              Vollanalyse
             </button>
           )}
           <button

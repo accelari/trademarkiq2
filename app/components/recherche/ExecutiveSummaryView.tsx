@@ -29,7 +29,6 @@ interface ExecutiveSummaryViewProps {
   onDownloadPDF?: () => void;
   onProceedToRegistration?: () => void;
   onConflictClick?: (conflict: ConflictingMark) => void;
-  onFullAnalysis?: (name: string) => void;
 }
 
 export function ExecutiveSummaryView({
@@ -41,7 +40,6 @@ export function ExecutiveSummaryView({
   onDownloadPDF,
   onProceedToRegistration,
   onConflictClick,
-  onFullAnalysis,
 }: ExecutiveSummaryViewProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [detailsCategory, setDetailsCategory] = useState<"critical" | "review" | "okay" | null>(null);
@@ -51,7 +49,6 @@ export function ExecutiveSummaryView({
     isShortlistOpen,
     shortlist,
     recommendation,
-    selectedName,
     suggestions,
     isGenerating,
     generatorSettings,
@@ -66,11 +63,10 @@ export function ExecutiveSummaryView({
     quickCheckManual,
     addToShortlist,
     removeFromShortlist,
-    clearShortlist,
     setGeneratorSettings,
     selectName,
-    confirmSelection,
     downloadPDF,
+    startFullAnalysis,
   } = useAlternativeSearch();
 
   // Track if we've initialized to prevent infinite loops
@@ -314,18 +310,9 @@ export function ExecutiveSummaryView({
         onClose={closeShortlist}
         items={shortlistItems}
         recommendation={recommendation}
-        selectedName={selectedName}
         onSelectName={selectName}
-        onConfirmSelection={confirmSelection}
         onRemoveFromShortlist={removeFromShortlist}
-        onClearShortlist={clearShortlist}
-        onFullAnalysis={(name) => {
-          closeShortlist();
-          closeGenerator();
-          if (onFullAnalysis) {
-            onFullAnalysis(name);
-          }
-        }}
+        onFullAnalysis={startFullAnalysis}
         onAddMore={() => {
           closeShortlist();
           openGenerator();

@@ -1,2 +1,2 @@
-export { AccordionSection, AccordionGroup } from "./AccordionSection";
+export { AccordionSection } from "./AccordionSection";
 export { RiskAnalysisAccordion } from "./RiskAnalysisAccordion";

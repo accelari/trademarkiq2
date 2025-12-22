@@ -32,14 +32,12 @@ export function ManualEntryTab({
   onRemoveFromShortlist,
 }: ManualEntryTabProps) {
   const [nameInput, setNameInput] = useState("");
-  const [lastCheckedName, setLastCheckedName] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (nameInput.trim()) {
-      const trimmedName = nameInput.trim();
-      onQuickCheck(trimmedName);
-      setLastCheckedName(trimmedName);
+      onQuickCheck(nameInput.trim());
+      setNameInput("");
     }
   };
 
@@ -153,7 +151,7 @@ export function ManualEntryTab({
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white font-semibold rounded-xl shadow-lg"
                 >
                   <Check className="w-5 h-5" />
-                  In meinen Marken – zum Vergleichen bereit
+                  In Shortlist - zum Vergleichen bereit
                 </button>
               ) : (
                 <button
@@ -166,12 +164,12 @@ export function ManualEntryTab({
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg hover:shadow-xl"
                 >
                   <Plus className="w-5 h-5" />
-                  Zu meinen Marken
+                  In Shortlist übernehmen
                 </button>
               )}
               
               <p className="text-xs text-center text-gray-500 mt-2">
-                Fügen Sie Namen zu Ihren Marken hinzu, um sie später zu vergleichen
+                Fügen Sie Namen zur Shortlist hinzu, um sie später zu vergleichen
               </p>
             </div>
 
@@ -207,7 +205,7 @@ export function ManualEntryTab({
                   </div>
                   {isInShortlist ? (
                     <span className="text-xs text-primary font-medium flex items-center gap-1">
-                      <Check className="w-3 h-3" /> In meinen Marken
+                      <Check className="w-3 h-3" /> In Shortlist
                     </span>
                   ) : (
                     <button

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import {
   ChevronDown,
   Search,
@@ -64,54 +64,16 @@ interface StepSectionProps {
   isOpen: boolean;
   onToggle: () => void;
   children: React.ReactNode;
-  onFocusNext?: () => void;
-  onFocusPrev?: () => void;
 }
 
-function StepSection({ stepNumber, title, icon, status, isOpen, onToggle, children, onFocusNext, onFocusPrev }: StepSectionProps) {
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const wasOpenRef = useRef(isOpen);
-  const panelId = `step-panel-${stepNumber}`;
-  const buttonId = `step-button-${stepNumber}`;
-
-  useEffect(() => {
-    if (isOpen && !wasOpenRef.current) {
-      setTimeout(() => {
-        sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
-    }
-    wasOpenRef.current = isOpen;
-  }, [isOpen]);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (e.key === "ArrowDown" && onFocusNext) {
-      e.preventDefault();
-      onFocusNext();
-    } else if (e.key === "ArrowUp" && onFocusPrev) {
-      e.preventDefault();
-      onFocusPrev();
-    }
-  };
-
+function StepSection({ stepNumber, title, icon, status, isOpen, onToggle, children }: StepSectionProps) {
   return (
-    <div 
-      ref={sectionRef} 
-      className={`border rounded-lg overflow-hidden bg-white transition-all duration-300 ${
-        isOpen 
-          ? "border-primary/30 shadow-lg shadow-primary/5" 
-          : "border-gray-200"
-      }`}
-    >
+    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
       <button
-        id={buttonId}
-        data-step-button={stepNumber}
         type="button"
         onClick={onToggle}
-        onKeyDown={handleKeyDown}
         disabled={status === "pending"}
-        aria-expanded={isOpen}
-        aria-controls={panelId}
-        className={`w-full flex items-center justify-between p-3 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-inset ${
+        className={`w-full flex items-center justify-between p-3 text-left ${
           status === "pending" ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
         }`}
       >
@@ -133,15 +95,10 @@ function StepSection({ stepNumber, title, icon, status, isOpen, onToggle, childr
       </button>
       
       <div
-        id={panelId}
-        role="region"
-        aria-labelledby={buttonId}
         style={{
           display: "grid",
           gridTemplateRows: isOpen ? "1fr" : "0fr",
-          transition: isOpen 
-            ? "grid-template-rows 300ms cubic-bezier(0.0, 0.0, 0.2, 1)" 
-            : "grid-template-rows 250ms cubic-bezier(0.4, 0.0, 1, 1)",
+          transition: "grid-template-rows 300ms ease-out",
         }}
       >
         <div style={{ overflow: "hidden" }}>
@@ -182,11 +139,6 @@ export default function AIProcessOverview({
     setOpenSteps(prev =>
       prev.includes(step) ? prev.filter(s => s !== step) : [...prev, step]
     );
-  };
-
-  const focusStep = (step: number) => {
-    const button = document.querySelector(`[data-step-button="${step}"]`) as HTMLButtonElement;
-    button?.focus();
   };
 
   const getCountryName = (code: string) => {
@@ -300,8 +252,6 @@ export default function AIProcessOverview({
           status={progress.step1}
           isOpen={openSteps.includes(1)}
           onToggle={() => toggleStep(1)}
-          onFocusNext={() => focusStep(2)}
-          onFocusPrev={() => focusStep(4)}
         >
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
@@ -336,8 +286,6 @@ export default function AIProcessOverview({
           status={progress.step2}
           isOpen={openSteps.includes(2)}
           onToggle={() => toggleStep(2)}
-          onFocusNext={() => focusStep(3)}
-          onFocusPrev={() => focusStep(1)}
         >
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
@@ -373,8 +321,6 @@ export default function AIProcessOverview({
           status={progress.step3}
           isOpen={openSteps.includes(3)}
           onToggle={() => toggleStep(3)}
-          onFocusNext={() => focusStep(4)}
-          onFocusPrev={() => focusStep(2)}
         >
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
@@ -435,8 +381,6 @@ export default function AIProcessOverview({
           status={progress.step4}
           isOpen={openSteps.includes(4)}
           onToggle={() => toggleStep(4)}
-          onFocusNext={() => focusStep(1)}
-          onFocusPrev={() => focusStep(3)}
         >
           <div className="space-y-3">
             {analysis && (

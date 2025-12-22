@@ -198,11 +198,6 @@ export function useAlternativeSearch() {
     [store]
   );
 
-  // Clear entire shortlist
-  const clearShortlist = useCallback(() => {
-    store.clearShortlist();
-  }, [store]);
-
   // Open generator modal
   const openGenerator = useCallback(() => {
     store.openGenerator();
@@ -323,7 +318,6 @@ export function useAlternativeSearch() {
     quickCheckManual,
     addToShortlist,
     removeFromShortlist,
-    clearShortlist,
     openShortlist,
     closeShortlist,
     selectName,

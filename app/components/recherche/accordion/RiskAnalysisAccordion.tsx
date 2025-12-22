@@ -41,7 +41,6 @@ interface RiskAnalysisAccordionProps {
   onContactLawyer?: () => void;
   onDownloadPDF?: () => void;
   onProceedToRegistration?: () => void;
-  onFullAnalysis?: (name: string) => void;
   // Voice assistant section (pass as children or render prop)
   voiceAssistantContent?: ReactNode;
 }
@@ -59,7 +58,6 @@ export function RiskAnalysisAccordion({
   onContactLawyer,
   onDownloadPDF,
   onProceedToRegistration,
-  onFullAnalysis,
   voiceAssistantContent,
 }: RiskAnalysisAccordionProps) {
   const {
@@ -77,10 +75,10 @@ export function RiskAnalysisAccordion({
     quickCheck,
     addToShortlist,
     removeFromShortlist,
-    clearShortlist,
     selectName,
     confirmSelection,
     downloadPDF,
+    startFullAnalysis,
     initializeSearch,
   } = useAlternativeSearch();
 
@@ -255,7 +253,6 @@ export function RiskAnalysisAccordion({
         badge={conflicts.length}
         badgeColor={analysis.overallRisk === "high" ? "red" : analysis.overallRisk === "medium" ? "yellow" : "green"}
         defaultOpen={true}
-        scrollOnOpen={true}
       >
         <div className="space-y-4">
           {/* All Conflicts */}
@@ -343,7 +340,6 @@ export function RiskAnalysisAccordion({
         badge={shortlist.length > 0 ? shortlist.length : undefined}
         badgeColor="blue"
         defaultOpen={false}
-        scrollOnOpen={true}
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
@@ -361,7 +357,7 @@ export function RiskAnalysisAccordion({
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors"
             >
               <Sparkles className="w-5 h-5" />
-              Namensideen & Register-Check
+              KI-Namensvorschläge generieren
             </button>
             {shortlist.length > 0 && (
               <button
@@ -369,7 +365,7 @@ export function RiskAnalysisAccordion({
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary/10 text-primary font-medium rounded-xl hover:bg-primary/20 transition-colors"
               >
                 <FileText className="w-5 h-5" />
-                Meine Marken anzeigen ({shortlist.length})
+                Shortlist anzeigen ({shortlist.length})
               </button>
             )}
           </div>
@@ -382,7 +378,6 @@ export function RiskAnalysisAccordion({
           title="KI-Markenberater Klaus"
           icon={Mic}
           defaultOpen={false}
-          scrollOnOpen={true}
         >
           {voiceAssistantContent}
         </AccordionSection>
@@ -393,7 +388,6 @@ export function RiskAnalysisAccordion({
         title="Nächste Schritte"
         icon={Shield}
         defaultOpen={analysis.overallRisk === "low"}
-        scrollOnOpen={true}
       >
         <div className="space-y-3">
           {analysis.overallRisk === "high" && (
@@ -456,14 +450,7 @@ export function RiskAnalysisAccordion({
         onSelectName={selectName}
         onConfirmSelection={confirmSelection}
         onRemoveFromShortlist={removeFromShortlist}
-        onClearShortlist={clearShortlist}
-        onFullAnalysis={(name) => {
-          closeShortlist();
-          closeGenerator();
-          if (onFullAnalysis) {
-            onFullAnalysis(name);
-          }
-        }}
+        onFullAnalysis={startFullAnalysis}
         onAddMore={() => {
           closeShortlist();
           openGenerator();
