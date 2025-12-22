@@ -33,11 +33,13 @@ export default function SharedTrademarkLayout({
 
   return (
     <div className="space-y-6">
-      <WorkflowProgress 
-        currentStep={isCopilot ? 1 : 2} 
-        stepStatuses={stepStatuses}
-        onHelpClick={onHelpClick}
-      />
+      <div className="sticky top-0 z-40 bg-gray-50 -mx-6 px-6 py-3 -mt-3">
+        <WorkflowProgress 
+          currentStep={isCopilot ? 1 : 2} 
+          stepStatuses={stepStatuses}
+          onHelpClick={onHelpClick}
+        />
+      </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
