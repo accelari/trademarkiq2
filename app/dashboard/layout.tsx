@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Loader2,
   Search,
-  FileText
+  FileText,
+  FolderOpen
 } from "lucide-react";
 import { useEffect } from "react";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
@@ -24,6 +25,7 @@ import { UnsavedDataProvider, useUnsavedData } from "@/app/contexts/UnsavedDataC
 
 const baseNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Meine Markenfälle", href: "/dashboard/cases", icon: FolderOpen },
   { name: "Markenberatung", href: "/dashboard/copilot", icon: Mic },
   { name: "Markenprüfung", href: "/dashboard/recherche", icon: Search },
   { name: "Markenanmeldung", href: "/dashboard/anmeldung", icon: FileText },

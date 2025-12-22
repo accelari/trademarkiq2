@@ -1305,6 +1305,9 @@ ${notesText}`,
             const caseNumber = caseData.case?.caseNumber;
 
             if (caseId) {
+              setCurrentCaseId(caseId);
+              setCurrentCaseNumber(caseNumber);
+              
               await fetch("/api/cases/extract-decisions", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -1833,6 +1836,18 @@ ${notesText}`,
                     <span className="font-medium">Erfolgreich gespeichert</span>
                   </div>
                   <div className="flex gap-2">
+                    {currentCaseId && (
+                      <button
+                        onClick={() => {
+                          setShowSummaryModal(false);
+                          router.push(`/dashboard/case/${currentCaseId}`);
+                        }}
+                        className="px-4 py-2.5 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors font-medium flex items-center gap-2"
+                      >
+                        <FolderOpen className="w-4 h-4" />
+                        Zum Fall
+                      </button>
+                    )}
                     <button
                       onClick={handleNewSession}
                       className="px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors font-medium"

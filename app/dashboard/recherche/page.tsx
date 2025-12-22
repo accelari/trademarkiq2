@@ -3719,14 +3719,30 @@ export default function RecherchePage() {
 
           {/* Success Banner */}
           {showSuccessBanner && (
-            <div className="mt-6 p-4 bg-primary/10 border border-primary/20 rounded-xl flex items-center gap-3 animate-fade-in">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                <Check className="w-4 h-4 text-white" />
+            <div className="mt-6 p-4 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-between gap-3 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                  <Check className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Analyse abgeschlossen</p>
+                  <p className="text-sm text-gray-600">
+                    {(caseId || currentCaseNumber) 
+                      ? `Die Ergebnisse wurden zu Fall ${currentCaseNumber || caseId} gespeichert.`
+                      : "Die Ergebnisse werden unten angezeigt."
+                    }
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-gray-900">Analyse abgeschlossen</p>
-                <p className="text-sm text-gray-600">Die Ergebnisse werden unten angezeigt.</p>
-              </div>
+              {(caseId || currentCaseNumber) && (
+                <button
+                  onClick={() => router.push(`/dashboard/case/${caseId || currentCaseNumber}`)}
+                  className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium whitespace-nowrap"
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  Zum Fall
+                </button>
+              )}
             </div>
           )}
 
