@@ -1722,6 +1722,7 @@ export default function RecherchePage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [isSearchFormExpanded, setIsSearchFormExpanded] = useState(true);
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(false);
+  const [isBeratungExpanded, setIsBeratungExpanded] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiStartTime, setAiStartTime] = useState<number | null>(null);
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
@@ -3392,6 +3393,108 @@ export default function RecherchePage() {
               <FolderOpen className="w-5 h-5 text-primary" />
               <span className="font-medium text-gray-700">Meine Markenfälle</span>
             </button>
+          </div>
+
+          {/* Markenberatung Accordion */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4">
+            <button
+              onClick={() => setIsBeratungExpanded(!isBeratungExpanded)}
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors rounded-2xl"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                  <Mic className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900">Markenberatung</h3>
+                  <p className="text-sm text-gray-500">
+                    {klausAccessToken ? "Bereit" : "KI-Markenberater Klaus"}
+                  </p>
+                </div>
+              </div>
+              <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isBeratungExpanded ? 'rotate-180' : ''}`} />
+            </button>
+
+            <div 
+              className="grid transition-all duration-300 ease-in-out"
+              style={{ gridTemplateRows: isBeratungExpanded ? '1fr' : '0fr' }}
+            >
+              <div style={{ overflow: isBeratungExpanded ? 'visible' : 'hidden' }}>
+                <div className="p-6 pt-2">
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" style={{ minHeight: "350px" }}>
+                    {klausAccessToken ? (
+                      <VoiceProvider>
+                        <VoiceAssistant
+                          accessToken={klausAccessToken}
+                          contextMessage={`[SYSTEM-KONTEXT für Markenprüfung]\nMARKE: ${searchQuery || 'Noch nicht eingegeben'}\nKLASSEN: ${aiSelectedClasses.join(', ') || 'Keine'}\nLÄNDER: ${selectedLaender.join(', ') || 'Keine'}\nANALYSE: ${aiAnalysis ? 'Vorhanden' : 'Noch nicht durchgeführt'}`}
+                          embedded={true}
+                        />
+                      </VoiceProvider>
+                    ) : klausTokenLoading ? (
+                      <div className="flex flex-col items-center justify-center h-full py-12">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+                        <p className="text-sm text-gray-600">Klaus wird vorbereitet...</p>
+                      </div>
+                    ) : klausTokenError ? (
+                      <div className="flex flex-col items-center justify-center h-full py-12">
+                        <div className="mb-4 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg">
+                          {klausTokenError}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setKlausTokenError(null);
+                            setKlausTokenLoading(true);
+                            fetch('/api/token')
+                              .then(res => res.json())
+                              .then(data => {
+                                if (data.accessToken) {
+                                  setKlausAccessToken(data.accessToken);
+                                } else {
+                                  throw new Error('Kein Token in Antwort');
+                                }
+                              })
+                              .catch(err => setKlausTokenError(err.message || 'Fehler beim Laden'))
+                              .finally(() => setKlausTokenLoading(false));
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                        >
+                          Erneut versuchen
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full py-12">
+                        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                          <Mic className="w-8 h-8 text-primary" />
+                        </div>
+                        <p className="text-gray-600 font-medium mb-2">KI-Markenberater Klaus</p>
+                        <p className="text-sm text-gray-500 text-center max-w-md">
+                          Aufklappen um die Sprachberatung zu starten
+                        </p>
+                        <button
+                          onClick={() => {
+                            setKlausTokenLoading(true);
+                            fetch('/api/token')
+                              .then(res => res.json())
+                              .then(data => {
+                                if (data.accessToken) {
+                                  setKlausAccessToken(data.accessToken);
+                                } else {
+                                  throw new Error('Kein Token in Antwort');
+                                }
+                              })
+                              .catch(err => setKlausTokenError(err.message || 'Fehler beim Laden'))
+                              .finally(() => setKlausTokenLoading(false));
+                          }}
+                          className="mt-4 flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                        >
+                          Klaus starten
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
