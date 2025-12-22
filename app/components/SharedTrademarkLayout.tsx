@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { MessageCircle, Search, ChevronDown } from "lucide-react";
 import WorkflowProgress from "./WorkflowProgress";
 
@@ -26,8 +27,15 @@ export default function SharedTrademarkLayout({
   stepStatuses = {},
 }: SharedTrademarkLayoutProps) {
   const router = useRouter();
+  const contentRef = useRef<HTMLDivElement>(null);
   const isCopilot = activeSection === "copilot";
   const isRecherche = activeSection === "recherche";
+
+  useEffect(() => {
+    if (isRecherche && contentRef.current) {
+      contentRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [isRecherche]);
 
   return (
     <div className="space-y-4">
@@ -96,7 +104,9 @@ export default function SharedTrademarkLayout({
             </button>
           </div>
 
-          {children}
+          <div ref={contentRef}>
+            {children}
+          </div>
         </>
       )}
     </div>
