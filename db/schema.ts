@@ -278,6 +278,67 @@ export const caseEvents = pgTable("case_events", {
   createdAtIdx: index("case_event_created_at_idx").on(table.createdAt),
 }));
 
+export const caseAnalyses = pgTable("case_analyses", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id", { length: 255 }).notNull().references(() => trademarkCases.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  searchQuery: jsonb("search_query").$type<{
+    trademarkName: string;
+    countries: string[];
+    niceClasses: number[];
+  }>().notNull(),
+  searchTermsUsed: jsonb("search_terms_used").$type<string[]>().default([]),
+  conflicts: jsonb("conflicts").$type<{
+    id: string;
+    name: string;
+    register: string;
+    holder: string;
+    classes: number[];
+    accuracy: number;
+    riskLevel: "high" | "medium" | "low";
+    reasoning: string;
+    status: string;
+    applicationNumber: string;
+    applicationDate: string | null;
+    registrationNumber: string;
+    registrationDate: string | null;
+    isFamousMark: boolean;
+  }[]>().default([]),
+  aiAnalysis: jsonb("ai_analysis").$type<{
+    nameAnalysis: string;
+    searchStrategy: string;
+    riskAssessment: string;
+    overallRisk: "high" | "medium" | "low";
+    recommendation: string;
+    famousMarkDetected: boolean;
+    famousMarkNames: string[];
+  }>(),
+  riskScore: integer("risk_score").default(0),
+  riskLevel: varchar("risk_level", { length: 50 }).default("low"),
+  totalResultsAnalyzed: integer("total_results_analyzed").default(0),
+  alternativeNames: jsonb("alternative_names").$type<{
+    name: string;
+    riskScore: number;
+    riskLevel: "low" | "medium" | "high" | "unknown";
+    conflictCount: number;
+    explanation?: string;
+  }[]>().default([]),
+  expertStrategy: jsonb("expert_strategy").$type<{
+    originalName: string;
+    rootExtraction: string;
+    searchVariants: string[];
+    phoneticsEnglish: string[];
+    phoneticsGerman: string[];
+    visualSimilar: string[];
+    misspellings: string[];
+  }>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  caseIdx: index("case_analysis_case_idx").on(table.caseId),
+  userIdx: index("case_analysis_user_idx").on(table.userId),
+}));
+
 export const usersRelations = relations(users, ({ many }) => ({
   accounts: many(accounts),
   sessions: many(sessions),
@@ -320,6 +381,7 @@ export const trademarkCasesRelations = relations(trademarkCases, ({ one, many })
   decisions: many(caseDecisions),
   events: many(caseEvents),
   consultations: many(consultations),
+  analyses: many(caseAnalyses),
 }));
 
 export const caseStepsRelations = relations(caseSteps, ({ one }) => ({
@@ -334,6 +396,11 @@ export const caseDecisionsRelations = relations(caseDecisions, ({ one }) => ({
 export const caseEventsRelations = relations(caseEvents, ({ one }) => ({
   case: one(trademarkCases, { fields: [caseEvents.caseId], references: [trademarkCases.id] }),
   user: one(users, { fields: [caseEvents.userId], references: [users.id] }),
+}));
+
+export const caseAnalysesRelations = relations(caseAnalyses, ({ one }) => ({
+  case: one(trademarkCases, { fields: [caseAnalyses.caseId], references: [trademarkCases.id] }),
+  user: one(users, { fields: [caseAnalyses.userId], references: [users.id] }),
 }));
 
 export type User = typeof users.$inferSelect;
@@ -361,3 +428,5 @@ export type CaseDecision = typeof caseDecisions.$inferSelect;
 export type NewCaseDecision = typeof caseDecisions.$inferInsert;
 export type CaseEvent = typeof caseEvents.$inferSelect;
 export type NewCaseEvent = typeof caseEvents.$inferInsert;
+export type CaseAnalysis = typeof caseAnalyses.$inferSelect;
+export type NewCaseAnalysis = typeof caseAnalyses.$inferInsert;
