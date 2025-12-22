@@ -3511,19 +3511,21 @@ export default function RecherchePage() {
       setTimeout(() => setShowSavedBanner(false), 3500);
     }
     
+    // Update search query first
     setSearchQuery(name);
     
+    // Scroll to results
     setTimeout(() => {
       resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
     
-    setTimeout(async () => {
-      if (!name.trim() || selectedLaender.length === 0 || aiSelectedClasses.length === 0) {
-        return;
-      }
-      
-      await runFullTrademarkAnalysis(name, { deepSearch: true, useCache: false, useAbortController: false });
-    }, 200);
+    // Validate inputs before running analysis
+    if (!name.trim() || selectedLaender.length === 0 || aiSelectedClasses.length === 0) {
+      return;
+    }
+    
+    // Run analysis directly with the passed name parameter (not searchQuery state)
+    await runFullTrademarkAnalysis(name, { deepSearch: true, useCache: false, useAbortController: false });
   }, [runFullTrademarkAnalysis, selectedLaender, aiSelectedClasses, aiAnalysis, activeHistoryId, saveToHistory, expertAnalysis, streamedConflicts, nameShortlist]);
 
   const handleAddCustomName = () => {
