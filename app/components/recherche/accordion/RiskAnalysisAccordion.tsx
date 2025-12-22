@@ -361,7 +361,7 @@ export function RiskAnalysisAccordion({
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors"
             >
               <Sparkles className="w-5 h-5" />
-              KI-Namensvorschläge generieren
+              Namensideen & Register-Check
             </button>
             {shortlist.length > 0 && (
               <button
