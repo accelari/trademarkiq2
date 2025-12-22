@@ -1420,130 +1420,6 @@ ${notesText}`,
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-medium text-gray-700">Eingabemethode</span>
-              <div className="group relative">
-                <Info className="w-4 h-4 text-gray-500 cursor-help hover:text-gray-700 transition-colors" />
-                <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-10">
-                  Wählen Sie, wie Sie mit dem Berater kommunizieren möchten.
-                </div>
-              </div>
-            </div>
-            <div className="flex bg-gray-100 rounded-lg p-1 w-fit" data-tour="input-mode">
-              <button
-                onClick={() => setInputMode("sprache")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all ${
-                  inputMode === "sprache" 
-                    ? "bg-white text-gray-900 shadow-sm" 
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <Mic className="w-4 h-4" />
-                Sprechen
-              </button>
-              <button
-                onClick={() => setInputMode("text")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all ${
-                  inputMode === "text" 
-                    ? "bg-white text-gray-900 shadow-sm" 
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Tippen
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {currentCaseNumber && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
-                <FileText className="w-4 h-4 text-gray-600" />
-                <span className="text-sm font-medium text-gray-700">{currentCaseNumber}</span>
-              </div>
-            )}
-            <div className="group relative">
-              <button
-                onClick={startAnalysis}
-                disabled={isAnalyzing || meetingNotes.length <= 1}
-                data-tour="go-to-recherche"
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  isAnalyzing || meetingNotes.length <= 1
-                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                    : "bg-teal-600 text-white hover:bg-teal-700 shadow-md"
-                }`}
-              >
-                {isAnalyzing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Analysiere...
-                  </>
-                ) : (
-                  <>
-                    <ArrowRight className="w-4 h-4" />
-                    Weiter zur Recherche
-                  </>
-                )}
-              </button>
-              <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-72 p-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-10">
-                {meetingNotes.length <= 1 
-                  ? "Starten Sie zuerst eine Beratung, um zur Recherche weiterzugehen."
-                  : "KI analysiert das Gespräch und bereitet die Markenrecherche vor."
-                }
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Transparente Schrittanzeige während Berichtserstellung */}
-        {isGeneratingSummary && summaryStep > 0 && (
-          <div className="mt-4 bg-gradient-to-br from-primary/5 to-teal-50 rounded-xl border border-primary/20 p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                <FileText className="w-4 h-4 text-white animate-pulse" />
-              </div>
-              <div>
-                <h4 className="font-medium text-gray-900 text-sm">KI erstellt Bericht...</h4>
-              </div>
-            </div>
-            
-            <div className="space-y-1.5">
-              {SUMMARY_STEPS.map((step) => {
-                const isActive = summaryStep === step.id;
-                const isCompleted = summaryStep > step.id;
-                
-                return (
-                  <div 
-                    key={step.id}
-                    className={`flex items-center gap-2 p-1.5 rounded transition-all duration-300 ${
-                      isActive ? 'bg-white shadow-sm' : isCompleted ? 'opacity-60' : 'opacity-30'
-                    }`}
-                  >
-                    <span className={`text-sm ${isActive ? 'animate-bounce' : ''}`}>
-                      {isCompleted ? '✓' : step.icon}
-                    </span>
-                    <span className={`text-xs ${isActive ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
-                      {step.label}
-                    </span>
-                    {isActive && <Loader2 className="w-3 h-3 animate-spin text-primary ml-auto" />}
-                  </div>
-                );
-              })}
-            </div>
-            
-            <div className="mt-3 h-1.5 bg-primary/10 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-primary transition-all duration-500"
-                style={{ width: `${(summaryStep / SUMMARY_STEPS.length) * 100}%` }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
       {welcomeMessage && (
         <div className="mb-6 bg-gradient-to-r from-primary/5 to-teal-50 border border-primary/20 rounded-2xl p-5 shadow-sm">
           <div className="flex items-start gap-4">
@@ -1635,7 +1511,130 @@ ${notesText}`,
           style={{ gridTemplateRows: isVoiceAssistantExpanded ? '1fr' : '0fr' }}
         >
           <div style={{ overflow: isVoiceAssistantExpanded ? 'visible' : 'hidden' }}>
-            <div className="p-4 pt-0">
+            <div className="p-4 pt-4">
+              {/* Eingabemethode Section */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 pb-4 border-b border-gray-100">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm font-medium text-gray-700">Eingabemethode</span>
+                    <div className="group relative">
+                      <Info className="w-4 h-4 text-gray-500 cursor-help hover:text-gray-700 transition-colors" />
+                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-10">
+                        Wählen Sie, wie Sie mit dem Berater kommunizieren möchten.
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex bg-gray-100 rounded-lg p-1 w-fit" data-tour="input-mode">
+                    <button
+                      onClick={() => setInputMode("sprache")}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all ${
+                        inputMode === "sprache" 
+                          ? "bg-white text-gray-900 shadow-sm" 
+                          : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      <Mic className="w-4 h-4" />
+                      Sprechen
+                    </button>
+                    <button
+                      onClick={() => setInputMode("text")}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all ${
+                        inputMode === "text" 
+                          ? "bg-white text-gray-900 shadow-sm" 
+                          : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Tippen
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {currentCaseNumber && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
+                      <FileText className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-700">{currentCaseNumber}</span>
+                    </div>
+                  )}
+                  <div className="group relative">
+                    <button
+                      onClick={startAnalysis}
+                      disabled={isAnalyzing || meetingNotes.length <= 1}
+                      data-tour="go-to-recherche"
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                        isAnalyzing || meetingNotes.length <= 1
+                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                          : "bg-teal-600 text-white hover:bg-teal-700 shadow-md"
+                      }`}
+                    >
+                      {isAnalyzing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Analysiere...
+                        </>
+                      ) : (
+                        <>
+                          <ArrowRight className="w-4 h-4" />
+                          Weiter zur Recherche
+                        </>
+                      )}
+                    </button>
+                    <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-72 p-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-10">
+                      {meetingNotes.length <= 1 
+                        ? "Starten Sie zuerst eine Beratung, um zur Recherche weiterzugehen."
+                        : "KI analysiert das Gespräch und bereitet die Markenrecherche vor."
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Transparente Schrittanzeige während Berichtserstellung */}
+              {isGeneratingSummary && summaryStep > 0 && (
+                <div className="mb-4 bg-gradient-to-br from-primary/5 to-teal-50 rounded-xl border border-primary/20 p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-white animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 text-sm">KI erstellt Bericht...</h4>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    {SUMMARY_STEPS.map((step) => {
+                      const isActive = summaryStep === step.id;
+                      const isCompleted = summaryStep > step.id;
+                      
+                      return (
+                        <div 
+                          key={step.id}
+                          className={`flex items-center gap-2 p-1.5 rounded transition-all duration-300 ${
+                            isActive ? 'bg-white shadow-sm' : isCompleted ? 'opacity-60' : 'opacity-30'
+                          }`}
+                        >
+                          <span className={`text-sm ${isActive ? 'animate-bounce' : ''}`}>
+                            {isCompleted ? '✓' : step.icon}
+                          </span>
+                          <span className={`text-xs ${isActive ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+                            {step.label}
+                          </span>
+                          {isActive && <Loader2 className="w-3 h-3 animate-spin text-primary ml-auto" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="mt-3 h-1.5 bg-primary/10 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary transition-all duration-500"
+                      style={{ width: `${(summaryStep / SUMMARY_STEPS.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
                 <div className="lg:col-span-2 order-1">
                   {hasVoiceAssistant ? (
