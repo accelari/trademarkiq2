@@ -22,7 +22,7 @@ interface MeetingNote {
   id: string;
   timestamp: Date;
   content: string;
-  type: "user" | "assistant" | "system";
+  type: "user" | "assistant" | "system" | "restored_user" | "restored_assistant";
 }
 
 interface CaseStep {
@@ -119,6 +119,7 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
       niceClasses?: number[];
     };
   } | null>(null);
+  const [restoredFromCase, setRestoredFromCase] = useState(false);
   const [showInsufficientInfoModal, setShowInsufficientInfoModal] = useState(false);
   const [insufficientInfoData, setInsufficientInfoData] = useState<{
     extractedData: { trademarkName: string; countries: string[]; niceClasses: number[] };
@@ -141,8 +142,8 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  const userNotes = meetingNotes.filter(n => n.type !== "system");
-  const hasUnsavedData = userNotes.length > 0 && !savedSuccessfully && !sessionAnalyzed;
+  const userNotes = meetingNotes.filter(n => n.type !== "system" && n.type !== "restored_user" && n.type !== "restored_assistant");
+  const hasUnsavedData = userNotes.length > 0 && !savedSuccessfully && !sessionAnalyzed && !restoredFromCase;
 
   // Global UnsavedDataContext integration for sidebar navigation interception
   const { 
@@ -154,13 +155,13 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
   // Register ref-based check function for real-time detection (fixes race condition)
   useEffect(() => {
     const checkUnsavedData = () => {
-      const userNotesInRef = meetingNotesRef.current.filter(n => n.type !== "system");
+      const userNotesInRef = meetingNotesRef.current.filter(n => n.type !== "system" && n.type !== "restored_user" && n.type !== "restored_assistant");
       console.log("[CopilotClient] Ref check - userNotes:", userNotesInRef.length, "| total:", meetingNotesRef.current.length);
-      return userNotesInRef.length > 0 && !savedSuccessfully && !sessionAnalyzed;
+      return userNotesInRef.length > 0 && !savedSuccessfully && !sessionAnalyzed && !restoredFromCase;
     };
     setCheckUnsavedDataRef(checkUnsavedData);
     return () => setCheckUnsavedDataRef(null);
-  }, [setCheckUnsavedDataRef, savedSuccessfully, sessionAnalyzed]);
+  }, [setCheckUnsavedDataRef, savedSuccessfully, sessionAnalyzed, restoredFromCase]);
 
   // Sync local hasUnsavedData with global context
   useEffect(() => {
@@ -197,11 +198,12 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     
     const currentNotes = meetingNotesRef.current;
     const notesText = currentNotes
-      .filter(n => n.type !== "system")
+      .filter(n => n.type !== "system" && n.type !== "restored_user" && n.type !== "restored_assistant")
       .map(n => `${n.type === "user" ? "Frage" : "Antwort"}: ${n.content}`)
       .join("\n\n");
 
     const sessionProtocol = currentNotes
+      .filter(n => n.type !== "restored_user" && n.type !== "restored_assistant")
       .map(n => {
         const time = n.timestamp.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
         const role = n.type === "user" ? "BENUTZER" : n.type === "assistant" ? "BERATER" : "SYSTEM";
@@ -516,6 +518,50 @@ ${memoryData.memory.promptForAgent}`;
             niceClasses,
             missingInfo
           });
+          
+          if (latestConsultation?.sessionProtocol) {
+            const restoredNotes: MeetingNote[] = [];
+            const lines = latestConsultation.sessionProtocol.split("\n");
+            const consultationDate = new Date(latestConsultation.createdAt);
+            
+            lines.forEach((line: string, index: number) => {
+              const match = line.match(/^\[(\d{2}:\d{2})\]\s*(BENUTZER|BERATER|SYSTEM):\s*(.*)$/);
+              if (match) {
+                const [, timeStr, role, content] = match;
+                let type: MeetingNote["type"] = "system";
+                
+                if (role === "BENUTZER") {
+                  type = "restored_user";
+                } else if (role === "BERATER") {
+                  type = "restored_assistant";
+                }
+                
+                const [hours, minutes] = timeStr.split(":").map(Number);
+                const noteTimestamp = new Date(consultationDate);
+                noteTimestamp.setHours(hours, minutes, 0, 0);
+                
+                restoredNotes.push({
+                  id: `restored-${index}-${Date.now()}`,
+                  timestamp: noteTimestamp,
+                  content: content.trim(),
+                  type
+                });
+              }
+            });
+            
+            if (restoredNotes.length > 0) {
+              const headerNote: MeetingNote = {
+                id: `restored-header-${Date.now()}`,
+                timestamp: new Date(),
+                type: "system",
+                content: `Vorherige Beratung vom ${consultationDate.toLocaleDateString("de-DE")}`
+              };
+              
+              setMeetingNotes([headerNote, ...restoredNotes]);
+              setRestoredFromCase(true);
+              setMeetingStartTime(new Date());
+            }
+          }
         } catch (err) {
           console.error("Error fetching case info:", err);
         }
@@ -797,7 +843,7 @@ ${memoryData.memory.promptForAgent}`;
 
     try {
       const notesText = meetingNotes
-        .filter(n => n.type !== "system")
+        .filter(n => n.type !== "system" && n.type !== "restored_user" && n.type !== "restored_assistant")
         .map(n => `${n.type === "user" ? "Frage" : "Antwort"}: ${n.content}`)
         .join("\n\n");
 
@@ -968,7 +1014,7 @@ ${memoryData.memory.promptForAgent}`;
     if (!manualCountriesText.trim()) missingFields.push("Zielländer");
     
     const protocolSummary = meetingNotes
-      .filter(n => n.type !== "system")
+      .filter(n => n.type !== "system" && n.type !== "restored_user" && n.type !== "restored_assistant")
       .map(n => `${n.type === "user" ? "Kunde" : "Berater"}: ${n.content}`)
       .join("\n");
     
@@ -1029,7 +1075,7 @@ Bitte frage NUR nach den fehlenden Informationen. Wenn du alle Infos hast, sage 
     
     try {
       const notesText = meetingNotes
-        .filter(n => n.type !== "system")
+        .filter(n => n.type !== "system" && n.type !== "restored_user" && n.type !== "restored_assistant")
         .map(n => `${n.type === "user" ? "Frage" : "Antwort"}: ${n.content}`)
         .join("\n\n");
 
@@ -1148,11 +1194,12 @@ ${notesText}`,
       const title = await generateSmartTitle();
       
       const transcript = meetingNotes
-        .filter(n => n.type !== "system")
+        .filter(n => n.type !== "system" && n.type !== "restored_user" && n.type !== "restored_assistant")
         .map(n => `${n.type === "user" ? "Frage" : "Antwort"}: ${n.content}`)
         .join("\n\n");
 
       const sessionProtocol = meetingNotes
+        .filter(n => n.type !== "restored_user" && n.type !== "restored_assistant")
         .map(n => {
           const time = n.timestamp.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
           const role = n.type === "user" ? "BENUTZER" : n.type === "assistant" ? "BERATER" : "SYSTEM";
@@ -1323,7 +1370,6 @@ ${notesText}`,
   };
 
   const handleNewSession = () => {
-    // Neue Sitzung starten
     setMeetingStartTime(new Date());
     setMeetingNotes([{
       id: `system-${Date.now()}`,
@@ -1337,10 +1383,14 @@ ${notesText}`,
     setMeetingDuration("00:00");
     setMeetingDurationSeconds(0);
     setSessionAnalyzed(false);
+    setRestoredFromCase(false);
   };
 
   const handleMessageSent = (content: string, type: "user" | "assistant") => {
     console.log("[CopilotClient] handleMessageSent called:", type, content.substring(0, 50));
+    if (restoredFromCase) {
+      setRestoredFromCase(false);
+    }
     setMeetingNotes(prev => {
       const newNotes = [...prev, {
         id: `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1348,7 +1398,6 @@ ${notesText}`,
         content,
         type
       }];
-      // Synchron die Ref aktualisieren, um Race Conditions zu vermeiden
       meetingNotesRef.current = newNotes;
       console.log("[CopilotClient] meetingNotes updated, new length:", newNotes.length);
       return newNotes;
@@ -1664,12 +1713,12 @@ ${notesText}`,
                       <div className="space-y-2 max-h-96 overflow-y-auto">
                         {meetingNotes.filter(n => n.type !== "system").slice(-10).map((note) => (
                           <div key={note.id} className={`text-sm p-3 rounded-lg ${
-                            note.type === "user"
+                            note.type === "user" || note.type === "restored_user"
                               ? "bg-primary/10 text-gray-800"
                               : "bg-gray-50 text-gray-700"
-                          }`}>
+                          } ${note.type === "restored_user" || note.type === "restored_assistant" ? "opacity-70 border-l-2 border-amber-400" : ""}`}>
                             <span className="text-xs font-medium text-gray-500 block mb-1">
-                              {note.type === "user" ? "Frage:" : "Antwort:"}
+                              {note.type === "user" ? "Frage:" : note.type === "restored_user" ? "Frage (vorherige Sitzung):" : note.type === "restored_assistant" ? "Antwort (vorherige Sitzung):" : "Antwort:"}
                             </span>
                             <span className="whitespace-pre-wrap">{note.content}</span>
                           </div>

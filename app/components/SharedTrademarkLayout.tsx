@@ -14,6 +14,7 @@ interface SharedTrademarkLayoutProps {
   copilotSubtitle?: string;
   rechercheSubtitle?: string;
   stepStatuses?: Record<string, "pending" | "in_progress" | "completed" | "skipped">;
+  currentCaseId?: string | null;
 }
 
 export default function SharedTrademarkLayout({
@@ -25,6 +26,7 @@ export default function SharedTrademarkLayout({
   copilotSubtitle,
   rechercheSubtitle,
   stepStatuses = {},
+  currentCaseId,
 }: SharedTrademarkLayoutProps) {
   const router = useRouter();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -82,7 +84,7 @@ export default function SharedTrademarkLayout({
         <>
           <div className={`bg-white rounded-2xl shadow-sm border ${beratungCompleted ? 'border-primary/30' : 'border-gray-100'}`}>
             <button
-              onClick={() => router.push('/dashboard/copilot')}
+              onClick={() => router.push(currentCaseId ? `/dashboard/copilot?resumeCase=${currentCaseId}` : '/dashboard/copilot')}
               className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors rounded-2xl"
             >
               <div className="flex items-center gap-3">

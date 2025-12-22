@@ -3270,6 +3270,7 @@ export default function RecherchePage() {
       onOpenConsultations={handleOpenConsultationsModal}
       stepStatuses={caseId ? { beratung: "completed" } : { beratung: "skipped" }}
       rechercheSubtitle={rechercheSubtitle}
+      currentCaseId={caseId}
     >
       {isAdmin && (
         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-1">
