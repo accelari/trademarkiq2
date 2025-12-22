@@ -1606,7 +1606,7 @@ ${notesText}`,
         {/* Accordion Header */}
         <button
           onClick={() => setIsVoiceAssistantExpanded(!isVoiceAssistantExpanded)}
-          className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors rounded-2xl"
+          className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors ${isVoiceAssistantExpanded ? 'rounded-t-2xl border-b border-gray-100' : 'rounded-2xl'}`}
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
@@ -1619,7 +1619,14 @@ ${notesText}`,
               </p>
             </div>
           </div>
-          <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isVoiceAssistantExpanded ? 'rotate-180' : ''}`} />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400 hidden sm:inline">
+              {isVoiceAssistantExpanded ? 'Zuklappen' : 'Aufklappen'}
+            </span>
+            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+              <ChevronDown className={`w-5 h-5 text-gray-600 transition-transform duration-200 ${isVoiceAssistantExpanded ? 'rotate-180' : ''}`} />
+            </div>
+          </div>
         </button>
 
         {/* Accordion Content */}
