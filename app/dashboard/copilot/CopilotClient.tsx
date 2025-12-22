@@ -7,6 +7,7 @@ import { Mic, FileText, Clock, Check, MessageSquare, MessageCircle, Sparkles, In
 import ReactMarkdown from "react-markdown";
 import VoiceAssistant, { VoiceAssistantHandle } from "../../components/VoiceAssistant";
 import WorkflowProgress from "../../components/WorkflowProgress";
+import SharedTrademarkLayout from "../../components/SharedTrademarkLayout";
 import HelpDrawer from "../../components/HelpDrawer";
 import GuidedTour from "../../components/GuidedTour";
 import ConsultationsModal from "../../components/ConsultationsModal";
@@ -1356,9 +1357,14 @@ ${notesText}`,
 
 
   return (
-    <div className="space-y-6">
-      <WorkflowProgress currentStep={1} onHelpClick={() => setShowHelpDrawer(true)} />
-      
+    <SharedTrademarkLayout
+      activeSection="copilot"
+      onOpenConsultations={handleOpenConsultations}
+      onHelpClick={() => setShowHelpDrawer(true)}
+      onStartTour={() => setShowGuidedTour(true)}
+      onNavigateToRecherche={() => handleNavigationWithCheck('/dashboard/recherche')}
+      copilotSubtitle={`${inputMode === "sprache" ? "Sprachgesteuerte Beratung" : "Text-Beratung"} • ${meetingDuration !== "00:00" ? meetingDuration : "Bereit"}`}
+    >
       {catchUpCaseInfo && (
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
           <div className="flex items-center gap-3">
@@ -1386,39 +1392,6 @@ ${notesText}`,
           </div>
         </div>
       )}
-      
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Markenberatung</h1>
-            <p className="text-gray-600 mt-1">
-              Ihr KI-gestützter Assistent für internationales Markenrecht
-            </p>
-          </div>
-          <button
-            onClick={() => setShowHelpDrawer(true)}
-            className="w-10 h-10 bg-primary/10 hover:bg-primary/20 text-primary rounded-full flex items-center justify-center transition-colors"
-            title="Hilfe & Anleitungen"
-          >
-            <HelpCircle className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setShowGuidedTour(true)}
-            className="text-xs text-primary hover:text-primary/80 underline transition-colors"
-            title="Tour starten"
-          >
-            Tour starten
-          </button>
-        </div>
-        <button
-          onClick={handleOpenConsultations}
-          data-tour="my-consultations"
-          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
-        >
-          <FolderOpen className="w-5 h-5 text-primary" />
-          <span className="font-medium text-gray-700">Meine Markenfälle</span>
-        </button>
-      </div>
 
       {welcomeMessage && (
         <div className="mb-6 bg-gradient-to-r from-primary/5 to-teal-50 border border-primary/20 rounded-2xl p-5 shadow-sm">
@@ -1729,30 +1702,6 @@ ${notesText}`,
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Recherche Accordion - Header Only (navigates to /dashboard/recherche) */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-        <button
-          onClick={() => router.push('/dashboard/recherche')}
-          className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors rounded-2xl"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-              <Search className="w-5 h-5 text-white" />
-            </div>
-            <div className="text-left">
-              <h3 className="font-semibold text-gray-900">Recherche</h3>
-              <p className="text-sm text-gray-500">Markenrecherche starten</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 hidden sm:inline">Aufklappen</span>
-            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-              <ChevronDown className="w-5 h-5 text-gray-600" />
-            </div>
-          </div>
-        </button>
       </div>
 
       {showSummaryModal && meetingSummary && (
@@ -2199,6 +2148,6 @@ ${notesText}`,
           setShowGuidedTour(false);
         }} 
       />
-    </div>
+    </SharedTrademarkLayout>
   );
 }
