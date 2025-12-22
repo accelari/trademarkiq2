@@ -9,7 +9,6 @@ interface SharedTrademarkLayoutProps {
   children: React.ReactNode;
   onOpenConsultations: () => void;
   onHelpClick?: () => void;
-  onStartTour?: () => void;
   onNavigateToRecherche?: () => void;
   copilotSubtitle?: string;
   rechercheSubtitle?: string;
@@ -21,7 +20,6 @@ export default function SharedTrademarkLayout({
   children,
   onOpenConsultations,
   onHelpClick,
-  onStartTour,
   onNavigateToRecherche,
   copilotSubtitle,
   rechercheSubtitle,
@@ -60,13 +58,6 @@ export default function SharedTrademarkLayout({
             title="Hilfe & Anleitungen"
           >
             <HelpCircle className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => onStartTour ? onStartTour() : router.push(`/dashboard/copilot?topic=${isCopilot ? 'beratung' : 'recherche'}`)}
-            className="text-xs text-primary hover:text-primary/80 underline transition-colors"
-            title="Tour starten"
-          >
-            Tour starten
           </button>
         </div>
         <button

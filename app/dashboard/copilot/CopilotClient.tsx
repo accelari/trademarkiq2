@@ -1361,7 +1361,6 @@ ${notesText}`,
       activeSection="copilot"
       onOpenConsultations={handleOpenConsultations}
       onHelpClick={() => setShowHelpDrawer(true)}
-      onStartTour={() => setShowGuidedTour(true)}
       onNavigateToRecherche={() => handleNavigationWithCheck('/dashboard/recherche')}
       copilotSubtitle={`${inputMode === "sprache" ? "Sprachgesteuerte Beratung" : "Text-Beratung"} • ${meetingDuration !== "00:00" ? meetingDuration : "Bereit"}`}
     >
@@ -1468,7 +1467,17 @@ ${notesText}`,
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowGuidedTour(true);
+              }}
+              className="text-xs text-primary hover:text-primary/80 underline transition-colors"
+              title="Tour starten"
+            >
+              Tour starten
+            </button>
             <span className="text-xs text-gray-400 hidden sm:inline">
               {isVoiceAssistantExpanded ? 'Zuklappen' : 'Aufklappen'}
             </span>
