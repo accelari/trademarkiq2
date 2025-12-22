@@ -133,9 +133,8 @@ export default function WorkflowProgress({ currentStep, searchName, stepStatuses
           Marke: <span className="font-medium text-gray-900">{searchName}</span>
         </p>
       )}
-      <div className="flex items-center">
-        <div className="w-[140px] hidden sm:block" />
-        <div className="flex items-center justify-center flex-1">
+      <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between flex-1">
         {steps.map((step, index) => {
           const Icon = step.icon;
           const status = getStepStatus(step.id);
