@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { MessageCircle, Search, ChevronDown, HelpCircle, FolderOpen } from "lucide-react";
+import { MessageCircle, Search, ChevronDown } from "lucide-react";
 import WorkflowProgress from "./WorkflowProgress";
 
 interface SharedTrademarkLayoutProps {
@@ -36,29 +36,20 @@ export default function SharedTrademarkLayout({
           currentStep={isCopilot ? 1 : 2} 
           stepStatuses={stepStatuses}
           onHelpClick={onHelpClick}
+          onOpenConsultations={onOpenConsultations}
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            {isCopilot ? "Markenberatung" : "Markenrecherche"}
-          </h1>
-          <p className="text-gray-600 mt-1">
-            {isCopilot 
-              ? "Ihr KI-gestützter Assistent für internationales Markenrecht"
-              : "Prüfen Sie, ob Ihr gewünschter Markenname bereits registriert ist"
-            }
-          </p>
-        </div>
-        <button
-          onClick={onOpenConsultations}
-          data-tour="my-consultations"
-          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
-        >
-          <FolderOpen className="w-5 h-5 text-primary" />
-          <span className="font-medium text-gray-700">Meine Markenfälle</span>
-        </button>
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">
+          {isCopilot ? "Markenberatung" : "Markenrecherche"}
+        </h1>
+        <p className="text-gray-600 mt-1">
+          {isCopilot 
+            ? "Ihr KI-gestützter Assistent für internationales Markenrecht"
+            : "Prüfen Sie, ob Ihr gewünschter Markenname bereits registriert ist"
+          }
+        </p>
       </div>
 
       {isCopilot ? (

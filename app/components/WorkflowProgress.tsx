@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Check, Search, AlertTriangle, FileText, Bell, MessageCircle, SkipForward, HelpCircle } from "lucide-react";
+import { Check, Search, AlertTriangle, FileText, Bell, MessageCircle, SkipForward, HelpCircle, FolderOpen } from "lucide-react";
 import { useState } from "react";
 
 type StepStatus = "pending" | "in_progress" | "completed" | "skipped";
@@ -20,6 +20,7 @@ interface WorkflowProgressProps {
   searchName?: string;
   stepStatuses?: Record<string, StepStatus>;
   onHelpClick?: () => void;
+  onOpenConsultations?: () => void;
 }
 
 const steps: StepConfig[] = [
@@ -73,7 +74,7 @@ const statusIdMap: Record<number, string> = {
   5: "watchlist"
 };
 
-export default function WorkflowProgress({ currentStep, searchName, stepStatuses = {}, onHelpClick }: WorkflowProgressProps) {
+export default function WorkflowProgress({ currentStep, searchName, stepStatuses = {}, onHelpClick, onOpenConsultations }: WorkflowProgressProps) {
   const router = useRouter();
   const [hoveredStep, setHoveredStep] = useState<number | null>(null);
 
@@ -126,13 +127,14 @@ export default function WorkflowProgress({ currentStep, searchName, stepStatuses
   };
 
   return (
-    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+    <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
       {searchName && (
-        <p className="text-sm text-gray-600 mb-3 text-center">
+        <p className="text-sm text-gray-600 mb-2 text-center">
           Marke: <span className="font-medium text-gray-900">{searchName}</span>
         </p>
       )}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between flex-1">
         {steps.map((step, index) => {
           const Icon = step.icon;
           const status = getStepStatus(step.id);
@@ -188,11 +190,23 @@ export default function WorkflowProgress({ currentStep, searchName, stepStatuses
               </div>
               
               {index < steps.length - 1 && (
-                <div className={`h-0.5 flex-1 mx-2 transition-colors ${getLineColor(status)}`} />
+                <div className={`h-0.5 flex-1 mx-1 transition-colors ${getLineColor(status)}`} />
               )}
             </div>
           );
         })}
+        </div>
+        
+        {onOpenConsultations && (
+          <button
+            onClick={onOpenConsultations}
+            data-tour="my-consultations"
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm whitespace-nowrap"
+          >
+            <FolderOpen className="w-4 h-4 text-primary" />
+            <span className="font-medium text-gray-700 text-sm">Meine Markenfälle</span>
+          </button>
+        )}
       </div>
     </div>
   );
