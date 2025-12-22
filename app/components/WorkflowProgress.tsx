@@ -201,10 +201,10 @@ export default function WorkflowProgress({ currentStep, searchName, stepStatuses
           <button
             onClick={onOpenConsultations}
             data-tour="my-consultations"
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm whitespace-nowrap flex-shrink-0"
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 rounded-lg transition-colors shadow-sm whitespace-nowrap flex-shrink-0"
           >
-            <FolderOpen className="w-4 h-4 text-primary" />
-            <span className="font-medium text-gray-700 text-sm">Meine Markenfälle</span>
+            <FolderOpen className="w-4 h-4 text-white" />
+            <span className="font-medium text-white text-sm">Meine Markenfälle</span>
           </button>
         )}
       </div>
