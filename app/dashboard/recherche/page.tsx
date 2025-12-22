@@ -3398,7 +3398,7 @@ export default function RecherchePage() {
             {/* Collapsible Header */}
             <button
               onClick={() => setIsSearchFormExpanded(!isSearchFormExpanded)}
-              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors rounded-2xl"
+              className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors ${isSearchFormExpanded ? 'rounded-t-2xl border-b border-gray-100' : 'rounded-2xl'}`}
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
@@ -3417,7 +3417,14 @@ export default function RecherchePage() {
                   )}
                 </div>
               </div>
-              <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isSearchFormExpanded ? 'rotate-180' : ''}`} />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 hidden sm:inline">
+                  {isSearchFormExpanded ? 'Zuklappen' : 'Aufklappen'}
+                </span>
+                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                  <ChevronDown className={`w-5 h-5 text-gray-600 transition-transform duration-200 ${isSearchFormExpanded ? 'rotate-180' : ''}`} />
+                </div>
+              </div>
             </button>
 
             {/* Collapsible Content - using grid for smooth animation without overflow:hidden */}
@@ -3550,7 +3557,7 @@ export default function RecherchePage() {
               {/* Collapsible Analysis Header */}
               <button
                 onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
-                className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors rounded-2xl"
+                className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors ${isAnalysisExpanded ? 'rounded-t-2xl border-b border-gray-100' : 'rounded-2xl'}`}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
@@ -3563,7 +3570,14 @@ export default function RecherchePage() {
                     </p>
                   </div>
                 </div>
-                <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isAnalysisExpanded ? 'rotate-180' : ''}`} />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 hidden sm:inline">
+                    {isAnalysisExpanded ? 'Zuklappen' : 'Aufklappen'}
+                  </span>
+                  <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                    <ChevronDown className={`w-5 h-5 text-gray-600 transition-transform duration-200 ${isAnalysisExpanded ? 'rotate-180' : ''}`} />
+                  </div>
+                </div>
               </button>
 
               {/* Collapsible Analysis Content */}
