@@ -87,11 +87,28 @@ The application is built with Next.js 16 (App Router) and TypeScript, utilizing 
 ### Journey System (Case Tracking)
 A comprehensive 4-step journey system tracks user progress through the trademark registration process:
 - **Steps**: Beratung → Markenprüfung (Recherche + Risikoanalyse) → Anmeldung → Watchlist
-- **Case Numbers**: Format TM-YYYY-XXXXXX (e.g., TM-2025-000001)
+- **Case Numbers**: Format TM-YYYYMMDD-HHMMSS (e.g., TM-20251222-143052)
 - **Decision Extraction**: AI (Claude) extracts trademark names, countries, and Nice classes from consultation summaries
 - **Prefill Feature**: Extracted decisions automatically prefill the Recherche form
 - **Skip Tracking**: Users can skip steps with documented reasons
 - **Timeline UI**: Horizontal progress indicator shown across journey pages
+
+### Unified Case Page Architecture (December 2024)
+Each trademark case has a dedicated page at `/dashboard/case/[caseId]` with accordion sections:
+- **Meine Markenfälle** (`/dashboard/cases`): Case list with search, filter, and "Neuer Fall" button
+- **Fall-Detailseite** (`/dashboard/case/[caseId]`): Three collapsible accordion sections:
+  - KI-Markenberater: Consultation summary, duration, mode
+  - Recherche: Search parameters, countries, Nice classes, search terms used
+  - Analyse: AnimatedRiskScore, conflict list (ConflictCard), AI analysis, alternative names
+- **Shared Components** (`app/components/cases/`):
+  - `ConflictCard.tsx`: Conflict display with detail modal
+  - `AnimatedRiskScore.tsx`: Circular risk score visualization
+- **API Routes**:
+  - `GET /api/cases`: List cases with search/filter
+  - `POST /api/cases`: Create new case with auto-generated case number
+  - `GET /api/cases/[caseId]/full`: Complete case data (consultations, decisions, analysis, steps)
+- **Auto-Creation**: Cases are automatically created after Beratung save or Recherche completion
+- **Quick Access**: ConsultationsModal simplified to case list with "Zum Fall" navigation
 
 ### Database Schema
 The database schema includes tables for `users`, `organizations`, `memberships`, `invitations`, `searches`, `playbooks`, `watchlistItems`, `alerts`, `experts`, `expertContacts`, `trademarkApplications`, `consultations`, `trademarkCases`, `caseSteps`, `caseDecisions`, and `caseEvents`, supporting multi-tenancy and comprehensive journey tracking.
