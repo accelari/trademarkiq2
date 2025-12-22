@@ -19,8 +19,10 @@ import {
   FileText
 } from "lucide-react";
 import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import { UnsavedDataProvider, useUnsavedData } from "@/app/contexts/UnsavedDataContext";
+import { useActiveCaseStore } from "@/app/stores/activeCaseStore";
 
 const baseNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -58,17 +60,38 @@ function Sidebar({
     setShowLeaveModal,
     checkUnsavedDataRef
   } = useUnsavedData();
+  
+  const { caseId, caseNumber } = useActiveCaseStore();
+  const searchParams = useSearchParams();
+  
+  const urlCaseId = searchParams.get("caseId") || searchParams.get("resumeCase") || searchParams.get("catchUpCase");
+
+  const getCaseAwareHref = (baseHref: string): string => {
+    const activeCaseIdentifier = caseId || caseNumber || urlCaseId;
+    if (!activeCaseIdentifier) return baseHref;
+    
+    if (baseHref === "/dashboard/copilot") {
+      return `/dashboard/copilot?resumeCase=${activeCaseIdentifier}`;
+    }
+    if (baseHref === "/dashboard/recherche") {
+      return `/dashboard/recherche?caseId=${activeCaseIdentifier}`;
+    }
+    return baseHref;
+  };
 
   const handleNavClick = (e: React.MouseEvent, href: string) => {
     const refCheck = checkUnsavedDataRef.current?.() ?? false;
     const shouldBlock = hasUnsavedData || refCheck;
-    console.log("[Sidebar] Navigation click to:", href, "| hasUnsavedData:", hasUnsavedData, "| refCheck:", refCheck, "| shouldBlock:", shouldBlock, "| pathname:", pathname);
+    const targetHref = getCaseAwareHref(href);
+    console.log("[Sidebar] Navigation click to:", targetHref, "| hasUnsavedData:", hasUnsavedData, "| refCheck:", refCheck, "| shouldBlock:", shouldBlock, "| pathname:", pathname, "| activeCase:", caseId || caseNumber);
     if (shouldBlock && pathname !== href) {
       e.preventDefault();
-      setPendingNavigation(href);
+      setPendingNavigation(targetHref);
       setShowLeaveModal(true);
     } else {
+      e.preventDefault();
       setSidebarOpen(false);
+      router.push(targetHref);
     }
   };
 
