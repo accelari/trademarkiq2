@@ -22,6 +22,19 @@ The application is built with Next.js 16 (App Router) and TypeScript. Data is ma
 - **Authentication**: Complete user registration, login, password reset, and email verification via NextAuth v5
 - **Case Management**: CRUD operations for trademark cases with 9-step workflow tracking and status management
 - **Dashboard**: Case listing and detail views with accordion UI for workflow steps
+- **OpenAI Voice Consultation**: Real-time voice/text consultation with Klaus AI assistant in Beratung accordion
+
+### Beratung Voice Assistant (Klaus AI - OpenAI Realtime)
+The Beratung accordion features an embedded OpenAI Realtime Voice Assistant with:
+- **3-Column Layout**: Voice Assistant (left), Quick Questions (center), Session Protocol (right)
+- **Dual Input Mode**: Toggle between "Sprechen" (voice via WebRTC) and "Tippen" (text) modes
+- **Live Transcription**: Whisper-1 transcribes user speech in real-time
+- **Quick Questions**: Pre-defined questions that auto-connect and send to Klaus
+- **Session Protocol**: Auto-captured messages from the consultation session
+- **AI Summary**: Automatic summary generation (via Claude) when saving session
+- **Conversation Memory**: Previous session summaries are injected into system prompt for continuity
+- **Klaus Persona**: World-class trademark law expert for DPMA, EUIPO, WIPO, USPTO, CNIPA
+- **Components**: OpenAIVoiceAssistant.tsx with forwardRef/imperative API, /api/openai-realtime/session endpoint
 
 ### Workflow Steps (9 Schritte)
 Each trademark case follows a 9-step workflow displayed as accordions on the case detail page:

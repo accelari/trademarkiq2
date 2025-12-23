@@ -87,6 +87,157 @@ export async function GET(
   }
 }
 
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ caseId: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+    }
+
+    const { caseId } = await params;
+    const body = await request.json();
+    const { messages, mode = "voice" } = body;
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json({ error: "Keine Nachrichten vorhanden" }, { status: 400 });
+    }
+
+    const caseData = await db.query.trademarkCases.findFirst({
+      where: and(
+        eq(trademarkCases.id, caseId),
+        eq(trademarkCases.userId, session.user.id)
+      ),
+    });
+
+    if (!caseData) {
+      return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
+    }
+
+    const conversationText = messages
+      .map((m: any) => `${m.role === "user" ? "Kunde" : "Klaus"}: ${m.content}`)
+      .join("\n\n");
+
+    let summary = "";
+    try {
+      const anthropicKey = process.env.ANTHROPIC_API_KEY;
+      if (anthropicKey) {
+        const summaryResponse = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": anthropicKey,
+            "anthropic-version": "2023-06-01"
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1024,
+            messages: [{
+              role: "user",
+              content: `Fasse das folgende Beratungsgespräch über Markenrecht zusammen. 
+Erstelle eine strukturierte Zusammenfassung mit:
+1. Kernpunkte des Gesprächs
+2. Besprochene Marke(n) und Informationen
+3. Empfehlungen des Beraters
+4. Nächste Schritte
+
+Gespräch:
+${conversationText}
+
+Zusammenfassung (auf Deutsch):`
+            }]
+          })
+        });
+
+        if (summaryResponse.ok) {
+          const summaryData = await summaryResponse.json();
+          summary = summaryData.content?.[0]?.text || "";
+        }
+      }
+    } catch (err) {
+      console.error("Error generating summary:", err);
+      summary = `Beratungsgespräch mit ${messages.length} Nachrichten.`;
+    }
+
+    if (!summary) {
+      summary = `Beratungsgespräch vom ${new Date().toLocaleDateString("de-DE")} mit ${messages.length} Nachrichten.`;
+    }
+
+    const existingConsultation = await db.query.consultations.findFirst({
+      where: and(
+        eq(consultations.caseId, caseId),
+        eq(consultations.userId, session.user.id)
+      ),
+      orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
+    });
+
+    let consultation;
+    const transcript = JSON.stringify(messages);
+    const duration = messages.length * 15;
+
+    if (existingConsultation) {
+      const existingMessages = parseMessages(existingConsultation.transcript);
+      const allMessages = [...existingMessages, ...messages];
+      
+      const [updated] = await db
+        .update(consultations)
+        .set({
+          transcript: JSON.stringify(allMessages),
+          summary,
+          duration: (existingConsultation.duration || 0) + duration,
+          updatedAt: new Date(),
+        })
+        .where(eq(consultations.id, existingConsultation.id))
+        .returning();
+      consultation = updated;
+    } else {
+      const [created] = await db
+        .insert(consultations)
+        .values({
+          userId: session.user.id,
+          caseId,
+          title: caseData.trademarkName 
+            ? `Beratung: ${caseData.trademarkName}` 
+            : "Markenberatung",
+          summary,
+          transcript,
+          mode,
+          duration,
+          status: "in_progress",
+        })
+        .returning();
+      consultation = created;
+    }
+
+    const existingStep = await db.query.caseSteps.findFirst({
+      where: and(
+        eq(caseSteps.caseId, caseId),
+        eq(caseSteps.step, "beratung")
+      ),
+    });
+
+    if (!existingStep) {
+      await db.insert(caseSteps).values({
+        caseId,
+        step: "beratung",
+        status: "in_progress",
+        startedAt: new Date(),
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      summary,
+      consultationId: consultation.id,
+    });
+  } catch (error) {
+    console.error("Error saving consultation:", error);
+    return NextResponse.json({ error: "Fehler beim Speichern der Beratung" }, { status: 500 });
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ caseId: string }> }

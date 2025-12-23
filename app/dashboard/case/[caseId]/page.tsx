@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
@@ -22,9 +22,13 @@ import {
   Eye,
   Calendar,
   CheckCircle,
+  HelpCircle,
+  Save,
+  FileDown,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
+import OpenAIVoiceAssistant, { VoiceAssistantHandle } from "@/app/components/OpenAIVoiceAssistant";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -222,6 +226,53 @@ export default function CasePage() {
   const [openAccordion, setOpenAccordion] = useState<string | null>("beratung");
   const [selectedConflict, setSelectedConflict] = useState<ConflictMark | null>(null);
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
+  
+  const voiceAssistantRef = useRef<VoiceAssistantHandle>(null);
+  const [sessionMessages, setSessionMessages] = useState<any[]>([]);
+  const [isSavingSession, setIsSavingSession] = useState(false);
+  const [sessionSummary, setSessionSummary] = useState<string | null>(null);
+
+  const QUICK_QUESTIONS = [
+    "Welche Schritte sind für eine Markenanmeldung in Deutschland erforderlich?",
+    "Was sind die häufigsten Gründe für eine Markenablehnung?",
+    "Wie kann ich prüfen, ob mein Markenname bereits existiert?",
+    "Welche Nizza-Klassen sind für mein Produkt relevant?",
+    "Was kostet eine Markenanmeldung beim DPMA?",
+    "Wie lange dauert das Eintragungsverfahren?",
+  ];
+
+  const handleQuickQuestion = useCallback((question: string) => {
+    voiceAssistantRef.current?.sendQuestion(question);
+  }, []);
+
+  const handleMessageSent = useCallback((message: any) => {
+    setSessionMessages(prev => [...prev, message]);
+  }, []);
+
+  const handleSaveSession = useCallback(async () => {
+    if (sessionMessages.length === 0) return;
+    
+    setIsSavingSession(true);
+    try {
+      const response = await fetch(`/api/cases/${caseId}/consultation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: sessionMessages,
+          mode: "voice"
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSessionSummary(data.summary || "Sitzung erfolgreich gespeichert.");
+      }
+    } catch (err) {
+      console.error("Failed to save session:", err);
+    } finally {
+      setIsSavingSession(false);
+    }
+  }, [caseId, sessionMessages]);
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -289,7 +340,8 @@ export default function CasePage() {
 
   const renderBeratungContent = () => {
     const isComplete = isStepComplete("beratung");
-    if (isComplete && consultation) {
+    
+    if (isComplete && consultation && !sessionMessages.length) {
       return (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -321,10 +373,109 @@ export default function CasePage() {
               </p>
             </div>
           )}
+          <div className="flex justify-center pt-4">
+            <button
+              onClick={() => setSessionMessages([])}
+              className="px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors flex items-center gap-2"
+            >
+              <MessageCircle className="w-5 h-5" />
+              Beratung fortsetzen
+            </button>
+          </div>
         </div>
       );
     }
-    return renderPlaceholder(WORKFLOW_STEPS[0]);
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <OpenAIVoiceAssistant
+            ref={voiceAssistantRef}
+            caseId={caseId}
+            onMessageSent={handleMessageSent}
+            previousMessages={sessionMessages}
+            previousSummary={consultation?.summary || undefined}
+          />
+        </div>
+
+        <div className="lg:col-span-1 space-y-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <HelpCircle className="w-5 h-5 text-teal-600" />
+              <h3 className="font-semibold text-gray-900">Schnellfragen</h3>
+            </div>
+            <div className="space-y-2">
+              {QUICK_QUESTIONS.map((question, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleQuickQuestion(question)}
+                  className="w-full text-left p-3 bg-gray-50 hover:bg-teal-50 rounded-lg text-sm text-gray-700 hover:text-teal-700 transition-colors border border-transparent hover:border-teal-200"
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-1 space-y-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-teal-600" />
+                <h3 className="font-semibold text-gray-900">Sitzungsprotokoll</h3>
+              </div>
+              {sessionMessages.length > 0 && (
+                <button
+                  onClick={handleSaveSession}
+                  disabled={isSavingSession}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:bg-teal-400 transition-colors"
+                >
+                  {isSavingSession ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  Speichern
+                </button>
+              )}
+            </div>
+            
+            {sessionSummary && (
+              <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                <div className="text-sm font-medium text-teal-800 mb-1">Zusammenfassung</div>
+                <p className="text-sm text-teal-700">{sessionSummary}</p>
+              </div>
+            )}
+            
+            <div className="flex-1 overflow-y-auto space-y-2 max-h-[400px]">
+              {sessionMessages.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <FileDown className="w-8 h-8 mx-auto mb-2" />
+                  <p className="text-sm">Das Protokoll wird automatisch während des Gesprächs erstellt.</p>
+                </div>
+              ) : (
+                sessionMessages.map((msg, idx) => (
+                  <div
+                    key={msg.id || idx}
+                    className={`p-3 rounded-lg text-sm ${
+                      msg.role === "user"
+                        ? "bg-teal-50 border border-teal-100"
+                        : "bg-gray-50 border border-gray-100"
+                    }`}
+                  >
+                    <div className="text-xs font-medium text-gray-500 mb-1">
+                      {msg.role === "user" ? "Sie" : "Klaus"}
+                    </div>
+                    <p className="text-gray-700 whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderRechercheContent = () => {
