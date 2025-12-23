@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
-import { Mic, MicOff, Phone, PhoneOff, Send, Keyboard, Volume2 } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff, Send, Keyboard, Volume2, Trash2 } from "lucide-react";
 
 interface Message {
   id: string;
@@ -19,13 +19,15 @@ export interface VoiceAssistantHandle {
 interface OpenAIVoiceAssistantProps {
   caseId: string;
   onMessageSent?: (message: Message) => void;
+  onDelete?: () => void;
   previousMessages?: Message[];
   previousSummary?: string;
 }
 
 const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssistantProps>(
-  ({ caseId, onMessageSent, previousMessages = [], previousSummary }, ref) => {
+  ({ caseId, onMessageSent, onDelete, previousMessages = [], previousSummary }, ref) => {
     const [isConnected, setIsConnected] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [inputMode, setInputMode] = useState<"voice" | "text">("voice");
@@ -336,7 +338,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
     }, [disconnect]);
 
     return (
-      <div className="flex flex-col h-full bg-white rounded-lg border border-gray-200">
+      <div className="relative flex flex-col h-full bg-white rounded-lg border border-gray-200">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
@@ -357,6 +359,15 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
             >
               {inputMode === "voice" ? <Keyboard className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
             </button>
+            {previousMessages.length > 0 && onDelete && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors"
+                title="Beratung löschen"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -485,6 +496,35 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
             </div>
           )}
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg z-50">
+            <div className="bg-white rounded-lg p-6 m-4 max-w-sm shadow-xl">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Beratung löschen?</h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Möchten Sie diese Beratung wirklich löschen? Der gesamte Chatverlauf und die Zusammenfassung werden unwiderruflich entfernt.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    onDelete?.();
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Löschen
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

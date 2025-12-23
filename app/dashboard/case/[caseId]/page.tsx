@@ -334,6 +334,23 @@ export default function CasePage() {
     });
   }, []);
 
+  const handleDeleteConsultation = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/cases/${caseId}/consultation`, {
+        method: "DELETE",
+      });
+      
+      if (response.ok) {
+        setSessionMessages([]);
+        setSessionSummary(null);
+        setMessagesLoaded(false);
+        mutate();
+      }
+    } catch (err) {
+      console.error("Failed to delete consultation:", err);
+    }
+  }, [caseId, mutate]);
+
   if (isLoading) {
     return <LoadingSkeleton />;
   }
@@ -455,6 +472,7 @@ export default function CasePage() {
             onMessageSent={handleMessageSent}
             previousMessages={sessionMessages}
             previousSummary={consultation?.summary || undefined}
+            onDelete={handleDeleteConsultation}
           />
         </div>
 

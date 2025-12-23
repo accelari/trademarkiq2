@@ -379,3 +379,60 @@ export async function PUT(
     return NextResponse.json({ error: "Fehler beim Aktualisieren der Beratung" }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ caseId: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+    }
+
+    const { caseId } = await params;
+
+    const caseData = await db.query.trademarkCases.findFirst({
+      where: and(
+        eq(trademarkCases.id, caseId),
+        eq(trademarkCases.userId, session.user.id)
+      ),
+    });
+
+    if (!caseData) {
+      return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
+    }
+
+    await db
+      .delete(consultations)
+      .where(
+        and(
+          eq(consultations.caseId, caseId),
+          eq(consultations.userId, session.user.id)
+        )
+      );
+
+    const existingStep = await db.query.caseSteps.findFirst({
+      where: and(
+        eq(caseSteps.caseId, caseId),
+        eq(caseSteps.step, "beratung")
+      ),
+    });
+
+    if (existingStep) {
+      await db
+        .update(caseSteps)
+        .set({
+          status: "pending",
+          completedAt: null,
+          metadata: null,
+        })
+        .where(eq(caseSteps.id, existingStep.id));
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting consultation:", error);
+    return NextResponse.json({ error: "Fehler beim Löschen der Beratung" }, { status: 500 });
+  }
+}
