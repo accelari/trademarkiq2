@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
+import { VoiceProvider } from "@humeai/voice-react";
 import {
   ArrowLeft,
   ChevronDown,
@@ -22,9 +23,11 @@ import {
   Eye,
   Calendar,
   CheckCircle,
+  Loader2,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
+import VoiceAssistant from "@/app/components/VoiceAssistant";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -214,7 +217,7 @@ export default function CasePage() {
   const router = useRouter();
   const caseId = params.caseId as string;
 
-  const { data, error, isLoading } = useSWR<CaseData>(
+  const { data, error, isLoading, mutate } = useSWR<CaseData>(
     caseId ? `/api/cases/${caseId}/full` : null,
     fetcher
   );
@@ -222,6 +225,129 @@ export default function CasePage() {
   const [openAccordion, setOpenAccordion] = useState<string | null>("beratung");
   const [selectedConflict, setSelectedConflict] = useState<ConflictMark | null>(null);
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
+  
+  const [beratungStarted, setBeratungStarted] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [meetingNotes, setMeetingNotes] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const beratungStartTimeRef = useRef<Date | null>(null);
+  const prevOpenAccordionRef = useRef<string | null>(openAccordion);
+
+  const fetchAccessToken = useCallback(async () => {
+    try {
+      const response = await fetch("/api/token");
+      if (!response.ok) throw new Error("Failed to fetch token");
+      const data = await response.json();
+      setAccessToken(data.accessToken);
+    } catch (error) {
+      console.error("Error fetching access token:", error);
+    }
+  }, []);
+
+  const saveBeratung = useCallback(async () => {
+    if (!caseId || meetingNotes.length === 0 || isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      const analyzeResponse = await fetch("/api/ai/analyze-consultation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: meetingNotes,
+          trademarkName: data?.case?.trademarkName,
+        }),
+      });
+
+      let analysis = null;
+      if (analyzeResponse.ok) {
+        const analyzeData = await analyzeResponse.json();
+        analysis = analyzeData.analysis;
+      }
+
+      const duration = beratungStartTimeRef.current
+        ? Math.floor((new Date().getTime() - beratungStartTimeRef.current.getTime()) / 1000)
+        : null;
+
+      await fetch(`/api/cases/${caseId}/consultation`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          summary: analysis?.summary || "",
+          extractedData: {
+            trademarkName: analysis?.trademarkName || data?.case?.trademarkName,
+            countries: analysis?.countries || [],
+            niceClasses: analysis?.niceClasses || [],
+          },
+          markComplete: true,
+        }),
+      });
+
+      for (const msg of meetingNotes) {
+        await fetch(`/api/cases/${caseId}/consultation/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            role: msg.role,
+            content: msg.content,
+          }),
+        });
+      }
+
+      setHasUnsavedChanges(false);
+      setBeratungStarted(false);
+      setMeetingNotes([]);
+      mutate();
+    } catch (error) {
+      console.error("Error saving beratung:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [caseId, meetingNotes, isSaving, data?.case?.trademarkName, mutate]);
+
+  useEffect(() => {
+    if (beratungStarted && !accessToken) {
+      fetchAccessToken();
+    }
+  }, [beratungStarted, accessToken, fetchAccessToken]);
+
+  useEffect(() => {
+    const prevAccordion = prevOpenAccordionRef.current;
+    prevOpenAccordionRef.current = openAccordion;
+
+    if (
+      prevAccordion === "beratung" &&
+      openAccordion !== "beratung" &&
+      beratungStarted &&
+      meetingNotes.length > 0 &&
+      hasUnsavedChanges
+    ) {
+      saveBeratung();
+    }
+  }, [openAccordion, beratungStarted, meetingNotes.length, hasUnsavedChanges, saveBeratung]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && beratungStarted && meetingNotes.length > 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges, beratungStarted, meetingNotes.length]);
+
+  const handleMessageSent = useCallback((messages: { role: "user" | "assistant"; content: string }[]) => {
+    setMeetingNotes(messages);
+    setHasUnsavedChanges(true);
+  }, []);
+
+  const handleStartBeratung = useCallback(() => {
+    setBeratungStarted(true);
+    beratungStartTimeRef.current = new Date();
+    fetchAccessToken();
+  }, [fetchAccessToken]);
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -289,6 +415,7 @@ export default function CasePage() {
 
   const renderBeratungContent = () => {
     const isComplete = isStepComplete("beratung");
+    
     if (isComplete && consultation) {
       return (
         <div className="space-y-4">
@@ -324,7 +451,75 @@ export default function CasePage() {
         </div>
       );
     }
-    return renderPlaceholder(WORKFLOW_STEPS[0]);
+
+    if (beratungStarted) {
+      if (!accessToken) {
+        return (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 text-teal-600 animate-spin" />
+            <span className="ml-3 text-gray-600">Verbindung wird hergestellt...</span>
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-4">
+          {isSaving && (
+            <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 flex items-center gap-2">
+              <Loader2 className="w-4 h-4 text-teal-600 animate-spin" />
+              <span className="text-sm text-teal-700">Beratung wird gespeichert...</span>
+            </div>
+          )}
+          <VoiceProvider
+            auth={{ type: "accessToken", value: accessToken }}
+            configId={process.env.NEXT_PUBLIC_HUME_CONFIG_ID}
+          >
+            <VoiceAssistant 
+              embedded={true} 
+              onMessageSent={handleMessageSent}
+            />
+          </VoiceProvider>
+          <div className="flex justify-end pt-4 border-t border-gray-200">
+            <button
+              onClick={saveBeratung}
+              disabled={isSaving || meetingNotes.length === 0}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                isSaving || meetingNotes.length === 0
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-teal-600 text-white hover:bg-teal-700"
+              }`}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Speichern...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  Beratung abschließen
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="text-center py-8">
+        <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+        <p className="text-gray-500 mb-4">
+          Starten Sie eine KI-gestützte Beratung zu Ihrer Markenanmeldung.
+        </p>
+        <button
+          onClick={handleStartBeratung}
+          className="px-6 py-3 bg-[#0D9488] text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+        >
+          Beratung starten
+        </button>
+      </div>
+    );
   };
 
   const renderRechercheContent = () => {
