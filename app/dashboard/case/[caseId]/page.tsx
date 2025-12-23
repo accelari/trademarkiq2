@@ -439,12 +439,21 @@ export default function CasePage() {
             isOpen={openAccordion === "analyse"}
             onToggle={() => setOpenAccordion(openAccordion === "analyse" ? null : "analyse")}
           >
-            {isAnalyseComplete && analysis ? (
+            {isAnalyseComplete && analysis ? (() => {
+              const maxConflictAccuracy = analysis.conflicts?.length > 0
+                ? Math.max(...analysis.conflicts.map((c: ConflictMark) => c.accuracy || 0))
+                : 0;
+              const effectiveRiskScore = analysis.riskScore > 0 ? analysis.riskScore : maxConflictAccuracy;
+              const effectiveRiskLevel = analysis.riskScore > 0 
+                ? analysis.riskLevel 
+                : (maxConflictAccuracy >= 80 ? "high" : maxConflictAccuracy >= 60 ? "medium" : "low") as "high" | "medium" | "low";
+              
+              return (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row items-center gap-6">
                   <AnimatedRiskScore
-                    score={analysis.riskScore}
-                    risk={analysis.riskLevel}
+                    score={effectiveRiskScore}
+                    risk={effectiveRiskLevel}
                     size="large"
                   />
                   <div className="flex-1 text-center sm:text-left">
@@ -453,9 +462,9 @@ export default function CasePage() {
                       {analysis.conflicts?.length || 0}
                     </div>
                     <p className="text-sm text-gray-600 mt-2">
-                      {analysis.riskLevel === "high" 
+                      {effectiveRiskLevel === "high" 
                         ? "Es wurden kritische Konflikte identifiziert."
-                        : analysis.riskLevel === "medium"
+                        : effectiveRiskLevel === "medium"
                         ? "Es gibt potenzielle Risiken zu beachten."
                         : "Geringe Konfliktwahrscheinlichkeit."}
                     </p>
@@ -547,7 +556,8 @@ export default function CasePage() {
                   </div>
                 )}
               </div>
-            ) : (
+              );
+            })() : (
               <div className="text-center py-8">
                 <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500 mb-4">

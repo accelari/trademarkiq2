@@ -2032,28 +2032,40 @@ export default function RecherchePage() {
     }
 
     try {
-      const riskScore = expertAnalysis.conflictAnalyses?.length > 0
+      const conflicts = (aiAnalysis?.conflicts || expertAnalysis.conflictAnalyses || []).map((c: any) => {
+        const accuracyValue = c.accuracy || c.similarity || c.oppositionRisk || 0;
+        return {
+          id: c.id || c.conflictId,
+          name: c.name || c.conflictName,
+          holder: c.holder || c.conflictHolder,
+          register: c.register || c.conflictOffice,
+          classes: c.classes || c.conflictClasses || c.niceClasses || [],
+          accuracy: accuracyValue,
+          riskLevel: c.riskLevel || (accuracyValue >= 80 ? 'high' : accuracyValue >= 60 ? 'medium' : 'low') as 'high' | 'medium' | 'low',
+          reasoning: c.reasoning || c.legalAssessment || '',
+          status: c.status || 'active',
+          applicationNumber: c.applicationNumber || '',
+          applicationDate: c.applicationDate || null,
+          registrationNumber: c.registrationNumber || '',
+          registrationDate: c.registrationDate || null,
+        };
+      });
+
+      const maxAccuracy = conflicts.length > 0 
+        ? Math.max(...conflicts.map((c: any) => c.accuracy || 0))
+        : 0;
+      
+      const expertRiskScore = expertAnalysis.conflictAnalyses?.length > 0
         ? Math.round(
             expertAnalysis.conflictAnalyses.reduce((sum, c) => sum + (c.oppositionRisk || 0), 0) / 
             expertAnalysis.conflictAnalyses.length
           )
         : 0;
-
-      const conflicts = (aiAnalysis?.conflicts || expertAnalysis.conflictAnalyses || []).map((c: any) => ({
-        id: c.id || c.conflictId,
-        name: c.name || c.conflictName,
-        holder: c.holder || c.conflictHolder,
-        register: c.register || c.conflictOffice,
-        classes: c.classes || c.conflictClasses || c.niceClasses || [],
-        accuracy: c.accuracy || c.similarity || c.oppositionRisk || 0,
-        riskLevel: c.riskLevel || (c.oppositionRisk > 70 ? 'high' : c.oppositionRisk > 40 ? 'medium' : 'low'),
-        reasoning: c.reasoning || c.legalAssessment || '',
-        status: c.status || 'active',
-        applicationNumber: c.applicationNumber || '',
-        applicationDate: c.applicationDate || null,
-        registrationNumber: c.registrationNumber || '',
-        registrationDate: c.registrationDate || null,
-      }));
+      
+      const riskScore = expertRiskScore > 0 ? expertRiskScore : maxAccuracy;
+      
+      const calculatedRiskLevel = riskScore >= 80 ? 'high' : riskScore >= 60 ? 'medium' : 'low';
+      const riskLevel = expertAnalysis.overallRisk || calculatedRiskLevel;
 
       const payload = {
         searchQuery: {
@@ -2065,7 +2077,7 @@ export default function RecherchePage() {
         conflicts,
         aiAnalysis: aiAnalysis?.analysis || null,
         riskScore,
-        riskLevel: expertAnalysis.overallRisk || 'low',
+        riskLevel,
         totalResultsAnalyzed: aiAnalysis?.totalResultsAnalyzed || 0,
         expertStrategy: aiAnalysis?.expertStrategy || null,
       };
