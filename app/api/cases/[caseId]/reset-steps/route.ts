@@ -30,7 +30,7 @@ export async function POST(
 
     if (!fromStep || !RESETTABLE_STEPS[fromStep]) {
       return NextResponse.json(
-        { error: "Gültiger Step erforderlich (beratung oder recherche)" },
+        { error: "Gültiger Step erforderlich (beratung, markenname oder recherche)" },
         { status: 400 }
       );
     }

@@ -17,6 +17,11 @@ import {
   Globe,
   Tag,
   Sparkles,
+  FileText,
+  Mail,
+  Eye,
+  Calendar,
+  CheckCircle,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
@@ -88,12 +93,38 @@ interface CaseData {
   } | null;
   steps: {
     beratung: StepStatus;
+    markenname: StepStatus;
     recherche: StepStatus;
-    risikoanalyse: StepStatus;
+    analyse: StepStatus;
+    ueberpruefung: StepStatus;
     anmeldung: StepStatus;
-    watchlist: StepStatus;
+    kommunikation: StepStatus;
+    ueberwachung: StepStatus;
+    fristen: StepStatus;
   };
 }
+
+type WorkflowStepId = keyof CaseData["steps"];
+
+interface WorkflowStep {
+  id: WorkflowStepId;
+  title: string;
+  icon: React.ElementType;
+  buttonText: string;
+  buttonAction: string;
+}
+
+const WORKFLOW_STEPS: WorkflowStep[] = [
+  { id: "beratung", title: "Beratung", icon: MessageCircle, buttonText: "Beratung starten", buttonAction: "/dashboard/beratung" },
+  { id: "markenname", title: "Markenname", icon: Tag, buttonText: "Markenname festlegen", buttonAction: "edit" },
+  { id: "recherche", title: "Recherche", icon: Search, buttonText: "Recherche starten", buttonAction: "/dashboard/recherche" },
+  { id: "analyse", title: "Analyse", icon: BarChart3, buttonText: "Analyse anzeigen", buttonAction: "show" },
+  { id: "ueberpruefung", title: "Überprüfung", icon: CheckCircle, buttonText: "Überprüfung dokumentieren", buttonAction: "placeholder" },
+  { id: "anmeldung", title: "Anmeldung", icon: FileText, buttonText: "Anmeldung vorbereiten", buttonAction: "placeholder" },
+  { id: "kommunikation", title: "Kommunikation", icon: Mail, buttonText: "Kommunikation erfassen", buttonAction: "placeholder" },
+  { id: "ueberwachung", title: "Überwachung", icon: Eye, buttonText: "Überwachung starten", buttonAction: "placeholder" },
+  { id: "fristen", title: "Fristen", icon: Calendar, buttonText: "Fristen verwalten", buttonAction: "placeholder" },
+];
 
 function AccordionSection({
   title,
@@ -153,7 +184,7 @@ function LoadingSkeleton() {
       <div className="h-8 bg-gray-200 rounded w-48"></div>
       <div className="h-12 bg-gray-200 rounded w-64"></div>
       <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
           <div key={i} className="h-16 bg-gray-200 rounded-xl"></div>
         ))}
       </div>
@@ -183,7 +214,7 @@ export default function CasePage() {
   const router = useRouter();
   const caseId = params.caseId as string;
 
-  const { data, error, isLoading, mutate } = useSWR<CaseData>(
+  const { data, error, isLoading } = useSWR<CaseData>(
     caseId ? `/api/cases/${caseId}/full` : null,
     fetcher
   );
@@ -220,9 +251,15 @@ export default function CasePage() {
   }
 
   const { case: caseInfo, consultation, decisions, analysis, steps } = data;
-  const isBeratungComplete = steps.beratung.status === "completed" || steps.beratung.status === "skipped";
-  const isRechercheComplete = steps.recherche.status === "completed" || steps.recherche.status === "skipped";
-  const isAnalyseComplete = !!analysis;
+
+  const getStepStatus = (stepId: WorkflowStepId): StepStatus => {
+    return steps?.[stepId] || { status: "pending", completedAt: null, skippedAt: null };
+  };
+
+  const isStepComplete = (stepId: WorkflowStepId): boolean => {
+    const stepStatus = getStepStatus(stepId);
+    return stepStatus.status === "completed" || stepStatus.status === "skipped";
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -247,6 +284,276 @@ export default function CasePage() {
         return "Archiviert";
       default:
         return status;
+    }
+  };
+
+  const renderBeratungContent = () => {
+    const isComplete = isStepComplete("beratung");
+    if (isComplete && consultation) {
+      return (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="text-xs text-gray-500 mb-1">Dauer</div>
+              <div className="font-semibold text-gray-900 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-teal-600" />
+                {formatDuration(consultation.duration)}
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="text-xs text-gray-500 mb-1">Modus</div>
+              <div className="font-semibold text-gray-900 capitalize">
+                {consultation.mode === "voice" ? "Sprache" : "Text"}
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="text-xs text-gray-500 mb-1">Datum</div>
+              <div className="font-semibold text-gray-900">
+                {formatGermanDate(consultation.createdAt)}
+              </div>
+            </div>
+          </div>
+          {consultation.summary && (
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="text-sm font-medium text-gray-700 mb-2">Zusammenfassung</div>
+              <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
+                {consultation.summary}
+              </p>
+            </div>
+          )}
+        </div>
+      );
+    }
+    return renderPlaceholder(WORKFLOW_STEPS[0]);
+  };
+
+  const renderRechercheContent = () => {
+    const isComplete = isStepComplete("recherche");
+    if (isComplete && (decisions || analysis)) {
+      return (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+                <Tag className="w-3 h-3" />
+                Markenname
+              </div>
+              <div className="font-semibold text-gray-900">
+                {analysis?.searchQuery?.trademarkName || decisions?.trademarkNames?.[0] || caseInfo.trademarkName || "-"}
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+                <Globe className="w-3 h-3" />
+                Länder
+              </div>
+              <div className="font-semibold text-gray-900">
+                {(analysis?.searchQuery?.countries || decisions?.countries || []).join(", ") || "-"}
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="text-xs text-gray-500 mb-1">Nizza-Klassen</div>
+              <div className="font-semibold text-gray-900">
+                {(analysis?.searchQuery?.niceClasses || decisions?.niceClasses || []).map(c => `${c}`).join(", ") || "-"}
+              </div>
+            </div>
+          </div>
+
+          {analysis?.searchTermsUsed && analysis.searchTermsUsed.length > 0 && (
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="text-sm font-medium text-gray-700 mb-2">Verwendete Suchbegriffe</div>
+              <div className="flex flex-wrap gap-2">
+                {analysis.searchTermsUsed.map((term, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-lg font-medium"
+                  >
+                    {term}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    return renderPlaceholder(WORKFLOW_STEPS[2]);
+  };
+
+  const renderAnalyseContent = () => {
+    if (analysis) {
+      const maxConflictAccuracy = analysis.conflicts?.length > 0
+        ? Math.max(...analysis.conflicts.map((c: ConflictMark) => c.accuracy || 0))
+        : 0;
+      const effectiveRiskScore = analysis.riskScore > 0 ? analysis.riskScore : maxConflictAccuracy;
+      const effectiveRiskLevel = analysis.riskScore > 0 
+        ? analysis.riskLevel 
+        : (maxConflictAccuracy >= 80 ? "high" : maxConflictAccuracy >= 60 ? "medium" : "low") as "high" | "medium" | "low";
+      
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <AnimatedRiskScore
+              score={effectiveRiskScore}
+              risk={effectiveRiskLevel}
+              size="large"
+            />
+            <div className="flex-1 text-center sm:text-left">
+              <div className="text-sm text-gray-500 mb-1">Konflikte gefunden</div>
+              <div className="text-3xl font-bold text-gray-900">
+                {analysis.conflicts?.length || 0}
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                {effectiveRiskLevel === "high" 
+                  ? "Es wurden kritische Konflikte identifiziert."
+                  : effectiveRiskLevel === "medium"
+                  ? "Es gibt potenzielle Risiken zu beachten."
+                  : "Geringe Konfliktwahrscheinlichkeit."}
+              </p>
+            </div>
+          </div>
+
+          {analysis.conflicts && analysis.conflicts.length > 0 && (
+            <div>
+              <div className="text-sm font-medium text-gray-700 mb-3">Gefundene Konflikte</div>
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {analysis.conflicts.map((conflict, idx) => (
+                  <ConflictCard
+                    key={conflict.id || idx}
+                    conflict={conflict}
+                    onShowDetail={setSelectedConflict}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {analysis.aiAnalysis && (
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <button
+                onClick={() => setShowFullAnalysis(!showFullAnalysis)}
+                className="w-full flex items-center justify-between text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-teal-600" />
+                  <span className="text-sm font-medium text-gray-700">KI-Analyse</span>
+                </div>
+                {showFullAnalysis ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+              {showFullAnalysis && (
+                <div className="mt-4 space-y-4 text-sm text-gray-600">
+                  {analysis.aiAnalysis.nameAnalysis && (
+                    <div>
+                      <div className="font-medium text-gray-700 mb-1">Namensanalyse</div>
+                      <p className="leading-relaxed">{analysis.aiAnalysis.nameAnalysis}</p>
+                    </div>
+                  )}
+                  {analysis.aiAnalysis.riskAssessment && (
+                    <div>
+                      <div className="font-medium text-gray-700 mb-1">Risikobewertung</div>
+                      <p className="leading-relaxed">{analysis.aiAnalysis.riskAssessment}</p>
+                    </div>
+                  )}
+                  {analysis.aiAnalysis.recommendation && (
+                    <div>
+                      <div className="font-medium text-gray-700 mb-1">Empfehlung</div>
+                      <p className="leading-relaxed">{analysis.aiAnalysis.recommendation}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {analysis.alternativeNames && analysis.alternativeNames.length > 0 && (
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="text-sm font-medium text-gray-700 mb-3">Alternative Namen</div>
+              <div className="space-y-2">
+                {analysis.alternativeNames.map((alt, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <span className="font-medium text-gray-900">{alt.name}</span>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                        alt.riskLevel === "low" ? "bg-teal-100 text-teal-700" :
+                        alt.riskLevel === "medium" ? "bg-orange-100 text-orange-700" :
+                        alt.riskLevel === "high" ? "bg-red-100 text-red-700" :
+                        "bg-gray-100 text-gray-600"
+                      }`}>
+                        {alt.riskScore}%
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {alt.conflictCount} Konflikte
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    return (
+      <div className="text-center py-8">
+        <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+        <p className="text-gray-500 mb-4">
+          Noch keine Analyse durchgeführt
+        </p>
+        <button
+          onClick={() => router.push(`/dashboard/recherche?caseId=${caseInfo.id}`)}
+          className="px-6 py-3 bg-[#0D9488] text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+        >
+          Analyse durchführen
+        </button>
+      </div>
+    );
+  };
+
+  const renderPlaceholder = (step: WorkflowStep) => {
+    const Icon = step.icon;
+    const isNavigable = step.buttonAction.startsWith("/");
+    
+    return (
+      <div className="text-center py-8">
+        <Icon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+        <p className="text-gray-500 mb-4">
+          {isNavigable 
+            ? `${step.title} wurde noch nicht gestartet.`
+            : "Diese Funktion ist demnächst verfügbar."
+          }
+        </p>
+        <button
+          onClick={isNavigable ? () => router.push(`${step.buttonAction}?caseId=${caseInfo.id}`) : undefined}
+          disabled={!isNavigable}
+          className={isNavigable 
+            ? "px-6 py-3 bg-[#0D9488] text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+            : "px-6 py-3 bg-gray-300 text-gray-500 rounded-lg font-medium cursor-not-allowed"
+          }
+        >
+          {step.buttonText}
+        </button>
+      </div>
+    );
+  };
+
+  const renderStepContent = (step: WorkflowStep) => {
+    switch (step.id) {
+      case "beratung":
+        return renderBeratungContent();
+      case "recherche":
+        return renderRechercheContent();
+      case "analyse":
+        return renderAnalyseContent();
+      default:
+        return renderPlaceholder(step);
     }
   };
 
@@ -281,263 +588,18 @@ export default function CasePage() {
         </div>
 
         <div className="space-y-4">
-          <AccordionSection
-            title="KI-Markenberater"
-            icon={MessageCircle}
-            isCompleted={isBeratungComplete}
-            isOpen={openAccordion === "beratung"}
-            onToggle={() => setOpenAccordion(openAccordion === "beratung" ? null : "beratung")}
-          >
-            {isBeratungComplete && consultation ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-xs text-gray-500 mb-1">Dauer</div>
-                    <div className="font-semibold text-gray-900 flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-teal-600" />
-                      {formatDuration(consultation.duration)}
-                    </div>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-xs text-gray-500 mb-1">Modus</div>
-                    <div className="font-semibold text-gray-900 capitalize">
-                      {consultation.mode === "voice" ? "Sprache" : "Text"}
-                    </div>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-xs text-gray-500 mb-1">Datum</div>
-                    <div className="font-semibold text-gray-900">
-                      {formatGermanDate(consultation.createdAt)}
-                    </div>
-                  </div>
-                </div>
-                {consultation.summary && (
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Zusammenfassung</div>
-                    <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
-                      {consultation.summary}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <div className="bg-gray-100 rounded-xl p-8">
-                  <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Beratungsfunktion</h3>
-                  <p className="text-gray-600 text-sm">
-                    Die Beratungsfunktion ist in dieser Version nicht verfügbar.
-                  </p>
-                </div>
-              </div>
-            )}
-          </AccordionSection>
-
-          <AccordionSection
-            title="Recherche"
-            icon={Search}
-            isCompleted={isRechercheComplete}
-            isOpen={openAccordion === "recherche"}
-            onToggle={() => setOpenAccordion(openAccordion === "recherche" ? null : "recherche")}
-          >
-            {isRechercheComplete && (decisions || analysis) ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-                      <Tag className="w-3 h-3" />
-                      Markenname
-                    </div>
-                    <div className="font-semibold text-gray-900">
-                      {analysis?.searchQuery?.trademarkName || decisions?.trademarkNames?.[0] || caseInfo.trademarkName || "-"}
-                    </div>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-                      <Globe className="w-3 h-3" />
-                      Länder
-                    </div>
-                    <div className="font-semibold text-gray-900">
-                      {(analysis?.searchQuery?.countries || decisions?.countries || []).join(", ") || "-"}
-                    </div>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-xs text-gray-500 mb-1">Nizza-Klassen</div>
-                    <div className="font-semibold text-gray-900">
-                      {(analysis?.searchQuery?.niceClasses || decisions?.niceClasses || []).map(c => `${c}`).join(", ") || "-"}
-                    </div>
-                  </div>
-                </div>
-
-                {analysis?.searchTermsUsed && analysis.searchTermsUsed.length > 0 && (
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Verwendete Suchbegriffe</div>
-                    <div className="flex flex-wrap gap-2">
-                      {analysis.searchTermsUsed.map((term, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-lg font-medium"
-                        >
-                          {term}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <div className="bg-gray-100 rounded-xl p-8">
-                  <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Recherche</h3>
-                  <p className="text-gray-600 text-sm">
-                    Die Recherchefunktion ist in dieser Version nicht verfügbar.
-                  </p>
-                </div>
-              </div>
-            )}
-          </AccordionSection>
-
-          <AccordionSection
-            title="Analyse"
-            icon={BarChart3}
-            isCompleted={isAnalyseComplete}
-            isOpen={openAccordion === "analyse"}
-            onToggle={() => setOpenAccordion(openAccordion === "analyse" ? null : "analyse")}
-          >
-            {isAnalyseComplete && analysis ? (() => {
-              const maxConflictAccuracy = analysis.conflicts?.length > 0
-                ? Math.max(...analysis.conflicts.map((c: ConflictMark) => c.accuracy || 0))
-                : 0;
-              const effectiveRiskScore = analysis.riskScore > 0 ? analysis.riskScore : maxConflictAccuracy;
-              const effectiveRiskLevel = analysis.riskScore > 0 
-                ? analysis.riskLevel 
-                : (maxConflictAccuracy >= 80 ? "high" : maxConflictAccuracy >= 60 ? "medium" : "low") as "high" | "medium" | "low";
-              
-              return (
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row items-center gap-6">
-                  <AnimatedRiskScore
-                    score={effectiveRiskScore}
-                    risk={effectiveRiskLevel}
-                    size="large"
-                  />
-                  <div className="flex-1 text-center sm:text-left">
-                    <div className="text-sm text-gray-500 mb-1">Konflikte gefunden</div>
-                    <div className="text-3xl font-bold text-gray-900">
-                      {analysis.conflicts?.length || 0}
-                    </div>
-                    <p className="text-sm text-gray-600 mt-2">
-                      {effectiveRiskLevel === "high" 
-                        ? "Es wurden kritische Konflikte identifiziert."
-                        : effectiveRiskLevel === "medium"
-                        ? "Es gibt potenzielle Risiken zu beachten."
-                        : "Geringe Konfliktwahrscheinlichkeit."}
-                    </p>
-                  </div>
-                </div>
-
-                {analysis.conflicts && analysis.conflicts.length > 0 && (
-                  <div>
-                    <div className="text-sm font-medium text-gray-700 mb-3">Gefundene Konflikte</div>
-                    <div className="space-y-2 max-h-80 overflow-y-auto">
-                      {analysis.conflicts.map((conflict, idx) => (
-                        <ConflictCard
-                          key={conflict.id || idx}
-                          conflict={conflict}
-                          onShowDetail={setSelectedConflict}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {analysis.aiAnalysis && (
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <button
-                      onClick={() => setShowFullAnalysis(!showFullAnalysis)}
-                      className="w-full flex items-center justify-between text-left"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-teal-600" />
-                        <span className="text-sm font-medium text-gray-700">KI-Analyse</span>
-                      </div>
-                      {showFullAnalysis ? (
-                        <ChevronUp className="w-4 h-4 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-gray-400" />
-                      )}
-                    </button>
-                    {showFullAnalysis && (
-                      <div className="mt-4 space-y-4 text-sm text-gray-600">
-                        {analysis.aiAnalysis.nameAnalysis && (
-                          <div>
-                            <div className="font-medium text-gray-700 mb-1">Namensanalyse</div>
-                            <p className="leading-relaxed">{analysis.aiAnalysis.nameAnalysis}</p>
-                          </div>
-                        )}
-                        {analysis.aiAnalysis.riskAssessment && (
-                          <div>
-                            <div className="font-medium text-gray-700 mb-1">Risikobewertung</div>
-                            <p className="leading-relaxed">{analysis.aiAnalysis.riskAssessment}</p>
-                          </div>
-                        )}
-                        {analysis.aiAnalysis.recommendation && (
-                          <div>
-                            <div className="font-medium text-gray-700 mb-1">Empfehlung</div>
-                            <p className="leading-relaxed">{analysis.aiAnalysis.recommendation}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {analysis.alternativeNames && analysis.alternativeNames.length > 0 && (
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-sm font-medium text-gray-700 mb-3">Alternative Namen</div>
-                    <div className="space-y-2">
-                      {analysis.alternativeNames.map((alt, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                        >
-                          <span className="font-medium text-gray-900">{alt.name}</span>
-                          <div className="flex items-center gap-3">
-                            <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                              alt.riskLevel === "low" ? "bg-teal-100 text-teal-700" :
-                              alt.riskLevel === "medium" ? "bg-orange-100 text-orange-700" :
-                              alt.riskLevel === "high" ? "bg-red-100 text-red-700" :
-                              "bg-gray-100 text-gray-600"
-                            }`}>
-                              {alt.riskScore}%
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {alt.conflictCount} Konflikte
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              );
-            })() : (
-              <div className="text-center py-8">
-                <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 mb-4">
-                  Noch keine Analyse durchgeführt
-                </p>
-                <button
-                  onClick={() => router.push(`/dashboard/recherche?caseId=${caseInfo.id}`)}
-                  className="px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
-                >
-                  Analyse durchführen
-                </button>
-              </div>
-            )}
-          </AccordionSection>
+          {WORKFLOW_STEPS.map((step) => (
+            <AccordionSection
+              key={step.id}
+              title={step.title}
+              icon={step.icon}
+              isCompleted={isStepComplete(step.id)}
+              isOpen={openAccordion === step.id}
+              onToggle={() => setOpenAccordion(openAccordion === step.id ? null : step.id)}
+            >
+              {renderStepContent(step)}
+            </AccordionSection>
+          ))}
         </div>
 
         {selectedConflict && (

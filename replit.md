@@ -20,8 +20,22 @@ The application is built with Next.js 16 (App Router) and TypeScript. Data is ma
 
 ### Core Features
 - **Authentication**: Complete user registration, login, password reset, and email verification via NextAuth v5
-- **Case Management**: CRUD operations for trademark cases with step tracking and status management
-- **Dashboard**: Simple case listing and detail views
+- **Case Management**: CRUD operations for trademark cases with 9-step workflow tracking and status management
+- **Dashboard**: Case listing and detail views with accordion UI for workflow steps
+
+### Workflow Steps (9 Schritte)
+Each trademark case follows a 9-step workflow displayed as accordions on the case detail page:
+1. **Beratung** - Initial consultation
+2. **Markenname** - Trademark name definition
+3. **Recherche** - Research phase
+4. **Analyse** - Analysis of conflicts
+5. **Überprüfung** - Review/verification
+6. **Anmeldung** - Registration/application
+7. **Kommunikation** - Communication tracking
+8. **Überwachung** - Monitoring
+9. **Fristen** - Deadline management
+
+Step identifiers: `beratung`, `markenname`, `recherche`, `analyse`, `ueberpruefung`, `anmeldung`, `kommunikation`, `ueberwachung`, `fristen`
 
 ### Database Schema (Minimal)
 Essential tables only:
