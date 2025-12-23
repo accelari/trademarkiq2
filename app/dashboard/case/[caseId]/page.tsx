@@ -16,11 +16,9 @@ import {
   XCircle,
   Info,
 } from "lucide-react";
-import { WorkflowStepper } from "@/app/components/cases/WorkflowStepper";
-import { StepCard } from "@/app/components/cases/StepCard";
+import { WorkflowAccordion } from "@/app/components/cases/WorkflowAccordion";
 import { CaseSummary } from "@/app/components/cases/CaseSummary";
 import { BeratungModal } from "@/app/components/cases/BeratungModal";
-import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
 import { ACTIVE_STEPS, WorkflowStepId, StepState } from "@/lib/workflow-steps";
 
