@@ -139,16 +139,12 @@ function StepProgress({ steps }: { steps: CaseStep[] }) {
 function CaseCard({
   caseData,
   onClick,
-  onDelete,
-  isDeleting,
   isSelected,
   onSelect,
   isSelectionMode,
 }: {
   caseData: TrademarkCase;
   onClick: () => void;
-  onDelete: (e: React.MouseEvent) => void;
-  isDeleting: boolean;
   isSelected: boolean;
   onSelect: (e: React.MouseEvent) => void;
   isSelectionMode: boolean;
@@ -195,25 +191,11 @@ function CaseCard({
                 {caseData.trademarkName || "Kein Markenname"}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span
-                className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusBadge.className}`}
-              >
-                {statusBadge.label}
-              </span>
-              <button
-                onClick={onDelete}
-                disabled={isDeleting}
-                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                title="Fall löschen"
-              >
-                {isDeleting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Trash2 className="w-4 h-4" />
-                )}
-              </button>
-            </div>
+            <span
+              className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusBadge.className}`}
+            >
+              {statusBadge.label}
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-2">
@@ -703,15 +685,6 @@ export default function CasesPage() {
                 key={caseData.id}
                 caseData={caseData}
                 onClick={() => router.push(`/dashboard/case/${caseData.id}`)}
-                onDelete={(e) => {
-                  e.stopPropagation();
-                  setDeleteConfirm({ 
-                    type: "single", 
-                    caseId: caseData.id, 
-                    caseName: caseData.trademarkName || caseData.caseNumber 
-                  });
-                }}
-                isDeleting={deletingCaseId === caseData.id}
                 isSelected={selectedCases.has(caseData.id)}
                 onSelect={(e) => handleSelectCase(caseData.id, e)}
                 isSelectionMode={isSelectionMode}
