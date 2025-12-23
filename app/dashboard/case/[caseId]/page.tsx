@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
-import VoiceAssistant from "@/app/components/VoiceAssistant";
+import VoiceAssistant, { VoiceAssistantHandle } from "@/app/components/VoiceAssistant";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -239,6 +239,7 @@ export default function CasePage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [inputMode, setInputMode] = useState<"sprache" | "text">("sprache");
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const voiceAssistantRef = useRef<VoiceAssistantHandle>(null);
   const beratungStartTimeRef = useRef<Date | null>(null);
   const prevOpenAccordionRef = useRef<string | null>(openAccordion);
 
@@ -437,8 +438,8 @@ export default function CasePage() {
   };
 
   const handleQuickQuestion = (question: string) => {
-    if (accessToken) {
-      setMeetingNotes(prev => [...prev, { role: "user", content: question }]);
+    if (accessToken && voiceAssistantRef.current) {
+      voiceAssistantRef.current.sendQuestion(question);
       setHasUnsavedChanges(true);
     }
   };
@@ -566,11 +567,10 @@ export default function CasePage() {
                 <MessageCircle className="w-5 h-5 text-teal-600" />
                 <h3 className="font-semibold text-gray-900">Sprachassistent</h3>
               </div>
-              <VoiceProvider
-                auth={{ type: "accessToken", value: accessToken }}
-                configId={process.env.NEXT_PUBLIC_HUME_CONFIG_ID}
-              >
+              <VoiceProvider>
                 <VoiceAssistant 
+                  ref={voiceAssistantRef}
+                  accessToken={accessToken}
                   embedded={true} 
                   onMessageSent={handleMessageSent}
                 />

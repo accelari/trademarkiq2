@@ -1,15 +1,42 @@
 "use client";
 
 import { useVoice } from "@humeai/voice-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Send, Mic, MicOff, Phone, PhoneOff, Volume2, VolumeX } from "lucide-react";
 
+const KLAUS_SYSTEM_PROMPT = `Du bist Klaus, ein freundlicher und kompetenter Markenberater bei TrademarkIQ.
+
+Du bist ein weltweit anerkannter Experte für Marken, Markenrecht und Markenstrategien.
+
+WICHTIG - Gesprächsführung:
+- Stelle NICHT alle Fragen auf einmal! Das wirkt überwältigend.
+- Führe ein natürliches Beratungsgespräch - eine Frage nach der anderen.
+- Beginne immer mit einer freundlichen Bestätigung, dass du gerne hilfst.
+
+DEINE AUFGABE:
+Du berätst Kunden zu allen Fragen rund um Marken. Hilf ihnen dabei:
+1. Einen passenden Markennamen zu finden oder zu bewerten
+2. Die richtigen Nizza-Klassen für ihre Produkte/Dienstleistungen zu bestimmen
+3. Die Zielländer für den Markenschutz zu wählen
+4. Fragen zu Markenrecht und -strategie zu beantworten
+
+WICHTIGE REGELN:
+1. Du antwortest IMMER auf Deutsch
+2. Du gibst praxisorientierte, verständliche Antworten
+3. Du sprichst in einem freundlichen, professionellen Ton`;
+
+export interface VoiceAssistantHandle {
+  sendQuestion: (question: string) => void;
+  isConnected: () => boolean;
+}
+
 interface VoiceAssistantProps {
+  accessToken: string;
   embedded?: boolean;
   onMessageSent?: (messages: { role: "user" | "assistant"; content: string }[]) => void;
 }
 
-export default function VoiceAssistant({ embedded = false, onMessageSent }: VoiceAssistantProps) {
+const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ accessToken, embedded = false, onMessageSent }, ref) => {
   const { 
     messages, 
     sendUserInput, 
@@ -20,6 +47,54 @@ export default function VoiceAssistant({ embedded = false, onMessageSent }: Voic
     mute,
     unmute,
   } = useVoice();
+
+  const [pendingQuestions, setPendingQuestions] = useState<string[]>([]);
+  const isConnectingRef = useRef(false);
+
+  useImperativeHandle(ref, () => ({
+    sendQuestion: async (question: string) => {
+      if (status.value === "connected") {
+        sendUserInput(question);
+      } else {
+        setPendingQuestions(prev => [...prev, question]);
+        if (!isConnectingRef.current && status.value !== "connecting") {
+          isConnectingRef.current = true;
+          try {
+            await connect({
+              auth: {
+                type: "accessToken" as const,
+                value: accessToken,
+              },
+              hostname: "api.hume.ai",
+              configId: process.env.NEXT_PUBLIC_HUME_CONFIG_ID || "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
+              sessionSettings: {
+                type: "session_settings",
+                systemPrompt: KLAUS_SYSTEM_PROMPT
+              }
+            });
+          } catch (err) {
+            console.error("Failed to connect:", err);
+            setPendingQuestions([]);
+          } finally {
+            isConnectingRef.current = false;
+          }
+        }
+      }
+    },
+    isConnected: () => status.value === "connected",
+  }));
+
+  useEffect(() => {
+    if (status.value === "connected" && pendingQuestions.length > 0) {
+      const timer = setTimeout(() => {
+        pendingQuestions.forEach((q, idx) => {
+          setTimeout(() => sendUserInput(q), idx * 300);
+        });
+        setPendingQuestions([]);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [status.value, pendingQuestions, sendUserInput]);
   
   const [inputText, setInputText] = useState("");
   const [persistentMessages, setPersistentMessages] = useState<any[]>([]);
@@ -71,8 +146,22 @@ export default function VoiceAssistant({ embedded = false, onMessageSent }: Voic
     if (isConnected) {
       await disconnect();
     } else {
-      // Auth is already provided via VoiceProvider wrapper
-      await (connect as (options?: Record<string, unknown>) => Promise<void>)();
+      try {
+        await connect({
+          auth: {
+            type: "accessToken" as const,
+            value: accessToken,
+          },
+          hostname: "api.hume.ai",
+          configId: process.env.NEXT_PUBLIC_HUME_CONFIG_ID || "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
+          sessionSettings: {
+            type: "session_settings",
+            systemPrompt: KLAUS_SYSTEM_PROMPT
+          }
+        });
+      } catch (err) {
+        console.error("Failed to connect:", err);
+      }
     }
   };
 
@@ -201,4 +290,8 @@ export default function VoiceAssistant({ embedded = false, onMessageSent }: Voic
       </form>
     </div>
   );
-}
+});
+
+VoiceAssistant.displayName = "VoiceAssistant";
+
+export default VoiceAssistant;
