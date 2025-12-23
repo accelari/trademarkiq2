@@ -67,11 +67,12 @@ export default function VoiceAssistant({ embedded = false, onMessageSent }: Voic
   const isConnected = status.value === "connected";
   const isConnecting = status.value === "connecting";
 
-  const handleToggleConnection = () => {
+  const handleToggleConnection = async () => {
     if (isConnected) {
-      disconnect();
+      await disconnect();
     } else {
-      connect();
+      // Auth is already provided via VoiceProvider wrapper
+      await (connect as (options?: Record<string, unknown>) => Promise<void>)();
     }
   };
 
