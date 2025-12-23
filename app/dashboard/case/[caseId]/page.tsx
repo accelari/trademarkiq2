@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
-import { EmbeddedConsultation } from "@/app/components/cases/EmbeddedConsultation";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -356,7 +355,7 @@ export default function CasePage() {
                     <span className="ml-3 text-gray-600">Lade Beratung...</span>
                   </div>
                 ) : accessToken ? (
-                  <div>
+                  <div className="text-center py-8">
                     <div className="flex justify-end mb-4">
                       <button
                         onClick={() => setShowConsultation(false)}
@@ -366,12 +365,13 @@ export default function CasePage() {
                         Abbrechen
                       </button>
                     </div>
-                    <EmbeddedConsultation
-                      caseId={caseInfo.id}
-                      accessToken={accessToken}
-                      onComplete={handleConsultationComplete}
-                      caseNumber={caseInfo.caseNumber}
-                    />
+                    <div className="bg-gray-100 rounded-xl p-8">
+                      <MessageCircle className="w-12 h-12 text-teal-600 mx-auto mb-4" />
+                      <h3 className="font-semibold text-gray-900 mb-2">Beratung in Entwicklung</h3>
+                      <p className="text-gray-600 text-sm">
+                        Die eingebettete Beratungsfunktion wird demnächst verfügbar sein.
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-8">
