@@ -615,9 +615,29 @@ ${memoryData.memory.promptForAgent}`;
         setMeetingStartTime(new Date());
         
         const urlCaseId = searchParams.get("caseId");
+        const urlCaseNumber = searchParams.get("caseNumber");
         const urlCatchUp = searchParams.get("catchUp");
         
-        if (!urlCaseId && !urlCatchUp && !catchUpCaseId) {
+        if (urlCaseId) {
+          setCurrentCaseId(urlCaseId);
+          if (urlCaseNumber) {
+            setCurrentCaseNumber(urlCaseNumber);
+          }
+          setMeetingNotes([{
+            id: `system-${Date.now()}`,
+            timestamp: new Date(),
+            content: "Beratung gestartet",
+            type: "system"
+          }]);
+        } else if (catchUpCaseId) {
+          setCurrentCaseId(catchUpCaseId);
+          setMeetingNotes([{
+            id: `system-${Date.now()}`,
+            timestamp: new Date(),
+            content: "Beratung gestartet",
+            type: "system"
+          }]);
+        } else if (!urlCatchUp) {
           try {
             const response = await fetch("/api/cases/start", {
               method: "POST",

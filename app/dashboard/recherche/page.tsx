@@ -2356,6 +2356,21 @@ export default function RecherchePage() {
         if (res.ok) {
           const data = await res.json();
           setCurrentCaseNumber(data.caseNumber);
+          
+          await fetch(`/api/cases/${data.caseId}/update-status`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              step: "recherche",
+              status: "completed",
+              metadata: {
+                searchQuery: activeSearchQuery || searchQuery,
+                countries: selectedLaender,
+                classes: aiSelectedClasses,
+                searchedAt: new Date().toISOString(),
+              }
+            })
+          });
         }
       } catch (error) {
         console.error("Error auto-creating case:", error);
@@ -2364,7 +2379,7 @@ export default function RecherchePage() {
     };
     
     createCaseAutomatically();
-  }, [aiAnalysis, caseId, currentCaseNumber, searchQuery, activeSearchQuery]);
+  }, [aiAnalysis, caseId, currentCaseNumber, searchQuery, activeSearchQuery, selectedLaender, aiSelectedClasses]);
 
   useEffect(() => {
     // Load Klaus token when either aiAnalysis or expertAnalysis is available
