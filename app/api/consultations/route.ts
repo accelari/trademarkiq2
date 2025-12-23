@@ -295,3 +295,56 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Fehler beim Speichern" }, { status: 500 });
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { consultationId, caseId } = body;
+
+    if (!consultationId) {
+      return NextResponse.json(
+        { error: "Consultation ID erforderlich" },
+        { status: 400 }
+      );
+    }
+
+    const existingConsultation = await db.query.consultations.findFirst({
+      where: and(
+        eq(consultations.id, consultationId),
+        eq(consultations.userId, session.user.id)
+      ),
+    });
+
+    if (!existingConsultation) {
+      return NextResponse.json({ error: "Beratung nicht gefunden" }, { status: 404 });
+    }
+
+    if (caseId) {
+      const existingCase = await db.query.trademarkCases.findFirst({
+        where: and(
+          eq(trademarkCases.id, caseId),
+          eq(trademarkCases.userId, session.user.id)
+        ),
+      });
+
+      if (!existingCase) {
+        return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
+      }
+
+      await db
+        .update(consultations)
+        .set({ caseId })
+        .where(eq(consultations.id, consultationId));
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error updating consultation:", error);
+    return NextResponse.json({ error: "Fehler beim Aktualisieren" }, { status: 500 });
+  }
+}

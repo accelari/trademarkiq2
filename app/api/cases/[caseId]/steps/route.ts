@@ -16,7 +16,7 @@ export async function PATCH(
 
     const { caseId } = await params;
     const body = await request.json();
-    const { step, status } = body;
+    const { step, status, trademarkName } = body;
 
     if (!step || !status) {
       return NextResponse.json(
@@ -82,9 +82,13 @@ export async function PATCH(
       eventData: { step, status, previousStatus: existingStep.status },
     });
 
+    const caseUpdateData: Record<string, any> = { updatedAt: new Date() };
+    if (trademarkName) {
+      caseUpdateData.trademarkName = trademarkName;
+    }
     await db
       .update(trademarkCases)
-      .set({ updatedAt: new Date() })
+      .set(caseUpdateData)
       .where(eq(trademarkCases.id, existingCase.id));
 
     return NextResponse.json({

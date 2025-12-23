@@ -609,16 +609,63 @@ ${memoryData.memory.promptForAgent}`;
   }, [toast.visible]);
 
   useEffect(() => {
-    if (!meetingStartTime) {
-      setMeetingStartTime(new Date());
-      setMeetingNotes([{
-        id: `system-${Date.now()}`,
-        timestamp: new Date(),
-        content: "Beratung gestartet",
-        type: "system"
-      }]);
-    }
-  }, [meetingStartTime]);
+    const startNewSession = async () => {
+      if (!meetingStartTime && !caseCreatedRef.current) {
+        caseCreatedRef.current = true;
+        setMeetingStartTime(new Date());
+        
+        const urlCaseId = searchParams.get("caseId");
+        const urlCatchUp = searchParams.get("catchUp");
+        
+        if (!urlCaseId && !urlCatchUp && !catchUpCaseId) {
+          try {
+            const response = await fetch("/api/cases/start", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ source: "beratung" })
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              setCurrentCaseId(data.caseId);
+              setCurrentCaseNumber(data.caseNumber);
+              
+              setMeetingNotes([{
+                id: `system-${Date.now()}`,
+                timestamp: new Date(),
+                content: `Neuer Fall ${data.caseNumber} angelegt`,
+                type: "system"
+              }]);
+            } else {
+              setMeetingNotes([{
+                id: `system-${Date.now()}`,
+                timestamp: new Date(),
+                content: "Beratung gestartet",
+                type: "system"
+              }]);
+            }
+          } catch (error) {
+            console.error("Error creating case:", error);
+            setMeetingNotes([{
+              id: `system-${Date.now()}`,
+              timestamp: new Date(),
+              content: "Beratung gestartet",
+              type: "system"
+            }]);
+          }
+        } else {
+          setMeetingNotes([{
+            id: `system-${Date.now()}`,
+            timestamp: new Date(),
+            content: "Beratung gestartet",
+            type: "system"
+          }]);
+        }
+      }
+    };
+    
+    startNewSession();
+  }, [meetingStartTime, searchParams, catchUpCaseId]);
 
   // Update meeting notes with context when catching up on a case
   useEffect(() => {
@@ -1289,6 +1336,62 @@ ${notesText}`,
               return;
             }
           }
+        } else if (currentCaseId) {
+          const caseId = currentCaseId;
+          const caseNumber = currentCaseNumber;
+          
+          await fetch("/api/consultations", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              consultationId,
+              caseId,
+            })
+          });
+          
+          await fetch("/api/cases/extract-decisions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              caseId,
+              consultationId,
+              summary: meetingSummary,
+            })
+          });
+          
+          await fetch(`/api/cases/${caseId}/steps`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              step: "beratung",
+              status: "completed",
+              trademarkName: extractedData.trademarkName,
+            })
+          });
+
+          setToast({ 
+            message: `Bericht ${caseNumber} erstellt! Status: ${consultationStatus === "ready_for_research" ? "Bereit für Recherche" : "Unvollständig"}`, 
+            visible: true 
+          });
+
+          if (navigateToRecherche) {
+            const hasTrademarkName = extractedData.trademarkName && extractedData.trademarkName.trim().length > 0;
+            
+            if (!hasTrademarkName) {
+              setInsufficientInfoData({
+                extractedData,
+                caseId,
+                caseNumber
+              });
+              setShowSummaryModal(false);
+              setShowInsufficientInfoModal(true);
+              return;
+            }
+            
+            setShowSummaryModal(false);
+            router.push(`/dashboard/recherche?caseId=${caseId}`);
+            return;
+          }
         } else {
           const caseResponse = await fetch("/api/cases", {
             method: "POST",
@@ -1324,11 +1427,9 @@ ${notesText}`,
               });
 
               if (navigateToRecherche) {
-                // Intelligente Prüfung: Hat die Beratung genug Informationen für die Recherche?
                 const hasTrademarkName = extractedData.trademarkName && extractedData.trademarkName.trim().length > 0;
                 
                 if (!hasTrademarkName) {
-                  // Nicht genug Informationen - Modal zeigen
                   setInsufficientInfoData({
                     extractedData,
                     caseId,
