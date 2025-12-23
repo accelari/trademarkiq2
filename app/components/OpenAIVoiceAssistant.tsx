@@ -41,9 +41,12 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
     const localStreamRef = useRef<MediaStream | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const pendingQuestionsRef = useRef<string[]>([]);
+    const isInitialLoadRef = useRef(true);
 
     const scrollToBottom = useCallback(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      if (!isInitialLoadRef.current) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
     }, []);
 
     useEffect(() => {
@@ -53,6 +56,11 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
     useEffect(() => {
       if (previousMessages.length > 0 && messages.length === 0) {
         setMessages(previousMessages);
+      }
+      if (isInitialLoadRef.current) {
+        setTimeout(() => {
+          isInitialLoadRef.current = false;
+        }, 500);
       }
     }, [previousMessages, messages.length]);
 
