@@ -235,6 +235,7 @@ export default function CasePage() {
   const [beratungStarted, setBeratungStarted] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [meetingNotes, setMeetingNotes] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [savedMessages, setSavedMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [inputMode, setInputMode] = useState<"sprache" | "text">("sprache");
@@ -292,19 +293,9 @@ export default function CasePage() {
         }),
       });
 
-      for (const msg of meetingNotes) {
-        await fetch(`/api/cases/${caseId}/consultation/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            role: msg.role,
-            content: msg.content,
-          }),
-        });
-      }
-
       setHasUnsavedChanges(false);
       setBeratungStarted(false);
+      setSavedMessages(meetingNotes);
       setMeetingNotes([]);
       mutate();
     } catch (error) {
@@ -319,6 +310,28 @@ export default function CasePage() {
       fetchAccessToken();
     }
   }, [beratungStarted, accessToken, fetchAccessToken]);
+
+  useEffect(() => {
+    const loadSavedMessages = async () => {
+      if (!caseId) return;
+      try {
+        const response = await fetch(`/api/cases/${caseId}/consultation/messages`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.messages && data.messages.length > 0) {
+            const formattedMessages = data.messages.map((msg: any) => ({
+              role: msg.role === "user" ? "user" : "assistant",
+              content: msg.content,
+            }));
+            setSavedMessages(formattedMessages);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading saved messages:", error);
+      }
+    };
+    loadSavedMessages();
+  }, [caseId]);
 
   useEffect(() => {
     const prevAccordion = prevOpenAccordionRef.current;
@@ -347,10 +360,29 @@ export default function CasePage() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges, beratungStarted, meetingNotes.length]);
 
-  const handleMessageSent = useCallback((messages: { role: "user" | "assistant"; content: string }[]) => {
+  const handleMessageSent = useCallback(async (messages: { role: "user" | "assistant"; content: string }[]) => {
+    const prevLength = meetingNotes.length;
     setMeetingNotes(messages);
     setHasUnsavedChanges(true);
-  }, []);
+    
+    if (caseId && messages.length > prevLength) {
+      const newMessages = messages.slice(prevLength);
+      for (const msg of newMessages) {
+        try {
+          await fetch(`/api/cases/${caseId}/consultation/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              role: msg.role,
+              content: msg.content,
+            }),
+          });
+        } catch (error) {
+          console.error("Error saving message:", error);
+        }
+      }
+    }
+  }, [caseId, meetingNotes.length]);
 
   const handleStartBeratung = useCallback(() => {
     setBeratungStarted(true);
@@ -471,14 +503,39 @@ export default function CasePage() {
               </div>
             </div>
           </div>
-          {consultation.summary && (
+          
+          {savedMessages.length > 0 ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <ScrollText className="w-5 h-5 text-teal-600" />
+                <h3 className="font-semibold text-gray-900">Sitzungsprotokoll</h3>
+              </div>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {savedMessages.map((note, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-lg text-sm ${
+                      note.role === "user"
+                        ? "bg-gray-100 text-gray-800"
+                        : "bg-teal-50 text-teal-800 border border-teal-100"
+                    }`}
+                  >
+                    <div className="text-xs font-semibold mb-1 opacity-70">
+                      {note.role === "user" ? "Sie" : "Markenberater"}
+                    </div>
+                    <p className="leading-relaxed">{note.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : consultation.summary ? (
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="text-sm font-medium text-gray-700 mb-2">Zusammenfassung</div>
               <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
                 {consultation.summary}
               </p>
             </div>
-          )}
+          ) : null}
         </div>
       );
     }
