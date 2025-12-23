@@ -74,36 +74,37 @@ export function CaseSummary({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+    <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-100 p-6 shadow-lg">
+      <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-5 flex items-center gap-2">
+        <div className="w-1.5 h-5 bg-gradient-to-b from-teal-400 to-teal-600 rounded-full" />
         Zusammenfassung
       </h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {trademarkName && (
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="text-sm text-gray-500 mb-1">Markenname</div>
-            <div className="text-lg font-semibold text-gray-900">{trademarkName}</div>
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Markenname</div>
+            <div className="text-xl font-bold text-gray-900">{trademarkName}</div>
           </div>
         )}
 
         {countries.length > 0 && (
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="flex items-center gap-1 text-sm text-gray-500 mb-1">
-              <Globe className="w-4 h-4" />
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+              <Globe className="w-3.5 h-3.5 text-teal-500" />
               Länder / Register
             </div>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1.5">
               {countries.slice(0, 3).map((country) => (
                 <span
                   key={country}
-                  className="px-2 py-0.5 bg-white border border-gray-200 rounded text-sm font-medium"
+                  className="px-2.5 py-1 bg-gradient-to-r from-teal-50 to-teal-100 border border-teal-200 rounded-lg text-sm font-semibold text-teal-700"
                 >
                   {country}
                 </span>
               ))}
               {countries.length > 3 && (
-                <span className="px-2 py-0.5 bg-gray-200 rounded text-sm text-gray-600">
+                <span className="px-2.5 py-1 bg-gray-100 rounded-lg text-sm font-medium text-gray-600">
                   +{countries.length - 3}
                 </span>
               )}
@@ -112,22 +113,22 @@ export function CaseSummary({
         )}
 
         {niceClasses.length > 0 && (
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="flex items-center gap-1 text-sm text-gray-500 mb-1">
-              <Tag className="w-4 h-4" />
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+              <Tag className="w-3.5 h-3.5 text-teal-500" />
               Nizza-Klassen
             </div>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1.5">
               {niceClasses.slice(0, 4).map((cls) => (
                 <span
                   key={cls}
-                  className="px-2 py-0.5 bg-white border border-gray-200 rounded text-sm font-medium"
+                  className="px-2.5 py-1 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg text-sm font-semibold text-blue-700"
                 >
                   {cls}
                 </span>
               ))}
               {niceClasses.length > 4 && (
-                <span className="px-2 py-0.5 bg-gray-200 rounded text-sm text-gray-600">
+                <span className="px-2.5 py-1 bg-gray-100 rounded-lg text-sm font-medium text-gray-600">
                   +{niceClasses.length - 4}
                 </span>
               )}
@@ -136,25 +137,24 @@ export function CaseSummary({
         )}
 
         {riskScore !== null && (
-          <div className={`${getRiskBgColor()} rounded-lg p-4`}>
-            <div className="flex items-center gap-1 text-sm text-gray-500 mb-1">
-              <AlertTriangle className="w-4 h-4" />
+          <div className={`${getRiskBgColor()} rounded-xl p-4 shadow-sm border ${riskLevel === 'high' ? 'border-red-200' : riskLevel === 'medium' ? 'border-amber-200' : riskLevel === 'low' ? 'border-green-200' : 'border-gray-200'} hover:shadow-md transition-shadow`}>
+            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+              <AlertTriangle className={`w-3.5 h-3.5 ${getRiskColor()}`} />
               Risikobewertung
             </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-2xl font-bold ${getRiskColor()}`}>
+            <div className="flex items-center gap-3">
+              <span className={`text-3xl font-bold ${getRiskColor()}`}>
                 {riskScore}%
               </span>
-              <div className={`flex items-center gap-1 ${getRiskColor()}`}>
-                {getRiskIcon()}
-                <span className="text-sm font-medium">{getRiskLabel()}</span>
+              <div className={`flex flex-col ${getRiskColor()}`}>
+                <span className="text-sm font-semibold">{getRiskLabel()}</span>
+                {conflictCount > 0 && (
+                  <span className="text-xs text-gray-500">
+                    {conflictCount} Konflikt{conflictCount !== 1 ? "e" : ""}
+                  </span>
+                )}
               </div>
             </div>
-            {conflictCount > 0 && (
-              <div className="text-sm text-gray-600 mt-1">
-                {conflictCount} Konflikt{conflictCount !== 1 ? "e" : ""} gefunden
-              </div>
-            )}
           </div>
         )}
       </div>

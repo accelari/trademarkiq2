@@ -24,7 +24,7 @@ export function WorkflowStepper({ steps, currentStep, onStepClick }: WorkflowSte
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 shadow-lg border border-gray-100">
       <div className="flex items-center justify-between">
         {ACTIVE_STEPS.map((step, index) => {
           const status = getStepStatus(step.id);
@@ -42,24 +42,24 @@ export function WorkflowStepper({ steps, currentStep, onStepClick }: WorkflowSte
                 }`}
               >
                 <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
                     status === "completed"
-                      ? "bg-teal-600 text-white"
+                      ? "bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-lg shadow-teal-500/30"
                       : status === "current"
-                      ? "bg-teal-100 text-teal-600 ring-2 ring-teal-600 ring-offset-2"
-                      : "bg-gray-100 text-gray-400"
-                  } ${isClickable ? "group-hover:scale-105" : ""}`}
+                      ? "bg-gradient-to-br from-teal-400 to-teal-500 text-white shadow-xl shadow-teal-500/40 ring-4 ring-teal-100 scale-110"
+                      : "bg-gray-100 text-gray-400 border border-gray-200"
+                  } ${isClickable ? "group-hover:scale-110 group-hover:shadow-xl" : ""}`}
                 >
                   {status === "completed" ? (
-                    <Check className="w-5 h-5" />
+                    <Check className="w-6 h-6" />
                   ) : status === "current" ? (
-                    <Icon className="w-5 h-5" />
+                    <Icon className="w-6 h-6" />
                   ) : (
-                    <Circle className="w-5 h-5" />
+                    <Icon className="w-5 h-5" />
                   )}
                 </div>
                 <span
-                  className={`mt-2 text-sm font-medium ${
+                  className={`mt-3 text-sm font-semibold transition-colors ${
                     status === "completed"
                       ? "text-teal-600"
                       : status === "current"
@@ -69,14 +69,26 @@ export function WorkflowStepper({ steps, currentStep, onStepClick }: WorkflowSte
                 >
                   {step.name}
                 </span>
+                <span
+                  className={`text-xs mt-0.5 ${
+                    status === "current" ? "text-teal-600" : "text-gray-400"
+                  }`}
+                >
+                  {status === "completed" ? "Erledigt" : status === "current" ? "Aktiv" : "Offen"}
+                </span>
               </button>
 
               {!isLast && (
-                <div
-                  className={`flex-1 h-1 mx-4 rounded ${
-                    status === "completed" ? "bg-teal-600" : "bg-gray-200"
-                  }`}
-                />
+                <div className="flex-1 mx-6 relative">
+                  <div className="h-1 rounded-full bg-gray-200" />
+                  <div
+                    className={`absolute top-0 left-0 h-1 rounded-full transition-all duration-500 ${
+                      status === "completed" 
+                        ? "w-full bg-gradient-to-r from-teal-500 to-teal-600" 
+                        : "w-0"
+                    }`}
+                  />
+                </div>
               )}
             </div>
           );
