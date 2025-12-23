@@ -5,18 +5,11 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { 
-  LayoutDashboard, 
-  Mic, 
-  Users, 
-  Bell, 
-  Handshake,
   Menu,
   X,
   LogOut,
   ChevronRight,
   Loader2,
-  Search,
-  FileText,
   FolderOpen
 } from "lucide-react";
 import { useEffect } from "react";
@@ -24,15 +17,7 @@ import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import { UnsavedDataProvider, useUnsavedData } from "@/app/contexts/UnsavedDataContext";
 
 const baseNavigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Meine Markenfälle", href: "/dashboard/cases", icon: FolderOpen },
-  { name: "Markenberatung", href: "/dashboard/copilot", icon: Mic },
-  { name: "Markenprüfung", href: "/dashboard/recherche", icon: Search },
-  { name: "Markenanmeldung", href: "/dashboard/anmeldung", icon: FileText },
-  { name: "Playbooks", href: "/dashboard/playbooks", icon: FileText },
-  { name: "Watchlist", href: "/dashboard/watchlist", icon: Bell },
-  { name: "Team", href: "/dashboard/team", icon: Users },
-  { name: "Experten", href: "/dashboard/experten", icon: Handshake },
 ];
 
 function Sidebar({ 
