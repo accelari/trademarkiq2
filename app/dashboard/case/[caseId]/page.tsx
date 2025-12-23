@@ -370,6 +370,7 @@ export default function CasePage() {
                       caseId={caseInfo.id}
                       accessToken={accessToken}
                       onComplete={handleConsultationComplete}
+                      caseNumber={caseInfo.caseNumber}
                     />
                   </div>
                 ) : (
