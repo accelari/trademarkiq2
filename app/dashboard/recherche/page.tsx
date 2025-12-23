@@ -4003,83 +4003,8 @@ export default function RecherchePage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                <div className="lg:col-span-3 space-y-4">
-                  <div className="bg-gradient-to-br from-primary/5 to-teal-50 rounded-2xl shadow-sm border border-primary/20 p-5">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-                        <MessageCircle className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h2 className="font-semibold text-gray-900">KI-Markenberater Klaus</h2>
-                        <p className="text-sm text-gray-600">Stellen Sie Fragen zu Ihrer Risikoanalyse</p>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" style={{ minHeight: "400px" }}>
-                      {klausAccessToken ? (
-                        <VoiceProvider>
-                          <VoiceAssistant 
-                            accessToken={klausAccessToken}
-                            contextMessage={`[SYSTEM-KONTEXT für Risikoberatung]\nMARKE: ${searchQuery}\nRISIKO: ${expertAnalysis?.overallRisk || 'unbekannt'}\nKONFLIKTE: ${(expertAnalysis?.conflictAnalyses || []).length} gefunden\nKLASSEN: ${aiSelectedClasses.join(', ') || 'Keine'}\nLÄNDER: ${selectedLaender.join(', ') || 'Keine'}`}
-                            embedded={true}
-                          />
-                        </VoiceProvider>
-                      ) : klausTokenLoading ? (
-                        <div className="flex flex-col items-center justify-center h-full py-12">
-                          <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
-                          <p className="text-sm text-gray-600">Klaus wird vorbereitet...</p>
-                        </div>
-                      ) : klausTokenError ? (
-                        <div className="flex flex-col items-center justify-center h-full py-12">
-                          <div className="mb-4 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg">
-                            {klausTokenError}
-                          </div>
-                          <button
-                            onClick={() => {
-                              setKlausTokenError(null);
-                              setKlausTokenLoading(true);
-                              fetch('/api/token')
-                                .then(res => res.json())
-                                .then(data => {
-                                  if (data.accessToken) {
-                                    setKlausAccessToken(data.accessToken);
-                                  } else {
-                                    throw new Error('Kein Token in Antwort');
-                                  }
-                                })
-                                .catch(err => setKlausTokenError(err.message || 'Fehler beim Laden'))
-                                .finally(() => setKlausTokenLoading(false));
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-                          >
-                            Erneut versuchen
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full py-12">
-                          <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
-                          <p className="text-sm text-gray-600">Klaus wird vorbereitet...</p>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <span className="text-xs text-gray-500">Beispielfragen:</span>
-                      {["Was bedeutet das Risiko?", "Wie kann ich Konflikte vermeiden?", "Welche Klassen sind betroffen?"].map((q, i) => (
-                        <button
-                          key={i}
-                          className="px-3 py-1 text-xs bg-white border border-gray-200 rounded-full hover:border-primary hover:text-primary transition-colors"
-                        >
-                          {q}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="lg:col-span-2">
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-4">
+              <div className="max-w-md mx-auto">
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
                     <div className="text-center mb-6">
                       <AnimatedRiskScore 
                         score={getOverallRiskScore()} 
@@ -4125,41 +4050,40 @@ export default function RecherchePage() {
                       </a>
                     </div>
                   </div>
-                </div>
               </div>
             </div>
           )}
 
-      {hasSearched && (
-        <>
-          <div className="flex items-center justify-between">
-            <p className="text-gray-600">
-              <strong className="text-gray-900">{total}</strong> ähnliche Marken für "<span className="font-medium">{activeSearchQuery}</span>" gefunden
-              {data?.filtered > 0 && <span className="text-gray-500"> ({data.filtered} durch Filter ausgeblendet)</span>}
-            </p>
-          </div>
+          {hasSearched && (
+            <>
+              <div className="flex items-center justify-between">
+                <p className="text-gray-600">
+                  <strong className="text-gray-900">{total}</strong> ähnliche Marken für "<span className="font-medium">{activeSearchQuery}</span>" gefunden
+                  {data?.filtered > 0 && <span className="text-gray-500"> ({data.filtered} durch Filter ausgeblendet)</span>}
+                </p>
+              </div>
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : error ? (
-            <div className="bg-red-50 text-red-700 p-6 rounded-xl text-center">
-              {error.message || "Fehler beim Laden der Marken. Bitte versuchen Sie es erneut."}
-            </div>
-          ) : trademarks.length === 0 ? (
-            <NoResultsFound
-              searchQuery={activeSearchQuery}
-              onStartRegistration={() => window.location.href = `/dashboard/anmeldung?markName=${encodeURIComponent(activeSearchQuery)}`}
-            />
-          ) : (
-            <div className="space-y-4">
-              {trademarks.map((trademark) => (
-                <div
-                  key={trademark.id}
-                  className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 hover:border-gray-200 transition-all cursor-pointer"
-                  onClick={() => setDetailTrademark(trademark)}
-                >
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : error ? (
+                <div className="bg-red-50 text-red-700 p-6 rounded-xl text-center">
+                  {error.message || "Fehler beim Laden der Marken. Bitte versuchen Sie es erneut."}
+                </div>
+              ) : trademarks.length === 0 ? (
+                <NoResultsFound
+                  searchQuery={activeSearchQuery}
+                  onStartRegistration={() => window.location.href = `/dashboard/anmeldung?markName=${encodeURIComponent(activeSearchQuery)}`}
+                />
+              ) : (
+                <div className="space-y-4">
+                  {trademarks.map((trademark) => (
+                    <div
+                      key={trademark.id}
+                      className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 hover:border-gray-200 transition-all cursor-pointer"
+                      onClick={() => setDetailTrademark(trademark)}
+                    >
                   <div className="flex flex-col gap-4">
                     <div className="flex items-start gap-3 sm:gap-4">
                       <div className="flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden">
