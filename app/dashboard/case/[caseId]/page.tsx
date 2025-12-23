@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
-import { VoiceProvider } from "@humeai/voice-react";
 import {
   ArrowLeft,
   ChevronDown,
@@ -23,17 +22,9 @@ import {
   Eye,
   Calendar,
   CheckCircle,
-  Loader2,
-  Mic,
-  Keyboard,
-  HelpCircle,
-  Zap,
-  Info,
-  ScrollText,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
-import VoiceAssistant, { VoiceAssistantHandle } from "@/app/components/VoiceAssistant";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -223,7 +214,7 @@ export default function CasePage() {
   const router = useRouter();
   const caseId = params.caseId as string;
 
-  const { data, error, isLoading, mutate } = useSWR<CaseData>(
+  const { data, error, isLoading } = useSWR<CaseData>(
     caseId ? `/api/cases/${caseId}/full` : null,
     fetcher
   );
@@ -231,132 +222,6 @@ export default function CasePage() {
   const [openAccordion, setOpenAccordion] = useState<string | null>("beratung");
   const [selectedConflict, setSelectedConflict] = useState<ConflictMark | null>(null);
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
-  
-  const [beratungStarted, setBeratungStarted] = useState(false);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [meetingNotes, setMeetingNotes] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [inputMode, setInputMode] = useState<"sprache" | "text">("sprache");
-  const [showHowItWorks, setShowHowItWorks] = useState(false);
-  const voiceAssistantRef = useRef<VoiceAssistantHandle>(null);
-  const beratungStartTimeRef = useRef<Date | null>(null);
-  const prevOpenAccordionRef = useRef<string | null>(openAccordion);
-
-  const fetchAccessToken = useCallback(async () => {
-    try {
-      const response = await fetch("/api/token");
-      if (!response.ok) throw new Error("Failed to fetch token");
-      const data = await response.json();
-      setAccessToken(data.accessToken);
-    } catch (error) {
-      console.error("Error fetching access token:", error);
-    }
-  }, []);
-
-  const saveBeratung = useCallback(async () => {
-    if (!caseId || meetingNotes.length === 0 || isSaving) return;
-    
-    setIsSaving(true);
-    try {
-      const analyzeResponse = await fetch("/api/ai/analyze-consultation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: meetingNotes,
-          trademarkName: data?.case?.trademarkName,
-        }),
-      });
-
-      let analysis = null;
-      if (analyzeResponse.ok) {
-        const analyzeData = await analyzeResponse.json();
-        analysis = analyzeData.analysis;
-      }
-
-      const duration = beratungStartTimeRef.current
-        ? Math.floor((new Date().getTime() - beratungStartTimeRef.current.getTime()) / 1000)
-        : null;
-
-      await fetch(`/api/cases/${caseId}/consultation`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          summary: analysis?.summary || "",
-          extractedData: {
-            trademarkName: analysis?.trademarkName || data?.case?.trademarkName,
-            countries: analysis?.countries || [],
-            niceClasses: analysis?.niceClasses || [],
-          },
-          markComplete: true,
-        }),
-      });
-
-      for (const msg of meetingNotes) {
-        await fetch(`/api/cases/${caseId}/consultation/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            role: msg.role,
-            content: msg.content,
-          }),
-        });
-      }
-
-      setHasUnsavedChanges(false);
-      setBeratungStarted(false);
-      setMeetingNotes([]);
-      mutate();
-    } catch (error) {
-      console.error("Error saving beratung:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [caseId, meetingNotes, isSaving, data?.case?.trademarkName, mutate]);
-
-  useEffect(() => {
-    if (beratungStarted && !accessToken) {
-      fetchAccessToken();
-    }
-  }, [beratungStarted, accessToken, fetchAccessToken]);
-
-  useEffect(() => {
-    const prevAccordion = prevOpenAccordionRef.current;
-    prevOpenAccordionRef.current = openAccordion;
-
-    if (
-      prevAccordion === "beratung" &&
-      openAccordion !== "beratung" &&
-      beratungStarted &&
-      meetingNotes.length > 0 &&
-      hasUnsavedChanges
-    ) {
-      saveBeratung();
-    }
-  }, [openAccordion, beratungStarted, meetingNotes.length, hasUnsavedChanges, saveBeratung]);
-
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges && beratungStarted && meetingNotes.length > 0) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasUnsavedChanges, beratungStarted, meetingNotes.length]);
-
-  const handleMessageSent = useCallback((messages: { role: "user" | "assistant"; content: string }[]) => {
-    setMeetingNotes(messages);
-    setHasUnsavedChanges(true);
-  }, []);
-
-  const handleStartBeratung = useCallback(() => {
-    setBeratungStarted(true);
-    beratungStartTimeRef.current = new Date();
-    fetchAccessToken();
-  }, [fetchAccessToken]);
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -422,31 +287,8 @@ export default function CasePage() {
     }
   };
 
-  const quickQuestions = {
-    grundlagen: [
-      "Was ist eine Marke?",
-      "Welche Markenarten gibt es?",
-      "Was kostet eine Markenanmeldung?",
-      "Wie lange dauert die Eintragung?",
-    ],
-    markenrecherche: [
-      "Ist mein Markenname bereits geschützt?",
-      "Welche Nizza-Klassen benötige ich?",
-      "In welchen Ländern soll ich anmelden?",
-      "Was sind Verwechslungsgefahren?",
-    ],
-  };
-
-  const handleQuickQuestion = (question: string) => {
-    if (accessToken && voiceAssistantRef.current) {
-      voiceAssistantRef.current.sendQuestion(question);
-      setHasUnsavedChanges(true);
-    }
-  };
-
   const renderBeratungContent = () => {
     const isComplete = isStepComplete("beratung");
-    
     if (isComplete && consultation) {
       return (
         <div className="space-y-4">
@@ -482,218 +324,7 @@ export default function CasePage() {
         </div>
       );
     }
-
-    if (beratungStarted) {
-      if (!accessToken) {
-        return (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 text-teal-600 animate-spin" />
-            <span className="ml-3 text-gray-600">Verbindung wird hergestellt...</span>
-          </div>
-        );
-      }
-
-      return (
-        <div className="space-y-4">
-          {isSaving && (
-            <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 flex items-center gap-2">
-              <Loader2 className="w-4 h-4 text-teal-600 animate-spin" />
-              <span className="text-sm text-teal-700">Beratung wird gespeichert...</span>
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Eingabemethode</span>
-              <div className="flex bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setInputMode("sprache")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    inputMode === "sprache"
-                      ? "bg-white text-teal-700 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  <Mic className="w-4 h-4" />
-                  Sprechen
-                </button>
-                <button
-                  onClick={() => setInputMode("text")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    inputMode === "text"
-                      ? "bg-white text-teal-700 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  <Keyboard className="w-4 h-4" />
-                  Tippen
-                </button>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowHowItWorks(!showHowItWorks)}
-              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              <HelpCircle className="w-4 h-4" />
-              So funktioniert's
-              {showHowItWorks ? (
-                <ChevronUp className="w-4 h-4" />
-              ) : (
-                <ChevronDown className="w-4 h-4" />
-              )}
-            </button>
-          </div>
-
-          {showHowItWorks && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div className="space-y-2 text-sm text-blue-800">
-                  <p className="font-medium">So nutzen Sie die KI-Beratung:</p>
-                  <ul className="space-y-1 list-disc list-inside text-blue-700">
-                    <li>Stellen Sie Fragen zur Markenanmeldung per Sprache oder Text</li>
-                    <li>Nutzen Sie die Schnellfragen für häufige Themen</li>
-                    <li>Das Sitzungsprotokoll speichert automatisch alle Gespräche</li>
-                    <li>Klicken Sie "Beratung abschließen" um die Sitzung zu beenden</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-1 bg-white rounded-lg border border-gray-200 p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <MessageCircle className="w-5 h-5 text-teal-600" />
-                <h3 className="font-semibold text-gray-900">Sprachassistent</h3>
-              </div>
-              <VoiceProvider>
-                <VoiceAssistant 
-                  ref={voiceAssistantRef}
-                  accessToken={accessToken}
-                  embedded={true} 
-                  onMessageSent={handleMessageSent}
-                />
-              </VoiceProvider>
-            </div>
-
-            <div className="lg:col-span-1 bg-white rounded-lg border border-gray-200 p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Zap className="w-5 h-5 text-teal-600" />
-                <h3 className="font-semibold text-gray-900">Schnellfragen</h3>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    Grundlagen
-                  </div>
-                  <div className="space-y-2">
-                    {quickQuestions.grundlagen.map((question, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleQuickQuestion(question)}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-700 bg-gray-50 hover:bg-teal-50 hover:text-teal-700 rounded-lg border border-gray-200 hover:border-teal-200 transition-colors"
-                      >
-                        {question}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    Markenrecherche
-                  </div>
-                  <div className="space-y-2">
-                    {quickQuestions.markenrecherche.map((question, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleQuickQuestion(question)}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-700 bg-gray-50 hover:bg-teal-50 hover:text-teal-700 rounded-lg border border-gray-200 hover:border-teal-200 transition-colors"
-                      >
-                        {question}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="lg:col-span-1 bg-white rounded-lg border border-gray-200 p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <ScrollText className="w-5 h-5 text-teal-600" />
-                <h3 className="font-semibold text-gray-900">Sitzungsprotokoll</h3>
-              </div>
-              
-              <div className="space-y-3 max-h-80 overflow-y-auto">
-                {meetingNotes.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400">
-                    <ScrollText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Noch keine Nachrichten</p>
-                  </div>
-                ) : (
-                  meetingNotes.map((note, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded-lg text-sm ${
-                        note.role === "user"
-                          ? "bg-gray-100 text-gray-800"
-                          : "bg-teal-50 text-teal-800 border border-teal-100"
-                      }`}
-                    >
-                      <div className="text-xs font-semibold mb-1 opacity-70">
-                        {note.role === "user" ? "Sie" : "Markenberater"}
-                      </div>
-                      <p className="leading-relaxed">{note.content}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-4 border-t border-gray-200">
-            <button
-              onClick={saveBeratung}
-              disabled={isSaving || meetingNotes.length === 0}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                isSaving || meetingNotes.length === 0
-                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                  : "bg-teal-600 text-white hover:bg-teal-700"
-              }`}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Speichern...
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  Beratung abschließen
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="text-center py-8">
-        <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-        <p className="text-gray-500 mb-4">
-          Starten Sie eine KI-gestützte Beratung zu Ihrer Markenanmeldung.
-        </p>
-        <button
-          onClick={handleStartBeratung}
-          className="px-6 py-3 bg-[#0D9488] text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
-        >
-          Beratung starten
-        </button>
-      </div>
-    );
+    return renderPlaceholder(WORKFLOW_STEPS[0]);
   };
 
   const renderRechercheContent = () => {
