@@ -170,11 +170,6 @@ export const consultations = pgTable("consultations", {
   summary: text("summary").notNull(),
   transcript: text("transcript"),
   sessionProtocol: text("session_protocol"),
-  sessionHistory: jsonb("session_history").$type<Array<{
-    summary: string;
-    createdAt: string;
-    transcript?: string;
-  }>>().default([]),
   duration: integer("duration"),
   mode: varchar("mode", { length: 50 }).default("text"),
   status: varchar("status", { length: 50 }).default("draft"),

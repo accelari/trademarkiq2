@@ -79,7 +79,6 @@ export async function GET(
       },
       messages,
       summary: consultation.summary,
-      sessionHistory: (consultation as any).sessionHistory || [],
       extractedData: consultation.extractedData,
     });
   } catch (error) {
@@ -435,71 +434,5 @@ export async function DELETE(
   } catch (error) {
     console.error("Error deleting consultation:", error);
     return NextResponse.json({ error: "Fehler beim Löschen der Beratung" }, { status: 500 });
-  }
-}
-
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ caseId: string }> }
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
-    }
-
-    const { caseId } = await params;
-    const body = await request.json();
-    const { action } = body;
-
-    if (action !== "new_session") {
-      return NextResponse.json({ error: "Ungültige Aktion" }, { status: 400 });
-    }
-
-    const caseData = await db.query.trademarkCases.findFirst({
-      where: and(
-        eq(trademarkCases.id, caseId),
-        eq(trademarkCases.userId, session.user.id)
-      ),
-    });
-
-    if (!caseData) {
-      return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
-    }
-
-    const existingConsultation = await db.query.consultations.findFirst({
-      where: and(
-        eq(consultations.caseId, caseId),
-        eq(consultations.userId, session.user.id)
-      ),
-      orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
-    });
-
-    if (existingConsultation && existingConsultation.summary) {
-      const currentHistory = (existingConsultation as any).sessionHistory || [];
-      const newHistoryEntry = {
-        summary: existingConsultation.summary,
-        createdAt: existingConsultation.updatedAt?.toISOString() || new Date().toISOString(),
-        transcript: existingConsultation.transcript || undefined,
-      };
-
-      await db
-        .update(consultations)
-        .set({
-          sessionHistory: [...currentHistory, newHistoryEntry],
-          transcript: "[]",
-          summary: "",
-          updatedAt: new Date(),
-        })
-        .where(eq(consultations.id, existingConsultation.id));
-    }
-
-    return NextResponse.json({ 
-      success: true,
-      message: "Neue Sitzung gestartet" 
-    });
-  } catch (error) {
-    console.error("Error starting new session:", error);
-    return NextResponse.json({ error: "Fehler beim Starten der neuen Sitzung" }, { status: 500 });
   }
 }

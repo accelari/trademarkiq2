@@ -76,7 +76,6 @@ export async function GET(
         id: consultation.id,
         title: consultation.title,
         summary: consultation.summary,
-        sessionHistory: (consultation as any).sessionHistory || [],
         duration: consultation.duration,
         mode: consultation.mode,
         createdAt: consultation.createdAt,

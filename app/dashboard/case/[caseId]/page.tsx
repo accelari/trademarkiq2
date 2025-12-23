@@ -334,12 +334,10 @@ export default function CasePage() {
     });
   }, []);
 
-  const handleNewSession = useCallback(async () => {
+  const handleDeleteConsultation = useCallback(async () => {
     try {
       const response = await fetch(`/api/cases/${caseId}/consultation`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "new_session" }),
+        method: "DELETE",
       });
       
       if (response.ok) {
@@ -349,7 +347,7 @@ export default function CasePage() {
         mutate();
       }
     } catch (err) {
-      console.error("Failed to start new session:", err);
+      console.error("Failed to delete consultation:", err);
     }
   }, [caseId, mutate]);
 
@@ -474,8 +472,7 @@ export default function CasePage() {
             onMessageSent={handleMessageSent}
             previousMessages={sessionMessages}
             previousSummary={consultation?.summary || undefined}
-            sessionHistory={consultation?.sessionHistory || []}
-            onNewSession={handleNewSession}
+            onDelete={handleDeleteConsultation}
           />
         </div>
 
