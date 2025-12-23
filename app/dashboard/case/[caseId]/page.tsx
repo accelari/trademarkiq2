@@ -228,6 +228,7 @@ export default function CasePage() {
 
   const { case: caseInfo, consultation, decisions, analysis, steps } = data;
   const isBeratungComplete = steps.beratung.status === "completed" || steps.beratung.status === "skipped";
+  const isBeratungInProgress = steps.beratung.status === "in_progress";
   const isRechercheComplete = steps.recherche.status === "completed" || steps.recherche.status === "skipped";
   const isAnalyseComplete = !!analysis;
 
@@ -326,6 +327,26 @@ export default function CasePage() {
                     </p>
                   </div>
                 )}
+              </div>
+            ) : isBeratungInProgress ? (
+              <div className="text-center py-8">
+                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MessageCircle className="w-6 h-6 text-amber-600" />
+                </div>
+                <p className="text-gray-600 mb-2 font-medium">
+                  Beratung noch nicht abgeschlossen
+                </p>
+                <p className="text-gray-500 text-sm mb-4">
+                  {consultation?.summary 
+                    ? "Die Beratung wurde als Entwurf gespeichert. Es fehlen noch Informationen für die Recherche."
+                    : "Die Beratung wurde begonnen, aber noch nicht vollständig durchgeführt."}
+                </p>
+                <button
+                  onClick={() => router.push(`/dashboard/copilot?caseId=${caseInfo.id}&catchUp=true`)}
+                  className="px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                >
+                  Beratung fortsetzen
+                </button>
               </div>
             ) : (
               <div className="text-center py-8">

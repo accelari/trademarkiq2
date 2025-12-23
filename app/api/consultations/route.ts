@@ -168,7 +168,8 @@ export async function POST(request: NextRequest) {
         .set(updateData)
         .where(eq(trademarkCases.id, validatedCaseId));
 
-      // Mark "beratung" step as completed
+      // Update "beratung" step status based on extracted data completeness
+      const beratungStatus = isComplete ? "completed" : "in_progress";
       const existingBeratungStep = await db.query.caseSteps.findFirst({
         where: and(
           eq(caseSteps.caseId, validatedCaseId),
@@ -177,21 +178,33 @@ export async function POST(request: NextRequest) {
       });
 
       if (existingBeratungStep) {
-        // Update existing step to completed
+        // Only update to completed if we have complete data, otherwise keep in_progress
+        const updateData: Record<string, any> = {
+          status: beratungStatus,
+          metadata: {
+            ...(existingBeratungStep.metadata as object || {}),
+            lastSavedAt: new Date().toISOString(),
+            hasCompleteData: isComplete,
+          },
+        };
+        if (isComplete) {
+          updateData.completedAt = new Date();
+        }
         await db
           .update(caseSteps)
-          .set({
-            status: "completed",
-            completedAt: new Date(),
-          })
+          .set(updateData)
           .where(eq(caseSteps.id, existingBeratungStep.id));
       } else {
-        // Create new step as completed
+        // Create new step with appropriate status
         await db.insert(caseSteps).values({
           caseId: validatedCaseId,
           step: "beratung",
-          status: "completed",
-          completedAt: new Date(),
+          status: beratungStatus,
+          completedAt: isComplete ? new Date() : null,
+          metadata: {
+            lastSavedAt: new Date().toISOString(),
+            hasCompleteData: isComplete,
+          },
         });
       }
     }

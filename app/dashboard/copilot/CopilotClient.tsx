@@ -126,6 +126,8 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     caseId: string | null;
     caseNumber: string | null;
   } | null>(null);
+  const [showMinimalContentModal, setShowMinimalContentModal] = useState(false);
+  const [pendingSaveAction, setPendingSaveAction] = useState<(() => Promise<void>) | null>(null);
   const [welcomeMessage, setWelcomeMessage] = useState<{
     caseNumber: string;
     trademarkName: string | null;
@@ -186,6 +188,18 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
     if (voiceAssistantRef.current) {
       voiceAssistantRef.current.stopSession();
     }
+  }, []);
+
+  const hasSubstantiveContent = useCallback((notes: MeetingNote[]): boolean => {
+    const userAssistantNotes = notes.filter(n => 
+      n.type === "user" || n.type === "assistant"
+    );
+    if (userAssistantNotes.length < 2) return false;
+    const totalChars = userAssistantNotes.reduce((sum, n) => sum + n.content.length, 0);
+    if (totalChars < 50) return false;
+    const userNotes = userAssistantNotes.filter(n => n.type === "user");
+    const hasRealUserInput = userNotes.some(n => n.content.length > 10);
+    return hasRealUserInput;
   }, []);
 
   const runConsultationAnalysisAndSave = useCallback(async (): Promise<{
@@ -344,6 +358,27 @@ export default function CopilotClient({ accessToken, hasVoiceAssistant }: Copilo
 
   const confirmLeaveAndSave = async () => {
     setShowLeaveModal(false);
+    
+    if (!hasSubstantiveContent(meetingNotesRef.current)) {
+      setPendingSaveAction(() => async () => {
+        setIsAnalyzing(true);
+        setToast({ message: "Speichere als Entwurf...", visible: true });
+        const result = await runConsultationAnalysisAndSave();
+        setIsAnalyzing(false);
+        if (result.success) {
+          setToast({ message: "Als Entwurf gespeichert!", visible: true });
+          if (pendingNavigation) {
+            router.push(pendingNavigation);
+            setPendingNavigation(null);
+          }
+        } else {
+          setToast({ message: "Fehler beim Speichern", visible: true });
+        }
+      });
+      setShowMinimalContentModal(true);
+      return;
+    }
+    
     setIsAnalyzing(true);
     setToast({ message: "Analysiere und speichere Beratung...", visible: true });
     
@@ -2245,6 +2280,61 @@ ${notesText}`,
                 className="w-full px-5 py-2.5 text-gray-500 hover:text-gray-700 transition-colors text-sm"
               >
                 Abbrechen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMinimalContentModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowMinimalContentModal(false)}>
+          <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Wenig Inhalt</h2>
+                  <p className="text-white/80 text-sm">Die Beratung enthält kaum Informationen</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-5">
+              <p className="text-gray-600 mb-4">
+                Die Beratung enthält nur wenig Inhalt und kann daher keine sinnvollen Markendaten extrahieren. 
+                Sie können trotzdem als <strong>Entwurf speichern</strong> oder die Beratung fortsetzen.
+              </p>
+              
+              <div className="bg-amber-50 rounded-xl p-4 mb-4 border border-amber-200">
+                <p className="text-sm text-amber-800">
+                  <strong>Tipp:</strong> Beschreiben Sie Ihre Markenidee, die Zielländer und Produktkategorien, damit Klaus Ihnen besser helfen kann.
+                </p>
+              </div>
+            </div>
+            
+            <div className="border-t border-gray-100 p-4 bg-gray-50 flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  setShowMinimalContentModal(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors font-medium"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Beratung fortsetzen
+              </button>
+              <button
+                onClick={async () => {
+                  setShowMinimalContentModal(false);
+                  if (pendingSaveAction) {
+                    await pendingSaveAction();
+                    setPendingSaveAction(null);
+                  }
+                }}
+                className="w-full px-5 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors font-medium"
+              >
+                Trotzdem als Entwurf speichern
               </button>
             </div>
           </div>
