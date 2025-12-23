@@ -445,9 +445,9 @@ export default function CasePage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-teal-600" />
-                <h3 className="font-semibold text-gray-900">Sitzungsprotokoll</h3>
+                <h3 className="font-semibold text-gray-900">Sitzungszusammenfassung</h3>
               </div>
-              {sessionMessages.length > 0 && (
+              {sessionMessages.length > 0 && !sessionSummary && (
                 <button
                   onClick={handleSaveSession}
                   disabled={isSavingSession}
@@ -458,40 +458,39 @@ export default function CasePage() {
                   ) : (
                     <Save className="w-4 h-4" />
                   )}
-                  Speichern
+                  Zusammenfassung erstellen
                 </button>
               )}
             </div>
             
-            {sessionSummary && (
-              <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
-                <div className="text-sm font-medium text-teal-800 mb-1">Zusammenfassung</div>
-                <p className="text-sm text-teal-700">{sessionSummary}</p>
-              </div>
-            )}
-            
-            <div className="flex-1 overflow-y-auto space-y-2 max-h-[400px] pr-1 custom-scrollbar">
-              {sessionMessages.length === 0 ? (
+            <div className="flex-1 overflow-y-auto max-h-[400px] pr-1 custom-scrollbar">
+              {isSavingSession ? (
+                <div className="text-center py-8">
+                  <div className="w-8 h-8 border-3 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-sm text-gray-600">OpenAI erstellt Ihre Zusammenfassung...</p>
+                </div>
+              ) : sessionSummary ? (
+                <div className="space-y-3">
+                  <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
+                    <p className="text-sm text-teal-800 whitespace-pre-wrap leading-relaxed">{sessionSummary}</p>
+                  </div>
+                  {sessionMessages.length > 0 && (
+                    <div className="text-xs text-gray-500 text-center">
+                      Basierend auf {sessionMessages.length} Nachrichten
+                    </div>
+                  )}
+                </div>
+              ) : sessionMessages.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   <FileDown className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-sm">Das Protokoll wird automatisch während des Gesprächs erstellt.</p>
+                  <p className="text-sm">Führen Sie ein Gespräch mit Klaus, dann können Sie eine Zusammenfassung erstellen lassen.</p>
                 </div>
               ) : (
-                sessionMessages.map((msg, idx) => (
-                  <div
-                    key={msg.id || idx}
-                    className={`p-3 rounded-lg text-sm ${
-                      msg.role === "user"
-                        ? "bg-teal-50 border border-teal-100"
-                        : "bg-gray-50 border border-gray-100"
-                    }`}
-                  >
-                    <div className="text-xs font-medium text-gray-500 mb-1">
-                      {msg.role === "user" ? "Sie" : "Klaus"}
-                    </div>
-                    <p className="text-gray-700 whitespace-pre-wrap">{msg.content}</p>
-                  </div>
-                ))
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="w-8 h-8 mx-auto mb-2 text-teal-600" />
+                  <p className="text-sm mb-2">{sessionMessages.length} Nachrichten im Gespräch</p>
+                  <p className="text-xs text-gray-400">Klicken Sie auf "Zusammenfassung erstellen", um eine KI-Zusammenfassung zu generieren.</p>
+                </div>
               )}
             </div>
           </div>

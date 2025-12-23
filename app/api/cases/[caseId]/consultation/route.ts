@@ -122,19 +122,21 @@ export async function POST(
 
     let summary = "";
     try {
-      const anthropicKey = process.env.ANTHROPIC_API_KEY;
-      if (anthropicKey) {
-        const summaryResponse = await fetch("https://api.anthropic.com/v1/messages", {
+      const openaiKey = process.env.OPENAI_API_KEY;
+      if (openaiKey) {
+        const summaryResponse = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": anthropicKey,
-            "anthropic-version": "2023-06-01"
+            "Authorization": `Bearer ${openaiKey}`
           },
           body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
+            model: "gpt-4o-mini",
             max_tokens: 1024,
             messages: [{
+              role: "system",
+              content: "Du bist ein Assistent, der Beratungsgespräche über Markenrecht zusammenfasst. Antworte immer auf Deutsch."
+            }, {
               role: "user",
               content: `Fasse das folgende Beratungsgespräch über Markenrecht zusammen. 
 Erstelle eine strukturierte Zusammenfassung mit:
@@ -146,14 +148,14 @@ Erstelle eine strukturierte Zusammenfassung mit:
 Gespräch:
 ${conversationText}
 
-Zusammenfassung (auf Deutsch):`
+Zusammenfassung:`
             }]
           })
         });
 
         if (summaryResponse.ok) {
           const summaryData = await summaryResponse.json();
-          summary = summaryData.content?.[0]?.text || "";
+          summary = summaryData.choices?.[0]?.message?.content || "";
         }
       }
     } catch (err) {
