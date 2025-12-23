@@ -50,6 +50,12 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
       scrollToBottom();
     }, [messages, currentTranscript, assistantResponse, scrollToBottom]);
 
+    useEffect(() => {
+      if (previousMessages.length > 0 && messages.length === 0) {
+        setMessages(previousMessages);
+      }
+    }, [previousMessages, messages.length]);
+
     const addMessage = useCallback((role: "user" | "assistant", content: string, isTranscription = false) => {
       const newMessage: Message = {
         id: crypto.randomUUID(),
