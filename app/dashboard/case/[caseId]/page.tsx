@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
@@ -13,12 +13,10 @@ import {
   Clock,
   Check,
   Circle,
-  Loader2,
   AlertCircle,
   Globe,
   Tag,
   Sparkles,
-  X,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
@@ -193,30 +191,6 @@ export default function CasePage() {
   const [openAccordion, setOpenAccordion] = useState<string | null>("beratung");
   const [selectedConflict, setSelectedConflict] = useState<ConflictMark | null>(null);
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
-  const [showConsultation, setShowConsultation] = useState(false);
-  const [accessToken, setAccessToken] = useState<string>("");
-  const [isLoadingToken, setIsLoadingToken] = useState(false);
-
-  useEffect(() => {
-    if (showConsultation && !accessToken) {
-      setIsLoadingToken(true);
-      fetch("/api/token")
-        .then(res => res.json())
-        .then(data => {
-          if (data.accessToken) {
-            setAccessToken(data.accessToken);
-          }
-        })
-        .catch(err => console.error("Error fetching token:", err))
-        .finally(() => setIsLoadingToken(false));
-    }
-  }, [showConsultation, accessToken]);
-
-  const handleConsultationComplete = () => {
-    setShowConsultation(false);
-    setAccessToken("");
-    mutate();
-  };
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -247,7 +221,6 @@ export default function CasePage() {
 
   const { case: caseInfo, consultation, decisions, analysis, steps } = data;
   const isBeratungComplete = steps.beratung.status === "completed" || steps.beratung.status === "skipped";
-  const isBeratungInProgress = steps.beratung.status === "in_progress";
   const isRechercheComplete = steps.recherche.status === "completed" || steps.recherche.status === "skipped";
   const isAnalyseComplete = !!analysis;
 
@@ -347,79 +320,15 @@ export default function CasePage() {
                   </div>
                 )}
               </div>
-            ) : showConsultation ? (
-              <div>
-                {isLoadingToken ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
-                    <span className="ml-3 text-gray-600">Lade Beratung...</span>
-                  </div>
-                ) : accessToken ? (
-                  <div className="text-center py-8">
-                    <div className="flex justify-end mb-4">
-                      <button
-                        onClick={() => setShowConsultation(false)}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                        Abbrechen
-                      </button>
-                    </div>
-                    <div className="bg-gray-100 rounded-xl p-8">
-                      <MessageCircle className="w-12 h-12 text-teal-600 mx-auto mb-4" />
-                      <h3 className="font-semibold text-gray-900 mb-2">Beratung in Entwicklung</h3>
-                      <p className="text-gray-600 text-sm">
-                        Die eingebettete Beratungsfunktion wird demnächst verfügbar sein.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-4">
-                      Der Sprachassistent konnte nicht geladen werden.
-                    </p>
-                    <button
-                      onClick={() => setShowConsultation(false)}
-                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      Zurück
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : isBeratungInProgress ? (
-              <div className="text-center py-8">
-                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <MessageCircle className="w-6 h-6 text-amber-600" />
-                </div>
-                <p className="text-gray-600 mb-2 font-medium">
-                  Beratung noch nicht abgeschlossen
-                </p>
-                <p className="text-gray-500 text-sm mb-4">
-                  {consultation?.summary 
-                    ? "Die Beratung wurde als Entwurf gespeichert. Es fehlen noch Informationen für die Recherche."
-                    : "Die Beratung wurde begonnen, aber noch nicht vollständig durchgeführt."}
-                </p>
-                <button
-                  onClick={() => setShowConsultation(true)}
-                  className="px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
-                >
-                  Beratung fortsetzen
-                </button>
-              </div>
             ) : (
               <div className="text-center py-8">
-                <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 mb-4">
-                  Noch keine Beratung durchgeführt
-                </p>
-                <button
-                  onClick={() => setShowConsultation(true)}
-                  className="px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
-                >
-                  Beratung starten
-                </button>
+                <div className="bg-gray-100 rounded-xl p-8">
+                  <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="font-semibold text-gray-900 mb-2">Beratungsfunktion</h3>
+                  <p className="text-gray-600 text-sm">
+                    Die Beratungsfunktion ist in dieser Version nicht verfügbar.
+                  </p>
+                </div>
               </div>
             )}
           </AccordionSection>
@@ -478,16 +387,13 @@ export default function CasePage() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 mb-4">
-                  Noch keine Recherche durchgeführt
-                </p>
-                <button
-                  onClick={() => router.push(`/dashboard/recherche?caseId=${caseInfo.id}`)}
-                  className="px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
-                >
-                  Recherche starten
-                </button>
+                <div className="bg-gray-100 rounded-xl p-8">
+                  <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="font-semibold text-gray-900 mb-2">Recherche</h3>
+                  <p className="text-gray-600 text-sm">
+                    Die Recherchefunktion ist in dieser Version nicht verfügbar.
+                  </p>
+                </div>
               </div>
             )}
           </AccordionSection>
