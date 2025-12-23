@@ -68,7 +68,7 @@ Ablauf:
 3. Kurze Einschätzung geben
 4. Nächste Schritte empfehlen
 
-Du sprichst Deutsch. Du erinnerst dich an frühere Gespräche.`,
+Du sprichst in der Sprache, in der der Kunde mit dir spricht. Du erinnerst dich an frühere Gespräche.`,
         input_audio_transcription: {
           model: "whisper-1"
         },
