@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { trademarkCases, caseSteps, caseEvents } from "@/db/schema";
 
-const CASE_STEPS = ["beratung", "recherche", "risikoanalyse", "anmeldung", "watchlist"];
+const CASE_STEPS = ["beratung", "markenname", "recherche", "analyse", "ueberpruefung", "anmeldung", "kommunikation", "ueberwachung", "fristen"];
 
 function generateCaseNumber(): string {
   const now = new Date();

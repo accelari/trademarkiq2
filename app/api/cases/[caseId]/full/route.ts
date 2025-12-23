@@ -97,10 +97,14 @@ export async function GET(
       } : null,
       steps: {
         beratung: stepMap["beratung"] || defaultStep,
+        markenname: stepMap["markenname"] || defaultStep,
         recherche: stepMap["recherche"] || defaultStep,
-        risikoanalyse: stepMap["risikoanalyse"] || defaultStep,
+        analyse: stepMap["analyse"] || defaultStep,
+        ueberpruefung: stepMap["ueberpruefung"] || defaultStep,
         anmeldung: stepMap["anmeldung"] || defaultStep,
-        watchlist: stepMap["watchlist"] || defaultStep,
+        kommunikation: stepMap["kommunikation"] || defaultStep,
+        ueberwachung: stepMap["ueberwachung"] || defaultStep,
+        fristen: stepMap["fristen"] || defaultStep,
       },
     });
   } catch (error) {
