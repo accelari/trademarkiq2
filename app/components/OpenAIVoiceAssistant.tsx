@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
-import { Mic, MicOff, Phone, PhoneOff, Send, Keyboard, Volume2, Trash2 } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff, Send, Keyboard, Volume2, RotateCcw } from "lucide-react";
 
 interface Message {
   id: string;
@@ -16,18 +16,25 @@ export interface VoiceAssistantHandle {
   isConnected: () => boolean;
 }
 
+interface SessionHistoryEntry {
+  summary: string;
+  createdAt: string;
+  transcript?: string;
+}
+
 interface OpenAIVoiceAssistantProps {
   caseId: string;
   onMessageSent?: (message: Message) => void;
-  onDelete?: () => void;
+  onNewSession?: () => void;
   previousMessages?: Message[];
   previousSummary?: string;
+  sessionHistory?: SessionHistoryEntry[];
 }
 
 const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssistantProps>(
-  ({ caseId, onMessageSent, onDelete, previousMessages = [], previousSummary }, ref) => {
+  ({ caseId, onMessageSent, onNewSession, previousMessages = [], previousSummary, sessionHistory = [] }, ref) => {
     const [isConnected, setIsConnected] = useState(false);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showNewSessionConfirm, setShowNewSessionConfirm] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [inputMode, setInputMode] = useState<"voice" | "text">("voice");
@@ -359,14 +366,14 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
             >
               {inputMode === "voice" ? <Keyboard className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
             </button>
-            {/* Delete Button - only show when there are saved messages */}
-            {previousMessages.length > 0 && onDelete && (
+            {/* New Session Button - only show when there are saved messages */}
+            {previousMessages.length > 0 && onNewSession && (
               <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors"
-                title="Chatverlauf löschen"
+                onClick={() => setShowNewSessionConfirm(true)}
+                className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-teal-100 hover:text-teal-600 transition-colors"
+                title="Neue Sitzung starten"
               >
-                <Trash2 className="w-5 h-5" />
+                <RotateCcw className="w-5 h-5" />
               </button>
             )}
           </div>
@@ -498,34 +505,34 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
           )}
         </div>
 
-        {/* Delete Confirmation Modal */}
-        {showDeleteConfirm && (
+        {/* New Session Confirmation Modal */}
+        {showNewSessionConfirm && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg z-50">
             <div className="bg-white rounded-lg p-6 m-4 max-w-sm shadow-xl">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                  <Trash2 className="w-5 h-5 text-red-600" />
+                <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center">
+                  <RotateCcw className="w-5 h-5 text-teal-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Chatverlauf löschen?</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Neue Sitzung starten?</h3>
               </div>
               <p className="text-gray-600 text-sm mb-4">
-                Der gesamte Chatverlauf mit Klaus wird gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+                Die aktuelle Zusammenfassung wird archiviert und ein neuer Chat gestartet. Alle bisherigen Zusammenfassungen bleiben erhalten.
               </p>
               <div className="flex gap-3 justify-end">
                 <button
-                  onClick={() => setShowDeleteConfirm(false)}
+                  onClick={() => setShowNewSessionConfirm(false)}
                   className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors rounded-lg border border-gray-300"
                 >
                   Abbrechen
                 </button>
                 <button
                   onClick={() => {
-                    setShowDeleteConfirm(false);
-                    onDelete?.();
+                    setShowNewSessionConfirm(false);
+                    onNewSession?.();
                   }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
                 >
-                  Ja, löschen
+                  Ja, neue Sitzung
                 </button>
               </div>
             </div>
