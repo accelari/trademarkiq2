@@ -79,6 +79,13 @@ export async function GET(
         duration: consultation.duration,
         mode: consultation.mode,
         createdAt: consultation.createdAt,
+        messages: consultation.transcript ? (() => {
+          try {
+            return JSON.parse(consultation.transcript);
+          } catch {
+            return [];
+          }
+        })() : [],
       } : null,
       decisions: latestDecision ? {
         trademarkNames: latestDecision.trademarkNames,

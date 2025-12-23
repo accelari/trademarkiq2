@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
@@ -61,6 +61,12 @@ interface CaseData {
     duration: number | null;
     mode: string;
     createdAt: string;
+    messages: Array<{
+      id: string;
+      role: "user" | "assistant";
+      content: string;
+      timestamp: string;
+    }>;
   } | null;
   decisions: {
     trademarkNames: string[];
@@ -231,6 +237,17 @@ export default function CasePage() {
   const [sessionMessages, setSessionMessages] = useState<any[]>([]);
   const [isSavingSession, setIsSavingSession] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<string | null>(null);
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
+
+  useEffect(() => {
+    if (data?.consultation?.messages && !messagesLoaded) {
+      setSessionMessages(data.consultation.messages);
+      setMessagesLoaded(true);
+      if (data.consultation.summary) {
+        setSessionSummary(data.consultation.summary);
+      }
+    }
+  }, [data?.consultation, messagesLoaded]);
 
   const QUICK_QUESTIONS = [
     "Welche Schritte sind für eine Markenanmeldung in Deutschland erforderlich?",
