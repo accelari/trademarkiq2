@@ -133,7 +133,8 @@ describe("API Integration Tests - Consultations", () => {
     });
 
     it("should default to text mode", () => {
-      const mode = undefined ?? "text";
+      const inputMode: string | undefined = undefined;
+      const mode = inputMode ?? "text";
       expect(mode).toBe("text");
     });
   });
