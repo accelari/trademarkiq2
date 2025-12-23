@@ -342,7 +342,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] max-h-[400px] custom-scrollbar">
           {messages.length === 0 && !isConnected && (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <Phone className="w-12 h-12 mb-4 text-gray-300" />
