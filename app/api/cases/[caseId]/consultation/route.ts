@@ -178,15 +178,12 @@ Zusammenfassung (auf Deutsch):`
     const duration = messages.length * 15;
 
     if (existingConsultation) {
-      const existingMessages = parseMessages(existingConsultation.transcript);
-      const allMessages = [...existingMessages, ...messages];
-      
       const [updated] = await db
         .update(consultations)
         .set({
-          transcript: JSON.stringify(allMessages),
+          transcript: JSON.stringify(messages),
           summary,
-          duration: (existingConsultation.duration || 0) + duration,
+          duration: messages.length * 15,
           updatedAt: new Date(),
         })
         .where(eq(consultations.id, existingConsultation.id))

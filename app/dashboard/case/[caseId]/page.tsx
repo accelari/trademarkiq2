@@ -263,7 +263,11 @@ export default function CasePage() {
   }, []);
 
   const handleMessageSent = useCallback((message: any) => {
-    setSessionMessages(prev => [...prev, message]);
+    setSessionMessages(prev => {
+      const exists = prev.some(m => m.id === message.id);
+      if (exists) return prev;
+      return [...prev, message];
+    });
   }, []);
 
   const handleSaveSession = useCallback(async () => {
