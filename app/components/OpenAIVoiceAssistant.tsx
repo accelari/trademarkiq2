@@ -355,11 +355,12 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
       setShowMenu(false);
       disconnect();
       setMessages([]);
+      // Delete old session from database
       await onDelete?.();
-      // Start new session automatically
+      // Wait for data refresh, then start new session
       setTimeout(() => {
         connect();
-      }, 100);
+      }, 500);
     }, [disconnect, onDelete, connect]);
 
     return (
