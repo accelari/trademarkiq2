@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
@@ -18,9 +18,11 @@ import {
   Globe,
   Tag,
   Sparkles,
+  X,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
+import { EmbeddedConsultation } from "@/app/components/cases/EmbeddedConsultation";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -184,7 +186,7 @@ export default function CasePage() {
   const router = useRouter();
   const caseId = params.caseId as string;
 
-  const { data, error, isLoading } = useSWR<CaseData>(
+  const { data, error, isLoading, mutate } = useSWR<CaseData>(
     caseId ? `/api/cases/${caseId}/full` : null,
     fetcher
   );
@@ -192,6 +194,30 @@ export default function CasePage() {
   const [openAccordion, setOpenAccordion] = useState<string | null>("beratung");
   const [selectedConflict, setSelectedConflict] = useState<ConflictMark | null>(null);
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
+  const [showConsultation, setShowConsultation] = useState(false);
+  const [accessToken, setAccessToken] = useState<string>("");
+  const [isLoadingToken, setIsLoadingToken] = useState(false);
+
+  useEffect(() => {
+    if (showConsultation && !accessToken) {
+      setIsLoadingToken(true);
+      fetch("/api/token")
+        .then(res => res.json())
+        .then(data => {
+          if (data.accessToken) {
+            setAccessToken(data.accessToken);
+          }
+        })
+        .catch(err => console.error("Error fetching token:", err))
+        .finally(() => setIsLoadingToken(false));
+    }
+  }, [showConsultation, accessToken]);
+
+  const handleConsultationComplete = () => {
+    setShowConsultation(false);
+    setAccessToken("");
+    mutate();
+  };
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -322,6 +348,45 @@ export default function CasePage() {
                   </div>
                 )}
               </div>
+            ) : showConsultation ? (
+              <div>
+                {isLoadingToken ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+                    <span className="ml-3 text-gray-600">Lade Beratung...</span>
+                  </div>
+                ) : accessToken ? (
+                  <div>
+                    <div className="flex justify-end mb-4">
+                      <button
+                        onClick={() => setShowConsultation(false)}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                        Abbrechen
+                      </button>
+                    </div>
+                    <EmbeddedConsultation
+                      caseId={caseInfo.id}
+                      accessToken={accessToken}
+                      onComplete={handleConsultationComplete}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">
+                      Der Sprachassistent konnte nicht geladen werden.
+                    </p>
+                    <button
+                      onClick={() => setShowConsultation(false)}
+                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      Zurück
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : isBeratungInProgress ? (
               <div className="text-center py-8">
                 <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -336,7 +401,7 @@ export default function CasePage() {
                     : "Die Beratung wurde begonnen, aber noch nicht vollständig durchgeführt."}
                 </p>
                 <button
-                  onClick={() => router.push(`/dashboard/copilot?caseId=${caseInfo.id}&catchUp=true`)}
+                  onClick={() => setShowConsultation(true)}
                   className="px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
                 >
                   Beratung fortsetzen
@@ -349,7 +414,7 @@ export default function CasePage() {
                   Noch keine Beratung durchgeführt
                 </p>
                 <button
-                  onClick={() => router.push(`/dashboard/copilot?caseId=${caseInfo.id}`)}
+                  onClick={() => setShowConsultation(true)}
                   className="px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
                 >
                   Beratung starten
