@@ -357,7 +357,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <Phone className="w-12 h-12 mb-4 text-gray-300" />
               <p className="text-center">
-                Klicken Sie auf "Beratung starten" um mit Klaus zu sprechen.
+                Klicken Sie auf "{previousMessages.length > 0 ? 'Beratung fortsetzen' : 'Beratung starten'}" um mit Klaus zu sprechen.
               </p>
             </div>
           )}
@@ -427,7 +427,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
               ) : (
                 <>
                   <Phone className="w-5 h-5" />
-                  Beratung starten
+                  {previousMessages.length > 0 ? 'Beratung fortsetzen' : 'Beratung starten'}
                 </>
               )}
             </button>
