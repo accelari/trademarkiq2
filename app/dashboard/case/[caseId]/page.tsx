@@ -5,22 +5,22 @@ import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
   ArrowLeft,
+  ChevronDown,
+  ChevronUp,
   MessageCircle,
   Search,
   BarChart3,
-  AlertCircle,
-  Loader2,
-  ExternalLink,
   Clock,
-  CheckCircle2,
-  XCircle,
-  Info,
+  Check,
+  Circle,
+  Loader2,
+  AlertCircle,
+  Globe,
+  Tag,
+  Sparkles,
 } from "lucide-react";
-import { WorkflowAccordion } from "@/app/components/cases/WorkflowAccordion";
-import { CaseSummary } from "@/app/components/cases/CaseSummary";
-import { BeratungModal } from "@/app/components/cases/BeratungModal";
+import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
-import { ACTIVE_STEPS, WorkflowStepId, StepState } from "@/lib/workflow-steps";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -30,6 +30,12 @@ const fetcher = async (url: string) => {
   }
   return res.json();
 };
+
+interface StepStatus {
+  status: string;
+  completedAt: Date | null;
+  skippedAt: Date | null;
+}
 
 interface CaseData {
   case: {
@@ -81,20 +87,77 @@ interface CaseData {
     }[];
     searchTermsUsed: string[];
   } | null;
-  steps: Record<WorkflowStepId, StepState>;
+  steps: {
+    beratung: StepStatus;
+    recherche: StepStatus;
+    risikoanalyse: StepStatus;
+    anmeldung: StepStatus;
+    watchlist: StepStatus;
+  };
+}
+
+function AccordionSection({
+  title,
+  icon: Icon,
+  isCompleted,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  title: string;
+  icon: React.ElementType;
+  isCompleted: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+            isCompleted ? "bg-teal-100 text-teal-600" : "bg-gray-100 text-gray-400"
+          }`}>
+            {isCompleted ? <Check className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
+          </div>
+          <Icon className={`w-5 h-5 ${isCompleted ? "text-teal-600" : "text-gray-400"}`} />
+          <span className="font-semibold text-gray-900">{title}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-medium px-2 py-1 rounded ${
+            isCompleted ? "bg-teal-100 text-teal-700" : "bg-gray-100 text-gray-500"
+          }`}>
+            {isCompleted ? "Abgeschlossen" : "Ausstehend"}
+          </span>
+          {isOpen ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </div>
+      </button>
+      {isOpen && (
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+          {children}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function LoadingSkeleton() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-gray-200 rounded w-48"></div>
-          <div className="h-24 bg-gray-200 rounded-xl"></div>
-          <div className="h-16 bg-gray-200 rounded-xl"></div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="h-12 bg-gray-200 rounded w-64"></div>
+          <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-48 bg-gray-200 rounded-xl"></div>
+              <div key={i} className="h-16 bg-gray-200 rounded-xl"></div>
             ))}
           </div>
         </div>
@@ -125,13 +188,14 @@ export default function CasePage() {
   const router = useRouter();
   const caseId = params.caseId as string;
 
-  const { data, error, isLoading, mutate } = useSWR<CaseData>(
+  const { data, error, isLoading } = useSWR<CaseData>(
     caseId ? `/api/cases/${caseId}/full` : null,
     fetcher
   );
 
-  const [showBeratungModal, setShowBeratungModal] = useState(false);
+  const [openAccordion, setOpenAccordion] = useState<string | null>("beratung");
   const [selectedConflict, setSelectedConflict] = useState<ConflictMark | null>(null);
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -140,7 +204,7 @@ export default function CasePage() {
   if (error || !data) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <button
             onClick={() => router.push("/dashboard")}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
@@ -163,33 +227,10 @@ export default function CasePage() {
   }
 
   const { case: caseInfo, consultation, decisions, analysis, steps } = data;
-  
-  const stepStates: Record<WorkflowStepId, StepState> = {
-    beratung: steps.beratung || { status: "pending", completedAt: null, skippedAt: null },
-    recherche: steps.recherche || { status: "pending", completedAt: null, skippedAt: null },
-    analyse: steps.risikoanalyse || { status: analysis ? "completed" : "pending", completedAt: null, skippedAt: null },
-    anmeldung: steps.anmeldung || { status: "pending", completedAt: null, skippedAt: null },
-    watchlist: steps.watchlist || { status: "pending", completedAt: null, skippedAt: null },
-  };
-
-  const isBeratungComplete = stepStates.beratung.status === "completed" || stepStates.beratung.status === "skipped";
-  const isBeratungInProgress = stepStates.beratung.status === "in_progress";
-  const isRechercheComplete = stepStates.recherche.status === "completed" || stepStates.recherche.status === "skipped";
-  const hasAnalysis = !!analysis;
-
-  const trademarkName = caseInfo.trademarkName || decisions?.trademarkNames?.[0] || analysis?.searchQuery?.trademarkName || null;
-  const countries = decisions?.countries || analysis?.searchQuery?.countries || [];
-  const niceClasses = decisions?.niceClasses || analysis?.searchQuery?.niceClasses || [];
-
-  const effectiveRiskScore = analysis ? (
-    analysis.riskScore > 0 ? analysis.riskScore : 
-    (analysis.conflicts?.length > 0 ? Math.max(...analysis.conflicts.map(c => c.accuracy || 0)) : 0)
-  ) : null;
-  
-  const effectiveRiskLevel = analysis ? (
-    analysis.riskScore > 0 ? analysis.riskLevel :
-    (effectiveRiskScore !== null ? (effectiveRiskScore >= 80 ? "high" : effectiveRiskScore >= 60 ? "medium" : "low") : null)
-  ) : null;
+  const isBeratungComplete = steps.beratung.status === "completed" || steps.beratung.status === "skipped";
+  const isBeratungInProgress = steps.beratung.status === "in_progress";
+  const isRechercheComplete = steps.recherche.status === "completed" || steps.recherche.status === "skipped";
+  const isAnalyseComplete = !!analysis;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -217,18 +258,9 @@ export default function CasePage() {
     }
   };
 
-  const handleStartBeratung = () => {
-    setShowBeratungModal(false);
-    router.push(`/dashboard/copilot?caseId=${caseId}`);
-  };
-
-  const handleNavigateToRecherche = () => {
-    router.push(`/dashboard/recherche?caseId=${caseId}`);
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <button
           onClick={() => router.push("/dashboard")}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
@@ -242,7 +274,7 @@ export default function CasePage() {
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {trademarkName || "Unbenannter Fall"}
+                  {caseInfo.trademarkName || "Unbenannter Fall"}
                 </h1>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadge(caseInfo.status)}`}>
                   {getStatusLabel(caseInfo.status)}
@@ -256,216 +288,299 @@ export default function CasePage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <WorkflowStepper steps={stepStates} />
-        </div>
-
-        <CaseSummary
-          trademarkName={trademarkName}
-          countries={countries}
-          niceClasses={niceClasses}
-          riskScore={effectiveRiskScore}
-          riskLevel={effectiveRiskLevel}
-          conflictCount={analysis?.conflicts?.length || 0}
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-          <StepCard
-            title="Beratung"
-            description="KI-Markenberater"
+        <div className="space-y-4">
+          <AccordionSection
+            title="KI-Markenberater"
             icon={MessageCircle}
-            status={stepStates.beratung}
-            ctaLabel={isBeratungComplete ? "Ansehen" : isBeratungInProgress ? "Fortsetzen" : "Starten"}
-            onCtaClick={() => {
-              if (isBeratungComplete && consultation) {
-                router.push(`/dashboard/copilot?caseId=${caseId}`);
-              } else {
-                setShowBeratungModal(true);
-              }
-            }}
+            isCompleted={isBeratungComplete}
+            isOpen={openAccordion === "beratung"}
+            onToggle={() => setOpenAccordion(openAccordion === "beratung" ? null : "beratung")}
           >
-            {consultation && (
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Clock className="w-4 h-4" />
-                  Dauer: {formatDuration(consultation.duration)}
+            {isBeratungComplete && consultation ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-xs text-gray-500 mb-1">Dauer</div>
+                    <div className="font-semibold text-gray-900 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-teal-600" />
+                      {formatDuration(consultation.duration)}
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-xs text-gray-500 mb-1">Modus</div>
+                    <div className="font-semibold text-gray-900 capitalize">
+                      {consultation.mode === "voice" ? "Sprache" : "Text"}
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-xs text-gray-500 mb-1">Datum</div>
+                    <div className="font-semibold text-gray-900">
+                      {formatGermanDate(consultation.createdAt)}
+                    </div>
+                  </div>
                 </div>
                 {consultation.summary && (
-                  <p className="text-gray-600 line-clamp-2">{consultation.summary}</p>
-                )}
-              </div>
-            )}
-          </StepCard>
-
-          <StepCard
-            title="Recherche"
-            description="Markensuche"
-            icon={Search}
-            status={stepStates.recherche}
-            ctaLabel={isRechercheComplete ? "Ansehen" : "Zur Recherche"}
-            onCtaClick={handleNavigateToRecherche}
-          >
-            {analysis && (
-              <div className="space-y-2 text-sm">
-                <div className="text-gray-600">
-                  Suche: <span className="font-medium">{analysis.searchQuery.trademarkName}</span>
-                </div>
-                {analysis.searchTermsUsed?.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {analysis.searchTermsUsed.slice(0, 3).map((term, i) => (
-                      <span key={i} className="px-2 py-0.5 bg-gray-100 rounded text-xs">
-                        {term}
-                      </span>
-                    ))}
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-sm font-medium text-gray-700 mb-2">Zusammenfassung</div>
+                    <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
+                      {consultation.summary}
+                    </p>
                   </div>
                 )}
               </div>
-            )}
-          </StepCard>
-
-          <StepCard
-            title="Analyse"
-            description="Risikoauswertung"
-            icon={BarChart3}
-            status={{ 
-              status: hasAnalysis ? "completed" : "pending", 
-              completedAt: null, 
-              skippedAt: null 
-            }}
-          >
-            {hasAnalysis && effectiveRiskScore !== null ? (
-              <div className="flex items-center gap-3">
-                <div className={`text-2xl font-bold ${
-                  effectiveRiskLevel === "high" ? "text-red-600" :
-                  effectiveRiskLevel === "medium" ? "text-amber-600" : "text-green-600"
-                }`}>
-                  {effectiveRiskScore}%
+            ) : isBeratungInProgress ? (
+              <div className="text-center py-8">
+                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MessageCircle className="w-6 h-6 text-amber-600" />
                 </div>
-                <div className="text-sm text-gray-600">
-                  {analysis.conflicts?.length || 0} Konflikte
-                </div>
+                <p className="text-gray-600 mb-2 font-medium">
+                  Beratung noch nicht abgeschlossen
+                </p>
+                <p className="text-gray-500 text-sm mb-4">
+                  {consultation?.summary 
+                    ? "Die Beratung wurde als Entwurf gespeichert. Es fehlen noch Informationen für die Recherche."
+                    : "Die Beratung wurde begonnen, aber noch nicht vollständig durchgeführt."}
+                </p>
+                <button
+                  onClick={() => router.push(`/dashboard/copilot?caseId=${caseInfo.id}&catchUp=true`)}
+                  className="px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                >
+                  Beratung fortsetzen
+                </button>
               </div>
             ) : (
-              <p className="text-sm text-gray-500">
-                Wird nach der Recherche erstellt
-              </p>
+              <div className="text-center py-8">
+                <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 mb-4">
+                  Noch keine Beratung durchgeführt
+                </p>
+                <button
+                  onClick={() => router.push(`/dashboard/copilot?caseId=${caseInfo.id}`)}
+                  className="px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                >
+                  Beratung starten
+                </button>
+              </div>
             )}
-          </StepCard>
+          </AccordionSection>
+
+          <AccordionSection
+            title="Recherche"
+            icon={Search}
+            isCompleted={isRechercheComplete}
+            isOpen={openAccordion === "recherche"}
+            onToggle={() => setOpenAccordion(openAccordion === "recherche" ? null : "recherche")}
+          >
+            {isRechercheComplete && (decisions || analysis) ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+                      <Tag className="w-3 h-3" />
+                      Markenname
+                    </div>
+                    <div className="font-semibold text-gray-900">
+                      {analysis?.searchQuery?.trademarkName || decisions?.trademarkNames?.[0] || caseInfo.trademarkName || "-"}
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+                      <Globe className="w-3 h-3" />
+                      Länder
+                    </div>
+                    <div className="font-semibold text-gray-900">
+                      {(analysis?.searchQuery?.countries || decisions?.countries || []).join(", ") || "-"}
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-xs text-gray-500 mb-1">Nizza-Klassen</div>
+                    <div className="font-semibold text-gray-900">
+                      {(analysis?.searchQuery?.niceClasses || decisions?.niceClasses || []).map(c => `${c}`).join(", ") || "-"}
+                    </div>
+                  </div>
+                </div>
+
+                {analysis?.searchTermsUsed && analysis.searchTermsUsed.length > 0 && (
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-sm font-medium text-gray-700 mb-2">Verwendete Suchbegriffe</div>
+                    <div className="flex flex-wrap gap-2">
+                      {analysis.searchTermsUsed.map((term, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-lg font-medium"
+                        >
+                          {term}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 mb-4">
+                  Noch keine Recherche durchgeführt
+                </p>
+                <button
+                  onClick={() => router.push(`/dashboard/recherche?caseId=${caseInfo.id}`)}
+                  className="px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                >
+                  Recherche starten
+                </button>
+              </div>
+            )}
+          </AccordionSection>
+
+          <AccordionSection
+            title="Analyse"
+            icon={BarChart3}
+            isCompleted={isAnalyseComplete}
+            isOpen={openAccordion === "analyse"}
+            onToggle={() => setOpenAccordion(openAccordion === "analyse" ? null : "analyse")}
+          >
+            {isAnalyseComplete && analysis ? (() => {
+              const maxConflictAccuracy = analysis.conflicts?.length > 0
+                ? Math.max(...analysis.conflicts.map((c: ConflictMark) => c.accuracy || 0))
+                : 0;
+              const effectiveRiskScore = analysis.riskScore > 0 ? analysis.riskScore : maxConflictAccuracy;
+              const effectiveRiskLevel = analysis.riskScore > 0 
+                ? analysis.riskLevel 
+                : (maxConflictAccuracy >= 80 ? "high" : maxConflictAccuracy >= 60 ? "medium" : "low") as "high" | "medium" | "low";
+              
+              return (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  <AnimatedRiskScore
+                    score={effectiveRiskScore}
+                    risk={effectiveRiskLevel}
+                    size="large"
+                  />
+                  <div className="flex-1 text-center sm:text-left">
+                    <div className="text-sm text-gray-500 mb-1">Konflikte gefunden</div>
+                    <div className="text-3xl font-bold text-gray-900">
+                      {analysis.conflicts?.length || 0}
+                    </div>
+                    <p className="text-sm text-gray-600 mt-2">
+                      {effectiveRiskLevel === "high" 
+                        ? "Es wurden kritische Konflikte identifiziert."
+                        : effectiveRiskLevel === "medium"
+                        ? "Es gibt potenzielle Risiken zu beachten."
+                        : "Geringe Konfliktwahrscheinlichkeit."}
+                    </p>
+                  </div>
+                </div>
+
+                {analysis.conflicts && analysis.conflicts.length > 0 && (
+                  <div>
+                    <div className="text-sm font-medium text-gray-700 mb-3">Gefundene Konflikte</div>
+                    <div className="space-y-2 max-h-80 overflow-y-auto">
+                      {analysis.conflicts.map((conflict, idx) => (
+                        <ConflictCard
+                          key={conflict.id || idx}
+                          conflict={conflict}
+                          onShowDetail={setSelectedConflict}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {analysis.aiAnalysis && (
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <button
+                      onClick={() => setShowFullAnalysis(!showFullAnalysis)}
+                      className="w-full flex items-center justify-between text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-teal-600" />
+                        <span className="text-sm font-medium text-gray-700">KI-Analyse</span>
+                      </div>
+                      {showFullAnalysis ? (
+                        <ChevronUp className="w-4 h-4 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-gray-400" />
+                      )}
+                    </button>
+                    {showFullAnalysis && (
+                      <div className="mt-4 space-y-4 text-sm text-gray-600">
+                        {analysis.aiAnalysis.nameAnalysis && (
+                          <div>
+                            <div className="font-medium text-gray-700 mb-1">Namensanalyse</div>
+                            <p className="leading-relaxed">{analysis.aiAnalysis.nameAnalysis}</p>
+                          </div>
+                        )}
+                        {analysis.aiAnalysis.riskAssessment && (
+                          <div>
+                            <div className="font-medium text-gray-700 mb-1">Risikobewertung</div>
+                            <p className="leading-relaxed">{analysis.aiAnalysis.riskAssessment}</p>
+                          </div>
+                        )}
+                        {analysis.aiAnalysis.recommendation && (
+                          <div>
+                            <div className="font-medium text-gray-700 mb-1">Empfehlung</div>
+                            <p className="leading-relaxed">{analysis.aiAnalysis.recommendation}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {analysis.alternativeNames && analysis.alternativeNames.length > 0 && (
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-sm font-medium text-gray-700 mb-3">Alternative Namen</div>
+                    <div className="space-y-2">
+                      {analysis.alternativeNames.map((alt, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                        >
+                          <span className="font-medium text-gray-900">{alt.name}</span>
+                          <div className="flex items-center gap-3">
+                            <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                              alt.riskLevel === "low" ? "bg-teal-100 text-teal-700" :
+                              alt.riskLevel === "medium" ? "bg-orange-100 text-orange-700" :
+                              alt.riskLevel === "high" ? "bg-red-100 text-red-700" :
+                              "bg-gray-100 text-gray-600"
+                            }`}>
+                              {alt.riskScore}%
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {alt.conflictCount} Konflikte
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              );
+            })() : (
+              <div className="text-center py-8">
+                <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 mb-4">
+                  Noch keine Analyse durchgeführt
+                </p>
+                <button
+                  onClick={() => router.push(`/dashboard/recherche?caseId=${caseInfo.id}`)}
+                  className="px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                >
+                  Analyse durchführen
+                </button>
+              </div>
+            )}
+          </AccordionSection>
         </div>
 
-        {hasAnalysis && analysis.conflicts && analysis.conflicts.length > 0 && (
-          <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Gefundene Konflikte ({analysis.conflicts.length})
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {analysis.conflicts.slice(0, 4).map((conflict) => (
-                <ConflictCard
-                  key={conflict.id}
-                  conflict={conflict}
-                  onClick={() => setSelectedConflict(conflict)}
-                />
-              ))}
-            </div>
-            {analysis.conflicts.length > 4 && (
-              <button
-                onClick={handleNavigateToRecherche}
-                className="mt-4 text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1"
-              >
-                Alle {analysis.conflicts.length} Konflikte anzeigen
-                <ExternalLink className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        )}
-
-        {hasAnalysis && analysis.aiAnalysis && (
-          <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              KI-Bewertung
-            </h3>
-            
-            {analysis.aiAnalysis.famousMarkDetected && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-red-800">Bekannte Marke erkannt</div>
-                  <p className="text-sm text-red-700">
-                    {analysis.aiAnalysis.famousMarkNames.join(", ")} - Hohes Konfliktrisiko
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="prose prose-sm max-w-none text-gray-600">
-              <p>{analysis.aiAnalysis.recommendation}</p>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">Empfehlung:</span>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  analysis.aiAnalysis.overallRisk === "high" 
-                    ? "bg-red-100 text-red-700"
-                    : analysis.aiAnalysis.overallRisk === "medium"
-                    ? "bg-amber-100 text-amber-700"
-                    : "bg-green-100 text-green-700"
-                }`}>
-                  {analysis.aiAnalysis.overallRisk === "high" 
-                    ? "Nicht empfohlen" 
-                    : analysis.aiAnalysis.overallRisk === "medium"
-                    ? "Mit Vorsicht fortfahren"
-                    : "Empfohlen"}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {hasAnalysis && analysis.alternativeNames && analysis.alternativeNames.length > 0 && (
-          <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Alternative Namensvorschläge
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {analysis.alternativeNames.slice(0, 6).map((alt, i) => (
-                <div 
-                  key={i}
-                  className="p-3 bg-gray-50 rounded-lg border border-gray-200"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-gray-900">{alt.name}</span>
-                    <span className={`text-sm font-medium ${
-                      alt.riskLevel === "low" ? "text-green-600" :
-                      alt.riskLevel === "medium" ? "text-amber-600" : "text-red-600"
-                    }`}>
-                      {alt.riskScore}%
-                    </span>
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {alt.conflictCount} Konflikt{alt.conflictCount !== 1 ? "e" : ""}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {selectedConflict && (
+          <ConflictDetailModal
+            conflict={selectedConflict}
+            onClose={() => setSelectedConflict(null)}
+          />
         )}
       </div>
-
-      <BeratungModal
-        isOpen={showBeratungModal}
-        onClose={() => setShowBeratungModal(false)}
-        caseId={caseId}
-        caseNumber={caseInfo.caseNumber}
-        onStartBeratung={handleStartBeratung}
-      />
-
-      {selectedConflict && (
-        <ConflictDetailModal
-          conflict={selectedConflict}
-          onClose={() => setSelectedConflict(null)}
-        />
-      )}
     </div>
   );
 }

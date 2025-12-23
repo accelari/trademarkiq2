@@ -30,19 +30,7 @@ The application is built with Next.js 16 (App Router) and TypeScript, utilizing 
 - **Security**: Server-side API keys, bcrypt hashing, JWT sessions, organization-scoped data, and DSGVO compliance.
 
 ### Journey System (Case Tracking)
-A stepper-based workflow system (Beratung → Recherche → Analyse) with extensible architecture. Cases are automatically created at workflow initiation, with AI extracting key information (trademark name, countries, Nice classes) to prefill forms.
-
-**Architecture:**
-- `lib/workflow-steps.ts` - Central configuration for all workflow steps (easily add new steps)
-- `WorkflowStepper` - Visual progress bar showing current step
-- `StepCard` - Status cards for each workflow step
-- `CaseSummary` - Summary panel showing extracted trademark data
-- `BeratungModal` - Modal to launch the KI-Markenberater
-
-**Adding New Steps:**
-To add a new step (e.g., "Anmeldung"), simply add it to the `WORKFLOW_STEPS` array in `lib/workflow-steps.ts` and set `enabled: true`.
-
-Each case has a dedicated detail page (`/dashboard/case/[caseId]`) with a clean, linear layout.
+A 4-step system (Beratung → Markenprüfung → Anmeldung → Watchlist) tracks user progress. Cases are automatically created at workflow initiation, with AI extracting key information (trademark name, countries, Nice classes) to prefill forms. Each case has a dedicated detail page (`/dashboard/case/[caseId]`).
 
 ### Database Schema
 Includes tables for `users`, `organizations`, `searches`, `playbooks`, `watchlistItems`, `alerts`, `experts`, `trademarkApplications`, `consultations`, `trademarkCases`, `caseSteps`, `caseDecisions`, and `caseEvents`, supporting multi-tenancy and comprehensive journey tracking.
