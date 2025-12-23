@@ -362,9 +362,9 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
       <div className="relative flex flex-col h-full bg-white rounded-lg border border-gray-200">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-300"}`} />
-            <span className="font-medium text-gray-900">
+          <div className="flex items-center gap-2">
+            <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-300"}`} />
+            <span className="font-semibold text-gray-900 text-sm">
               Klaus - Markenrechtsberater
             </span>
           </div>
@@ -408,8 +408,8 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
         <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] max-h-[400px] custom-scrollbar">
           {messages.length === 0 && !isConnected && (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
-              <Phone className="w-12 h-12 mb-4 text-gray-300" />
-              <p className="text-center">
+              <Phone className="w-10 h-10 mb-3 text-gray-300" />
+              <p className="text-sm text-center leading-relaxed">
                 Klicken Sie auf "{previousMessages.length > 0 ? 'Beratung fortsetzen' : 'Beratung starten'}" um mit Klaus zu sprechen.
               </p>
             </div>
@@ -427,7 +427,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
                     : "bg-gray-100 text-gray-900"
                 }`}
               >
-                <p className="whitespace-pre-wrap">{message.content}</p>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
                 {message.isTranscription && (
                   <span className="text-xs opacity-70 mt-1 block">
                     (Transkribiert)
@@ -440,7 +440,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
           {currentTranscript && (
             <div className="flex justify-end">
               <div className="max-w-[80%] rounded-lg p-3 bg-teal-400 text-white opacity-70">
-                <p>{currentTranscript}</p>
+                <p className="text-sm leading-relaxed">{currentTranscript}</p>
               </div>
             </div>
           )}
@@ -448,7 +448,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
           {assistantResponse && (
             <div className="flex justify-start">
               <div className="max-w-[80%] rounded-lg p-3 bg-gray-100 text-gray-900">
-                <p className="whitespace-pre-wrap">{assistantResponse}</p>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{assistantResponse}</p>
                 <span className="inline-block w-2 h-4 bg-teal-500 animate-pulse ml-1" />
               </div>
             </div>
@@ -470,7 +470,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
             <button
               onClick={connect}
               disabled={isConnecting}
-              className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-semibold text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {isConnecting ? (
                 <>
@@ -511,7 +511,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
                 onChange={(e) => setTextInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ihre Nachricht an Klaus..."
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="flex-1 px-4 py-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
               <button
                 onClick={handleSendText}
