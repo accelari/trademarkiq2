@@ -23,7 +23,6 @@ import {
   Calendar,
   CheckCircle,
   HelpCircle,
-  Save,
   FileDown,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
@@ -238,6 +237,12 @@ export default function CasePage() {
   const [isSavingSession, setIsSavingSession] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<string | null>(null);
   const [messagesLoaded, setMessagesLoaded] = useState(false);
+  const previousAccordionRef = useRef<string | null>("beratung");
+  const sessionMessagesRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    sessionMessagesRef.current = sessionMessages;
+  }, [sessionMessages]);
 
   useEffect(() => {
     if (data?.consultation?.messages && !messagesLoaded) {
@@ -248,6 +253,55 @@ export default function CasePage() {
       }
     }
   }, [data?.consultation, messagesLoaded]);
+
+  const autoSaveSession = useCallback(async () => {
+    const messages = sessionMessagesRef.current;
+    if (messages.length === 0) return;
+    
+    setIsSavingSession(true);
+    try {
+      const response = await fetch(`/api/cases/${caseId}/consultation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages,
+          mode: "voice"
+        })
+      });
+      
+      if (response.ok) {
+        const responseData = await response.json();
+        setSessionSummary(responseData.summary || "Zusammenfassung erstellt.");
+        mutate();
+      }
+    } catch (err) {
+      console.error("Failed to auto-save session:", err);
+    } finally {
+      setIsSavingSession(false);
+    }
+  }, [caseId, mutate]);
+
+  useEffect(() => {
+    const prevAccordion = previousAccordionRef.current;
+    if (prevAccordion === "beratung" && openAccordion !== "beratung") {
+      autoSaveSession();
+    }
+    previousAccordionRef.current = openAccordion;
+  }, [openAccordion, autoSaveSession]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (sessionMessagesRef.current.length > 0) {
+        navigator.sendBeacon(
+          `/api/cases/${caseId}/consultation`,
+          JSON.stringify({ messages: sessionMessagesRef.current, mode: "voice" })
+        );
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [caseId]);
 
   const QUICK_QUESTIONS = [
     "Welche Schritte sind für eine Markenanmeldung in Deutschland erforderlich?",
@@ -269,32 +323,6 @@ export default function CasePage() {
       return [...prev, message];
     });
   }, []);
-
-  const handleSaveSession = useCallback(async () => {
-    if (sessionMessages.length === 0) return;
-    
-    setIsSavingSession(true);
-    try {
-      const response = await fetch(`/api/cases/${caseId}/consultation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: sessionMessages,
-          mode: "voice"
-        })
-      });
-      
-      if (response.ok) {
-        const responseData = await response.json();
-        setSessionSummary(responseData.summary || "Sitzung erfolgreich gespeichert.");
-        mutate();
-      }
-    } catch (err) {
-      console.error("Failed to save session:", err);
-    } finally {
-      setIsSavingSession(false);
-    }
-  }, [caseId, sessionMessages, mutate]);
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -442,25 +470,9 @@ export default function CasePage() {
 
         <div className="lg:col-span-1 space-y-4">
           <div className="bg-white rounded-lg border border-gray-200 p-4 h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-teal-600" />
-                <h3 className="font-semibold text-gray-900">Sitzungszusammenfassung</h3>
-              </div>
-              {sessionMessages.length > 0 && !sessionSummary && (
-                <button
-                  onClick={handleSaveSession}
-                  disabled={isSavingSession}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:bg-teal-400 transition-colors"
-                >
-                  {isSavingSession ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  Zusammenfassung erstellen
-                </button>
-              )}
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="w-5 h-5 text-teal-600" />
+              <h3 className="font-semibold text-gray-900">Sitzungszusammenfassung</h3>
             </div>
             
             <div className="flex-1 overflow-y-auto max-h-[400px] pr-1 custom-scrollbar">
@@ -483,13 +495,13 @@ export default function CasePage() {
               ) : sessionMessages.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   <FileDown className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-sm">Führen Sie ein Gespräch mit Klaus, dann können Sie eine Zusammenfassung erstellen lassen.</p>
+                  <p className="text-sm">Führen Sie ein Gespräch mit Klaus. Die Zusammenfassung wird automatisch erstellt.</p>
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <FileText className="w-8 h-8 mx-auto mb-2 text-teal-600" />
                   <p className="text-sm mb-2">{sessionMessages.length} Nachrichten im Gespräch</p>
-                  <p className="text-xs text-gray-400">Klicken Sie auf "Zusammenfassung erstellen", um eine KI-Zusammenfassung zu generieren.</p>
+                  <p className="text-xs text-gray-400">Die Zusammenfassung wird automatisch erstellt, wenn Sie das Akkordeon schließen.</p>
                 </div>
               )}
             </div>
