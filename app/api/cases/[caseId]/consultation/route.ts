@@ -132,23 +132,20 @@ export async function POST(
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
-            max_tokens: 1024,
+            max_tokens: 300,
             messages: [{
               role: "system",
-              content: "Du bist ein Assistent, der Beratungsgespräche über Markenrecht zusammenfasst. Antworte immer auf Deutsch."
+              content: "Du fasst Beratungsgespräche über Markenrecht zusammen. Sei SEHR KURZ und PRÄZISE. Maximal 3-4 Stichpunkte. Keine langen Sätze."
             }, {
               role: "user",
-              content: `Fasse das folgende Beratungsgespräch über Markenrecht zusammen. 
-Erstelle eine strukturierte Zusammenfassung mit:
-1. Kernpunkte des Gesprächs
-2. Besprochene Marke(n) und Informationen
-3. Empfehlungen des Beraters
-4. Nächste Schritte
+              content: `Fasse dieses Gespräch KURZ zusammen (max. 4 Stichpunkte):
+- Marke/Thema
+- Kernaussage  
+- Empfehlung
+- Nächster Schritt
 
 Gespräch:
-${conversationText}
-
-Zusammenfassung:`
+${conversationText}`
             }]
           })
         });
