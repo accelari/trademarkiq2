@@ -8,7 +8,11 @@
     "start": "next start -p 5000",
     "lint": "next lint",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",
@@ -16,11 +20,16 @@
     "@humeai/voice-react": "^0.2.11",
     "@neondatabase/serverless": "^1.0.2",
     "@react-email/components": "^0.5.7",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/coverage-v8": "^4.0.16",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "^3.0.3",
     "crypto": "^1.0.1",
@@ -28,6 +37,7 @@
     "drizzle-orm": "^0.44.7",
     "fast-xml-parser": "^5.3.2",
     "hume": "^0.15.9",
+    "jsdom": "^27.3.0",
     "lucide-react": "^0.555.0",
     "next": "^16.0.3",
     "next-auth": "^5.0.0-beta.30",
@@ -41,6 +51,7 @@
     "swr": "^2.3.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.3",
+    "vitest": "^4.0.16",
     "zustand": "^5.0.9"
   }
 }
