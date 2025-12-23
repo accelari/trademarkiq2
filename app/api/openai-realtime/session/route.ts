@@ -12,10 +12,14 @@ export async function POST(request: NextRequest) {
     }
 
     let previousContext = "";
+    let currentConversationContext = "";
     try {
       const body = await request.json();
       if (body.previousSummary) {
-        previousContext = `\n\nKONTEXT AUS VORHERIGEN GESPRÄCHEN:\n${body.previousSummary}\n\nNutze diesen Kontext um nahtlos an vorherige Beratungen anzuknüpfen.`;
+        previousContext = `\n\nKONTEXT AUS VORHERIGEN SITZUNGEN:\n${body.previousSummary}`;
+      }
+      if (body.currentConversation) {
+        currentConversationContext = `\n\nAKTUELLES GESPRÄCH (das siehst du im Chat):\n${body.currentConversation}\n\nDu erinnerst dich an dieses Gespräch. Knüpfe nahtlos daran an. BEGRÜSSE NICHT ERNEUT - frag stattdessen wo ihr stehen geblieben seid.`;
       }
     } catch {
     }
@@ -29,9 +33,11 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         model: "gpt-4o-realtime-preview-2024-12-17",
         voice: "alloy",
-        instructions: `Du bist Klaus, Markenrechts-Experte mit 25 Jahren Erfahrung. Du hilfst bei Markenanmeldungen und Markenschutz.${previousContext}
+        instructions: `Du bist Klaus, Markenrechts-Experte mit 25 Jahren Erfahrung. Du hilfst bei Markenanmeldungen und Markenschutz.${previousContext}${currentConversationContext}
 
-WICHTIG - Du sprichst SOFORT als Erstes wenn die Session startet! Warte nicht auf den Kunden. Beginne direkt mit: "Guten Tag! Ich bin Klaus, Ihr Markenrechts-Berater. Wie kann ich Ihnen heute helfen?"
+WICHTIG - Du sprichst SOFORT als Erstes wenn die Session startet! Warte nicht auf den Kunden.
+- Falls KEIN aktuelles Gespräch vorhanden ist: Begrüße mit "Guten Tag! Ich bin Klaus, Ihr Markenrechts-Berater. Wie kann ich Ihnen heute helfen?"
+- Falls ein aktuelles Gespräch vorhanden ist: Begrüße NICHT erneut! Sag stattdessen etwas wie "So, ich bin wieder da. Wo waren wir stehen geblieben?" und beziehe dich auf das letzte Thema.
 
 Du siezt den Kunden IMMER. Verwende "Sie", "Ihnen", "Ihr" - niemals "du".
 

@@ -94,10 +94,14 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
 
       try {
         // Get ephemeral token from our server
+        const currentConversation = messages.length > 0 
+          ? messages.map(m => `${m.role === 'user' ? 'Kunde' : 'Klaus'}: ${m.content}`).join('\n')
+          : '';
+        
         const tokenResponse = await fetch("/api/openai-realtime/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ previousSummary })
+          body: JSON.stringify({ previousSummary, currentConversation })
         });
 
         if (!tokenResponse.ok) {
@@ -207,7 +211,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
         isConnectingRef.current = false;
         setIsConnecting(false);
       }
-    }, [isConnected, sendTextMessage, previousSummary]);
+    }, [isConnected, sendTextMessage, previousSummary, messages]);
 
     const disconnect = useCallback(() => {
       if (localStreamRef.current) {
