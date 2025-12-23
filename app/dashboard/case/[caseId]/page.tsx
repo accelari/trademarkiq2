@@ -224,7 +224,7 @@ export default function CasePage() {
   const router = useRouter();
   const caseId = params.caseId as string;
 
-  const { data, error, isLoading } = useSWR<CaseData>(
+  const { data, error, isLoading, mutate } = useSWR<CaseData>(
     caseId ? `/api/cases/${caseId}/full` : null,
     fetcher
   );
@@ -285,15 +285,16 @@ export default function CasePage() {
       });
       
       if (response.ok) {
-        const data = await response.json();
-        setSessionSummary(data.summary || "Sitzung erfolgreich gespeichert.");
+        const responseData = await response.json();
+        setSessionSummary(responseData.summary || "Sitzung erfolgreich gespeichert.");
+        mutate();
       }
     } catch (err) {
       console.error("Failed to save session:", err);
     } finally {
       setIsSavingSession(false);
     }
-  }, [caseId, sessionMessages]);
+  }, [caseId, sessionMessages, mutate]);
 
   if (isLoading) {
     return <LoadingSkeleton />;
