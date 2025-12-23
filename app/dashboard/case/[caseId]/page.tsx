@@ -448,7 +448,7 @@ export default function CasePage() {
               </div>
             )}
             
-            <div className="flex-1 overflow-y-auto space-y-2 max-h-[400px]">
+            <div className="flex-1 overflow-y-auto space-y-2 max-h-[400px] pr-1 custom-scrollbar">
               {sessionMessages.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   <FileDown className="w-8 h-8 mx-auto mb-2" />
