@@ -351,17 +351,12 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
       }
     }, [showMenu]);
 
-    const handleNewSession = useCallback(async () => {
+    const handleNewSession = useCallback(() => {
       setShowMenu(false);
       disconnect();
       setMessages([]);
-      // Delete old session from database
-      await onDelete?.();
-      // Wait for data refresh, then start new session
-      setTimeout(() => {
-        connect();
-      }, 500);
-    }, [disconnect, onDelete, connect]);
+      onDelete?.();
+    }, [disconnect, onDelete]);
 
     return (
       <div className="relative flex flex-col h-full bg-white rounded-lg border border-gray-200">
