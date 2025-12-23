@@ -150,17 +150,13 @@ function AccordionSection({
 
 function LoadingSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-48"></div>
-          <div className="h-12 bg-gray-200 rounded w-64"></div>
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-16 bg-gray-200 rounded-xl"></div>
-            ))}
-          </div>
-        </div>
+    <div className="animate-pulse space-y-6">
+      <div className="h-8 bg-gray-200 rounded w-48"></div>
+      <div className="h-12 bg-gray-200 rounded w-64"></div>
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-16 bg-gray-200 rounded-xl"></div>
+        ))}
       </div>
     </div>
   );
@@ -203,24 +199,22 @@ export default function CasePage() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Zurück zum Dashboard
-          </button>
-          <div className="bg-white rounded-xl border border-red-200 p-8 text-center">
-            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Fall nicht gefunden
-            </h2>
-            <p className="text-gray-600">
-              {error?.message || "Der angeforderte Fall konnte nicht geladen werden."}
-            </p>
-          </div>
+      <div className="space-y-6">
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Zurück zum Dashboard
+        </button>
+        <div className="bg-white rounded-xl border border-red-200 p-8 text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Fall nicht gefunden
+          </h2>
+          <p className="text-gray-600">
+            {error?.message || "Der angeforderte Fall konnte nicht geladen werden."}
+          </p>
         </div>
       </div>
     );
@@ -259,8 +253,8 @@ export default function CasePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="space-y-6">
+      <div>
         <button
           onClick={() => router.push("/dashboard")}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
