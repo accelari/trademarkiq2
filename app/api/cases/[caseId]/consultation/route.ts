@@ -67,6 +67,15 @@ export async function GET(
 
     const messages = parseMessages(consultation.transcript);
 
+    let sessionProtocolMessages: { role: string; content: string }[] = [];
+    if (consultation.sessionProtocol) {
+      try {
+        sessionProtocolMessages = JSON.parse(consultation.sessionProtocol);
+      } catch {
+        sessionProtocolMessages = [];
+      }
+    }
+
     return NextResponse.json({
       consultation: {
         id: consultation.id,
@@ -78,6 +87,7 @@ export async function GET(
         updatedAt: consultation.updatedAt,
       },
       messages,
+      sessionProtocol: sessionProtocolMessages,
       summary: consultation.summary,
       extractedData: consultation.extractedData,
     });
@@ -99,7 +109,7 @@ export async function PUT(
 
     const { caseId } = await params;
     const body = await request.json();
-    const { summary, extractedData, markComplete } = body;
+    const { summary, extractedData, markComplete, sessionProtocol, duration, mode } = body;
 
     const caseData = await db.query.trademarkCases.findFirst({
       where: and(
@@ -139,6 +149,18 @@ export async function PUT(
       };
     }
 
+    if (sessionProtocol !== undefined) {
+      updateData.sessionProtocol = sessionProtocol;
+    }
+
+    if (duration !== undefined) {
+      updateData.duration = duration;
+    }
+
+    if (mode !== undefined) {
+      updateData.mode = mode;
+    }
+
     if (isComplete || markComplete) {
       updateData.status = "ready_for_research";
     }
@@ -161,7 +183,9 @@ export async function PUT(
             : "Markenberatung",
           summary: summary || "",
           transcript: "[]",
-          mode: "text",
+          sessionProtocol: sessionProtocol || "[]",
+          duration: duration || null,
+          mode: mode || "text",
           status: isComplete ? "ready_for_research" : "draft",
           extractedData: {
             ...extractedData,

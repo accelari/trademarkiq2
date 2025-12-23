@@ -67,6 +67,7 @@ interface CaseData {
     mode: string;
     createdAt: string;
   } | null;
+  sessionProtocol: { role: string; content: string }[] | null;
   decisions: {
     trademarkNames: string[];
     countries: string[];
@@ -288,6 +289,9 @@ export default function CasePage() {
             countries: analysis?.countries || [],
             niceClasses: analysis?.niceClasses || [],
           },
+          sessionProtocol: JSON.stringify(meetingNotes),
+          duration: duration,
+          mode: inputMode === "sprache" ? "voice" : "text",
           markComplete: true,
         }),
       });
@@ -448,6 +452,8 @@ export default function CasePage() {
     const isComplete = isStepComplete("beratung");
     
     if (isComplete && consultation) {
+      const savedProtocol = data?.sessionProtocol || [];
+      
       return (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -471,6 +477,7 @@ export default function CasePage() {
               </div>
             </div>
           </div>
+          
           {consultation.summary && (
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="text-sm font-medium text-gray-700 mb-2">Zusammenfassung</div>
@@ -479,6 +486,52 @@ export default function CasePage() {
               </p>
             </div>
           )}
+
+          {savedProtocol.length > 0 && (
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 mb-3">
+                <ScrollText className="w-4 h-4 text-teal-600" />
+                <div className="text-sm font-medium text-gray-700">Sitzungsprotokoll</div>
+              </div>
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {savedProtocol.map((note: { role: string; content: string }, idx: number) => (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-lg text-sm ${
+                      note.role === "user"
+                        ? "bg-gray-100 text-gray-800"
+                        : "bg-teal-50 text-teal-800 border border-teal-100"
+                    }`}
+                  >
+                    <div className="text-xs font-semibold mb-1 opacity-70">
+                      {note.role === "user" ? "Sie" : "Klaus"}
+                    </div>
+                    <p className="leading-relaxed">{note.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-4 border-t border-gray-200">
+            <button
+              onClick={() => {
+                setBeratungStarted(true);
+                beratungStartTimeRef.current = new Date();
+                fetchAccessToken();
+                if (savedProtocol.length > 0) {
+                  setMeetingNotes(savedProtocol.map((n: { role: string; content: string }) => ({
+                    role: n.role as "user" | "assistant",
+                    content: n.content
+                  })));
+                }
+              }}
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors flex items-center gap-2"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Beratung fortsetzen
+            </button>
+          </div>
         </div>
       );
     }
@@ -573,6 +626,7 @@ export default function CasePage() {
                   accessToken={accessToken}
                   embedded={true} 
                   onMessageSent={handleMessageSent}
+                  previousConversation={data?.sessionProtocol || undefined}
                 />
               </VoiceProvider>
             </div>
