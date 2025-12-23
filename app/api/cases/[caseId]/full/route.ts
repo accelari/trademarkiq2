@@ -80,9 +80,6 @@ export async function GET(
         mode: consultation.mode,
         createdAt: consultation.createdAt,
       } : null,
-      sessionProtocol: consultation?.sessionProtocol 
-        ? (() => { try { return JSON.parse(consultation.sessionProtocol); } catch { return []; } })()
-        : null,
       decisions: latestDecision ? {
         trademarkNames: latestDecision.trademarkNames,
         countries: latestDecision.countries,

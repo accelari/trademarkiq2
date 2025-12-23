@@ -1,21 +1,17 @@
 "use client";
 
 import { useVoice } from "@humeai/voice-react";
-import { useState, useRef, useEffect, forwardRef, useImperativeHandle, useMemo } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Send, Mic, MicOff, Phone, PhoneOff, Volume2, VolumeX } from "lucide-react";
 
-const KLAUS_SYSTEM_PROMPT = `DEINE IDENTITÄT:
-Du bist Klaus - der freundliche und kompetente Markenberater bei TrademarkIQ. 
-Stelle dich IMMER als "Klaus" vor, wenn du das Gespräch beginnst.
-Beispiel: "Hallo! Ich bin Klaus, dein Markenberater bei TrademarkIQ. Wie kann ich dir heute helfen?"
+const KLAUS_SYSTEM_PROMPT = `Du bist Klaus, ein freundlicher und kompetenter Markenberater bei TrademarkIQ.
 
-Du bist ein weltweit anerkannter Experte für Marken, Markenrecht und Markenstrategien mit jahrelanger Erfahrung.
+Du bist ein weltweit anerkannter Experte für Marken, Markenrecht und Markenstrategien.
 
 WICHTIG - Gesprächsführung:
-- Stelle dich IMMER zuerst als Klaus vor!
-- Stelle NICHT alle Fragen auf einmal - das wirkt überwältigend.
+- Stelle NICHT alle Fragen auf einmal! Das wirkt überwältigend.
 - Führe ein natürliches Beratungsgespräch - eine Frage nach der anderen.
-- Sei warmherzig, geduldig und ermutigend.
+- Beginne immer mit einer freundlichen Bestätigung, dass du gerne hilfst.
 
 DEINE AUFGABE:
 Du berätst Kunden zu allen Fragen rund um Marken. Hilf ihnen dabei:
@@ -27,27 +23,7 @@ Du berätst Kunden zu allen Fragen rund um Marken. Hilf ihnen dabei:
 WICHTIGE REGELN:
 1. Du antwortest IMMER auf Deutsch
 2. Du gibst praxisorientierte, verständliche Antworten
-3. Du sprichst in einem freundlichen, professionellen Ton
-4. Du nennst dich IMMER Klaus - niemals "ich bin ein KI-Assistent" oder ähnliches`;
-
-const buildSystemPrompt = (previousConversation?: { role: string; content: string }[]) => {
-  if (!previousConversation || previousConversation.length === 0) {
-    return KLAUS_SYSTEM_PROMPT;
-  }
-  
-  const conversationSummary = previousConversation
-    .map(msg => `${msg.role === "user" ? "Kunde" : "Klaus"}: ${msg.content}`)
-    .join("\n");
-  
-  return `${KLAUS_SYSTEM_PROMPT}
-
-KONTEXT - VORHERIGES GESPRÄCH:
-Der Kunde setzt eine frühere Beratung fort. Hier ist das vorherige Gespräch:
-
-${conversationSummary}
-
-WICHTIG: Begrüße den Kunden mit: "Schön, dass wir weitermachen! Ich erinnere mich an unser Gespräch..." und beziehe dich auf das, was ihr bereits besprochen habt.`; 
-};
+3. Du sprichst in einem freundlichen, professionellen Ton`;
 
 export interface VoiceAssistantHandle {
   sendQuestion: (question: string) => void;
@@ -58,10 +34,9 @@ interface VoiceAssistantProps {
   accessToken: string;
   embedded?: boolean;
   onMessageSent?: (messages: { role: "user" | "assistant"; content: string }[]) => void;
-  previousConversation?: { role: string; content: string }[];
 }
 
-const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ accessToken, embedded = false, onMessageSent, previousConversation }, ref) => {
+const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ accessToken, embedded = false, onMessageSent }, ref) => {
   const { 
     messages, 
     sendUserInput, 
@@ -75,7 +50,6 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
 
   const [pendingQuestions, setPendingQuestions] = useState<string[]>([]);
   const isConnectingRef = useRef(false);
-  const systemPrompt = useMemo(() => buildSystemPrompt(previousConversation), [previousConversation]);
 
   useImperativeHandle(ref, () => ({
     sendQuestion: async (question: string) => {
@@ -95,7 +69,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
               configId: process.env.NEXT_PUBLIC_HUME_CONFIG_ID || "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
               sessionSettings: {
                 type: "session_settings",
-                systemPrompt: systemPrompt
+                systemPrompt: KLAUS_SYSTEM_PROMPT
               }
             });
           } catch (err) {
@@ -182,7 +156,7 @@ const VoiceAssistant = forwardRef<VoiceAssistantHandle, VoiceAssistantProps>(({ 
           configId: process.env.NEXT_PUBLIC_HUME_CONFIG_ID || "e4c377e1-6a8c-429f-a334-9325c30a1fc3",
           sessionSettings: {
             type: "session_settings",
-            systemPrompt: systemPrompt
+            systemPrompt: KLAUS_SYSTEM_PROMPT
           }
         });
       } catch (err) {
