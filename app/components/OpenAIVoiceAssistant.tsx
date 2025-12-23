@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
-import { Mic, MicOff, Phone, PhoneOff, Send, Keyboard, Volume2, Trash2 } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff, Send, Keyboard, Volume2, Trash2, MoreVertical, RotateCcw } from "lucide-react";
 
 interface Message {
   id: string;
@@ -28,6 +28,8 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
   ({ caseId, onMessageSent, onDelete, previousMessages = [], previousSummary }, ref) => {
     const [isConnected, setIsConnected] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+    const optionsMenuRef = useRef<HTMLDivElement>(null);
     const [isConnecting, setIsConnecting] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [inputMode, setInputMode] = useState<"voice" | "text">("voice");
@@ -337,6 +339,19 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
       };
     }, [disconnect]);
 
+    // Close options menu on click outside
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (optionsMenuRef.current && !optionsMenuRef.current.contains(event.target as Node)) {
+          setShowOptionsMenu(false);
+        }
+      };
+      if (showOptionsMenu) {
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+      }
+    }, [showOptionsMenu]);
+
     return (
       <div className="relative flex flex-col h-full bg-white rounded-lg border border-gray-200">
         {/* Header */}
@@ -359,15 +374,43 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
             >
               {inputMode === "voice" ? <Keyboard className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
             </button>
-            {previousMessages.length > 0 && onDelete && (
+            {/* Options Menu */}
+            <div ref={optionsMenuRef} className="relative">
               <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors"
-                title="Beratung löschen"
+                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                title="Optionen"
               >
-                <Trash2 className="w-5 h-5" />
+                <MoreVertical className="w-5 h-5" />
               </button>
-            )}
+              {showOptionsMenu && (
+                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                  <button
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      disconnect();
+                      setMessages([]);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Neue Beratung starten
+                  </button>
+                  {previousMessages.length > 0 && onDelete && (
+                    <button
+                      onClick={() => {
+                        setShowOptionsMenu(false);
+                        setShowDeleteConfirm(true);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Beratung löschen
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
