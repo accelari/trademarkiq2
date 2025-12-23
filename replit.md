@@ -37,6 +37,17 @@ Each trademark case follows a 9-step workflow displayed as accordions on the cas
 
 Step identifiers: `beratung`, `markenname`, `recherche`, `analyse`, `ueberpruefung`, `anmeldung`, `kommunikation`, `ueberwachung`, `fristen`
 
+### Case Status Lifecycle
+Cases can have the following statuses for filtering:
+- `active` - Aktiv (default)
+- `draft` - Entwurf
+- `in_progress` - In Bearbeitung
+- `filed` - Angemeldet
+- `registered` - Eingetragen
+- `rejected` - Abgelehnt
+- `monitoring` - Überwacht
+- `archived` - Archiviert
+
 ### Database Schema (Minimal)
 Essential tables only:
 - `users` - User accounts
