@@ -106,8 +106,12 @@ Each trademark case has a dedicated page at `/dashboard/case/[caseId]` with acco
 - **API Routes**:
   - `GET /api/cases`: List cases with search/filter
   - `POST /api/cases`: Create new case with auto-generated case number
+  - `POST /api/cases/start`: Create draft case at workflow start (used by Beratung/Recherche)
   - `GET /api/cases/[caseId]/full`: Complete case data (consultations, decisions, analysis, steps)
-- **Auto-Creation**: Cases are automatically created after Beratung save or Recherche completion
+- **Auto-Creation at Start**: Cases are automatically created when workflows START (not end):
+  - Beratung: Case created via `/api/cases/start` when session begins (respects existing caseId from URL)
+  - Direct Recherche: Case created via `/api/cases/start` when first search completes (marks Beratung as "skipped")
+  - This simplifies data flow and prevents duplicate case creation issues
 - **Quick Access**: ConsultationsModal simplified to case list with "Zum Fall" navigation
 
 ### Database Schema
