@@ -156,7 +156,7 @@ function AccordionSection({
     if (isOpen && sectionRef.current) {
       setTimeout(() => {
         sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
+      }, 300);
     }
   }, [isOpen]);
 
