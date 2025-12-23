@@ -8,7 +8,6 @@ import {
   Plus,
   Loader2,
   FolderOpen,
-  ChevronRight,
   X,
   Check,
   Circle,
@@ -46,10 +45,14 @@ interface TrademarkCase {
 
 const STEPS = [
   { key: "beratung", label: "Beratung" },
+  { key: "markenname", label: "Markenname" },
   { key: "recherche", label: "Recherche" },
-  { key: "risikoanalyse", label: "Analyse" },
+  { key: "analyse", label: "Analyse" },
+  { key: "ueberpruefung", label: "Prüfung" },
   { key: "anmeldung", label: "Anmeldung" },
-  { key: "watchlist", label: "Watchlist" },
+  { key: "kommunikation", label: "Komm." },
+  { key: "ueberwachung", label: "Monitor" },
+  { key: "fristen", label: "Fristen" },
 ];
 
 function formatGermanDate(dateStr: string): string {
@@ -69,10 +72,22 @@ function getStatusBadge(status: string) {
   switch (status) {
     case "active":
       return { label: "Aktiv", className: "bg-teal-100 text-teal-700" };
-    case "completed":
-      return { label: "Abgeschlossen", className: "bg-green-100 text-green-700" };
     case "draft":
       return { label: "Entwurf", className: "bg-gray-100 text-gray-600" };
+    case "in_progress":
+      return { label: "In Bearbeitung", className: "bg-blue-100 text-blue-700" };
+    case "filed":
+      return { label: "Angemeldet", className: "bg-amber-100 text-amber-700" };
+    case "registered":
+      return { label: "Eingetragen", className: "bg-green-100 text-green-700" };
+    case "rejected":
+      return { label: "Abgelehnt", className: "bg-red-100 text-red-700" };
+    case "monitoring":
+      return { label: "Überwacht", className: "bg-purple-100 text-purple-700" };
+    case "archived":
+      return { label: "Archiviert", className: "bg-slate-100 text-slate-600" };
+    case "completed":
+      return { label: "Abgeschlossen", className: "bg-green-100 text-green-700" };
     default:
       return { label: status, className: "bg-gray-100 text-gray-600" };
   }
@@ -82,39 +97,35 @@ function StepProgress({ steps }: { steps: CaseStep[] }) {
   const stepMap = new Map(steps.map((s) => [s.step, s]));
 
   return (
-    <div className="flex items-center gap-1 mt-3">
-      {STEPS.map((step, index) => {
+    <div className="flex flex-wrap items-center gap-1 mt-3">
+      {STEPS.map((step) => {
         const stepData = stepMap.get(step.key);
         const isCompleted = stepData?.status === "completed";
         const isSkipped = stepData?.status === "skipped";
         const isActive = stepData?.status === "in_progress";
 
         return (
-          <div key={step.key} className="flex items-center">
-            <div
-              className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-                isCompleted
-                  ? "bg-teal-100 text-teal-700"
-                  : isSkipped
-                  ? "bg-gray-100 text-gray-400 line-through"
-                  : isActive
-                  ? "bg-teal-50 text-teal-600 ring-1 ring-teal-200"
-                  : "bg-gray-50 text-gray-400"
-              }`}
-              title={step.label}
-            >
-              {isCompleted ? (
-                <Check className="w-3 h-3" />
-              ) : isActive ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Circle className="w-3 h-3" />
-              )}
-              <span className="hidden sm:inline">{step.label}</span>
-            </div>
-            {index < STEPS.length - 1 && (
-              <ChevronRight className="w-3 h-3 text-gray-300 mx-0.5" />
+          <div
+            key={step.key}
+            className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium ${
+              isCompleted
+                ? "bg-teal-100 text-teal-700"
+                : isSkipped
+                ? "bg-gray-100 text-gray-400 line-through"
+                : isActive
+                ? "bg-teal-50 text-teal-600 ring-1 ring-teal-200"
+                : "bg-gray-50 text-gray-400"
+            }`}
+            title={step.label}
+          >
+            {isCompleted ? (
+              <Check className="w-3 h-3" />
+            ) : isActive ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Circle className="w-3 h-3" />
             )}
+            <span className="hidden md:inline">{step.label}</span>
           </div>
         );
       })}
@@ -140,14 +151,14 @@ function CaseCard({
       onClick={onClick}
       className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-teal-200 transition-all cursor-pointer group relative"
     >
-      <div className="flex items-start justify-between mb-3">
+      <div className="flex items-start justify-between mb-2">
         <div>
-          <p className="text-xs text-gray-500 font-mono mb-1">
+          <h2 className="text-xl font-bold text-gray-900 font-mono group-hover:text-teal-600 transition-colors">
             {caseData.caseNumber}
-          </p>
-          <h3 className="text-lg font-semibold text-gray-900 group-hover:text-teal-600 transition-colors">
+          </h2>
+          <p className="text-base text-gray-600 mt-1">
             {caseData.trademarkName || "Kein Markenname"}
-          </h3>
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <span
@@ -170,7 +181,7 @@ function CaseCard({
         </div>
       </div>
 
-      <div className="flex items-center gap-4 text-sm text-gray-500 mb-2">
+      <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-2">
         <span>Erstellt: {formatGermanDate(caseData.createdAt)}</span>
         <span>Aktualisiert: {formatGermanDate(caseData.updatedAt)}</span>
       </div>
@@ -480,8 +491,13 @@ export default function CasesPage() {
         >
           <option value="alle">Alle Status</option>
           <option value="active">Aktiv</option>
-          <option value="completed">Abgeschlossen</option>
           <option value="draft">Entwurf</option>
+          <option value="in_progress">In Bearbeitung</option>
+          <option value="filed">Angemeldet</option>
+          <option value="registered">Eingetragen</option>
+          <option value="rejected">Abgelehnt</option>
+          <option value="monitoring">Überwacht</option>
+          <option value="archived">Archiviert</option>
         </select>
       </div>
 
