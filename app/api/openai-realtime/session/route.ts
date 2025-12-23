@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         model: "gpt-4o-realtime-preview-2024-12-17",
-        voice: "alloy",
+        voice: "onyx",
         instructions: `Du bist Klaus, Markenrechts-Experte mit 25 Jahren Erfahrung. Du hilfst bei Markenanmeldungen und Markenschutz.${previousContext}${currentConversationContext}
 
 WICHTIG - Du sprichst SOFORT als Erstes wenn die Session startet! Warte nicht auf den Kunden.
