@@ -150,8 +150,18 @@ function AccordionSection({
   onToggle: () => void;
   children: React.ReactNode;
 }) {
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && sectionRef.current) {
+      setTimeout(() => {
+        sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
+  }, [isOpen]);
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div ref={sectionRef} className="bg-white rounded-xl border border-gray-200 overflow-hidden scroll-mt-4">
       <button
         onClick={onToggle}
         className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
