@@ -40,12 +40,13 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
     const audioElementRef = useRef<HTMLAudioElement | null>(null);
     const localStreamRef = useRef<MediaStream | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
     const pendingQuestionsRef = useRef<string[]>([]);
     const isInitialLoadRef = useRef(true);
 
     const scrollToBottom = useCallback(() => {
-      if (!isInitialLoadRef.current) {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      if (!isInitialLoadRef.current && messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
       }
     }, []);
 
@@ -360,7 +361,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] max-h-[400px] custom-scrollbar">
+        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] max-h-[400px] custom-scrollbar">
           {messages.length === 0 && !isConnected && (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <Phone className="w-12 h-12 mb-4 text-gray-300" />
