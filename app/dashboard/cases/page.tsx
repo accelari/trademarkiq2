@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate } from "swr";
 import {
@@ -14,6 +14,9 @@ import {
   AlertCircle,
   Trash2,
   AlertTriangle,
+  Square,
+  CheckSquare,
+  Minus,
 } from "lucide-react";
 
 const fetcher = async (url: string) => {
@@ -138,56 +141,173 @@ function CaseCard({
   onClick,
   onDelete,
   isDeleting,
+  isSelected,
+  onSelect,
+  isSelectionMode,
 }: {
   caseData: TrademarkCase;
   onClick: () => void;
   onDelete: (e: React.MouseEvent) => void;
   isDeleting: boolean;
+  isSelected: boolean;
+  onSelect: (e: React.MouseEvent) => void;
+  isSelectionMode: boolean;
 }) {
   const statusBadge = getStatusBadge(caseData.status);
 
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-teal-200 transition-all cursor-pointer group relative"
+      className={`bg-white rounded-xl border p-5 hover:shadow-md transition-all cursor-pointer group relative ${
+        isSelected 
+          ? "border-teal-400 ring-2 ring-teal-100" 
+          : "border-gray-200 hover:border-teal-200"
+      }`}
     >
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 font-mono group-hover:text-teal-600 transition-colors">
-            {caseData.caseNumber}
-          </h2>
-          <p className="text-base text-gray-600 mt-1">
-            {caseData.trademarkName || "Kein Markenname"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusBadge.className}`}
-          >
-            {statusBadge.label}
-          </span>
-          <button
-            onClick={onDelete}
-            disabled={isDeleting}
-            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-            title="Fall löschen"
-          >
-            {isDeleting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Trash2 className="w-4 h-4" />
-            )}
-          </button>
+      <div className="flex items-start gap-3">
+        <button
+          onClick={onSelect}
+          className={`flex-shrink-0 mt-1 p-1 rounded transition-all ${
+            isSelectionMode || isSelected
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100"
+          } ${
+            isSelected
+              ? "text-teal-600"
+              : "text-gray-400 hover:text-teal-500"
+          }`}
+          title={isSelected ? "Auswahl aufheben" : "Auswählen"}
+        >
+          {isSelected ? (
+            <CheckSquare className="w-5 h-5" />
+          ) : (
+            <Square className="w-5 h-5" />
+          )}
+        </button>
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between mb-2">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 font-mono group-hover:text-teal-600 transition-colors">
+                {caseData.caseNumber}
+              </h2>
+              <p className="text-base text-gray-600 mt-1">
+                {caseData.trademarkName || "Kein Markenname"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusBadge.className}`}
+              >
+                {statusBadge.label}
+              </span>
+              <button
+                onClick={onDelete}
+                disabled={isDeleting}
+                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                title="Fall löschen"
+              >
+                {isDeleting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-2">
+            <span>Erstellt: {formatGermanDate(caseData.createdAt)}</span>
+            <span>Aktualisiert: {formatGermanDate(caseData.updatedAt)}</span>
+          </div>
+
+          <StepProgress steps={caseData.steps || []} />
         </div>
       </div>
-
-      <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-2">
-        <span>Erstellt: {formatGermanDate(caseData.createdAt)}</span>
-        <span>Aktualisiert: {formatGermanDate(caseData.updatedAt)}</span>
-      </div>
-
-      <StepProgress steps={caseData.steps || []} />
     </div>
+  );
+}
+
+function SelectionToolbar({
+  selectedCount,
+  onDelete,
+  onClearSelection,
+  isDeleting,
+}: {
+  selectedCount: number;
+  onDelete: () => void;
+  onClearSelection: () => void;
+  isDeleting: boolean;
+}) {
+  if (selectedCount === 0) return null;
+
+  return (
+    <div className="bg-teal-50 border border-teal-200 rounded-xl px-4 py-3 flex items-center justify-between">
+      <span className="text-teal-800 font-medium">
+        {selectedCount} {selectedCount === 1 ? "Fall" : "Fälle"} ausgewählt
+      </span>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onClearSelection}
+          className="px-3 py-1.5 text-sm text-teal-700 hover:bg-teal-100 rounded-lg transition-colors font-medium"
+        >
+          Auswahl aufheben
+        </button>
+        <button
+          onClick={onDelete}
+          disabled={isDeleting}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50"
+        >
+          {isDeleting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Trash2 className="w-4 h-4" />
+          )}
+          Löschen
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SelectAllCheckbox({
+  cases,
+  selectedCases,
+  onSelectAll,
+}: {
+  cases: TrademarkCase[];
+  selectedCases: Set<string>;
+  onSelectAll: () => void;
+}) {
+  if (cases.length === 0) return null;
+
+  const allSelected = cases.length > 0 && cases.every(c => selectedCases.has(c.id));
+  const someSelected = cases.some(c => selectedCases.has(c.id)) && !allSelected;
+
+  return (
+    <button
+      onClick={onSelectAll}
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${
+        allSelected || someSelected
+          ? "text-teal-700 bg-teal-50 hover:bg-teal-100"
+          : "text-gray-600 hover:bg-gray-100"
+      }`}
+      title={allSelected ? "Alle abwählen" : "Alle auswählen"}
+    >
+      {allSelected ? (
+        <CheckSquare className="w-5 h-5" />
+      ) : someSelected ? (
+        <div className="relative w-5 h-5">
+          <Square className="w-5 h-5" />
+          <Minus className="w-3 h-3 absolute top-1 left-1" />
+        </div>
+      ) : (
+        <Square className="w-5 h-5" />
+      )}
+      <span className="text-sm font-medium">
+        {allSelected ? "Alle abwählen" : "Alle auswählen"}
+      </span>
+    </button>
   );
 }
 
@@ -359,8 +479,11 @@ export default function CasesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingCaseId, setDeletingCaseId] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ type: "single" | "all"; caseId?: string; caseName?: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: "single" | "selected"; caseId?: string; caseName?: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedCases, setSelectedCases] = useState<Set<string>>(new Set());
+
+  const isSelectionMode = selectedCases.size > 0;
 
   const queryParams = new URLSearchParams();
   if (search) queryParams.set("search", search);
@@ -371,6 +494,38 @@ export default function CasesPage() {
     `/api/cases${queryString ? `?${queryString}` : ""}`,
     fetcher
   );
+
+  const cases = data?.cases || [];
+
+  useEffect(() => {
+    setSelectedCases(new Set());
+  }, [search, status]);
+
+  const handleSelectCase = useCallback((caseId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedCases(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(caseId)) {
+        newSet.delete(caseId);
+      } else {
+        newSet.add(caseId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    const allSelected = cases.every(c => selectedCases.has(c.id));
+    if (allSelected) {
+      setSelectedCases(new Set());
+    } else {
+      setSelectedCases(new Set(cases.map(c => c.id)));
+    }
+  }, [cases, selectedCases]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedCases(new Set());
+  }, []);
 
   const handleCreateCase = async (trademarkName: string) => {
     setIsCreating(true);
@@ -410,6 +565,11 @@ export default function CasesPage() {
 
       mutate(`/api/cases${queryString ? `?${queryString}` : ""}`);
       setDeleteConfirm(null);
+      setSelectedCases(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(caseId);
+        return newSet;
+      });
     } catch (error) {
       console.error("Error deleting case:", error);
       alert("Fehler beim Löschen des Falls. Bitte versuchen Sie es erneut.");
@@ -419,28 +579,26 @@ export default function CasesPage() {
     }
   };
 
-  const handleDeleteAll = async () => {
+  const handleDeleteSelected = async () => {
     setIsDeleting(true);
     try {
-      const res = await fetch("/api/cases", {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        throw new Error("Fehler beim Löschen");
-      }
+      const selectedIds = Array.from(selectedCases);
+      const deletePromises = selectedIds.map(id =>
+        fetch(`/api/cases/${id}`, { method: "DELETE" })
+      );
+      
+      await Promise.all(deletePromises);
 
       mutate(`/api/cases${queryString ? `?${queryString}` : ""}`);
       setDeleteConfirm(null);
+      setSelectedCases(new Set());
     } catch (error) {
-      console.error("Error deleting all cases:", error);
-      alert("Fehler beim Löschen aller Fälle. Bitte versuchen Sie es erneut.");
+      console.error("Error deleting selected cases:", error);
+      alert("Fehler beim Löschen der Fälle. Bitte versuchen Sie es erneut.");
     } finally {
       setIsDeleting(false);
     }
   };
-
-  const cases = data?.cases || [];
 
   return (
     <div className="space-y-6">
@@ -453,24 +611,13 @@ export default function CasesPage() {
             Verwalten Sie Ihre Markenrecherchen und Anmeldungen
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {cases.length > 0 && (
-            <button
-              onClick={() => setDeleteConfirm({ type: "all" })}
-              className="inline-flex items-center gap-2 px-4 py-2.5 border border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              Alle löschen
-            </button>
-          )}
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors shadow-sm"
-          >
-            <Plus className="w-5 h-5" />
-            Neuer Fall
-          </button>
-        </div>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors shadow-sm"
+        >
+          <Plus className="w-5 h-5" />
+          Neuer Fall
+        </button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
@@ -531,23 +678,46 @@ export default function CasesPage() {
           <EmptyState onCreateCase={() => setIsModalOpen(true)} />
         )
       ) : (
-        <div className="grid gap-4">
-          {cases.map((caseData) => (
-            <CaseCard
-              key={caseData.id}
-              caseData={caseData}
-              onClick={() => router.push(`/dashboard/case/${caseData.id}`)}
-              onDelete={(e) => {
-                e.stopPropagation();
-                setDeleteConfirm({ 
-                  type: "single", 
-                  caseId: caseData.id, 
-                  caseName: caseData.trademarkName || caseData.caseNumber 
-                });
-              }}
-              isDeleting={deletingCaseId === caseData.id}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <SelectAllCheckbox
+              cases={cases}
+              selectedCases={selectedCases}
+              onSelectAll={handleSelectAll}
             />
-          ))}
+            <span className="text-sm text-gray-500">
+              {cases.length} {cases.length === 1 ? "Fall" : "Fälle"}
+            </span>
+          </div>
+
+          <SelectionToolbar
+            selectedCount={selectedCases.size}
+            onDelete={() => setDeleteConfirm({ type: "selected" })}
+            onClearSelection={handleClearSelection}
+            isDeleting={isDeleting}
+          />
+
+          <div className="grid gap-4">
+            {cases.map((caseData) => (
+              <CaseCard
+                key={caseData.id}
+                caseData={caseData}
+                onClick={() => router.push(`/dashboard/case/${caseData.id}`)}
+                onDelete={(e) => {
+                  e.stopPropagation();
+                  setDeleteConfirm({ 
+                    type: "single", 
+                    caseId: caseData.id, 
+                    caseName: caseData.trademarkName || caseData.caseNumber 
+                  });
+                }}
+                isDeleting={deletingCaseId === caseData.id}
+                isSelected={selectedCases.has(caseData.id)}
+                onSelect={(e) => handleSelectCase(caseData.id, e)}
+                isSelectionMode={isSelectionMode}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -565,15 +735,15 @@ export default function CasesPage() {
           if (deleteConfirm?.type === "single" && deleteConfirm.caseId) {
             setDeletingCaseId(deleteConfirm.caseId);
             handleDeleteCase(deleteConfirm.caseId);
-          } else if (deleteConfirm?.type === "all") {
-            handleDeleteAll();
+          } else if (deleteConfirm?.type === "selected") {
+            handleDeleteSelected();
           }
         }}
         isLoading={isDeleting}
-        title={deleteConfirm?.type === "all" ? "Alle Fälle löschen?" : "Fall löschen?"}
+        title={deleteConfirm?.type === "selected" ? `${selectedCases.size} Fälle löschen?` : "Fall löschen?"}
         message={
-          deleteConfirm?.type === "all"
-            ? `Möchten Sie wirklich alle ${cases.length} Fälle unwiderruflich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
+          deleteConfirm?.type === "selected"
+            ? `Möchten Sie wirklich ${selectedCases.size} ${selectedCases.size === 1 ? "Fall" : "Fälle"} unwiderruflich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
             : `Möchten Sie den Fall "${deleteConfirm?.caseName}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
         }
       />
