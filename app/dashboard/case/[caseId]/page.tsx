@@ -313,14 +313,43 @@ export default function CasePage() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [caseId]);
 
-  const QUICK_QUESTIONS = [
-    "Welche Schritte sind für eine Markenanmeldung in Deutschland erforderlich?",
-    "Was sind die häufigsten Gründe für eine Markenablehnung?",
-    "Wie kann ich prüfen, ob mein Markenname bereits existiert?",
-    "Welche Nizza-Klassen sind für mein Produkt relevant?",
-    "Was kostet eine Markenanmeldung beim DPMA?",
-    "Wie lange dauert das Eintragungsverfahren?",
-  ];
+  const QUICK_QUESTION_GROUPS = [
+    {
+      title: "GRUNDLAGEN",
+      questions: [
+        "Was ist überhaupt eine Marke?",
+        "Wofür brauche ich eine Marke?",
+        "Was ist der Unterschied zwischen Wortmarke und Bildmarke?",
+        "Was ist eine Nizza-Klassifikation?",
+      ],
+    },
+    {
+      title: "MARKENRECHERCHE",
+      questions: [
+        "Wozu dient die Markenrecherche?",
+        "Wo und wie wird die Markenrecherche durchgeführt?",
+        "Können Sie für mich Markenrecherche durchführen?",
+        "Was passiert, wenn ich keine Markenrecherche mache?",
+        "Wie kann ich prüfen, ob mein Markenname bereits existiert?",
+      ],
+    },
+    {
+      title: "MARKENPRÜFUNG",
+      questions: [
+        "Wozu dient die Markenprüfung?",
+        "Wo und wie wird die Markenprüfung durchgeführt?",
+        "Was kostet die Markenprüfung?",
+        "Was sind die häufigsten Gründe für eine Markenablehnung?",
+        "Welche Nizza-Klassen sind für mein Produkt relevant?",
+        "Welche Schritte sind für eine Markenanmeldung in Deutschland erforderlich?",
+        "Was kostet eine Markenanmeldung beim DPMA?",
+        "Wie lange dauert das Eintragungsverfahren?",
+        "Wie lange gilt eine Marke?",
+        "Kann ich meine Marke später erweitern oder ändern?",
+        "Was kostet die Markenverlängerung?",
+      ],
+    },
+  ] as const;
 
   const handleQuickQuestion = useCallback((question: string) => {
     voiceAssistantRef.current?.sendQuestion(question);
@@ -477,21 +506,32 @@ export default function CasePage() {
         </div>
 
         <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 lg:h-[560px] flex flex-col">
             <div className="flex items-center gap-2 mb-4">
               <HelpCircle className="w-5 h-5 text-teal-600" />
               <h3 className="font-semibold text-gray-900">Schnellfragen</h3>
             </div>
-            <div className="space-y-2">
-              {QUICK_QUESTIONS.map((question, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleQuickQuestion(question)}
-                  className="w-full text-left p-3 bg-gray-50 hover:bg-teal-50 rounded-lg text-sm text-gray-700 hover:text-teal-700 transition-colors border border-transparent hover:border-teal-200"
-                >
-                  {question}
-                </button>
-              ))}
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
+              <div className="space-y-4">
+                {QUICK_QUESTION_GROUPS.map((group) => (
+                  <div key={group.title}>
+                    <div className="text-xs font-semibold text-teal-700 mb-2 tracking-wide">
+                      {group.title}
+                    </div>
+                    <div className="space-y-2">
+                      {group.questions.map((question) => (
+                        <button
+                          key={question}
+                          onClick={() => handleQuickQuestion(question)}
+                          className="w-full text-left p-3 bg-gray-50 hover:bg-teal-50 rounded-lg text-sm text-gray-700 hover:text-teal-700 transition-colors border border-transparent hover:border-teal-200"
+                        >
+                          {question}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
