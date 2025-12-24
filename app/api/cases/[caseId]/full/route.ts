@@ -94,6 +94,8 @@ export async function GET(
         completenessScore: latestDecision.completenessScore,
       } : null,
       analysis: analysis ? {
+        id: analysis.id,
+        createdAt: analysis.createdAt,
         searchQuery: analysis.searchQuery,
         conflicts: analysis.conflicts,
         riskScore: analysis.riskScore,

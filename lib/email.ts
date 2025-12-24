@@ -1,6 +1,18 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resend: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (resend) return resend;
+
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
+    throw new Error('Missing API key. Pass it to the constructor `new Resend("re_123")`');
+  }
+
+  resend = new Resend(key);
+  return resend;
+}
 
 interface SendVerificationEmailParams {
   email: string;
@@ -12,7 +24,7 @@ export async function sendVerificationEmail({ email, name, token }: SendVerifica
   const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5000';
   const verificationUrl = `${baseUrl}/verify-email?token=${token}`;
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResendClient().emails.send({
     from: 'TrademarkIQ <noreply@mail.accelari.com>',
     to: [email],
     subject: 'Bestätigen Sie Ihre E-Mail-Adresse - TrademarkIQ',
@@ -120,7 +132,7 @@ export async function sendPasswordResetEmail({ email, name, token }: SendPasswor
   const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5000';
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResendClient().emails.send({
     from: 'TrademarkIQ <noreply@mail.accelari.com>',
     to: [email],
     subject: 'Passwort zurücksetzen - TrademarkIQ',

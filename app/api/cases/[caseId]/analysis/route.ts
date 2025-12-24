@@ -16,6 +16,9 @@ export async function GET(
 
     const { caseId } = await params;
 
+    const url = new URL(request.url);
+    const analysisId = url.searchParams.get("analysisId");
+
     const trademarkCase = await db.query.trademarkCases.findFirst({
       where: and(
         eq(trademarkCases.id, caseId),
@@ -35,10 +38,21 @@ export async function GET(
         return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
       }
 
-      const analysis = await db.query.caseAnalyses.findFirst({
-        where: eq(caseAnalyses.caseId, caseByNumber.id),
-        orderBy: [desc(caseAnalyses.createdAt)],
-      });
+      const analysis = analysisId
+        ? await db.query.caseAnalyses.findFirst({
+            where: and(
+              eq(caseAnalyses.id, analysisId),
+              eq(caseAnalyses.caseId, caseByNumber.id),
+              eq(caseAnalyses.userId, session.user.id)
+            ),
+          })
+        : await db.query.caseAnalyses.findFirst({
+            where: and(
+              eq(caseAnalyses.caseId, caseByNumber.id),
+              eq(caseAnalyses.userId, session.user.id)
+            ),
+            orderBy: [desc(caseAnalyses.createdAt)],
+          });
 
       return NextResponse.json({
         analysis: analysis || null,
@@ -46,10 +60,21 @@ export async function GET(
       });
     }
 
-    const analysis = await db.query.caseAnalyses.findFirst({
-      where: eq(caseAnalyses.caseId, trademarkCase.id),
-      orderBy: [desc(caseAnalyses.createdAt)],
-    });
+    const analysis = analysisId
+      ? await db.query.caseAnalyses.findFirst({
+          where: and(
+            eq(caseAnalyses.id, analysisId),
+            eq(caseAnalyses.caseId, trademarkCase.id),
+            eq(caseAnalyses.userId, session.user.id)
+          ),
+        })
+      : await db.query.caseAnalyses.findFirst({
+          where: and(
+            eq(caseAnalyses.caseId, trademarkCase.id),
+            eq(caseAnalyses.userId, session.user.id)
+          ),
+          orderBy: [desc(caseAnalyses.createdAt)],
+        });
 
     return NextResponse.json({
       analysis: analysis || null,
@@ -97,11 +122,6 @@ export async function POST(
       return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
     }
 
-    const existingAnalysis = await db.query.caseAnalyses.findFirst({
-      where: eq(caseAnalyses.caseId, trademarkCase.id),
-      orderBy: [desc(caseAnalyses.createdAt)],
-    });
-
     const analysisData = {
       caseId: trademarkCase.id,
       userId: session.user.id,
@@ -117,19 +137,10 @@ export async function POST(
       updatedAt: new Date(),
     };
 
-    let analysis;
-    if (existingAnalysis) {
-      [analysis] = await db
-        .update(caseAnalyses)
-        .set(analysisData)
-        .where(eq(caseAnalyses.id, existingAnalysis.id))
-        .returning();
-    } else {
-      [analysis] = await db
-        .insert(caseAnalyses)
-        .values(analysisData)
-        .returning();
-    }
+    const [analysis] = await db
+      .insert(caseAnalyses)
+      .values(analysisData)
+      .returning();
 
     const recherchStep = await db.query.caseSteps.findFirst({
       where: and(
@@ -179,6 +190,9 @@ export async function PATCH(
     const { caseId } = await params;
     const body = await request.json();
 
+    const url = new URL(request.url);
+    const analysisId = url.searchParams.get("analysisId");
+
     let trademarkCase = await db.query.trademarkCases.findFirst({
       where: and(
         eq(trademarkCases.id, caseId),
@@ -199,10 +213,21 @@ export async function PATCH(
       return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
     }
 
-    const existingAnalysis = await db.query.caseAnalyses.findFirst({
-      where: eq(caseAnalyses.caseId, trademarkCase.id),
-      orderBy: [desc(caseAnalyses.createdAt)],
-    });
+    const existingAnalysis = analysisId
+      ? await db.query.caseAnalyses.findFirst({
+          where: and(
+            eq(caseAnalyses.id, analysisId),
+            eq(caseAnalyses.caseId, trademarkCase.id),
+            eq(caseAnalyses.userId, session.user.id)
+          ),
+        })
+      : await db.query.caseAnalyses.findFirst({
+          where: and(
+            eq(caseAnalyses.caseId, trademarkCase.id),
+            eq(caseAnalyses.userId, session.user.id)
+          ),
+          orderBy: [desc(caseAnalyses.createdAt)],
+        });
 
     if (!existingAnalysis) {
       return NextResponse.json({ error: "Keine Analyse gefunden" }, { status: 404 });

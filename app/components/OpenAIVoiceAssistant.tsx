@@ -46,6 +46,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const pendingQuestionsRef = useRef<string[]>([]);
     const isInitialLoadRef = useRef(true);
+    const ignorePreviousMessagesRef = useRef(false);
 
     const scrollToBottom = useCallback(() => {
       if (!isInitialLoadRef.current && messagesContainerRef.current) {
@@ -58,7 +59,10 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
     }, [messages, currentTranscript, assistantResponse, scrollToBottom]);
 
     useEffect(() => {
-      if (previousMessages.length > 0 && messages.length === 0) {
+      if (previousMessages.length === 0) {
+        ignorePreviousMessagesRef.current = false;
+      }
+      if (!ignorePreviousMessagesRef.current && previousMessages.length > 0 && messages.length === 0) {
         setMessages(previousMessages);
       }
       if (isInitialLoadRef.current) {
@@ -354,6 +358,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
     const handleNewSession = useCallback(() => {
       setShowMenu(false);
       disconnect();
+      ignorePreviousMessagesRef.current = true;
       setMessages([]);
       onDelete?.();
     }, [disconnect, onDelete]);

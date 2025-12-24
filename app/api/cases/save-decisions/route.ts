@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { caseId, consultationId, trademarkName, countries, niceClasses } = body;
+    const { caseId, trademarkName, countries, niceClasses } = body;
 
     if (!caseId) {
       return NextResponse.json(
@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
       [decision] = await db
         .update(caseDecisions)
         .set({
-          consultationId: consultationId || existingDecision.consultationId,
           trademarkNames: updatedTrademarkNames,
           countries: updatedCountries,
           niceClasses: updatedNiceClasses,
@@ -76,7 +75,6 @@ export async function POST(request: NextRequest) {
         .insert(caseDecisions)
         .values({
           caseId,
-          consultationId: consultationId || null,
           trademarkNames: trademarkName ? [trademarkName] : [],
           countries: countries || [],
           niceClasses: niceClasses || [],
