@@ -10,13 +10,22 @@ import {
   LogOut,
   ChevronRight,
   Loader2,
-  FolderOpen
+  FolderOpen,
+  LayoutDashboard,
+  Mic,
+  Search,
+  ClipboardCheck,
+  FileText,
+  MessageCircle,
+  Eye,
+  Calendar
 } from "lucide-react";
 import { useEffect } from "react";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import { UnsavedDataProvider, useUnsavedData } from "@/app/contexts/UnsavedDataContext";
 
 const baseNavigation = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Meine Markenfälle", href: "/dashboard/cases", icon: FolderOpen },
 ];
 
@@ -46,11 +55,86 @@ function Sidebar({
     checkUnsavedDataRef
   } = useUnsavedData();
 
+  const caseMatch = pathname.match(/^\/dashboard\/case\/([^\/]+)/);
+  const caseId = caseMatch?.[1] ?? null;
+  const isCasePage = Boolean(caseId);
+
+  const [currentHash, setCurrentHash] = useState<string>("");
+
+  const dashboardItem = baseNavigation[0];
+  const casesItem = baseNavigation[1];
+  const DashboardIcon = dashboardItem.icon;
+  const CasesIcon = casesItem.icon;
+
+  const [isCreatingCase, setIsCreatingCase] = useState(false);
+
+  const createCaseAndNavigate = async (hash: string) => {
+    if (isCreatingCase) return;
+    setIsCreatingCase(true);
+    try {
+      const res = await fetch("/api/cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trademarkName: null }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to create case");
+      }
+
+      const result = await res.json();
+      const newCaseId = result?.case?.id;
+      if (!newCaseId) {
+        throw new Error("Missing case id");
+      }
+
+      setSidebarOpen(false);
+      router.push(`/dashboard/case/${newCaseId}#${hash}`);
+    } catch (err) {
+      console.error("[Sidebar] Failed to auto-create case:", err);
+    } finally {
+      setIsCreatingCase(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isCasePage) {
+      setCurrentHash("");
+      return;
+    }
+
+    const update = () => {
+      setCurrentHash(window.location.hash || "");
+    };
+
+    update();
+    window.addEventListener("hashchange", update);
+    return () => window.removeEventListener("hashchange", update);
+  }, [isCasePage]);
+
+  const caseTabs = [
+    { name: "Beratung", hash: "beratung", icon: Mic },
+    { name: "Markenprüfung", hash: "markenpruefung", icon: Search },
+    { name: "Überprüfung", hash: "ueberpruefung", icon: ClipboardCheck },
+    { name: "Anmeldung", hash: "anmeldung", icon: FileText },
+    { name: "Kommunikation", hash: "kommunikation", icon: MessageCircle },
+    { name: "Überwachung", hash: "ueberwachung", icon: Eye },
+    { name: "Fristen", hash: "fristen", icon: Calendar },
+  ] as const;
+
   const handleNavClick = (e: React.MouseEvent, href: string) => {
     const refCheck = checkUnsavedDataRef.current?.() ?? false;
     const shouldBlock = hasUnsavedData || refCheck;
+    const baseHref = href.split("#")[0];
     console.log("[Sidebar] Navigation click to:", href, "| hasUnsavedData:", hasUnsavedData, "| refCheck:", refCheck, "| shouldBlock:", shouldBlock, "| pathname:", pathname);
-    if (shouldBlock && pathname !== href) {
+
+    // If it's just a hash change within the current page, don't block navigation.
+    if (baseHref === pathname) {
+      setSidebarOpen(false);
+      return;
+    }
+
+    if (shouldBlock && pathname !== baseHref) {
       e.preventDefault();
       setPendingNavigation(href);
       setShowLeaveModal(true);
@@ -83,30 +167,81 @@ function Sidebar({
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {baseNavigation.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={(e) => handleNavClick(e, item.href)}
-                className={`
-                  flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium
-                  transition-all duration-200 group
-                  ${isActive 
-                    ? 'bg-primary text-white shadow-md' 
-                    : 'text-gray-700 hover:bg-gray-100'
-                  }
-                `}
-              >
-                <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-primary'}`} />
-                {item.name}
-                {isActive && (
-                  <ChevronRight className="w-4 h-4 ml-auto" />
-                )}
-              </Link>
-            );
-          })}
+          <Link
+            key={dashboardItem.name}
+            href={dashboardItem.href}
+            onClick={(e) => handleNavClick(e, dashboardItem.href)}
+            className={`
+              flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium
+              transition-colors duration-200 group
+              ${pathname === dashboardItem.href ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'}
+            `}
+          >
+            <DashboardIcon className={`w-4 h-4 ${pathname === dashboardItem.href ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'}`} />
+            <span className="truncate">{dashboardItem.name}</span>
+            {pathname === dashboardItem.href && (
+              <span className="ml-auto w-6 h-6 rounded-md bg-white/20 flex items-center justify-center">
+                <ChevronRight className="w-4 h-4 text-white" />
+              </span>
+            )}
+          </Link>
+
+          <div className="mt-2 space-y-1">
+            {caseTabs.map((tab) => {
+              const href = isCasePage ? `/dashboard/case/${caseId}#${tab.hash}` : "/dashboard/cases";
+              const isActive = isCasePage && currentHash === `#${tab.hash}`;
+
+              return (
+                <Link
+                  key={tab.hash}
+                  href={href}
+                  onClick={(e) => {
+                    if (isCasePage) {
+                      handleNavClick(e, href);
+                      return;
+                    }
+
+                    e.preventDefault();
+                    void createCaseAndNavigate(tab.hash);
+                  }}
+                  className={`
+                    flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium
+                    transition-colors duration-200 group
+                    ${isCreatingCase ? 'opacity-60 pointer-events-none' : ''}
+                    ${isActive ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'}
+                  `}
+                  aria-disabled={isCreatingCase}
+                >
+                  <tab.icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'}`} />
+                  <span className="truncate">{tab.name}</span>
+                  {isActive && (
+                    <span className="ml-auto w-6 h-6 rounded-md bg-white/20 flex items-center justify-center">
+                      <ChevronRight className="w-4 h-4 text-white" />
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+
+          <Link
+            key={casesItem.name}
+            href={casesItem.href}
+            onClick={(e) => handleNavClick(e, casesItem.href)}
+            className={`
+              flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium
+              transition-colors duration-200 group
+              ${pathname === casesItem.href ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'}
+            `}
+          >
+            <CasesIcon className={`w-4 h-4 ${pathname === casesItem.href ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'}`} />
+            <span className="truncate">{casesItem.name}</span>
+            {pathname === casesItem.href && (
+              <span className="ml-auto w-6 h-6 rounded-md bg-white/20 flex items-center justify-center">
+                <ChevronRight className="w-4 h-4 text-white" />
+              </span>
+            )}
+          </Link>
         </nav>
 
         <div className="p-4 border-t border-gray-200">
@@ -245,6 +380,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const userEmail = session.user?.email || "";
   const userInitials = userName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
+  const isCasePage = /^\/dashboard\/case\//.test(pathname);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <button
@@ -275,7 +412,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       <LeaveModal />
 
       <main className="lg:pl-72 min-h-screen">
-        <div className="p-6 lg:p-8">
+        <div className={isCasePage ? "pt-2 px-6 pb-6 lg:pt-3 lg:px-8 lg:pb-8" : "p-6 lg:p-8"}>
           <ErrorBoundary>
             {children}
           </ErrorBoundary>

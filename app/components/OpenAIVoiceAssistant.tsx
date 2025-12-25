@@ -7,7 +7,7 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  timestamp: Date;
+  timestamp: Date | string;
   isTranscription?: boolean;
 }
 
@@ -47,6 +47,22 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
     const pendingQuestionsRef = useRef<string[]>([]);
     const isInitialLoadRef = useRef(true);
     const ignorePreviousMessagesRef = useRef(false);
+
+    const formatMessageDateTime = useCallback((value: Date | string) => {
+      try {
+        const d = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(d.getTime())) return "";
+        return d.toLocaleString("de-DE", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      } catch {
+        return "";
+      }
+    }, []);
 
     const scrollToBottom = useCallback(() => {
       if (!isInitialLoadRef.current && messagesContainerRef.current) {
@@ -366,20 +382,23 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
     return (
       <div className="relative flex flex-col h-full bg-white rounded-lg border border-gray-200">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-300"}`} />
-            <span className="font-semibold text-gray-900 text-sm">
-              Klaus - Markenrechtsberater
-            </span>
+        <div className="flex items-center justify-between px-4 py-3 s-gradient-header rounded-t-lg">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+              <Mic className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <div className="font-semibold text-sm truncate">KI-Markenberater</div>
+              <div className="text-xs text-white/85 truncate">Sprachgesteuerte Beratung</div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setInputMode(inputMode === "voice" ? "text" : "voice")}
               className={`p-2 rounded-lg transition-colors ${
                 inputMode === "text" 
-                  ? "bg-teal-100 text-teal-700" 
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-white/20 text-white hover:bg-white/25" 
+                  : "bg-white/10 text-white hover:bg-white/20"
               }`}
               title={inputMode === "voice" ? "Zu Text wechseln" : "Zu Sprache wechseln"}
             >
@@ -389,7 +408,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
                 title="Optionen"
               >
                 <MoreVertical className="w-5 h-5" />
@@ -428,7 +447,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
               <div
                 className={`max-w-[80%] rounded-lg p-3 ${
                   message.role === "user"
-                    ? "bg-teal-600 text-white"
+                    ? "bg-gray-200 text-gray-900"
                     : "bg-gray-100 text-gray-900"
                 }`}
               >
@@ -438,13 +457,16 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
                     (Transkribiert)
                   </span>
                 )}
+                <div className="text-[10px] text-gray-500 mt-1">
+                  {formatMessageDateTime(message.timestamp)}
+                </div>
               </div>
             </div>
           ))}
 
           {currentTranscript && (
             <div className="flex justify-end">
-              <div className="max-w-[80%] rounded-lg p-3 bg-teal-400 text-white opacity-70">
+              <div className="max-w-[80%] rounded-lg p-3 bg-gray-200 text-gray-900 opacity-80">
                 <p className="text-sm leading-relaxed">{currentTranscript}</p>
               </div>
             </div>
@@ -475,7 +497,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
             <button
               onClick={connect}
               disabled={isConnecting}
-              className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-semibold text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 s-gradient-button text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {isConnecting ? (
                 <>
@@ -521,7 +543,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
               <button
                 onClick={handleSendText}
                 disabled={!textInput.trim()}
-                className="px-4 py-3 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 text-white rounded-lg transition-colors"
+                className="px-4 py-3 s-gradient-button rounded-lg transition-colors"
               >
                 <Send className="w-5 h-5" />
               </button>

@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   MessageCircle,
+  Mic,
   Search,
   BarChart3,
   Clock,
@@ -28,6 +29,14 @@ import {
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
 import OpenAIVoiceAssistant, { VoiceAssistantHandle } from "@/app/components/OpenAIVoiceAssistant";
+import Tooltip, { 
+  NiceClassesTooltip, 
+  RiskLevelTooltip, 
+  RiskScoreTooltip, 
+  AlternativeNamesTooltip, 
+  QuickCheckTooltip, 
+  ConflictsTooltip, 
+} from "@/app/components/ui/tooltip";
 
 interface AnalysisSummary {
   id: string;
@@ -60,6 +69,84 @@ const fetcher = async (url: string) => {
   }
   return res.json();
 };
+
+type CountryOption = {
+  code: string;
+  label: string;
+  icon: string;
+  numeric?: string;
+};
+
+const COUNTRY_OPTIONS: CountryOption[] = [
+  { code: "AE", label: "Vereinigte Arabische Emirate", icon: "🇦🇪", numeric: "784" },
+  { code: "AM", label: "Armenien", icon: "🇦🇲", numeric: "051" },
+  { code: "AR", label: "Argentinien", icon: "🇦🇷", numeric: "032" },
+  { code: "AT", label: "Österreich", icon: "🇦🇹", numeric: "040" },
+  { code: "AU", label: "Australien", icon: "🇦🇺", numeric: "036" },
+  { code: "AZ", label: "Aserbaidschan", icon: "🇦🇿", numeric: "031" },
+  { code: "BA", label: "Bosnien und Herzegowina", icon: "🇧🇦", numeric: "070" },
+  { code: "BE", label: "Belgien", icon: "🇧🇪", numeric: "056" },
+  { code: "BG", label: "Bulgarien", icon: "🇧🇬", numeric: "100" },
+  { code: "BH", label: "Bahrain", icon: "🇧🇭", numeric: "048" },
+  { code: "BW", label: "Botswana", icon: "🇧🇼", numeric: "072" },
+  { code: "BR", label: "Brasilien", icon: "🇧🇷", numeric: "076" },
+  { code: "BY", label: "Belarus", icon: "🇧🇾", numeric: "112" },
+  { code: "CA", label: "Kanada", icon: "🇨🇦", numeric: "124" },
+  { code: "CH", label: "Schweiz", icon: "🇨🇭", numeric: "756" },
+  { code: "CN", label: "China", icon: "🇨🇳", numeric: "156" },
+  { code: "CZ", label: "Tschechien", icon: "🇨🇿", numeric: "203" },
+  { code: "DE", label: "Deutschland", icon: "🇩🇪", numeric: "276" },
+  { code: "DK", label: "Dänemark", icon: "🇩🇰", numeric: "208" },
+  { code: "EE", label: "Estland", icon: "🇪🇪", numeric: "233" },
+  { code: "EG", label: "Ägypten", icon: "🇪🇬", numeric: "818" },
+  { code: "ES", label: "Spanien", icon: "🇪🇸", numeric: "724" },
+  { code: "EU", label: "Europäische Union", icon: "🇪🇺" },
+  { code: "EUIPO", label: "EUIPO", icon: "🇪🇺" },
+  { code: "FI", label: "Finnland", icon: "🇫🇮", numeric: "246" },
+  { code: "FR", label: "Frankreich", icon: "🇫🇷", numeric: "250" },
+  { code: "GB", label: "Vereinigtes Königreich", icon: "🇬🇧", numeric: "826" },
+  { code: "GE", label: "Georgien", icon: "🇬🇪", numeric: "268" },
+  { code: "GR", label: "Griechenland", icon: "🇬🇷", numeric: "300" },
+  { code: "HK", label: "Hongkong", icon: "🇭🇰", numeric: "344" },
+  { code: "HR", label: "Kroatien", icon: "🇭🇷", numeric: "191" },
+  { code: "HU", label: "Ungarn", icon: "🇭🇺", numeric: "348" },
+  { code: "ID", label: "Indonesien", icon: "🇮🇩", numeric: "360" },
+  { code: "IE", label: "Irland", icon: "🇮🇪", numeric: "372" },
+  { code: "IL", label: "Israel", icon: "🇮🇱", numeric: "376" },
+  { code: "IN", label: "Indien", icon: "🇮🇳", numeric: "356" },
+  { code: "IT", label: "Italien", icon: "🇮🇹", numeric: "380" },
+  { code: "JP", label: "Japan", icon: "🇯🇵", numeric: "392" },
+  { code: "KE", label: "Kenia", icon: "🇰🇪", numeric: "404" },
+  { code: "KG", label: "Kirgisistan", icon: "🇰🇬", numeric: "417" },
+  { code: "KZ", label: "Kasachstan", icon: "🇰🇿", numeric: "398" },
+  { code: "KR", label: "Südkorea", icon: "🇰🇷", numeric: "410" },
+  { code: "LT", label: "Litauen", icon: "🇱🇹", numeric: "440" },
+  { code: "LV", label: "Lettland", icon: "🇱🇻", numeric: "428" },
+  { code: "MA", label: "Marokko", icon: "🇲🇦", numeric: "504" },
+  { code: "MD", label: "Moldau", icon: "🇲🇩", numeric: "498" },
+  { code: "MX", label: "Mexiko", icon: "🇲🇽", numeric: "484" },
+  { code: "MY", label: "Malaysia", icon: "🇲🇾", numeric: "458" },
+  { code: "NL", label: "Niederlande", icon: "🇳🇱", numeric: "528" },
+  { code: "NO", label: "Norwegen", icon: "🇳🇴", numeric: "578" },
+  { code: "OM", label: "Oman", icon: "🇴🇲", numeric: "512" },
+  { code: "PH", label: "Philippinen", icon: "🇵🇭", numeric: "608" },
+  { code: "PL", label: "Polen", icon: "🇵🇱", numeric: "616" },
+  { code: "PT", label: "Portugal", icon: "🇵🇹", numeric: "620" },
+  { code: "RO", label: "Rumänien", icon: "🇷🇴", numeric: "642" },
+  { code: "RU", label: "Russische Föderation", icon: "🇷🇺", numeric: "643" },
+  { code: "SA", label: "Saudi-Arabien", icon: "🇸🇦", numeric: "682" },
+  { code: "SE", label: "Schweden", icon: "🇸🇪", numeric: "752" },
+  { code: "SG", label: "Singapur", icon: "🇸🇬", numeric: "702" },
+  { code: "TH", label: "Thailand", icon: "🇹🇭", numeric: "764" },
+  { code: "TR", label: "Türkei", icon: "🇹🇷", numeric: "792" },
+  { code: "TW", label: "Taiwan", icon: "🇹🇼", numeric: "158" },
+  { code: "UA", label: "Ukraine", icon: "🇺🇦", numeric: "804" },
+  { code: "US", label: "Vereinigte Staaten", icon: "🇺🇸", numeric: "840" },
+  { code: "UZ", label: "Usbekistan", icon: "🇺🇿", numeric: "860" },
+  { code: "VN", label: "Vietnam", icon: "🇻🇳", numeric: "704" },
+  { code: "WO", label: "WIPO", icon: "🌐" },
+  { code: "ZA", label: "Südafrika", icon: "🇿🇦", numeric: "710" },
+].slice().sort((a, b) => a.label.localeCompare(b.label));
 
 interface StepStatus {
   status: string;
@@ -168,6 +255,7 @@ const WORKFLOW_STEPS: WorkflowStep[] = [
 ];
 
 function AccordionSection({
+  stepId,
   title,
   icon: Icon,
   isCompleted,
@@ -176,6 +264,7 @@ function AccordionSection({
   onToggle,
   children,
 }: {
+  stepId: string;
   title: string;
   icon: React.ElementType;
   isCompleted: boolean;
@@ -204,19 +293,17 @@ function AccordionSection({
       ? "bg-orange-100 text-orange-700"
       : "bg-gray-100 text-gray-500";
 
-  useEffect(() => {
-    if (isOpen && sectionRef.current) {
-      setTimeout(() => {
-        sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 50);
-    }
-  }, [isOpen]);
+  const shouldShowStatusBadge = status === "completed" || status === "skipped";
 
   return (
-    <div ref={sectionRef} className="bg-white rounded-xl border border-gray-200 overflow-hidden scroll-mt-4">
+    <div
+      id={`accordion-${stepId}`}
+      ref={sectionRef}
+      className="bg-white rounded-xl border border-gray-200 overflow-hidden scroll-mt-28 lg:scroll-mt-32"
+    >
       <button
         onClick={onToggle}
-        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        className="w-full px-6 py-4 flex items-center justify-between"
       >
         <div className="flex items-center gap-3">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -228,11 +315,13 @@ function AccordionSection({
           <span className="font-semibold text-gray-900">{title}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-medium px-2 py-1 rounded ${
-            statusBadgeClass
-          }`}>
-            {statusLabel}
-          </span>
+          {shouldShowStatusBadge && (
+            <span className={`text-xs font-medium px-2 py-1 rounded ${
+              statusBadgeClass
+            }`}>
+              {statusLabel}
+            </span>
+          )}
           {isOpen ? (
             <ChevronUp className="w-5 h-5 text-gray-400" />
           ) : (
@@ -365,17 +454,20 @@ export default function CasePage() {
   const [selectedConflict, setSelectedConflict] = useState<ConflictMark | null>(null);
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
   const [showAllConflicts, setShowAllConflicts] = useState(false);
-  const [showAllEvents, setShowAllEvents] = useState(false);
   const [isApplyingAlternative, setIsApplyingAlternative] = useState(false);
   const [applyingAlternativeName, setApplyingAlternativeName] = useState<string | null>(null);
   const [applyAlternativeError, setApplyAlternativeError] = useState<string | null>(null);
   const [isStartingRecherche, setIsStartingRecherche] = useState(false);
   const [rechercheStartError, setRechercheStartError] = useState<string | null>(null);
+  const [isSavingRechercheForm, setIsSavingRechercheForm] = useState(false);
+  const [rechercheFormSaveError, setRechercheFormSaveError] = useState<string | null>(null);
+  const [rechercheFormValidationAttempted, setRechercheFormValidationAttempted] = useState(false);
   const [isUpdatingStep, setIsUpdatingStep] = useState<WorkflowStepId | null>(null);
   const [stepUpdateError, setStepUpdateError] = useState<string | null>(null);
 
   const [isAutoExtractingDecisions, setIsAutoExtractingDecisions] = useState(false);
   const autoExtractAttemptedForConsultationIdsRef = useRef<Set<string>>(new Set());
+  const autoCompleteBeratungAttemptedForCaseIdsRef = useRef<Set<string>>(new Set());
 
   const [isMarkennameModalOpen, setIsMarkennameModalOpen] = useState(false);
   const [manualNameInput, setManualNameInput] = useState("");
@@ -401,12 +493,121 @@ export default function CasePage() {
     trademarkName: "",
     countries: [] as string[],
     niceClasses: [] as number[],
+    includeRelatedNiceClasses: true,
   });
+
+  useEffect(() => {
+    const baseNiceClasses = Array.from(
+      new Set(
+        (rechercheForm.niceClasses || [])
+          .filter((n) => Number.isFinite(n))
+          .map((n) => Math.max(1, Math.min(45, Math.floor(Number(n)))))
+      )
+    ).sort((a, b) => a - b);
+
+    // When user selected any classes (but not ALL), related classes must be enabled.
+    if (baseNiceClasses.length > 0 && baseNiceClasses.length < 45 && !rechercheForm.includeRelatedNiceClasses) {
+      setRechercheForm((prev) => ({ ...prev, includeRelatedNiceClasses: true }));
+    }
+  }, [rechercheForm.includeRelatedNiceClasses, rechercheForm.niceClasses]);
+
+  const getRelatedNiceClasses = useCallback((selected: number[]) => {
+    const MAP: Record<number, number[]> = {
+      1: [2, 3, 5],
+      2: [1, 3, 4, 5],
+      3: [1, 2, 5, 10, 14],
+      4: [2, 5, 10],
+      5: [1, 2, 3, 4, 10],
+      6: [7, 8, 19],
+      7: [6, 8, 9, 11, 12],
+      8: [6, 7, 9],
+      9: [7, 8, 11, 38, 42],
+      10: [3, 4, 5, 14],
+      11: [7, 9, 12],
+      12: [7, 11, 37, 39],
+      13: [9, 11, 42],
+      14: [3, 10],
+      15: [16, 21],
+      16: [9, 35, 41],
+      17: [6, 19],
+      18: [25, 28],
+      19: [6, 17, 20],
+      20: [19, 21],
+      21: [15, 20],
+      22: [16, 25],
+      23: [24, 25, 26],
+      24: [23, 25, 26, 27],
+      25: [23, 24, 26, 28],
+      26: [23, 24, 25, 27],
+      27: [24, 26, 28],
+      28: [18, 25, 27],
+      29: [30, 31, 32],
+      30: [29, 31, 32, 33],
+      31: [29, 30, 32, 33],
+      32: [29, 30, 31, 33],
+      33: [30, 31, 32, 34],
+      34: [33],
+      35: [36, 41, 42],
+      36: [35, 41, 42],
+      37: [39, 40, 42],
+      38: [9, 41, 42],
+      39: [37, 40, 42],
+      40: [37, 39],
+      41: [35, 36, 38, 42, 44],
+      42: [9, 35, 36, 37, 38, 39, 41, 45],
+      43: [35, 41],
+      44: [9, 35, 41],
+      45: [41, 42],
+    };
+
+    const base = Array.from(
+      new Set(
+        (selected || [])
+          .filter((n) => Number.isFinite(n))
+          .map((n) => Math.max(1, Math.min(45, Math.floor(n))))
+      )
+    ).sort((a, b) => a - b);
+
+    const out = new Set<number>();
+    for (const c of base) {
+      const related = MAP[c] || [];
+      for (const r of related) out.add(r);
+      if (!MAP[c]) {
+        if (c > 1) out.add(c - 1);
+        if (c < 45) out.add(c + 1);
+      }
+    }
+    for (const c of base) out.delete(c);
+
+    return Array.from(out)
+      .filter((n) => n >= 1 && n <= 45)
+      .sort((a, b) => a - b)
+      .slice(0, 12);
+  }, []);
+
+  const getEffectiveNiceClasses = useCallback(
+    (selected: number[], includeRelated: boolean) => {
+      const base = Array.from(
+        new Set(
+          (selected || [])
+            .filter((n) => Number.isFinite(n))
+            .map((n) => Math.max(1, Math.min(45, Math.floor(n))))
+        )
+      ).sort((a, b) => a - b);
+
+      if (!includeRelated) return base;
+      const related = getRelatedNiceClasses(base);
+      return Array.from(new Set([...base, ...related])).sort((a, b) => a - b);
+    },
+    [getRelatedNiceClasses]
+  );
+
   const [isRunningRecherche, setIsRunningRecherche] = useState(false);
   const [rechercheError, setRechercheError] = useState<string | null>(null);
-  const [includeRelated, setIncludeRelated] = useState(true);
   const [countriesOpen, setCountriesOpen] = useState(false);
+  const [countriesSearch, setCountriesSearch] = useState("");
   const [classesOpen, setClassesOpen] = useState(false);
+  const [classesSearch, setClassesSearch] = useState("");
 
   const alternativeNamesRef = useRef<HTMLDivElement>(null);
   
@@ -417,6 +618,70 @@ export default function CasePage() {
   const [messagesLoaded, setMessagesLoaded] = useState(false);
   const previousAccordionRef = useRef<string | null>("beratung");
   const sessionMessagesRef = useRef<any[]>([]);
+
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [pendingTransferHash, setPendingTransferHash] = useState<string | null>(null);
+
+  useEffect(() => {
+    const applyHash = () => {
+      const raw = window.location.hash || "";
+      const hash = raw.startsWith("#") ? raw.slice(1) : raw;
+      if (!hash) return;
+
+      const map: Record<string, WorkflowStepId> = {
+        beratung: "beratung",
+        markenpruefung: "recherche",
+        recherche: "recherche",
+        ueberpruefung: "ueberpruefung",
+        anmeldung: "anmeldung",
+        kommunikation: "kommunikation",
+        ueberwachung: "ueberwachung",
+        fristen: "fristen",
+      };
+
+      const next = map[hash] || (hash as WorkflowStepId);
+      const exists = WORKFLOW_STEPS.some((s) => s.id === next);
+      if (!exists) return;
+
+      // If user is moving into Recherche and Beratung produced data, ask whether to transfer.
+      if (next === "recherche" && !showTransferModal) {
+        const beratungStatus = data?.steps?.beratung?.status;
+        const beratungDone = beratungStatus === "completed";
+
+        const decision = data?.decisions;
+        const hasUsefulDecisions =
+          !!decision &&
+          ((decision.trademarkNames?.length || 0) > 0 || (decision.countries?.length || 0) > 0 || (decision.niceClasses?.length || 0) > 0);
+
+        const rawSummary = (sessionSummary || data?.consultation?.summary || "").trim();
+        const hasSummaryData =
+          /\bmarke\s*:\s*[^\n\r]{2,}/i.test(rawSummary) ||
+          /\bmarkenname\s*:\s*[^\n\r]{2,}/i.test(rawSummary) ||
+          /\bklasse(n)?\b[^\d]{0,8}\d{1,2}\b/i.test(rawSummary);
+
+        const rechercheMeta = (data?.steps?.recherche?.metadata || {}) as Record<string, any>;
+        const transferChoice = rechercheMeta?.transferFromBeratung;
+
+        const shouldAsk = beratungDone && (hasUsefulDecisions || hasSummaryData) && !transferChoice;
+        if (shouldAsk) {
+          setPendingTransferHash(hash);
+          setShowTransferModal(true);
+          return;
+        }
+      }
+
+      setOpenAccordion(next);
+
+      setTimeout(() => {
+        const el = document.getElementById(`accordion-${next}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    };
+
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, [data?.consultation?.summary, data?.decisions, data?.steps?.beratung?.status, data?.steps?.recherche?.metadata, sessionSummary, showTransferModal]);
 
   useEffect(() => {
     sessionMessagesRef.current = sessionMessages;
@@ -436,10 +701,15 @@ export default function CasePage() {
   useEffect(() => {
     if (data) {
       const { decisions, case: caseInfo } = data;
-      setRechercheForm(prev => ({
+      const metaQuery = (data?.steps?.recherche?.metadata as any)?.searchQuery;
+      const metaBaseClasses = Array.isArray(metaQuery?.baseNiceClasses) ? metaQuery.baseNiceClasses : null;
+      const metaIncludeRelated = typeof metaQuery?.includeRelatedNiceClasses === "boolean" ? metaQuery.includeRelatedNiceClasses : null;
+
+      setRechercheForm((prev) => ({
         trademarkName: prev.trademarkName || decisions?.trademarkNames?.[0] || caseInfo?.trademarkName || "",
-        countries: prev.countries.length > 0 ? prev.countries : (decisions?.countries || []),
-        niceClasses: prev.niceClasses.length > 0 ? prev.niceClasses : (decisions?.niceClasses || []),
+        countries: prev.countries.length > 0 ? prev.countries : decisions?.countries || [],
+        niceClasses: prev.niceClasses.length > 0 ? prev.niceClasses : metaBaseClasses || decisions?.niceClasses || [],
+        includeRelatedNiceClasses: metaIncludeRelated !== null ? metaIncludeRelated : prev.includeRelatedNiceClasses,
       }));
     }
   }, [data]);
@@ -475,19 +745,105 @@ export default function CasePage() {
         });
 
         if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: "Unbekannter Fehler" }));
-          console.error("Auto decision extraction failed:", err);
+          const raw = await res.text().catch(() => "");
+          const parsed = (() => {
+            try {
+              return raw ? JSON.parse(raw) : null;
+            } catch {
+              return null;
+            }
+          })();
+
+          const message =
+            (parsed && typeof parsed === "object" && "error" in parsed && typeof (parsed as any).error === "string"
+              ? String((parsed as any).error)
+              : raw?.trim()?.slice(0, 240)) ||
+            `${res.status} ${res.statusText}`;
+
+          if (res.status === 401) {
+            console.warn("[Auto Decisions] Skipped (unauthorized)");
+          } else {
+            console.warn(`[Auto Decisions] Failed (${res.status}): ${message}`);
+          }
           return;
         }
 
         await mutate();
       } catch (e) {
-        console.error("Auto decision extraction failed:", e);
+        console.warn("[Auto Decisions] Failed:", e);
       } finally {
         setIsAutoExtractingDecisions(false);
       }
     })();
   }, [data?.case, data?.consultation, data?.decisions, mutate]);
+
+  useEffect(() => {
+    const caseRecord = data?.case;
+    if (!caseRecord?.id) return;
+    if (isUpdatingStep) return;
+
+    const current = data?.steps?.beratung?.status;
+    if (current === "completed" || current === "skipped") return;
+
+    const d = data?.decisions;
+    const hasNameFromDecisions = (d?.trademarkNames || []).some((n) => typeof n === "string" && n.trim().length > 0);
+    const hasCountriesFromDecisions = (d?.countries || []).some((c) => typeof c === "string" && c.trim().length > 0);
+    const hasClassesFromDecisions = (d?.niceClasses || []).some((k) => Number.isFinite(k));
+
+    const rawSummary = (sessionSummary || data?.consultation?.summary || "").trim();
+    const lower = rawSummary.toLowerCase();
+
+    const hasNameFromSummary =
+      /\bmarke\s*:\s*[^\n\r]{2,}/i.test(rawSummary) ||
+      /\bmarkenname\s*:\s*[^\n\r]{2,}/i.test(rawSummary);
+
+    const hasClassFromSummary = /\bklasse(n)?\b[^\d]{0,8}\d{1,2}\b/i.test(rawSummary);
+    const hasCountryFromSummary =
+      /\b(usa|us|deutschland|de|österreich|at|schweiz|ch|eu|europa|europäische union)\b/i.test(lower);
+
+    const hasName = hasNameFromDecisions || hasNameFromSummary;
+    const hasCountries = hasCountriesFromDecisions || hasCountryFromSummary;
+    const hasClasses = hasClassesFromDecisions || hasClassFromSummary;
+
+    if (!hasName || !hasCountries || !hasClasses) return;
+    if (autoCompleteBeratungAttemptedForCaseIdsRef.current.has(caseRecord.id)) return;
+
+    autoCompleteBeratungAttemptedForCaseIdsRef.current.add(caseRecord.id);
+    setStepUpdateError(null);
+    setIsUpdatingStep("beratung");
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/cases/${caseId}/steps`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            step: "beratung",
+            status: "completed",
+            metadata: {
+              autoCompleted: true,
+              autoCompletedFrom: d ? "decisions" : "summary_text",
+              summaryMatched: Boolean(rawSummary),
+              completedAtIso: new Date().toISOString(),
+            },
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Unbekannter Fehler" }));
+          setStepUpdateError(err.error || "Status konnte nicht gespeichert werden");
+          return;
+        }
+
+        await mutate();
+      } catch (e) {
+        console.error("Failed to auto-complete beratung:", e);
+        setStepUpdateError("Status konnte nicht gespeichert werden");
+      } finally {
+        setIsUpdatingStep(null);
+      }
+    })();
+  }, [caseId, data?.case?.id, data?.consultation?.summary, data?.decisions, data?.steps?.beratung?.status, isUpdatingStep, mutate, sessionSummary]);
 
   useEffect(() => {
     setShowAllConflicts(false);
@@ -519,6 +875,33 @@ export default function CasePage() {
       setIsSavingSession(false);
     }
   }, [caseId, mutate]);
+
+  const persistRechercheTransferChoice = useCallback(
+    async (choice: "accepted" | "declined") => {
+      if (!data?.case?.id) return;
+      const currentStatus = (data?.steps?.recherche?.status || "pending") as any;
+      const currentMeta = (data?.steps?.recherche?.metadata || {}) as Record<string, any>;
+      const nextMeta: Record<string, any> = {
+        ...currentMeta,
+        transferFromBeratung: choice,
+        transferFromBeratungAtIso: new Date().toISOString(),
+      };
+
+      const res = await fetch(`/api/cases/${caseId}/steps`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: "recherche", status: currentStatus, metadata: nextMeta }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unbekannter Fehler" }));
+        throw new Error(err.error || "Status konnte nicht gespeichert werden");
+      }
+
+      await mutate();
+    },
+    [caseId, data?.case?.id, data?.steps?.recherche?.metadata, data?.steps?.recherche?.status, mutate]
+  );
 
   useEffect(() => {
     const prevAccordion = previousAccordionRef.current;
@@ -652,6 +1035,90 @@ export default function CasePage() {
       setIsStartingRecherche(false);
     }
   }, [caseId, isStartingRecherche, mutate]);
+
+  const saveRechercheForm = useCallback(async (): Promise<boolean> => {
+    if (isSavingRechercheForm) return false;
+    if (!data?.case?.id) return false;
+
+    setRechercheFormSaveError(null);
+    setIsSavingRechercheForm(true);
+
+    try {
+      const trademarkName = (rechercheForm.trademarkName || "").trim();
+      const countries = (rechercheForm.countries || []).map((c) => String(c || "").trim()).filter(Boolean);
+      const baseNiceClasses = (rechercheForm.niceClasses || []).filter((n) => Number.isFinite(n));
+      const effectiveNiceClasses = getEffectiveNiceClasses(baseNiceClasses, !!rechercheForm.includeRelatedNiceClasses);
+
+      if (!trademarkName || countries.length === 0 || baseNiceClasses.length === 0) {
+        return false;
+      }
+
+      const saveRes = await fetch("/api/cases/save-decisions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: data.case.id,
+          trademarkName,
+          countries,
+          niceClasses: effectiveNiceClasses,
+        }),
+      });
+
+      if (!saveRes.ok) {
+        const err = await saveRes.json().catch(() => ({ error: "Unbekannter Fehler" }));
+        setRechercheFormSaveError(err.error || "Konnte nicht gespeichert werden");
+        return false;
+      }
+
+      const currentStatus = (data?.steps?.recherche?.status || "pending") as any;
+      const nextStatus = currentStatus === "pending" ? "in_progress" : currentStatus;
+      const currentMeta = (data?.steps?.recherche?.metadata || {}) as Record<string, any>;
+
+      const stepRes = await fetch(`/api/cases/${caseId}/steps`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: "recherche",
+          status: nextStatus,
+          trademarkName,
+          metadata: {
+            ...currentMeta,
+            searchQuery: {
+              trademarkName,
+              countries,
+              niceClasses: effectiveNiceClasses,
+              baseNiceClasses,
+              includeRelatedNiceClasses: !!rechercheForm.includeRelatedNiceClasses,
+            },
+            searchQueryUpdatedAtIso: new Date().toISOString(),
+          },
+        }),
+      });
+
+      if (!stepRes.ok) {
+        const err = await stepRes.json().catch(() => ({ error: "Unbekannter Fehler" }));
+        setRechercheFormSaveError(err.error || "Konnte nicht gespeichert werden");
+        return false;
+      }
+
+      await mutate();
+      return true;
+    } catch (e) {
+      console.error("Failed to save recherche form:", e);
+      setRechercheFormSaveError("Konnte nicht gespeichert werden");
+      return false;
+    } finally {
+      setIsSavingRechercheForm(false);
+    }
+  }, [caseId, data?.case?.id, data?.steps?.recherche?.metadata, data?.steps?.recherche?.status, getEffectiveNiceClasses, isSavingRechercheForm, mutate, rechercheForm]);
+
+  const startRechercheFromForm = useCallback(async () => {
+    if (isStartingRecherche || isSavingRechercheForm) return;
+    setRechercheFormValidationAttempted(true);
+    const ok = await saveRechercheForm();
+    if (!ok) return;
+    await startRecherche();
+  }, [isSavingRechercheForm, isStartingRecherche, saveRechercheForm, startRecherche]);
 
   const applyAlternativeAndRerun = useCallback(
     async (alt: { name: string; riskScore: number; riskLevel: string; conflictCount: number }) => {
@@ -871,39 +1338,8 @@ export default function CasePage() {
     );
   }
 
-  const { case: caseInfo, consultation, decisions, analysis, steps, events } = data;
+  const { case: caseInfo, consultation, decisions, analysis, steps } = data;
   const activeAnalysis = selectedAnalysisResponse?.analysis || analysis;
-
-  const formatEvent = (evt: { eventType: string; eventData?: Record<string, any> }) => {
-    const type = evt.eventType;
-    const d = evt.eventData || {};
-
-    if (type === "step_status_changed") {
-      const step = d.step ? String(d.step) : "Step";
-      const status = d.status ? String(d.status) : "-";
-      const previous = d.previousStatus ? String(d.previousStatus) : null;
-      return previous ? `${step}: ${previous} → ${status}` : `${step}: ${status}`;
-    }
-
-    if (type === "step_skipped") {
-      const step = d.step ? String(d.step) : "Step";
-      return d.reason ? `${step} übersprungen (${String(d.reason)})` : `${step} übersprungen`;
-    }
-
-    if (type === "analysis_created") {
-      return "Neue Analyse erstellt";
-    }
-
-    if (type === "alternative_selected") {
-      return d.selectedName ? `Alternative übernommen: ${String(d.selectedName)}` : "Alternative übernommen";
-    }
-
-    if (type === "updated") {
-      return "Fall aktualisiert";
-    }
-
-    return type;
-  };
 
   const downloadAnalysisReport = () => {
     if (!activeAnalysis) return;
@@ -1034,9 +1470,9 @@ export default function CasePage() {
     lines.push("");
 
     lines.push("Ergebnis");
-    lines.push(`- Risiko-Level: ${activeAnalysis.riskLevel?.toUpperCase?.() || activeAnalysis.riskLevel || "-"}`);
-    lines.push(`- Risiko-Score: ${typeof activeAnalysis.riskScore === "number" ? `${activeAnalysis.riskScore}%` : "-"}`);
-    lines.push(`- Konflikte: ${(activeAnalysis.conflicts || []).length}`);
+    lines.push(`- <RiskLevelTooltip>Risiko-Level</RiskLevelTooltip>: ${activeAnalysis.riskLevel?.toUpperCase?.() || activeAnalysis.riskLevel || "-"}`);
+    lines.push(`- <RiskScoreTooltip>Risiko-Score</RiskScoreTooltip>: ${typeof activeAnalysis.riskScore === "number" ? `${activeAnalysis.riskScore}%` : "-"}`);
+    lines.push(`- <ConflictsTooltip>Konflikte</ConflictsTooltip>: ${(activeAnalysis.conflicts || []).length}`);
     lines.push("");
 
     lines.push("Suchbegriffe");
@@ -1079,7 +1515,7 @@ export default function CasePage() {
     }
     lines.push("");
 
-    lines.push("Alternative Namen");
+    lines.push("<AlternativeNamesTooltip>Alternative Namen</AlternativeNamesTooltip>");
     const alts = activeAnalysis.alternativeNames || [];
     if (alts.length === 0) {
       lines.push("- (keine)");
@@ -1249,7 +1685,7 @@ export default function CasePage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "active":
-        return "bg-teal-100 text-teal-700";
+        return "bg-primary text-white";
       case "completed":
         return "bg-green-100 text-green-700";
       case "archived":
@@ -1334,12 +1770,19 @@ export default function CasePage() {
         </div>
 
         <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4 lg:h-[560px] flex flex-col">
-            <div className="flex items-center gap-2 mb-4">
-              <HelpCircle className="w-5 h-5 text-teal-600" />
-              <h3 className="font-semibold text-gray-900">Schnellfragen</h3>
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                  <HelpCircle className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">Schnellfragen</div>
+                  <div className="text-xs text-white/85 truncate">Häufige Fragen, sofort beantwortet</div>
+                </div>
+              </div>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4">
               <div className="space-y-4">
                 {QUICK_QUESTION_GROUPS.map((group) => (
                   <div key={group.title}>
@@ -1365,13 +1808,20 @@ export default function CasePage() {
         </div>
 
         <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4 h-full flex flex-col">
-            <div className="flex items-center gap-2 mb-4">
-              <FileText className="w-5 h-5 text-teal-600" />
-              <h3 className="font-semibold text-gray-900">Sitzungszusammenfassung</h3>
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden h-full flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">Sitzungszusammenfassung</div>
+                  <div className="text-xs text-white/85 truncate">Automatisch aus dem Gespräch</div>
+                </div>
+              </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto max-h-[400px] pr-1 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto max-h-[400px] custom-scrollbar p-4">
               {isSavingSession ? (
                 <div className="text-center py-8">
                   <div className="w-8 h-8 border-3 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -1616,9 +2066,277 @@ export default function CasePage() {
 
   const renderRechercheContent = () => {
     const isComplete = isStepComplete("recherche");
-    if (isComplete && (decisions || analysis)) {
-      return (
-        <div className="space-y-4">
+
+    const baseNiceClasses = Array.from(
+      new Set((rechercheForm.niceClasses || []).filter((n) => Number.isFinite(n)).map((n) => Math.max(1, Math.min(45, Math.floor(n)))))
+    ).sort((a, b) => a - b);
+    const isAllClassesSelected = baseNiceClasses.length === 45;
+    const mustIncludeRelatedForSelection = baseNiceClasses.length > 0 && !isAllClassesSelected;
+    const relatedClasses = !isAllClassesSelected && rechercheForm.includeRelatedNiceClasses ? getRelatedNiceClasses(baseNiceClasses) : [];
+    const trademarkNameMissing = rechercheFormValidationAttempted && !(rechercheForm.trademarkName || "").trim();
+    const countriesMissing = rechercheFormValidationAttempted && (rechercheForm.countries || []).length === 0;
+    const classesMissing =
+      rechercheFormValidationAttempted && (rechercheForm.niceClasses || []).filter((n) => Number.isFinite(n)).length === 0;
+
+    return (
+      <div className="space-y-4">
+        {rechercheFormSaveError && (
+          <div className="px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            {rechercheFormSaveError}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                  <Tag className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">Markenname</div>
+                  <div className="text-xs text-white/85 truncate">Wie soll die Marke heißen?</div>
+                </div>
+              </div>
+            </div>
+            <div className="p-4">
+              <input
+                value={rechercheForm.trademarkName}
+                onChange={(e) => setRechercheForm((prev) => ({ ...prev, trademarkName: e.target.value }))}
+                placeholder="Markenname eingeben"
+                className={
+                  trademarkNameMissing
+                    ? "w-full h-10 px-3 py-2 border border-red-300 rounded-lg text-sm bg-white focus:border-red-400 focus:outline-none focus:ring-0"
+                    : "w-full h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:border-gray-300 focus:outline-none focus:ring-0"
+                }
+              />
+              <div
+                className={
+                  trademarkNameMissing
+                    ? "min-h-[16px] text-[11px] text-red-600 mt-2"
+                    : "min-h-[16px] text-[11px] text-gray-500 mt-2"
+                }
+              >
+                {trademarkNameMissing ? "Bitte Markenname eingeben" : "Pflichtfeld"}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                  <Globe className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">Länder</div>
+                  <div className="text-xs text-white/85 truncate">Wo soll die Marke geschützt werden?</div>
+                </div>
+              </div>
+            </div>
+            <div className="p-4">
+              <button
+                type="button"
+                onClick={() => setCountriesOpen(true)}
+                className={
+                  countriesMissing
+                    ? "w-full h-10 px-3 py-2 border border-red-300 rounded-lg text-sm bg-white text-left flex items-center justify-between focus:outline-none focus:ring-0"
+                    : "w-full h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-left flex items-center justify-between focus:outline-none focus:ring-0"
+                }
+              >
+                <span className={rechercheForm.countries.length ? "text-gray-900" : "text-gray-400"}>
+                  {rechercheForm.countries.length ? rechercheForm.countries.join(", ") : "Länder auswählen"}
+                </span>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+
+              {rechercheForm.countries.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {rechercheForm.countries.map((c) => (
+                    <span
+                      key={c}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-lg font-medium"
+                    >
+                      {c}
+                      <button
+                        type="button"
+                        className="text-gray-500 hover:text-gray-900"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRechercheForm((prev) => ({
+                            ...prev,
+                            countries: prev.countries.filter((x) => x !== c),
+                          }));
+                        }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div
+                className={
+                  countriesMissing
+                    ? "min-h-[16px] text-[11px] text-red-600 mt-2"
+                    : "min-h-[16px] text-[11px] text-gray-500 mt-2"
+                }
+              >
+                {countriesMissing ? "Mindestens ein Land auswählen" : "Mehrfachauswahl möglich"}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">Klassen</div>
+                  <div className="text-xs text-white/85 truncate">Nizza-Klassen (1–45)</div>
+                </div>
+              </div>
+            </div>
+            <div className="p-4">
+              <button
+                type="button"
+                onClick={() => setClassesOpen(true)}
+                className={
+                  classesMissing
+                    ? "w-full h-10 px-3 py-2 border border-red-300 rounded-lg text-sm bg-white text-left flex items-center justify-between focus:outline-none focus:ring-0"
+                    : "w-full h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-left flex items-center justify-between focus:outline-none focus:ring-0"
+                }
+              >
+                <span className={baseNiceClasses.length ? "text-gray-900" : "text-gray-400"}>
+                  {baseNiceClasses.length ? (isAllClassesSelected ? "Alle Klassen" : baseNiceClasses.join(", ")) : "Klassen auswählen"}
+                </span>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+
+              {baseNiceClasses.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {isAllClassesSelected ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-lg font-medium">
+                      Alle Klassen
+                      <button
+                        type="button"
+                        className="text-gray-500 hover:text-gray-900"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRechercheForm((prev) => ({ ...prev, niceClasses: [] }));
+                        }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ) : (
+                    baseNiceClasses.map((c) => (
+                      <span
+                        key={c}
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-lg font-medium"
+                      >
+                        Klasse {c}
+                        <button
+                          type="button"
+                          className="text-gray-500 hover:text-gray-900"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRechercheForm((prev) => ({
+                              ...prev,
+                              niceClasses: (prev.niceClasses || []).filter((x) => Number(x) !== c),
+                            }));
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {!isAllClassesSelected && (
+                <>
+                  <label className="mt-3 flex items-start gap-2 text-sm text-gray-700 select-none">
+                    <input
+                      type="checkbox"
+                      checked={!!rechercheForm.includeRelatedNiceClasses}
+                      onChange={(e) => setRechercheForm((prev) => ({ ...prev, includeRelatedNiceClasses: e.target.checked }))}
+                      disabled={mustIncludeRelatedForSelection}
+                      className={
+                        mustIncludeRelatedForSelection
+                          ? "mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-0 focus:outline-none cursor-not-allowed opacity-70"
+                          : "mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-0 focus:outline-none"
+                      }
+                    />
+                    <span className="leading-5">
+                      Auch verwandte Klassen prüfen
+                      <span className="ml-2 inline-flex items-center rounded-md bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700 border border-teal-200">
+                        empfohlen
+                      </span>
+                    </span>
+                  </label>
+
+                  {rechercheForm.includeRelatedNiceClasses && relatedClasses.length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-[11px] text-gray-500 mb-2">Verwandt:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {relatedClasses.map((c) => (
+                          <span
+                            key={c}
+                            className="inline-flex items-center px-2 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium"
+                          >
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div
+                className={
+                  classesMissing
+                    ? "min-h-[16px] text-[11px] text-red-600 mt-2"
+                    : "min-h-[16px] text-[11px] text-gray-500 mt-2"
+                }
+              >
+                {classesMissing ? "Mindestens eine Klasse auswählen" : "Mehrfachauswahl möglich"}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-center">
+          <button
+            type="button"
+            onClick={() => void startRechercheFromForm()}
+            disabled={isSavingRechercheForm || isStartingRecherche}
+            className={
+              isSavingRechercheForm || isStartingRecherche
+                ? "px-6 py-3 rounded-lg bg-gray-200 text-gray-500 text-sm font-semibold cursor-not-allowed"
+                : "px-6 py-3 rounded-lg s-gradient-button text-sm"
+            }
+          >
+            {isSavingRechercheForm
+              ? "Speichere…"
+              : isStartingRecherche
+              ? "Starte…"
+              : "Recherche starten"}
+          </button>
+        </div>
+
+        {rechercheStartError && (
+          <div className="px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            {rechercheStartError}
+          </div>
+        )}
+
+        {(isComplete || analysis || decisions) && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
@@ -1639,56 +2357,31 @@ export default function CasePage() {
               </div>
             </div>
             <div className="bg-white p-4 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-500 mb-1">Nizza-Klassen</div>
+              <div className="text-xs text-gray-500 mb-1">
+                <NiceClassesTooltip>Nizza-Klassen</NiceClassesTooltip>
+              </div>
               <div className="font-semibold text-gray-900">
-                {(analysis?.searchQuery?.niceClasses || decisions?.niceClasses || []).map(c => `${c}`).join(", ") || "-"}
+                {(analysis?.searchQuery?.niceClasses || decisions?.niceClasses || []).map((c) => `${c}`).join(", ") || "-"}
               </div>
             </div>
-          </div>
-
-          {analysis?.searchTermsUsed && analysis.searchTermsUsed.length > 0 && (
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
-              <div className="text-sm font-medium text-gray-700 mb-2">Verwendete Suchbegriffe</div>
-              <div className="flex flex-wrap gap-2">
-                {analysis.searchTermsUsed.map((term, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-lg font-medium"
-                  >
-                    {term}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div className="text-center py-8">
-        <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-        <p className="text-gray-500 mb-4">
-          {isStartingRecherche
-            ? "Recherche + Analyse läuft (Mock)…"
-            : "Recherche wurde noch nicht gestartet."}
-        </p>
-        {rechercheStartError && (
-          <div className="max-w-xl mx-auto mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-            {rechercheStartError}
           </div>
         )}
-        <button
-          onClick={startRecherche}
-          disabled={isStartingRecherche}
-          className={
-            isStartingRecherche
-              ? "px-6 py-3 bg-teal-200 text-white rounded-lg font-medium cursor-not-allowed"
-              : "px-6 py-3 bg-[#0D9488] text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
-          }
-        >
-          {isStartingRecherche ? "Wird ausgeführt..." : "Recherche starten"}
-        </button>
+
+        {analysis?.searchTermsUsed && analysis.searchTermsUsed.length > 0 && (
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="text-sm font-medium text-gray-700 mb-2">Verwendete Suchbegriffe</div>
+            <div className="flex flex-wrap gap-2">
+              {analysis.searchTermsUsed.map((term, idx) => (
+                <span
+                  key={idx}
+                  className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-lg font-medium"
+                >
+                  {term}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -1722,7 +2415,9 @@ export default function CasePage() {
             <div className="font-semibold text-gray-900">{countries.join(", ") || "-"}</div>
           </div>
           <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-xs text-gray-500 mb-1">Nizza-Klassen</div>
+            <div className="text-xs text-gray-500 mb-1">
+              <NiceClassesTooltip>Nizza-Klassen</NiceClassesTooltip>
+            </div>
             <div className="font-semibold text-gray-900">{niceClasses.map((c) => `${c}`).join(", ") || "-"}</div>
           </div>
         </div>
@@ -2266,7 +2961,9 @@ export default function CasePage() {
 
           {activeAnalysis.alternativeNames && activeAnalysis.alternativeNames.length > 0 && (
             <div ref={alternativeNamesRef} className="bg-white p-4 rounded-lg border border-gray-200">
-              <div className="text-sm font-medium text-gray-700 mb-3">Alternative Namen</div>
+              <div className="text-sm font-medium text-gray-700 mb-3">
+                <AlternativeNamesTooltip>Alternative Namen</AlternativeNamesTooltip>
+              </div>
               {applyAlternativeError && (
                 <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
                   {applyAlternativeError}
@@ -2535,75 +3232,113 @@ export default function CasePage() {
     }
   };
 
+  const bannerSteps = [
+    { hash: "beratung", label: "Beratung", stepId: "beratung" as WorkflowStepId, icon: Mic },
+    { hash: "markenpruefung", label: "Markenprüfung", stepId: "recherche" as WorkflowStepId, icon: Search },
+    { hash: "ueberpruefung", label: "Überprüfung", stepId: "ueberpruefung" as WorkflowStepId, icon: CheckCircle },
+    { hash: "anmeldung", label: "Anmeldung", stepId: "anmeldung" as WorkflowStepId, icon: FileText },
+    { hash: "kommunikation", label: "Kommunikation", stepId: "kommunikation" as WorkflowStepId, icon: Mail },
+    { hash: "ueberwachung", label: "Überwachung", stepId: "ueberwachung" as WorkflowStepId, icon: Eye },
+    { hash: "fristen", label: "Fristen", stepId: "fristen" as WorkflowStepId, icon: Calendar },
+  ] as const;
+
+  const bannerStatuses = bannerSteps.map((s) => getStepStatus(s.stepId).status);
+  const firstInProgressIndex = bannerStatuses.findIndex((s) => s === "in_progress");
+  const lastDoneIndex = bannerStatuses.reduce((acc, s, idx) => {
+    if (s === "completed" || s === "skipped") return idx;
+    return acc;
+  }, -1);
+  const progressIndex = firstInProgressIndex !== -1 ? firstInProgressIndex : Math.max(0, lastDoneIndex);
+  const progressPercent = bannerSteps.length > 1 ? (progressIndex / (bannerSteps.length - 1)) * 100 : 0;
+
   return (
     <div className="space-y-6">
       <div>
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Zurück zum Dashboard
-        </button>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-bold text-gray-900">
-                  {caseInfo.trademarkName || "Unbenannter Fall"}
-                </h1>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadge(caseInfo.status)}`}>
-                  {getStatusLabel(caseInfo.status)}
-                </span>
+        <div className="sticky top-0 z-40 bg-gray-50 pt-2 pb-0">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-lg font-semibold text-gray-900">
+                    {caseInfo.trademarkName || "Unbenannter Fall"}
+                  </h1>
+                </div>
+                <p className="text-gray-500 font-mono text-sm">{caseInfo.caseNumber}</p>
               </div>
-              <p className="text-gray-500 font-mono text-sm">{caseInfo.caseNumber}</p>
-            </div>
-            <div className="text-sm text-gray-500">
-              Erstellt: {formatGermanDate(caseInfo.createdAt)}
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-teal-600" />
-              <div>
-                <div className="font-semibold text-gray-900">Aktivität</div>
-                <div className="text-xs text-gray-500">Letzte Änderungen und Aktionen</div>
-              </div>
-            </div>
-            {(events?.length || 0) > 8 && (
-              <button
-                onClick={() => setShowAllEvents((v) => !v)}
-                className="text-sm font-medium text-teal-700 hover:text-teal-800 transition-colors"
-              >
-                {showAllEvents ? "Weniger anzeigen" : `Alle anzeigen (${events.length})`}
-              </button>
-            )}
-          </div>
+              <div className="sm:flex-1 sm:px-6">
+                <div className="relative h-14">
+                  <div className="absolute left-4 right-4 top-4 h-px bg-gray-300 rounded">
+                    <div className="h-px bg-primary rounded" style={{ width: `${progressPercent}%` }} />
+                  </div>
 
-          {(events?.length || 0) === 0 ? (
-            <div className="text-sm text-gray-500">Noch keine Aktivität.</div>
-          ) : (
-            <div className="space-y-2">
-              {(showAllEvents ? events : events.slice(0, 8)).map((e) => (
-                <div key={e.id} className="flex items-start justify-between gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="min-w-0">
-                    <div className="text-sm text-gray-900 truncate">{formatEvent(e)}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{formatGermanDateTime(e.createdAt)}</div>
+                  <div className="relative flex items-start justify-between">
+                    {bannerSteps.map((s) => {
+                      const status = getStepStatus(s.stepId).status;
+                      const isCompleted = status === "completed";
+                      const isSkipped = status === "skipped";
+                      const isActive = status === "in_progress";
+
+                      const Icon = s.icon;
+
+                      const circleClass = isCompleted
+                        ? "bg-primary border-primary text-white shadow-sm"
+                        : isActive
+                          ? "bg-white border-primary text-primary ring-2 ring-primary/15 shadow-sm"
+                          : isSkipped
+                            ? "bg-gray-100 border-gray-300 text-gray-500 group-hover:border-gray-400 group-hover:text-gray-600"
+                            : "bg-white border-gray-300 text-gray-500 group-hover:border-gray-400 group-hover:text-gray-600";
+
+                      const labelClass = isCompleted
+                        ? "text-primary"
+                        : isActive
+                          ? "text-gray-900"
+                          : isSkipped
+                            ? "text-gray-500"
+                            : "text-gray-500";
+
+                      return (
+                        <button
+                          key={s.hash}
+                          type="button"
+                          onClick={() => {
+                            window.location.hash = `#${s.hash}`;
+                          }}
+                          className="group relative min-w-[68px] flex flex-col items-center"
+                        >
+                          <span
+                            className={`w-8 h-8 rounded-full border flex items-center justify-center transition-colors ${circleClass}`}
+                          >
+                            <Icon className="w-4 h-4" />
+                          </span>
+
+                          <span className={`mt-1 text-[11px] font-medium leading-tight ${labelClass}`}>
+                            {s.label}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
+              </div>
+
+              <div className="flex flex-col items-end shrink-0">
+                <span className={`px-3 py-1 rounded-sm text-xs font-semibold ${getStatusBadge(caseInfo.status)}`}>
+                  {getStatusLabel(caseInfo.status)}
+                </span>
+                <div className="text-xs text-gray-500 whitespace-nowrap mt-2">
+                  Erstellt: {formatGermanDate(caseInfo.createdAt)}
+                </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="space-y-4">
           {WORKFLOW_STEPS.map((step) => (
             <AccordionSection
               key={step.id}
+              stepId={step.id}
               title={step.title}
               icon={step.icon}
               isCompleted={isStepComplete(step.id)}
@@ -2621,6 +3356,306 @@ export default function CasePage() {
             conflict={selectedConflict}
             onClose={() => setSelectedConflict(null)}
           />
+        )}
+
+        {showTransferModal && (
+          <div
+            className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center px-4"
+            onClick={() => {
+              setShowTransferModal(false);
+              setPendingTransferHash(null);
+              window.location.hash = "#beratung";
+            }}
+          >
+            <div
+              className="w-full max-w-lg bg-white rounded-xl shadow-xl border border-gray-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-5 border-b border-gray-100">
+                <div className="text-lg font-semibold text-gray-900">Daten übernehmen?</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  Aus der Beratung wurden Markenname, Länder oder Klassen erkannt. Möchtest du diese Daten in die Recherche übernehmen?
+                </div>
+              </div>
+              <div className="p-5 flex flex-col sm:flex-row gap-3 justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+                  onClick={() => {
+                    setShowTransferModal(false);
+                    setPendingTransferHash(null);
+                    window.location.hash = "#beratung";
+                  }}
+                >
+                  Abbrechen
+                </button>
+
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+                  onClick={() => {
+                    setRechercheForm({ trademarkName: "", countries: [], niceClasses: [], includeRelatedNiceClasses: true });
+                    void persistRechercheTransferChoice("declined")
+                      .catch((e) => console.warn("Failed to persist transfer choice:", e))
+                      .finally(() => {
+                        setShowTransferModal(false);
+                        setPendingTransferHash(null);
+                        setOpenAccordion("recherche");
+                        window.location.hash = "#markenpruefung";
+                      });
+                  }}
+                >
+                  Neu starten
+                </button>
+
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg s-gradient-button"
+                  onClick={() => {
+                    void persistRechercheTransferChoice("accepted")
+                      .catch((e) => console.warn("Failed to persist transfer choice:", e))
+                      .finally(() => {
+                        setShowTransferModal(false);
+                        setPendingTransferHash(null);
+                        setOpenAccordion("recherche");
+                        window.location.hash = `#${pendingTransferHash || "markenpruefung"}`;
+                      });
+                  }}
+                >
+                  Übernehmen
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {countriesOpen && (
+          <div
+            className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center px-4"
+            onClick={() => {
+              setCountriesOpen(false);
+              setCountriesSearch("");
+            }}
+          >
+            <div
+              className="w-full max-w-xl bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden h-[70vh] max-h-[70vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <div className="text-base font-semibold text-gray-900">Länder auswählen</div>
+                  <div className="text-xs text-gray-500">Mehrfachauswahl möglich · Änderungen werden automatisch übernommen</div>
+                </div>
+                <button
+                  type="button"
+                  className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+                  onClick={() => {
+                    setCountriesOpen(false);
+                    setCountriesSearch("");
+                  }}
+                >
+                  Schließen
+                </button>
+              </div>
+
+              <div className="p-4 border-b border-gray-100">
+                <input
+                  value={countriesSearch}
+                  onChange={(e) => setCountriesSearch(e.target.value)}
+                  placeholder="Suchen: Name, Kürzel (DE) oder Nummer (276)"
+                  className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:border-gray-300 focus:outline-none focus:ring-0"
+                />
+              </div>
+
+              <div className="flex-1 overflow-auto">
+                {COUNTRY_OPTIONS.filter((opt) => {
+                  const q = countriesSearch.trim().toLowerCase();
+                  if (!q) return true;
+                  const label = (opt.label || "").toLowerCase();
+                  const code = (opt.code || "").toLowerCase();
+                  const numeric = (opt.numeric || "").toLowerCase();
+                  return label.includes(q) || code.includes(q) || numeric.includes(q);
+                }).map((opt) => {
+                  const selected = rechercheForm.countries.includes(opt.code);
+                  return (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      onClick={() => {
+                        setRechercheForm((prev) => {
+                          const exists = prev.countries.includes(opt.code);
+                          const next = exists
+                            ? prev.countries.filter((x) => x !== opt.code)
+                            : [...prev.countries, opt.code];
+                          return { ...prev, countries: next };
+                        });
+                      }}
+                      className="w-full px-5 py-3 flex items-center justify-between border-b border-gray-100 hover:bg-gray-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-base">
+                          {opt.icon}
+                        </div>
+                        <div className="text-sm text-gray-900">{opt.label}</div>
+                      </div>
+                      <div className="text-sm text-gray-500 flex items-center gap-2">
+                        <span className="font-mono text-xs">
+                          {opt.numeric || ""}
+                        </span>
+                        {selected ? (
+                          <Check className="w-4 h-4 text-primary" />
+                        ) : (
+                          <Circle className="w-4 h-4 text-gray-300" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {classesOpen && (
+          <div
+            className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center px-4"
+            onClick={() => {
+              setClassesOpen(false);
+              setClassesSearch("");
+            }}
+          >
+            <div
+              className="w-full max-w-xl bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden h-[70vh] max-h-[70vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <div className="text-base font-semibold text-gray-900">Klassen auswählen</div>
+                  <div className="text-xs text-gray-500">Nizza-Klassen (1–45) · Mehrfachauswahl möglich</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+                    onClick={() => {
+                      setRechercheForm((prev) => ({
+                        ...prev,
+                        niceClasses: Array.from({ length: 45 }, (_, i) => i + 1),
+                      }));
+                    }}
+                  >
+                    Alle Klassen
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+                    onClick={() => {
+                      setClassesOpen(false);
+                      setClassesSearch("");
+                    }}
+                  >
+                    Schließen
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 border-b border-gray-100">
+                <input
+                  value={classesSearch}
+                  onChange={(e) => setClassesSearch(e.target.value)}
+                  placeholder="Suchen: Klassen-Nummer (z.B. 35)"
+                  className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:border-gray-300 focus:outline-none focus:ring-0"
+                />
+              </div>
+
+              <div className="flex-1 overflow-auto">
+                {(() => {
+                  const q = classesSearch.trim();
+                  const base = Array.from(
+                    new Set(
+                      (rechercheForm.niceClasses || [])
+                        .filter((x) => Number.isFinite(x))
+                        .map((x) => Math.max(1, Math.min(45, Math.floor(Number(x)))))
+                    )
+                  ).sort((a, b) => a - b);
+                  const allSelected = base.length === 45;
+
+                  const rows: React.ReactNode[] = [];
+
+                  if (!q) {
+                    rows.push(
+                      <button
+                        key="all"
+                        type="button"
+                        onClick={() => {
+                          setRechercheForm((prev) => ({
+                            ...prev,
+                            niceClasses: allSelected ? [] : Array.from({ length: 45 }, (_, i) => i + 1),
+                          }));
+                        }}
+                        className="w-full px-5 py-3 flex items-center justify-between border-b border-gray-100 hover:bg-gray-50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-gray-700">
+                            ∞
+                          </div>
+                          <div className="text-sm text-gray-900 font-medium">Alle Klassen</div>
+                        </div>
+                        <div className="text-sm text-gray-500 flex items-center gap-2">
+                          {allSelected ? (
+                            <Check className="w-4 h-4 text-primary" />
+                          ) : (
+                            <Circle className="w-4 h-4 text-gray-300" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  }
+
+                  for (const n of Array.from({ length: 45 }, (_, i) => i + 1).filter((n) => (q ? String(n).includes(q) : true))) {
+                    const selected = base.includes(n);
+                    rows.push(
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => {
+                          setRechercheForm((prev) => {
+                            const current = Array.from(
+                              new Set(
+                                (prev.niceClasses || [])
+                                  .filter((x) => Number.isFinite(x))
+                                  .map((x) => Math.max(1, Math.min(45, Math.floor(Number(x)))))
+                              )
+                            );
+                            const exists = current.includes(n);
+                            const next = exists ? current.filter((x) => x !== n) : [...current, n];
+                            next.sort((a, b) => a - b);
+                            return { ...prev, niceClasses: next };
+                          });
+                        }}
+                        className="w-full px-5 py-3 flex items-center justify-between border-b border-gray-100 hover:bg-gray-50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-gray-700">
+                            {n}
+                          </div>
+                          <div className="text-sm text-gray-900">Klasse {n}</div>
+                        </div>
+                        <div className="text-sm text-gray-500 flex items-center gap-2">
+                          {selected ? (
+                            <Check className="w-4 h-4 text-primary" />
+                          ) : (
+                            <Circle className="w-4 h-4 text-gray-300" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  }
+                  return rows;
+                })()}
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

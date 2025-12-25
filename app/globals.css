@@ -11,6 +11,9 @@
   --color-secondary: #0067b8;
   --color-secondary-hover: #005293;
   --color-secondary-light: #0078d4;
+  --brand-gradient: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+  --widget-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  --widget-shadow-hover: 0 10px 26px rgba(0, 0, 0, 0.08);
 }
 
 @layer base {
@@ -53,6 +56,15 @@
 }
 
 @layer components {
+  main :where(.bg-white.rounded-lg.border.border-gray-200, .bg-white.rounded-xl.border.border-gray-200) {
+    box-shadow: var(--widget-shadow);
+    transition: box-shadow 0.2s ease;
+  }
+
+  main :where(.bg-white.rounded-lg.border.border-gray-200, .bg-white.rounded-xl.border.border-gray-200):hover {
+    box-shadow: var(--widget-shadow-hover);
+  }
+
   .s-container {
     @apply max-w-container w-full mx-auto px-[5%] box-border;
   }
@@ -117,6 +129,27 @@
 
   .s-badge-secondary {
     @apply bg-secondary/10 text-secondary;
+  }
+
+  .bg-brand-gradient {
+    background-image: var(--brand-gradient);
+    background-color: var(--color-primary);
+  }
+
+  .s-gradient-header {
+    @apply bg-brand-gradient text-white border-b border-white/10;
+  }
+
+  .s-gradient-button {
+    @apply bg-brand-gradient text-white font-semibold shadow-sm;
+  }
+
+  .s-gradient-button:hover {
+    filter: brightness(1.05);
+  }
+
+  .s-gradient-button:disabled {
+    @apply opacity-60 cursor-not-allowed;
   }
 
   .s-input {
