@@ -16,7 +16,7 @@ export async function PATCH(
 
     const { caseId } = await params;
     const body = await request.json();
-    const { step, status, trademarkName } = body;
+    const { step, status, trademarkName, metadata } = body;
 
     if (!step || !status) {
       return NextResponse.json(
@@ -31,6 +31,10 @@ export async function PATCH(
         { error: "Ungültiger Status" },
         { status: 400 }
       );
+    }
+
+    if (metadata !== undefined && (metadata === null || typeof metadata !== "object" || Array.isArray(metadata))) {
+      return NextResponse.json({ error: "Ungültige Metadata" }, { status: 400 });
     }
 
     const existingCase = await db.query.trademarkCases.findFirst({
@@ -54,32 +58,63 @@ export async function PATCH(
       ),
     });
 
+    const now = new Date();
+    const previousStatus = existingStep?.status || "pending";
+
+    let updatedStep;
+
     if (!existingStep) {
-      return NextResponse.json({ error: "Step nicht gefunden" }, { status: 404 });
-    }
+      [updatedStep] = await db
+        .insert(caseSteps)
+        .values({
+          caseId: existingCase.id,
+          step,
+          status,
+          startedAt: status === "in_progress" || status === "completed" ? now : null,
+          completedAt: status === "completed" ? now : null,
+          skippedAt: status === "skipped" ? now : null,
+          skipReason: null,
+          metadata: (metadata || {}) as Record<string, any>,
+        })
+        .returning();
+    } else {
+      const updateData: Record<string, any> = { status };
 
-    const updateData: Record<string, any> = {
-      status,
-    };
+      if (metadata !== undefined) {
+        updateData.metadata = metadata;
+      }
 
-    if (status === "in_progress" && !existingStep.startedAt) {
-      updateData.startedAt = new Date();
-    }
-    if (status === "completed") {
-      updateData.completedAt = new Date();
-    }
+      if (status === "in_progress") {
+        updateData.startedAt = existingStep.startedAt || now;
+        updateData.completedAt = null;
+      }
 
-    const [updatedStep] = await db
-      .update(caseSteps)
-      .set(updateData)
-      .where(eq(caseSteps.id, existingStep.id))
-      .returning();
+      if (status === "completed") {
+        updateData.startedAt = existingStep.startedAt || now;
+        updateData.completedAt = now;
+      }
+
+      if (status === "skipped") {
+        updateData.startedAt = existingStep.startedAt || now;
+        updateData.skippedAt = now;
+        updateData.skipReason = null;
+      } else {
+        updateData.skippedAt = null;
+        updateData.skipReason = null;
+      }
+
+      [updatedStep] = await db
+        .update(caseSteps)
+        .set(updateData)
+        .where(eq(caseSteps.id, existingStep.id))
+        .returning();
+    }
 
     await db.insert(caseEvents).values({
       caseId: existingCase.id,
       userId: session.user.id,
       eventType: "step_status_changed",
-      eventData: { step, status, previousStatus: existingStep.status },
+      eventData: { step, status, previousStatus },
     });
 
     const caseUpdateData: Record<string, any> = { updatedAt: new Date() };

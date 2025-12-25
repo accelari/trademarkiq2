@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { trademarkCases, caseSteps, caseDecisions, caseAnalyses, consultations } from "@/db/schema";
+import { trademarkCases, caseSteps, caseDecisions, caseAnalyses, consultations, caseEvents } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 export async function GET(
@@ -36,7 +36,7 @@ export async function GET(
       return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
     }
 
-    const [consultation, latestDecision, analysis, steps] = await Promise.all([
+    const [consultation, latestDecision, analysis, steps, events] = await Promise.all([
       db.query.consultations.findFirst({
         where: eq(consultations.caseId, trademarkCase.id),
         orderBy: [desc(consultations.createdAt)],
@@ -50,18 +50,20 @@ export async function GET(
         orderBy: [desc(caseAnalyses.createdAt)],
       }),
       db.select().from(caseSteps).where(eq(caseSteps.caseId, trademarkCase.id)),
+      db.select().from(caseEvents).where(eq(caseEvents.caseId, trademarkCase.id)).orderBy(desc(caseEvents.createdAt)).limit(25),
     ]);
 
-    const stepMap: Record<string, { status: string; completedAt: Date | null; skippedAt: Date | null }> = {};
+    const stepMap: Record<string, { status: string; completedAt: Date | null; skippedAt: Date | null; metadata: Record<string, any> }> = {};
     for (const step of steps) {
       stepMap[step.step] = {
         status: step.status || "pending",
         completedAt: step.completedAt,
         skippedAt: step.skippedAt,
+        metadata: (step.metadata || {}) as Record<string, any>,
       };
     }
 
-    const defaultStep = { status: "pending", completedAt: null, skippedAt: null };
+    const defaultStep = { status: "pending", completedAt: null, skippedAt: null, metadata: {} as Record<string, any> };
 
     return NextResponse.json({
       case: {
@@ -72,6 +74,12 @@ export async function GET(
         createdAt: trademarkCase.createdAt,
         updatedAt: trademarkCase.updatedAt,
       },
+      events: (events || []).map((e) => ({
+        id: e.id,
+        eventType: e.eventType,
+        eventData: e.eventData,
+        createdAt: e.createdAt,
+      })),
       consultation: consultation ? {
         id: consultation.id,
         title: consultation.title,

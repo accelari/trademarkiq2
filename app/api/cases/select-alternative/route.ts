@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { caseDecisions, trademarkCases, caseEvents } from "@/db/schema";
+import { caseDecisions, trademarkCases, caseEvents, caseSteps } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
@@ -79,6 +79,32 @@ export async function POST(req: NextRequest) {
         updatedAt: new Date() 
       })
       .where(eq(trademarkCases.id, actualCaseId));
+
+    const now = new Date();
+    const existingStep = await db.query.caseSteps.findFirst({
+      where: and(eq(caseSteps.caseId, actualCaseId), eq(caseSteps.step, "markenname")),
+    });
+
+    if (existingStep) {
+      await db
+        .update(caseSteps)
+        .set({
+          status: "completed",
+          startedAt: existingStep.startedAt || now,
+          completedAt: now,
+          skippedAt: null,
+          skipReason: null,
+        })
+        .where(eq(caseSteps.id, existingStep.id));
+    } else {
+      await db.insert(caseSteps).values({
+        caseId: actualCaseId,
+        step: "markenname",
+        status: "completed",
+        startedAt: now,
+        completedAt: now,
+      });
+    }
 
     await db.insert(caseEvents).values({
       caseId: actualCaseId,
