@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { consultations, trademarkCases, caseSteps } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 
 interface Message {
   id: string;
@@ -39,7 +39,7 @@ export async function GET(
 
     const caseData = await db.query.trademarkCases.findFirst({
       where: and(
-        eq(trademarkCases.id, caseId),
+        or(eq(trademarkCases.id, caseId), eq(trademarkCases.caseNumber, caseId)),
         eq(trademarkCases.userId, session.user.id)
       ),
     });
@@ -48,9 +48,11 @@ export async function GET(
       return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
     }
 
+    const actualCaseId = caseData.id;
+
     const consultation = await db.query.consultations.findFirst({
       where: and(
-        eq(consultations.caseId, caseId),
+        eq(consultations.caseId, actualCaseId),
         eq(consultations.userId, session.user.id)
       ),
       orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
@@ -99,7 +101,13 @@ export async function POST(
 
     const { caseId } = await params;
     const body = await request.json();
-    const { messages, mode = "voice" } = body;
+    const {
+      messages,
+      mode = "voice",
+      summaryStrategy = "full",
+      previousSummary,
+      deltaMessages,
+    } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: "Keine Nachrichten vorhanden" }, { status: 400 });
@@ -107,7 +115,7 @@ export async function POST(
 
     const caseData = await db.query.trademarkCases.findFirst({
       where: and(
-        eq(trademarkCases.id, caseId),
+        or(eq(trademarkCases.id, caseId), eq(trademarkCases.caseNumber, caseId)),
         eq(trademarkCases.userId, session.user.id)
       ),
     });
@@ -116,7 +124,13 @@ export async function POST(
       return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
     }
 
+    const actualCaseId = caseData.id;
+
     const conversationText = messages
+      .map((m: any) => `${m.role === "user" ? "Kunde" : "Klaus"}: ${m.content}`)
+      .join("\n\n");
+
+    const deltaConversationText = (Array.isArray(deltaMessages) ? deltaMessages : [])
       .map((m: any) => `${m.role === "user" ? "Kunde" : "Klaus"}: ${m.content}`)
       .join("\n\n");
 
@@ -124,6 +138,17 @@ export async function POST(
     try {
       const openaiKey = process.env.OPENAI_API_KEY;
       if (openaiKey) {
+        const shouldUseIncremental =
+          summaryStrategy === "incremental" &&
+          typeof previousSummary === "string" &&
+          previousSummary.trim().length > 0 &&
+          Array.isArray(deltaMessages) &&
+          deltaMessages.length > 0;
+
+        const brandContext = caseData.trademarkName
+          ? `\n\nWICHTIG: Der aktuell festgelegte Markenname lautet: "${caseData.trademarkName}". Verwende diesen Namen konsistent in der Zusammenfassung (Marke/Thema).`
+          : "";
+
         const summaryResponse = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -135,10 +160,24 @@ export async function POST(
             max_tokens: 300,
             messages: [{
               role: "system",
-              content: "Du fasst Beratungsgespräche über Markenrecht zusammen. Sei SEHR KURZ und PRÄZISE. Maximal 3-4 Stichpunkte. Keine langen Sätze."
+              content: shouldUseIncremental
+                ? `Du aktualisierst eine bestehende Sitzungszusammenfassung eines Beratungsgesprächs über Markenrecht. Sei SEHR KURZ und PRÄZISE. Maximal 3-4 Stichpunkte. Keine langen Sätze.${brandContext}`
+                : `Du fasst Beratungsgespräche über Markenrecht zusammen. Sei SEHR KURZ und PRÄZISE. Maximal 3-4 Stichpunkte. Keine langen Sätze.${brandContext}`
             }, {
               role: "user",
-              content: `Fasse dieses Gespräch KURZ zusammen (max. 4 Stichpunkte):
+              content: shouldUseIncremental
+                ? `Aktuelle Zusammenfassung (Stand vorher):
+${previousSummary}
+
+Neue Nachrichten seitdem:
+${deltaConversationText}
+
+Aktualisiere die Zusammenfassung. Maximal 4 Stichpunkte:
+- Marke/Thema
+- Kernaussage
+- Empfehlung
+- Nächster Schritt`
+                : `Fasse dieses Gespräch KURZ zusammen (max. 4 Stichpunkte):
 - Marke/Thema
 - Kernaussage  
 - Empfehlung
@@ -166,7 +205,7 @@ ${conversationText}`
 
     const existingConsultation = await db.query.consultations.findFirst({
       where: and(
-        eq(consultations.caseId, caseId),
+        eq(consultations.caseId, actualCaseId),
         eq(consultations.userId, session.user.id)
       ),
       orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
@@ -193,7 +232,7 @@ ${conversationText}`
         .insert(consultations)
         .values({
           userId: session.user.id,
-          caseId,
+          caseId: actualCaseId,
           title: caseData.trademarkName 
             ? `Beratung: ${caseData.trademarkName}` 
             : "Markenberatung",
@@ -209,14 +248,14 @@ ${conversationText}`
 
     const existingStep = await db.query.caseSteps.findFirst({
       where: and(
-        eq(caseSteps.caseId, caseId),
+        eq(caseSteps.caseId, actualCaseId),
         eq(caseSteps.step, "beratung")
       ),
     });
 
     if (!existingStep) {
       await db.insert(caseSteps).values({
-        caseId,
+        caseId: actualCaseId,
         step: "beratung",
         status: "in_progress",
         startedAt: new Date(),
@@ -250,7 +289,7 @@ export async function PUT(
 
     const caseData = await db.query.trademarkCases.findFirst({
       where: and(
-        eq(trademarkCases.id, caseId),
+        or(eq(trademarkCases.id, caseId), eq(trademarkCases.caseNumber, caseId)),
         eq(trademarkCases.userId, session.user.id)
       ),
     });
@@ -259,9 +298,11 @@ export async function PUT(
       return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
     }
 
+    const actualCaseId = caseData.id;
+
     let consultation = await db.query.consultations.findFirst({
       where: and(
-        eq(consultations.caseId, caseId),
+        eq(consultations.caseId, actualCaseId),
         eq(consultations.userId, session.user.id)
       ),
       orderBy: (consultations, { desc }) => [desc(consultations.createdAt)],
@@ -302,7 +343,7 @@ export async function PUT(
         .insert(consultations)
         .values({
           userId: session.user.id,
-          caseId,
+          caseId: actualCaseId,
           title: extractedData?.trademarkName 
             ? `Beratung: ${extractedData.trademarkName}` 
             : "Markenberatung",
@@ -326,13 +367,13 @@ export async function PUT(
           trademarkName: extractedData.trademarkName,
           updatedAt: new Date(),
         })
-        .where(eq(trademarkCases.id, caseId));
+        .where(eq(trademarkCases.id, actualCaseId));
     }
 
     if (markComplete || isComplete) {
       const existingStep = await db.query.caseSteps.findFirst({
         where: and(
-          eq(caseSteps.caseId, caseId),
+          eq(caseSteps.caseId, actualCaseId),
           eq(caseSteps.step, "beratung")
         ),
       });
@@ -352,7 +393,7 @@ export async function PUT(
           .where(eq(caseSteps.id, existingStep.id));
       } else {
         await db.insert(caseSteps).values({
-          caseId,
+          caseId: actualCaseId,
           step: "beratung",
           status: "completed",
           startedAt: new Date(),
@@ -394,7 +435,7 @@ export async function DELETE(
 
     const caseData = await db.query.trademarkCases.findFirst({
       where: and(
-        eq(trademarkCases.id, caseId),
+        or(eq(trademarkCases.id, caseId), eq(trademarkCases.caseNumber, caseId)),
         eq(trademarkCases.userId, session.user.id)
       ),
     });
@@ -403,18 +444,20 @@ export async function DELETE(
       return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
     }
 
+    const actualCaseId = caseData.id;
+
     await db
       .delete(consultations)
       .where(
         and(
-          eq(consultations.caseId, caseId),
+          eq(consultations.caseId, actualCaseId),
           eq(consultations.userId, session.user.id)
         )
       );
 
     const existingStep = await db.query.caseSteps.findFirst({
       where: and(
-        eq(caseSteps.caseId, caseId),
+        eq(caseSteps.caseId, actualCaseId),
         eq(caseSteps.step, "beratung")
       ),
     });

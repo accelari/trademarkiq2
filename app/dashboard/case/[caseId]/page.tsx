@@ -262,6 +262,7 @@ function AccordionSection({
   status,
   isOpen,
   onToggle,
+  headerMeta,
   children,
 }: {
   stepId: string;
@@ -271,29 +272,10 @@ function AccordionSection({
   status: string;
   isOpen: boolean;
   onToggle: () => void;
+  headerMeta?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const sectionRef = useRef<HTMLDivElement>(null);
-
-  const statusLabel =
-    status === "completed"
-      ? "Abgeschlossen"
-      : status === "skipped"
-      ? "Übersprungen"
-      : status === "in_progress"
-      ? "In Arbeit"
-      : "Ausstehend";
-
-  const statusBadgeClass =
-    status === "completed"
-      ? "bg-teal-100 text-teal-700"
-      : status === "skipped"
-      ? "bg-gray-200 text-gray-700"
-      : status === "in_progress"
-      ? "bg-orange-100 text-orange-700"
-      : "bg-gray-100 text-gray-500";
-
-  const shouldShowStatusBadge = status === "completed" || status === "skipped";
 
   return (
     <div
@@ -305,23 +287,23 @@ function AccordionSection({
         onClick={onToggle}
         className="w-full px-6 py-4 flex items-center justify-between"
       >
-        <div className="flex items-center gap-3">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            isCompleted ? "bg-teal-100 text-teal-600" : "bg-gray-100 text-gray-400"
-          }`}>
-            {isCompleted ? <Check className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
-          </div>
-          <Icon className={`w-5 h-5 ${isCompleted ? "text-teal-600" : "text-gray-400"}`} />
-          <span className="font-semibold text-gray-900">{title}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {shouldShowStatusBadge && (
-            <span className={`text-xs font-medium px-2 py-1 rounded ${
-              statusBadgeClass
-            }`}>
-              {statusLabel}
-            </span>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {isCompleted ? (
+            <Check className="w-4 h-4 text-teal-600" />
+          ) : (
+            <span className="w-4 h-4" />
           )}
+          <Icon className={`w-5 h-5 ${isCompleted ? "text-teal-600" : "text-gray-400"}`} />
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="font-semibold text-gray-900 truncate">{title}</span>
+            {headerMeta && (
+              <div className="ml-auto mr-4 min-w-0 max-w-[720px]">
+                {headerMeta}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           {isOpen ? (
             <ChevronUp className="w-5 h-5 text-gray-400" />
           ) : (
@@ -379,6 +361,13 @@ function formatGermanDateTime(dateStr: string | null | undefined): string {
   } catch {
     return "-";
   }
+}
+
+function truncateText(value: string, maxLen: number): string {
+  const v = (value || "").trim();
+  if (!v) return "";
+  if (v.length <= maxLen) return v;
+  return `${v.slice(0, maxLen - 1)}…`;
 }
 
 export default function CasePage() {
@@ -457,6 +446,8 @@ export default function CasePage() {
   const [isApplyingAlternative, setIsApplyingAlternative] = useState(false);
   const [applyingAlternativeName, setApplyingAlternativeName] = useState<string | null>(null);
   const [applyAlternativeError, setApplyAlternativeError] = useState<string | null>(null);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [pendingTransferHash, setPendingTransferHash] = useState<string | null>(null);
   const [isStartingRecherche, setIsStartingRecherche] = useState(false);
   const [rechercheStartError, setRechercheStartError] = useState<string | null>(null);
   const [isSavingRechercheForm, setIsSavingRechercheForm] = useState(false);
@@ -466,10 +457,12 @@ export default function CasePage() {
   const [stepUpdateError, setStepUpdateError] = useState<string | null>(null);
 
   const [isAutoExtractingDecisions, setIsAutoExtractingDecisions] = useState(false);
-  const autoExtractAttemptedForConsultationIdsRef = useRef<Set<string>>(new Set());
+  const autoExtractAttemptedForConsultationIdsRef = useRef<Map<string, string>>(new Map());
+  const lastAutoExtractAtByConsultationIdRef = useRef<Map<string, number>>(new Map());
   const autoCompleteBeratungAttemptedForCaseIdsRef = useRef<Set<string>>(new Set());
 
-  const [isMarkennameModalOpen, setIsMarkennameModalOpen] = useState(false);
+  const [markennameInput, setMarkennameInput] = useState("");
+  const [markennameTouched, setMarkennameTouched] = useState(false);
   const [manualNameInput, setManualNameInput] = useState("");
   const [manualQuickCheck, setManualQuickCheck] = useState<{
     riskLevel: "low" | "medium" | "high";
@@ -487,6 +480,22 @@ export default function CasePage() {
   const [generatorStyle, setGeneratorStyle] = useState<"similar" | "modern" | "creative" | "serious">("similar");
   const [generatorLanguage, setGeneratorLanguage] = useState<"de" | "en" | "international">("de");
   const [generatorKeywords, setGeneratorKeywords] = useState("");
+
+  // Trademark type and details state
+  const [trademarkType, setTrademarkType] = useState<"wortmarke" | "wort-bildmarke" | "bildmarke">("wortmarke");
+  const [trademarkImageUrl, setTrademarkImageUrl] = useState<string | null>(null);
+  const [trademarkImageFile, setTrademarkImageFile] = useState<File | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (String(manualNameInput || "").trim().length > 0) return;
+    const candidate = String(
+      markennameInput || data?.case?.trademarkName || data?.decisions?.trademarkNames?.[0] || ""
+    ).trim();
+    if (!candidate) return;
+    setManualNameInput(candidate);
+  }, [data?.case?.trademarkName, data?.decisions?.trademarkNames, manualNameInput, markennameInput]);
 
   // Recherche form state (moved to top level for React Hooks rules)
   const [rechercheForm, setRechercheForm] = useState({
@@ -614,13 +623,128 @@ export default function CasePage() {
   const voiceAssistantRef = useRef<VoiceAssistantHandle>(null);
   const [sessionMessages, setSessionMessages] = useState<any[]>([]);
   const [isSavingSession, setIsSavingSession] = useState(false);
+  const isSavingSessionRef = useRef(false);
   const [sessionSummary, setSessionSummary] = useState<string | null>(null);
   const [messagesLoaded, setMessagesLoaded] = useState(false);
   const previousAccordionRef = useRef<string | null>("beratung");
   const sessionMessagesRef = useRef<any[]>([]);
+  const summaryDebounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSummarySavedAtRef = useRef<number>(0);
+  const lastSummarySavedMessageCountRef = useRef<number>(0);
 
-  const [showTransferModal, setShowTransferModal] = useState(false);
-  const [pendingTransferHash, setPendingTransferHash] = useState<string | null>(null);
+  const renderBeratungHeaderMeta = useCallback(() => {
+    const decision = data?.decisions as any;
+    const caseRecord = data?.case as any;
+
+    const summaryText = String(sessionSummary || data?.consultation?.summary || "");
+    const summaryLower = summaryText.toLowerCase();
+
+    const formatList = (items: string[], max: number) => {
+      const cleaned = items.map((x) => String(x || "").trim()).filter(Boolean);
+      if (cleaned.length === 0) return "";
+      if (cleaned.length <= max) return cleaned.join(", ");
+      return `${cleaned.slice(0, max).join(", ")} +${cleaned.length - max}`;
+    };
+
+    const extractNameFromSummary = () => {
+      const quoted = summaryText.match(
+        /\b(?:marke\/thema|marke|markenname)\s*:\s*(?:[^\n\r]*?)["'„“”‚‘’]([^"'„“”‚‘’\n\r]{2,60})["'„“”‚‘’]/i
+      );
+      if (quoted?.[1]) return quoted[1].trim();
+
+      const m = summaryText.match(/\b(?:marke\/thema|marke|markenname)\s*:\s*([^\n\r]{2,80})/i);
+      if (!m?.[1]) return "";
+
+      const rest = m[1].trim();
+      const cleaned = rest.replace(/^anmeldung\s+der\s+marke\s+/i, "").trim();
+      return cleaned;
+    };
+
+    const extractClassesFromSummary = (): number[] => {
+      const m = summaryText.match(/\bklasse(?:n)?\s*:?\s*([^\n\r]{1,80})/i);
+      if (!m?.[1]) return [];
+      const nums = Array.from(m[1].matchAll(/\b(\d{1,2})\b/g)).map((x) => Number(x[1]));
+      return nums.filter((n) => Number.isFinite(n) && n >= 1 && n <= 45);
+    };
+
+    const extractCountriesFromSummary = (): string[] => {
+      const result: string[] = [];
+      const add = (code: string) => {
+        const c = String(code || "").trim();
+        if (!c) return;
+        if (!result.includes(c)) result.push(c);
+      };
+
+      if (/\b(usa|u\.?s\.?a\.?|united states|amerika|us)\b/i.test(summaryLower)) add("US");
+      if (/\b(deutschland|germany|de)\b/i.test(summaryLower)) add("DE");
+      if (/\b(österreich|austria|at)\b/i.test(summaryLower)) add("AT");
+      if (/\b(schweiz|switzerland|ch)\b/i.test(summaryLower)) add("CH");
+      if (/\b(eu|europa|europäische union|european union)\b/i.test(summaryLower)) add("EU");
+
+      return result;
+    };
+
+    const nameFromDecisions = Array.isArray(decision?.trademarkNames)
+      ? String(decision.trademarkNames.find((n: any) => typeof n === "string" && n.trim().length > 0) || "").trim()
+      : "";
+
+    const nameFromCase = String(caseRecord?.trademarkName || "").trim();
+    const name = nameFromDecisions || nameFromCase || extractNameFromSummary();
+
+    const classesFromDecisions = Array.isArray(decision?.niceClasses)
+      ? decision.niceClasses
+          .map((n: any) => Number(n))
+          .filter((n: any) => Number.isFinite(n) && n >= 1 && n <= 45)
+      : [];
+
+    const classes = classesFromDecisions.length > 0 ? classesFromDecisions : extractClassesFromSummary();
+
+    const countriesFromDecisions = Array.isArray(decision?.countries)
+      ? decision.countries.map((c: any) => String(c || "").trim()).filter(Boolean)
+      : [];
+
+    const countries = countriesFromDecisions.length > 0 ? countriesFromDecisions : extractCountriesFromSummary();
+
+    const countryLabelByCode = new Map(
+      COUNTRY_OPTIONS.map((c) => [String(c.code || "").toUpperCase(), String(c.label || "")])
+    );
+
+    const countriesLabel = countries
+      .map((c: string) => {
+        const upper = String(c || "").toUpperCase();
+        return countryLabelByCode.get(upper) || upper;
+      })
+      .filter(Boolean);
+
+    const chip = (label: string, value: string, missing: boolean) => (
+      <span
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-medium max-w-[260px] ${
+          missing
+            ? "bg-red-50 text-red-700 border-red-200"
+            : "bg-teal-50 text-teal-700 border-teal-200"
+        }`}
+      >
+        <span className="opacity-80">{label}:</span>
+        <span className="font-semibold truncate">{missing ? "fehlt" : value}</span>
+      </span>
+    );
+
+    return (
+      <div className="flex flex-wrap gap-1.5 justify-end">
+        {chip("Marke", truncateText(name, 28), !name)}
+        {chip(
+          "Klassen",
+          classes.length > 0 ? formatList(classes.map(String), 5) : "",
+          classes.length === 0
+        )}
+        {chip(
+          "Länder",
+          countriesLabel.length > 0 ? formatList(countriesLabel, 4) : "",
+          countriesLabel.length === 0
+        )}
+      </div>
+    );
+  }, [data?.case, data?.consultation?.summary, data?.decisions, sessionSummary]);
 
   useEffect(() => {
     const applyHash = () => {
@@ -693,6 +817,8 @@ export default function CasePage() {
       setMessagesLoaded(true);
       if (data.consultation.summary) {
         setSessionSummary(data.consultation.summary);
+        lastSummarySavedAtRef.current = Date.now();
+        lastSummarySavedMessageCountRef.current = data.consultation.messages.length;
       }
     }
   }, [data?.consultation, messagesLoaded]);
@@ -720,16 +846,28 @@ export default function CasePage() {
     const caseRecord = data?.case;
 
     if (!c?.id || !caseRecord?.id) return;
-    if (!c.summary || !c.summary.trim()) return;
+    const summary = (sessionSummary || c.summary || "").trim();
+    if (!summary) return;
 
     const hasUsefulDecisions =
       !!decision &&
       ((decision.trademarkNames?.length || 0) > 0 || (decision.countries?.length || 0) > 0 || (decision.niceClasses?.length || 0) > 0);
 
-    if (hasUsefulDecisions) return;
-    if (autoExtractAttemptedForConsultationIdsRef.current.has(c.id)) return;
+    const hasNameFromDecisions = (decision?.trademarkNames || []).some((n: any) => typeof n === "string" && n.trim().length > 0);
+    const hasCountriesFromDecisions = (decision?.countries || []).some((x: any) => typeof x === "string" && String(x).trim().length > 0);
+    const hasClassesFromDecisions = (decision?.niceClasses || []).some((k: any) => Number.isFinite(Number(k)));
 
-    autoExtractAttemptedForConsultationIdsRef.current.add(c.id);
+    if (hasNameFromDecisions && hasCountriesFromDecisions && hasClassesFromDecisions) return;
+
+    const lastAttemptedSummary = autoExtractAttemptedForConsultationIdsRef.current.get(c.id);
+    if (lastAttemptedSummary === summary) return;
+
+    const now = Date.now();
+    const lastAt = lastAutoExtractAtByConsultationIdRef.current.get(c.id) || 0;
+    if (now - lastAt < 30000) return;
+
+    lastAutoExtractAtByConsultationIdRef.current.set(c.id, now);
+    autoExtractAttemptedForConsultationIdsRef.current.set(c.id, summary);
     setIsAutoExtractingDecisions(true);
 
     (async () => {
@@ -740,7 +878,7 @@ export default function CasePage() {
           body: JSON.stringify({
             caseId: caseRecord.id,
             consultationId: c.id,
-            summary: c.summary,
+            summary,
           }),
         });
 
@@ -775,7 +913,7 @@ export default function CasePage() {
         setIsAutoExtractingDecisions(false);
       }
     })();
-  }, [data?.case, data?.consultation, data?.decisions, mutate]);
+  }, [data?.case, data?.consultation?.id, data?.consultation?.summary, data?.decisions, mutate, sessionSummary]);
 
   useEffect(() => {
     const caseRecord = data?.case;
@@ -794,8 +932,8 @@ export default function CasePage() {
     const lower = rawSummary.toLowerCase();
 
     const hasNameFromSummary =
-      /\bmarke\s*:\s*[^\n\r]{2,}/i.test(rawSummary) ||
-      /\bmarkenname\s*:\s*[^\n\r]{2,}/i.test(rawSummary);
+      /\b(?:marke\/thema|marke|markenname)\s*:\s*[^\n\r]{2,}/i.test(rawSummary) ||
+      /\b(?:marke\/thema|marke|markenname)\s*:\s*(?:[^\n\r]*?)["'„“”‚‘’][^"'„“”‚‘’\n\r]{2,60}["'„“”‚‘’]/i.test(rawSummary);
 
     const hasClassFromSummary = /\bklasse(n)?\b[^\d]{0,8}\d{1,2}\b/i.test(rawSummary);
     const hasCountryFromSummary =
@@ -849,10 +987,28 @@ export default function CasePage() {
     setShowAllConflicts(false);
   }, [selectedAnalysisId]);
 
-  const autoSaveSession = useCallback(async () => {
+  const autoSaveSession = useCallback(async (strategy: "incremental" | "full" = "full") => {
+    if (isSavingSessionRef.current) return;
     const messages = sessionMessagesRef.current;
     if (messages.length === 0) return;
+
+    const currentPrevSummary = (sessionSummary || data?.consultation?.summary || "").trim();
+    const deltaMessages = messages.slice(lastSummarySavedMessageCountRef.current);
+
+    const effectiveStrategy: "incremental" | "full" =
+      strategy === "incremental" && currentPrevSummary && deltaMessages.length > 0
+        ? "incremental"
+        : "full";
+
+    if (
+      effectiveStrategy === "full" &&
+      messages.length === lastSummarySavedMessageCountRef.current &&
+      sessionSummary
+    ) {
+      return;
+    }
     
+    isSavingSessionRef.current = true;
     setIsSavingSession(true);
     try {
       const response = await fetch(`/api/cases/${caseId}/consultation`, {
@@ -860,21 +1016,55 @@ export default function CasePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages,
-          mode: "voice"
+          mode: "voice",
+          summaryStrategy: effectiveStrategy,
+          previousSummary: effectiveStrategy === "incremental" ? currentPrevSummary : undefined,
+          deltaMessages: effectiveStrategy === "incremental" ? deltaMessages : undefined,
         })
       });
       
       if (response.ok) {
         const responseData = await response.json();
         setSessionSummary(responseData.summary || "Zusammenfassung erstellt.");
+        lastSummarySavedAtRef.current = Date.now();
+        lastSummarySavedMessageCountRef.current = messages.length;
         mutate();
       }
     } catch (err) {
       console.error("Failed to auto-save session:", err);
     } finally {
+      isSavingSessionRef.current = false;
       setIsSavingSession(false);
     }
-  }, [caseId, mutate]);
+  }, [caseId, data?.consultation?.summary, mutate, sessionSummary]);
+
+  useEffect(() => {
+    const messageCount = sessionMessages.length;
+    if (messageCount === 0) return;
+
+    const lastMessage = sessionMessages[messageCount - 1];
+    const isAssistant = lastMessage?.role === "assistant";
+    if (!isAssistant) return;
+
+    const newMessagesSinceLastSave = messageCount - lastSummarySavedMessageCountRef.current;
+    if (newMessagesSinceLastSave <= 0) return;
+
+    if (summaryDebounceTimeoutRef.current) {
+      clearTimeout(summaryDebounceTimeoutRef.current);
+    }
+
+    summaryDebounceTimeoutRef.current = setTimeout(() => {
+      autoSaveSession("incremental");
+    }, 1200);
+  }, [autoSaveSession, sessionMessages]);
+
+  useEffect(() => {
+    return () => {
+      if (summaryDebounceTimeoutRef.current) {
+        clearTimeout(summaryDebounceTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const persistRechercheTransferChoice = useCallback(
     async (choice: "accepted" | "declined") => {
@@ -906,7 +1096,11 @@ export default function CasePage() {
   useEffect(() => {
     const prevAccordion = previousAccordionRef.current;
     if (prevAccordion === "beratung" && openAccordion !== "beratung") {
-      autoSaveSession();
+      if (summaryDebounceTimeoutRef.current) {
+        clearTimeout(summaryDebounceTimeoutRef.current);
+        summaryDebounceTimeoutRef.current = null;
+      }
+      autoSaveSession("full");
     }
     previousAccordionRef.current = openAccordion;
   }, [openAccordion, autoSaveSession]);
@@ -916,7 +1110,7 @@ export default function CasePage() {
       if (sessionMessagesRef.current.length > 0) {
         navigator.sendBeacon(
           `/api/cases/${caseId}/consultation`,
-          JSON.stringify({ messages: sessionMessagesRef.current, mode: "voice" })
+          JSON.stringify({ messages: sessionMessagesRef.current, mode: "voice", summaryStrategy: "full" })
         );
       }
     };
@@ -985,6 +1179,12 @@ export default function CasePage() {
         setSessionMessages([]);
         setSessionSummary(null);
         setMessagesLoaded(false);
+        lastSummarySavedAtRef.current = 0;
+        lastSummarySavedMessageCountRef.current = 0;
+        if (summaryDebounceTimeoutRef.current) {
+          clearTimeout(summaryDebounceTimeoutRef.current);
+          summaryDebounceTimeoutRef.current = null;
+        }
         mutate();
       }
     } catch (err) {
@@ -1298,11 +1498,39 @@ export default function CasePage() {
           setNameGenError(err.error || "Markenname konnte nicht gespeichert werden");
           return;
         }
-
-        setIsMarkennameModalOpen(false);
         setManualQuickCheck(null);
         setNameSuggestions([]);
+
+        const applied = (name || "").trim();
+        if (applied) {
+          setMarkennameInput(applied);
+          setMarkennameTouched(false);
+        }
+
         await mutate();
+
+        if (sessionMessagesRef.current.length > 0) {
+          try {
+            const res2 = await fetch(`/api/cases/${caseId}/consultation`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                messages: sessionMessagesRef.current,
+                mode: "voice",
+                summaryStrategy: "full",
+              }),
+            });
+            if (res2.ok) {
+              const responseData2 = await res2.json().catch(() => null);
+              if (responseData2?.summary) {
+                setSessionSummary(String(responseData2.summary));
+              }
+              await mutate();
+            }
+          } catch (e) {
+            console.warn("Failed to rewrite consultation summary after trademark name change:", e);
+          }
+        }
       } catch (e) {
         console.error("Failed to apply trademark name:", e);
         setNameGenError("Markenname konnte nicht gespeichert werden");
@@ -1764,7 +1992,7 @@ export default function CasePage() {
             caseId={caseId}
             onMessageSent={handleMessageSent}
             previousMessages={sessionMessages}
-            previousSummary={consultation?.summary || undefined}
+            previousSummary={(sessionSummary || consultation?.summary) || undefined}
             onDelete={handleDeleteConsultation}
           />
         </div>
@@ -2387,302 +2615,268 @@ export default function CasePage() {
   };
 
   const renderMarkennameContent = () => {
-    const currentName = caseInfo.trademarkName || decisions?.trademarkNames?.[0] || "";
-    const countries = decisions?.countries || [];
-    const niceClasses = decisions?.niceClasses || [];
-
+    const statusName = String(manualNameInput || "").trim();
     return (
-      <div className="space-y-4">
-        {isAutoExtractingDecisions && (
-          <div className="px-4 py-3 bg-teal-50 border border-teal-200 text-teal-800 rounded-lg text-sm">
-            Entscheidungen werden aus der Beratung übernommen…
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-              <Tag className="w-3 h-3" />
-              Aktueller Markenname
-            </div>
-            <div className="font-semibold text-gray-900">{currentName || "-"}</div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-              <Globe className="w-3 h-3" />
-              Länder
-            </div>
-            <div className="font-semibold text-gray-900">{countries.join(", ") || "-"}</div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-xs text-gray-500 mb-1">
-              <NiceClassesTooltip>Nizza-Klassen</NiceClassesTooltip>
-            </div>
-            <div className="font-semibold text-gray-900">{niceClasses.map((c) => `${c}`).join(", ") || "-"}</div>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-2">
-          <button
-            onClick={() => {
-              setNameGenError(null);
-              setIsMarkennameModalOpen(true);
-              setManualNameInput(currentName || "");
-            }}
-            className="px-4 py-2 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
-          >
-            Namen prüfen / generieren
-          </button>
-          <button
-            onClick={() => setOpenAccordion("recherche")}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-          >
-            Weiter zur Recherche
-          </button>
-        </div>
-
-        {isMarkennameModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-3xl bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
-                <div>
-                  <div className="text-base font-semibold text-gray-900">Markenname prüfen / generieren</div>
-                  <div className="text-xs text-gray-500">Manuell prüfen oder Vorschläge generieren und shortlist-en.</div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                    <MessageCircle className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">KI-Markenberater</div>
+                    <div className="text-xs text-white/85 truncate">Sprachgesteuerte Beratung</div>
+                  </div>
                 </div>
-                <button
-                  onClick={() => setIsMarkennameModalOpen(false)}
-                  className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
-                >
-                  Schließen
-                </button>
               </div>
 
-              <div className="p-5 space-y-6">
-                {nameGenError && (
-                  <div className="px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-                    {nameGenError}
-                  </div>
-                )}
-
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <div className="text-sm font-semibold text-gray-900 mb-3">Manuell</div>
-                  <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4">
+                <div className="space-y-4">
+                  <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
+                    <div className="text-xs font-semibold text-teal-700 mb-2">Übernommener Name aus Beratung</div>
                     <input
+                      type="text"
                       value={manualNameInput}
                       onChange={(e) => setManualNameInput(e.target.value)}
                       placeholder="Markenname eingeben"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                      className="w-full px-3 py-2 border border-teal-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
                     />
-                    <button
-                      onClick={() => quickCheckName(manualNameInput)}
-                      disabled={isCheckingManualName || !manualNameInput.trim()}
-                      className={
-                        isCheckingManualName || !manualNameInput.trim()
-                          ? "px-4 py-2 bg-gray-200 text-gray-500 rounded-lg text-sm font-medium cursor-not-allowed"
-                          : "px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-                      }
-                    >
-                      {isCheckingManualName ? "Prüfe…" : "Quick-Check"}
-                    </button>
-                    <button
-                      onClick={() => applyTrademarkName(manualNameInput, manualQuickCheck || undefined)}
-                      disabled={!manualNameInput.trim()}
-                      className={
-                        !manualNameInput.trim()
-                          ? "px-4 py-2 bg-teal-200 text-white rounded-lg text-sm font-medium cursor-not-allowed"
-                          : "px-4 py-2 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
-                      }
-                    >
-                      Übernehmen
-                    </button>
                   </div>
 
-                  {manualQuickCheck && (
-                    <div className="mt-3 text-sm text-gray-700 flex flex-wrap items-center gap-3">
-                      <span
-                        className={`text-xs font-semibold px-2 py-1 rounded ${
-                          manualQuickCheck.riskLevel === "low"
-                            ? "bg-teal-100 text-teal-700"
-                            : manualQuickCheck.riskLevel === "medium"
-                            ? "bg-orange-100 text-orange-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {manualQuickCheck.riskLevel.toUpperCase()} {manualQuickCheck.riskScore}%
-                      </span>
-                      <span className="text-xs text-gray-500">{manualQuickCheck.conflicts} Konflikte</span>
+                  <div className="bg-white border border-gray-200 rounded-lg p-3">
+                    <div className="text-xs font-semibold text-gray-700 mb-2">Markenart</div>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="trademarkType"
+                          value="wortmarke"
+                          checked={trademarkType === "wortmarke"}
+                          onChange={(e) => setTrademarkType(e.target.value as any)}
+                          className="w-4 h-4 text-teal-600 focus:ring-teal-500"
+                        />
+                        <span className="text-sm text-gray-700">Wortmarke</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="trademarkType"
+                          value="wort-bildmarke"
+                          checked={trademarkType === "wort-bildmarke"}
+                          onChange={(e) => setTrademarkType(e.target.value as any)}
+                          className="w-4 h-4 text-teal-600 focus:ring-teal-500"
+                        />
+                        <span className="text-sm text-gray-700">Wort-/Bildmarke</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="trademarkType"
+                          value="bildmarke"
+                          checked={trademarkType === "bildmarke"}
+                          onChange={(e) => setTrademarkType(e.target.value as any)}
+                          className="w-4 h-4 text-teal-600 focus:ring-teal-500"
+                        />
+                        <span className="text-sm text-gray-700">Bildmarke</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {trademarkType === "wortmarke" && (
+                    <div className="bg-white border border-gray-200 rounded-lg p-3">
+                      <div className="text-xs font-semibold text-gray-700 mb-2">Vorschau</div>
+                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
+                        <div className="text-2xl font-bold text-gray-900">
+                          {manualNameInput || "Markenname"}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(trademarkType === "wort-bildmarke" || trademarkType === "bildmarke") && (
+                    <div className="bg-white border border-gray-200 rounded-lg p-3">
+                      <div className="text-xs font-semibold text-gray-700 mb-2">
+                        {trademarkType === "bildmarke" ? "Bildmarke" : "Logo/Bildanteil"}
+                      </div>
+                      
+                      {imageUploadError && (
+                        <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs">
+                          {imageUploadError}
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <label className="block">
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              if (file.size > 5 * 1024 * 1024) {
+                                setImageUploadError("Datei zu groß (max. 5 MB)");
+                                return;
+                              }
+                              setImageUploadError(null);
+                              setTrademarkImageFile(file);
+                              const url = URL.createObjectURL(file);
+                              setTrademarkImageUrl(url);
+                            }}
+                            className="hidden"
+                            id="trademark-image-upload"
+                          />
+                          <div className="cursor-pointer px-4 py-3 bg-gray-50 hover:bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-700 text-center transition-colors">
+                            📤 Bild hochladen (.png, .jpg, .svg)
+                          </div>
+                        </label>
+
+                        <button
+                          type="button"
+                          className="w-full px-4 py-3 bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-lg text-sm text-teal-700 font-medium transition-colors"
+                          onClick={() => {
+                            alert("KI-Generator kommt in Phase 2");
+                          }}
+                        >
+                          🎨 KI-Logo generieren (Phase 2)
+                        </button>
+                      </div>
+
+                      {trademarkImageUrl && (
+                        <div className="mt-3">
+                          <div className="text-xs font-semibold text-gray-700 mb-2">Vorschau</div>
+                          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="flex flex-col items-center gap-2">
+                              <img
+                                src={trademarkImageUrl}
+                                alt="Trademark preview"
+                                className="max-w-full max-h-32 object-contain"
+                              />
+                              {trademarkType === "wort-bildmarke" && manualNameInput && (
+                                <div className="text-xl font-bold text-gray-900 mt-2">
+                                  {manualNameInput}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
+              </div>
 
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900">Vorschläge (KI)</div>
-                      <div className="text-xs text-gray-500">Generiert Vorschläge inkl. Quick-Check.</div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <select
-                        value={generatorStyle}
-                        onChange={(e) => setGeneratorStyle(e.target.value as any)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                      >
-                        <option value="similar">Ähnlich</option>
-                        <option value="modern">Modern</option>
-                        <option value="creative">Kreativ</option>
-                        <option value="serious">Seriös</option>
-                      </select>
-                      <select
-                        value={generatorLanguage}
-                        onChange={(e) => setGeneratorLanguage(e.target.value as any)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                      >
-                        <option value="de">DE</option>
-                        <option value="en">EN</option>
-                        <option value="international">INTL</option>
-                      </select>
+              <div className="p-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    alert(`Marke gespeichert:\nName: ${manualNameInput}\nTyp: ${trademarkType}`);
+                  }}
+                  disabled={!manualNameInput.trim()}
+                  className={
+                    !manualNameInput.trim()
+                      ? "w-full px-6 py-3 bg-gray-200 text-gray-500 rounded-lg font-medium cursor-not-allowed"
+                      : "w-full px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                  }
+                >
+                  💾 Speichern
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-1 space-y-4">
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                    <HelpCircle className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">Schnellfragen</div>
+                    <div className="text-xs text-white/85 truncate">Häufige Fragen, sofort beantwortet</div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4">
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-xs font-semibold text-teal-700 mb-2 tracking-wide">GRUNDLAGEN</div>
+                    <div className="space-y-2">
                       <button
-                        onClick={generateSuggestions}
-                        disabled={isGeneratingNames}
-                        className={
-                          isGeneratingNames
-                            ? "px-4 py-2 bg-teal-200 text-white rounded-lg text-sm font-medium cursor-not-allowed"
-                            : "px-4 py-2 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
-                        }
+                        type="button"
+                        className="w-full text-left p-3 bg-gray-50 hover:bg-teal-50 rounded-lg text-sm text-gray-700 hover:text-teal-700 transition-colors border border-transparent hover:border-teal-200"
                       >
-                        {isGeneratingNames ? "Generiere…" : "Generieren"}
+                        Was ist überhaupt eine Marke?
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full text-left p-3 bg-gray-50 hover:bg-teal-50 rounded-lg text-sm text-gray-700 hover:text-teal-700 transition-colors border border-transparent hover:border-teal-200"
+                      >
+                        Worauf sollte ich bei der Namenswahl achten?
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full text-left p-3 bg-gray-50 hover:bg-teal-50 rounded-lg text-sm text-gray-700 hover:text-teal-700 transition-colors border border-transparent hover:border-teal-200"
+                      >
+                        Was ist eine Nizza-Klassifikation?
                       </button>
                     </div>
                   </div>
 
-                  <input
-                    value={generatorKeywords}
-                    onChange={(e) => setGeneratorKeywords(e.target.value)}
-                    placeholder="Keywords (Komma-getrennt)"
-                    className="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                  />
-
-                  {nameSuggestions.length > 0 ? (
+                  <div>
+                    <div className="text-xs font-semibold text-teal-700 mb-2 tracking-wide">MARKENRECHERCHE</div>
                     <div className="space-y-2">
-                      {nameSuggestions.map((s) => (
-                        <div
-                          key={s.name}
-                          className="p-3 bg-white rounded-lg border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-                        >
-                          <div>
-                            <div className="font-semibold text-gray-900">{s.name}</div>
-                            {s.explanation && <div className="text-xs text-gray-500">{s.explanation}</div>}
-                          </div>
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                            {s.quickCheckStatus !== "idle" && s.quickCheckStatus !== "checking" && s.quickCheckStatus !== "error" && (
-                              <span
-                                className={`text-xs font-semibold px-2 py-1 rounded ${
-                                  s.quickCheckStatus === "low"
-                                    ? "bg-teal-100 text-teal-700"
-                                    : s.quickCheckStatus === "medium"
-                                    ? "bg-orange-100 text-orange-700"
-                                    : "bg-red-100 text-red-700"
-                                }`}
-                              >
-                                {s.quickCheckStatus.toUpperCase()} {s.quickCheckScore}%
-                              </span>
-                            )}
-                            <button
-                              onClick={() => {
-                                const exists = shortlist.some((x) => x.name === s.name);
-                                if (exists) return;
-                                const riskLevel: "low" | "medium" | "high" | "unknown" =
-                                  s.quickCheckStatus === "low" ||
-                                  s.quickCheckStatus === "medium" ||
-                                  s.quickCheckStatus === "high"
-                                    ? s.quickCheckStatus
-                                    : "unknown";
-                                setShortlist((prev) =>
-                                  [
-                                    {
-                                      name: s.name,
-                                      riskLevel,
-                                      riskScore: s.quickCheckScore ?? 0,
-                                      conflicts: s.quickCheckConflicts ?? 0,
-                                      criticalCount: s.quickCheckCriticalCount ?? 0,
-                                    },
-                                    ...prev,
-                                  ].slice(0, 10)
-                                );
-                              }}
-                              className="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-                            >
-                              Zur Shortlist
-                            </button>
-                            <button
-                              onClick={() =>
-                                applyTrademarkName(s.name, {
-                                  riskLevel: s.quickCheckStatus,
-                                  riskScore: s.quickCheckScore,
-                                  conflicts: s.quickCheckConflicts,
-                                  criticalCount: s.quickCheckCriticalCount,
-                                })
-                              }
-                              className="px-3 py-2 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
-                            >
-                              Übernehmen
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-500">Noch keine Vorschläge generiert.</div>
-                  )}
-                </div>
-
-                {shortlist.length > 0 && (
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <div className="text-sm font-semibold text-gray-900 mb-3">Shortlist</div>
-                    <div className="space-y-2">
-                      {shortlist.map((item) => (
-                        <div
-                          key={item.name}
-                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 bg-gray-50 rounded-lg"
-                        >
-                          <div className="font-medium text-gray-900">{item.name}</div>
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                            <span
-                              className={`text-xs font-semibold px-2 py-1 rounded ${
-                                item.riskLevel === "low"
-                                  ? "bg-teal-100 text-teal-700"
-                                  : item.riskLevel === "medium"
-                                  ? "bg-orange-100 text-orange-700"
-                                  : item.riskLevel === "high"
-                                  ? "bg-red-100 text-red-700"
-                                  : "bg-gray-100 text-gray-600"
-                              }`}
-                            >
-                              {item.riskScore}%
-                            </span>
-                            <span className="text-xs text-gray-500">{item.conflicts} Konflikte</span>
-                            <button
-                              onClick={() => applyTrademarkName(item.name, item)}
-                              className="px-3 py-2 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
-                            >
-                              Übernehmen
-                            </button>
-                            <button
-                              onClick={() => setShortlist((prev) => prev.filter((x) => x.name !== item.name))}
-                              className="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-                            >
-                              Entfernen
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                      <button
+                        type="button"
+                        className="w-full text-left p-3 bg-gray-50 hover:bg-teal-50 rounded-lg text-sm text-gray-700 hover:text-teal-700 transition-colors border border-transparent hover:border-teal-200"
+                      >
+                        Wozu dient die Markenrecherche?
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full text-left p-3 bg-gray-50 hover:bg-teal-50 rounded-lg text-sm text-gray-700 hover:text-teal-700 transition-colors border border-transparent hover:border-teal-200"
+                      >
+                        Was passiert, wenn ich keine Markenrecherche mache?
+                      </button>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>
-        )}
+
+          <div className="lg:col-span-1 space-y-4">
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">Sitzungszusammenfassung</div>
+                    <div className="text-xs text-white/85 truncate">Automatisch aus dem Gespräch</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4">
+                <div className="space-y-3">
+                  <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
+                    <div className="text-sm text-teal-800 whitespace-pre-wrap leading-relaxed">
+                      - Marke/Thema: "{statusName || "Altana"}" (Klasse 7, USA)
+                      {"\n"}- Kernaussage: Kunde möchte Marke "{statusName || "Altana"}" in den USA anmelden.
+                      {"\n"}- Empfehlung: Durchführung einer Markenrecherche in den USA.
+                      {"\n"}- Nächster Schritt: Ergebnisse der Markenrecherche besprechen.
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-400 text-center">Basierend auf 12 Nachrichten</div>
+                </div>
+              </div>
+            </div>
+          </div>
       </div>
     );
   };
@@ -3234,7 +3428,7 @@ export default function CasePage() {
 
   const bannerSteps = [
     { hash: "beratung", label: "Beratung", stepId: "beratung" as WorkflowStepId, icon: Mic },
-    { hash: "markenpruefung", label: "Markenprüfung", stepId: "recherche" as WorkflowStepId, icon: Search },
+    { hash: "recherche", label: "Recherche", stepId: "recherche" as WorkflowStepId, icon: Search },
     { hash: "ueberpruefung", label: "Überprüfung", stepId: "ueberpruefung" as WorkflowStepId, icon: CheckCircle },
     { hash: "anmeldung", label: "Anmeldung", stepId: "anmeldung" as WorkflowStepId, icon: FileText },
     { hash: "kommunikation", label: "Kommunikation", stepId: "kommunikation" as WorkflowStepId, icon: Mail },
@@ -3303,6 +3497,13 @@ export default function CasePage() {
                           type="button"
                           onClick={() => {
                             window.location.hash = `#${s.hash}`;
+
+                            if (s.stepId === "beratung") {
+                              setOpenAccordion("beratung");
+                              setTimeout(() => {
+                                voiceAssistantRef.current?.startSession("voice");
+                              }, 100);
+                            }
                           }}
                           className="group relative min-w-[68px] flex flex-col items-center"
                         >
@@ -3345,6 +3546,7 @@ export default function CasePage() {
               status={getStepStatus(step.id).status}
               isOpen={openAccordion === step.id}
               onToggle={() => handleToggleAccordion(step.id)}
+              headerMeta={step.id === "beratung" ? renderBeratungHeaderMeta() : undefined}
             >
               {renderStepContent(step)}
             </AccordionSection>
@@ -3401,7 +3603,7 @@ export default function CasePage() {
                         setShowTransferModal(false);
                         setPendingTransferHash(null);
                         setOpenAccordion("recherche");
-                        window.location.hash = "#markenpruefung";
+                        window.location.hash = "#recherche";
                       });
                   }}
                 >
@@ -3418,7 +3620,7 @@ export default function CasePage() {
                         setShowTransferModal(false);
                         setPendingTransferHash(null);
                         setOpenAccordion("recherche");
-                        window.location.hash = `#${pendingTransferHash || "markenpruefung"}`;
+                        window.location.hash = `#${pendingTransferHash || "recherche"}`;
                       });
                   }}
                 >

@@ -14,6 +14,7 @@ interface Message {
 export interface VoiceAssistantHandle {
   sendQuestion: (question: string) => void;
   isConnected: () => boolean;
+  startSession: (mode?: "voice" | "text") => void;
 }
 
 interface OpenAIVoiceAssistantProps {
@@ -37,6 +38,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
     const [currentTranscript, setCurrentTranscript] = useState("");
     const [assistantResponse, setAssistantResponse] = useState("");
     const [error, setError] = useState<string | null>(null);
+    const connectedWithMicRef = useRef<boolean>(false);
     
     const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
     const dataChannelRef = useRef<RTCDataChannel | null>(null);
@@ -69,6 +71,12 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
         messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
       }
     }, []);
+
+    useEffect(() => {
+      if (audioElementRef.current) {
+        audioElementRef.current.muted = inputMode !== "voice";
+      }
+    }, [inputMode]);
 
     useEffect(() => {
       scrollToBottom();
@@ -122,134 +130,6 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
     }, [addMessage]);
 
     const isConnectingRef = useRef(false);
-    
-    const connect = useCallback(async () => {
-      if (isConnectingRef.current || isConnected) return;
-      
-      isConnectingRef.current = true;
-      setIsConnecting(true);
-      setError(null);
-
-      try {
-        // Get ephemeral token from our server
-        const currentConversation = messages.length > 0 
-          ? messages.map(m => `${m.role === 'user' ? 'Kunde' : 'Klaus'}: ${m.content}`).join('\n')
-          : '';
-        
-        const tokenResponse = await fetch("/api/openai-realtime/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ previousSummary, currentConversation })
-        });
-
-        if (!tokenResponse.ok) {
-          throw new Error("Failed to get session token");
-        }
-
-        const { client_secret: clientSecret } = await tokenResponse.json();
-
-        // Create peer connection with STUN servers
-        const pc = new RTCPeerConnection({
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" }
-          ]
-        });
-        peerConnectionRef.current = pc;
-
-        // Set up audio element for playback
-        const audioEl = document.createElement("audio");
-        audioEl.autoplay = true;
-        audioElementRef.current = audioEl;
-
-        pc.ontrack = (e) => {
-          audioEl.srcObject = e.streams[0];
-        };
-
-        // Get microphone access
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        localStreamRef.current = stream;
-        stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-        // Create data channel for events
-        const dc = pc.createDataChannel("oai-events");
-        dataChannelRef.current = dc;
-
-        dc.onopen = () => {
-          console.log("Data channel opened");
-          if (pendingQuestionsRef.current.length > 0) {
-            pendingQuestionsRef.current.forEach((q, idx) => {
-              setTimeout(() => sendTextMessage(q), idx * 500);
-            });
-            pendingQuestionsRef.current = [];
-          }
-        };
-
-        dc.onmessage = (e) => {
-          try {
-            const event = JSON.parse(e.data);
-            handleServerEvent(event);
-          } catch (err) {
-            console.error("Failed to parse server event:", err);
-          }
-        };
-
-        // Create offer
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-        // Wait for ICE gathering to complete
-        await new Promise<void>((resolve) => {
-          if (pc.iceGatheringState === "complete") {
-            resolve();
-          } else {
-            const checkState = () => {
-              if (pc.iceGatheringState === "complete") {
-                pc.removeEventListener("icegatheringstatechange", checkState);
-                resolve();
-              }
-            };
-            pc.addEventListener("icegatheringstatechange", checkState);
-            setTimeout(() => resolve(), 3000);
-          }
-        });
-
-        // Get the final SDP with ICE candidates
-        const finalSdp = pc.localDescription?.sdp;
-        if (!finalSdp) {
-          throw new Error("Failed to generate SDP");
-        }
-
-        // Connect to OpenAI Realtime
-        const sdpResponse = await fetch(
-          "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",
-          {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${clientSecret}`,
-              "Content-Type": "application/sdp"
-            },
-            body: finalSdp
-          }
-        );
-
-        if (!sdpResponse.ok) {
-          throw new Error("Failed to connect to OpenAI Realtime");
-        }
-
-        const answerSdp = await sdpResponse.text();
-        await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
-
-        setIsConnected(true);
-      } catch (err) {
-        console.error("Connection error:", err);
-        setError(err instanceof Error ? err.message : "Verbindungsfehler");
-        disconnect();
-      } finally {
-        isConnectingRef.current = false;
-        setIsConnecting(false);
-      }
-    }, [isConnected, sendTextMessage, previousSummary, messages]);
 
     const disconnect = useCallback(() => {
       if (localStreamRef.current) {
@@ -312,6 +192,149 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
       }
     }, [addMessage, assistantResponse]);
 
+    const connect = useCallback(async (withMic: boolean = true) => {
+      if (isConnectingRef.current || isConnected) return;
+
+      isConnectingRef.current = true;
+      setIsConnecting(true);
+      setError(null);
+
+      try {
+        const currentConversation = messages.length > 0
+          ? messages.map(m => `${m.role === 'user' ? 'Kunde' : 'Klaus'}: ${m.content}`).join('\n')
+          : '';
+
+        const tokenResponse = await fetch("/api/openai-realtime/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ previousSummary, currentConversation })
+        });
+
+        if (!tokenResponse.ok) {
+          throw new Error("Failed to get session token");
+        }
+
+        const { client_secret: clientSecret } = await tokenResponse.json();
+
+        const pc = new RTCPeerConnection({
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" }
+          ]
+        });
+        peerConnectionRef.current = pc;
+
+        connectedWithMicRef.current = withMic;
+
+        const audioEl = document.createElement("audio");
+        audioEl.autoplay = true;
+        audioEl.muted = inputMode !== "voice";
+        audioElementRef.current = audioEl;
+
+        pc.ontrack = (e) => {
+          audioEl.srcObject = e.streams[0];
+        };
+
+        if (withMic) {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          localStreamRef.current = stream;
+          stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+        } else {
+          pc.addTransceiver("audio", { direction: "recvonly" });
+          localStreamRef.current = null;
+        }
+
+        const dc = pc.createDataChannel("oai-events");
+        dataChannelRef.current = dc;
+
+        dc.onopen = () => {
+          if (pendingQuestionsRef.current.length > 0) {
+            pendingQuestionsRef.current.forEach((q, idx) => {
+              setTimeout(() => sendTextMessage(q), idx * 500);
+            });
+            pendingQuestionsRef.current = [];
+          }
+        };
+
+        dc.onmessage = (e) => {
+          try {
+            const event = JSON.parse(e.data);
+            handleServerEvent(event);
+          } catch (err) {
+            console.error("Failed to parse server event:", err);
+          }
+        };
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        await new Promise<void>((resolve) => {
+          if (pc.iceGatheringState === "complete") {
+            resolve();
+          } else {
+            const checkState = () => {
+              if (pc.iceGatheringState === "complete") {
+                pc.removeEventListener("icegatheringstatechange", checkState);
+                resolve();
+              }
+            };
+            pc.addEventListener("icegatheringstatechange", checkState);
+            setTimeout(() => resolve(), 3000);
+          }
+        });
+
+        const finalSdp = pc.localDescription?.sdp;
+        if (!finalSdp) {
+          throw new Error("Failed to generate SDP");
+        }
+
+        const sdpResponse = await fetch(
+          "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${clientSecret}`,
+              "Content-Type": "application/sdp"
+            },
+            body: finalSdp
+          }
+        );
+
+        if (!sdpResponse.ok) {
+          throw new Error("Failed to connect to OpenAI Realtime");
+        }
+
+        const answerSdp = await sdpResponse.text();
+        await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+        setIsConnected(true);
+      } catch (err) {
+        console.error("Connection error:", err);
+        setError(err instanceof Error ? err.message : "Verbindungsfehler");
+        disconnect();
+      } finally {
+        isConnectingRef.current = false;
+        setIsConnecting(false);
+      }
+    }, [disconnect, handleServerEvent, inputMode, isConnected, messages, previousSummary, sendTextMessage]);
+
+    const startSession = useCallback(
+      (mode: "voice" | "text" = "voice") => {
+        setInputMode(mode);
+        if (!isConnected && !isConnectingRef.current) {
+          connect(mode === "voice");
+          return;
+        }
+
+        if (mode === "voice" && isConnected && !connectedWithMicRef.current && !isConnectingRef.current) {
+          disconnect();
+          setTimeout(() => {
+            connect(true);
+          }, 50);
+        }
+      },
+      [connect, disconnect, isConnected]
+    );
+
     const toggleMute = useCallback(() => {
       if (localStreamRef.current) {
         const audioTrack = localStreamRef.current.getAudioTracks()[0];
@@ -344,12 +367,13 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
         } else {
           pendingQuestionsRef.current.push(question);
           if (!isConnectingRef.current && !isConnected) {
-            connect();
+            connect(false);
           }
         }
       },
-      isConnected: () => isConnected
-    }), [isConnected, connect, sendTextMessage]);
+      isConnected: () => isConnected,
+      startSession,
+    }), [isConnected, connect, sendTextMessage, startSession]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -384,26 +408,36 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 s-gradient-header rounded-t-lg">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => startSession("voice")}
+              className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/20 transition-colors"
+              title="Beratung per Sprache starten"
+            >
               <Mic className="w-5 h-5 text-white" />
-            </div>
+            </button>
             <div className="min-w-0">
               <div className="font-semibold text-sm truncate">KI-Markenberater</div>
               <div className="text-xs text-white/85 truncate">Sprachgesteuerte Beratung</div>
             </div>
           </div>
+
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setInputMode(inputMode === "voice" ? "text" : "voice")}
+              onClick={() => {
+                const nextMode = inputMode === "voice" ? "text" : "voice";
+                startSession(nextMode);
+              }}
               className={`p-2 rounded-lg transition-colors ${
-                inputMode === "text" 
-                  ? "bg-white/20 text-white hover:bg-white/25" 
+                inputMode === "text"
+                  ? "bg-white/20 text-white hover:bg-white/25"
                   : "bg-white/10 text-white hover:bg-white/20"
               }`}
               title={inputMode === "voice" ? "Zu Text wechseln" : "Zu Sprache wechseln"}
             >
               {inputMode === "voice" ? <Keyboard className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
             </button>
+
             {/* Options Menu */}
             <div ref={menuRef} className="relative">
               <button
@@ -495,7 +529,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
         <div className="p-4 border-t border-gray-200">
           {!isConnected ? (
             <button
-              onClick={connect}
+              onClick={() => startSession(inputMode)}
               disabled={isConnecting}
               className="w-full py-3 px-4 s-gradient-button text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
             >
@@ -556,7 +590,6 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
             </div>
           )}
         </div>
-
       </div>
     );
   }

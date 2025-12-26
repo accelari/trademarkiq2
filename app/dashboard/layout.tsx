@@ -114,7 +114,7 @@ function Sidebar({
 
   const caseTabs = [
     { name: "Beratung", hash: "beratung", icon: Mic },
-    { name: "Markenprüfung", hash: "markenpruefung", icon: Search },
+    { name: "Recherche", hash: "recherche", icon: Search },
     { name: "Überprüfung", hash: "ueberpruefung", icon: ClipboardCheck },
     { name: "Anmeldung", hash: "anmeldung", icon: FileText },
     { name: "Kommunikation", hash: "kommunikation", icon: MessageCircle },
@@ -189,7 +189,8 @@ function Sidebar({
           <div className="mt-2 space-y-1">
             {caseTabs.map((tab) => {
               const href = isCasePage ? `/dashboard/case/${caseId}#${tab.hash}` : "/dashboard/cases";
-              const isActive = isCasePage && currentHash === `#${tab.hash}`;
+              const normalizedHash = currentHash === "#markenpruefung" ? "#recherche" : currentHash;
+              const isActive = isCasePage && normalizedHash === `#${tab.hash}`;
 
               return (
                 <Link
