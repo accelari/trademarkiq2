@@ -457,6 +457,50 @@ export default function CasePage() {
   const [isSavingRechercheForm, setIsSavingRechercheForm] = useState(false);
   const [rechercheFormSaveError, setRechercheFormSaveError] = useState<string | null>(null);
   const [rechercheFormValidationAttempted, setRechercheFormValidationAttempted] = useState(false);
+  const [showTMSearchDebugModal, setShowTMSearchDebugModal] = useState(false);
+  const [tmsearchDebugLoading, setTMSearchDebugLoading] = useState(false);
+  const [tmsearchDebugError, setTMSearchDebugError] = useState<string | null>(null);
+  const [tmsearchDebugPayload, setTMSearchDebugPayload] = useState<unknown>(null);
+  const [tmsearchDebugTab, setTMSearchDebugTab] = useState<"structured" | "raw">("structured");
+  
+  // Live Analyse States
+  const [isRunningLiveAnalysis, setIsRunningLiveAnalysis] = useState(false);
+  const [liveAnalysisError, setLiveAnalysisError] = useState<string | null>(null);
+  const [liveAnalysisResult, setLiveAnalysisResult] = useState<{
+    success: boolean;
+    isTestMode: boolean;
+    query: { keyword: string; countries: string[]; classes: number[]; effectiveClasses: number[]; trademarkType: string };
+    stats: { totalRaw: number; totalLive: number; totalFiltered: number; analyzedCount: number };
+    analysis: {
+      overallRiskScore: number;
+      overallRiskLevel: "low" | "medium" | "high";
+      decision: "go" | "go_with_changes" | "no_go";
+      executiveSummary: string;
+      nameAnalysis: string;
+      riskAssessment: string;
+      recommendation: string;
+      topConflicts: Array<{ name: string; office: string; classes: number[]; riskScore: number; reasoning: string }>;
+    };
+    conflicts: Array<{
+      id: string | number;
+      name: string;
+      status: string;
+      office: string;
+      protection: string[];
+      classes: string[];
+      accuracy: number;
+      applicationNumber: string;
+      registrationNumber: string;
+      dates: { applied?: string; granted?: string; expiration?: string };
+      owner: { name?: string; country?: string };
+      goodsServices: string[];
+      imageUrl: string | null;
+      riskScore: number;
+      riskLevel: "low" | "medium" | "high";
+      reasoning: string;
+    }>;
+  } | null>(null);
+  
   const [isUpdatingStep, setIsUpdatingStep] = useState<WorkflowStepId | null>(null);
   const [stepUpdateError, setStepUpdateError] = useState<string | null>(null);
 
@@ -1522,32 +1566,24 @@ export default function CasePage() {
   }, [logoPrompt, trademarkType, manualNameInput]);
 
   const generateLogo = useCallback(async () => {
-    if (!logoPrompt.trim()) {
-      setLogoGenerationError("Bitte gib einen Prompt ein");
+    if (!logoPrompt.trim() && !manualNameInput?.trim()) {
+      setLogoGenerationError("Bitte gib einen Prompt oder Markennamen ein");
       return;
     }
     setIsGeneratingLogo(true);
     setLogoGenerationError(null);
     try {
-      const isWordImageMark = trademarkType === "wort-bildmarke";
       const brandName = manualNameInput || "Marke";
       
-      // Build the final prompt with trademark type context
-      let finalPrompt = logoPrompt;
-      if (isWordImageMark) {
-        finalPrompt = `Logo design with the text "${brandName}" prominently displayed. ${logoPrompt}. The text "${brandName}" must be clearly visible and integrated into the design.`;
-      } else {
-        finalPrompt = `Abstract logo design without any text. ${logoPrompt}. Pure visual symbol, no letters or words.`;
-      }
-
-      // Call image generation API (placeholder - will be replaced with actual API)
+      // Call gpt-image-1 API - the API handles prompt optimization
       const response = await fetch("/api/generate-logo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: finalPrompt,
+          prompt: logoPrompt.trim() || "Modern, minimalist logo design",
           trademarkType,
-          brandName: isWordImageMark ? brandName : null,
+          brandName,
+          quality: "high",
         }),
       });
 
@@ -1564,9 +1600,10 @@ export default function CasePage() {
       } else {
         throw new Error("Kein Bild generiert");
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Failed to generate logo:", e);
-      setLogoGenerationError(e.message || "Logo-Generierung fehlgeschlagen");
+      const message = e instanceof Error ? e.message : "Logo-Generierung fehlgeschlagen";
+      setLogoGenerationError(message);
     } finally {
       setIsGeneratingLogo(false);
     }
@@ -2269,6 +2306,7 @@ export default function CasePage() {
             </div>
           </div>
         </div>
+
       </div>
     );
   };
@@ -2483,6 +2521,92 @@ export default function CasePage() {
   const renderRechercheContent = () => {
     const isComplete = isStepComplete("recherche");
 
+    const openTMSearchDebug = async () => {
+      const keyword = (rechercheForm.trademarkName || "").trim();
+      setShowTMSearchDebugModal(true);
+      setTMSearchDebugLoading(true);
+      setTMSearchDebugError(null);
+      setTMSearchDebugPayload(null);
+
+      if (!keyword) {
+        setTMSearchDebugError("Bitte zuerst einen Markennamen eingeben.");
+        setTMSearchDebugLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/tmsearch/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keyword }),
+        });
+
+        const json = await res.json().catch(() => null);
+        setTMSearchDebugPayload(json);
+        if (!res.ok) {
+          setTMSearchDebugError((json && (json.error || json.message)) || `HTTP ${res.status}`);
+        }
+      } catch (e) {
+        setTMSearchDebugError(e instanceof Error ? e.message : "Unbekannter Fehler");
+      } finally {
+        setTMSearchDebugLoading(false);
+      }
+    };
+
+    const startLiveAnalysis = async () => {
+      const keyword = (rechercheForm.trademarkName || "").trim();
+      const countries = rechercheForm.countries || [];
+      const classes = (rechercheForm.niceClasses || []).filter((n: number) => Number.isFinite(n));
+      const relatedClassesForAnalysis = rechercheForm.includeRelatedNiceClasses ? getRelatedNiceClasses(classes) : [];
+
+      if (!keyword) {
+        setLiveAnalysisError("Bitte zuerst einen Markennamen eingeben.");
+        return;
+      }
+      if (countries.length === 0) {
+        setLiveAnalysisError("Bitte mindestens ein Land/Register auswählen.");
+        return;
+      }
+      if (classes.length === 0) {
+        setLiveAnalysisError("Bitte mindestens eine Nizza-Klasse auswählen.");
+        return;
+      }
+
+      setIsRunningLiveAnalysis(true);
+      setLiveAnalysisError(null);
+      setLiveAnalysisResult(null);
+
+      try {
+        const res = await fetch("/api/tmsearch/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            keyword,
+            countries,
+            classes,
+            includeRelatedClasses: rechercheForm.includeRelatedNiceClasses,
+            relatedClasses: relatedClassesForAnalysis,
+            trademarkType: "word",
+            fetchDetailsTopN: 15,
+          }),
+        });
+
+        const json = await res.json().catch(() => null);
+        
+        if (!res.ok) {
+          setLiveAnalysisError((json && (json.error || json.message)) || `HTTP ${res.status}`);
+        } else {
+          setLiveAnalysisResult(json);
+          // Navigate to analyse tab to show results
+          window.location.hash = "#analyse";
+        }
+      } catch (e) {
+        setLiveAnalysisError(e instanceof Error ? e.message : "Unbekannter Fehler");
+      } finally {
+        setIsRunningLiveAnalysis(false);
+      }
+    };
+
     const baseNiceClasses = Array.from(
       new Set((rechercheForm.niceClasses || []).filter((n) => Number.isFinite(n)).map((n) => Math.max(1, Math.min(45, Math.floor(n)))))
     ).sort((a, b) => a - b);
@@ -2507,6 +2631,17 @@ export default function CasePage() {
               <div className="font-semibold text-sm truncate">Recherche</div>
               <div className="text-xs text-white/85 truncate">Markenrecherche starten</div>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openTMSearchDebug}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/15 hover:bg-white/20 text-white text-sm font-medium transition-colors"
+              title="tmsearch API Rohantwort anzeigen"
+            >
+              <Info className="w-4 h-4" />
+              API
+            </button>
           </div>
         </div>
 
@@ -2759,31 +2894,56 @@ export default function CasePage() {
           </div>
         </div>
 
-        {/* Footer with Button */}
-        <div className="p-4 border-t border-gray-200 bg-white">
-          <button
-            type="button"
-            onClick={() => void startRechercheFromForm()}
-            disabled={isSavingRechercheForm || isStartingRecherche}
-            className="w-full py-3.5 px-4 s-gradient-button text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {isSavingRechercheForm ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Speichere...</span>
-              </>
-            ) : isStartingRecherche ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Starte Recherche...</span>
-              </>
-            ) : (
-              <>
-                <Search className="w-4 h-4" />
-                <span>Recherche starten</span>
-              </>
-            )}
-          </button>
+        {/* Footer with Buttons */}
+        <div className="p-4 border-t border-gray-200 bg-white space-y-2">
+          {liveAnalysisError && (
+            <div className="px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm mb-2">
+              {liveAnalysisError}
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => void startRechercheFromForm()}
+              disabled={isSavingRechercheForm || isStartingRecherche || isRunningLiveAnalysis}
+              className="py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSavingRechercheForm ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-600 rounded-full animate-spin" />
+                  <span>Speichere...</span>
+                </>
+              ) : isStartingRecherche ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-600 rounded-full animate-spin" />
+                  <span>Starte...</span>
+                </>
+              ) : (
+                <>
+                  <Search className="w-4 h-4" />
+                  <span>Recherche speichern</span>
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => void startLiveAnalysis()}
+              disabled={isSavingRechercheForm || isStartingRecherche || isRunningLiveAnalysis}
+              className="py-3 px-4 s-gradient-button text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isRunningLiveAnalysis ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Analysiere mit KI...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  <span>KI-Risikoanalyse starten</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -3375,6 +3535,233 @@ export default function CasePage() {
   };
 
   const renderAnalyseContent = () => {
+    // Prioritize live analysis results if available
+    if (liveAnalysisResult) {
+      const { analysis, conflicts, stats, query } = liveAnalysisResult;
+      const effectiveRiskScore = analysis.overallRiskScore;
+      const effectiveRiskLevel = analysis.overallRiskLevel;
+      const conflictCount = conflicts.length;
+
+      const decisionTier = analysis.decision === "no_go" ? "no_go" : analysis.decision === "go_with_changes" ? "adjust" : "go";
+
+      const decisionConfig =
+        decisionTier === "no_go"
+          ? {
+              title: "Aktuell nicht empfohlen",
+              subtitle: "Hohes Konfliktrisiko – zuerst Name oder Parameter anpassen.",
+              badge: "NO-GO",
+              badgeColor: "bg-red-100 text-red-700 border-red-300",
+              bgColor: "bg-red-50",
+              borderColor: "border-red-200",
+              titleColor: "text-red-900",
+              subtitleColor: "text-red-700",
+            }
+          : decisionTier === "adjust"
+          ? {
+              title: "Mit Anpassungen empfohlen",
+              subtitle: "Mittleres Risiko – Konflikte prüfen und Parameter optimieren.",
+              badge: "GO MIT ANPASSUNG",
+              badgeColor: "bg-orange-100 text-orange-700 border-orange-300",
+              bgColor: "bg-orange-50",
+              borderColor: "border-orange-200",
+              titleColor: "text-orange-900",
+              subtitleColor: "text-orange-700",
+            }
+          : {
+              title: "Anmeldung wahrscheinlich sinnvoll",
+              subtitle: "Geringes Risiko – trotzdem Ergebnisse kurz prüfen.",
+              badge: "GO",
+              badgeColor: "bg-teal-100 text-teal-700 border-teal-300",
+              bgColor: "bg-teal-50",
+              borderColor: "border-teal-200",
+              titleColor: "text-teal-900",
+              subtitleColor: "text-teal-700",
+            };
+
+      const riskLevelLabel = effectiveRiskLevel === "high" ? "Hohes Risiko" : effectiveRiskLevel === "medium" ? "Mittleres Risiko" : "Geringes Risiko";
+      const riskLevelColor = effectiveRiskLevel === "high" ? "text-red-600" : effectiveRiskLevel === "medium" ? "text-orange-600" : "text-teal-600";
+
+      return (
+        <div className="space-y-6">
+          {/* Live Analysis Banner */}
+          <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-5 h-5" />
+              <div>
+                <div className="font-semibold">Live KI-Analyse</div>
+                <div className="text-sm text-white/80">
+                  Keyword: &quot;{query.keyword}&quot; · {stats.totalFiltered} Treffer analysiert · {liveAnalysisResult.isTestMode ? "Demo-Modus" : "Produktiv"}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLiveAnalysisResult(null)}
+              className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
+            >
+              Zurücksetzen
+            </button>
+          </div>
+
+          {/* Three Widget Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Widget 1: Risk Overview */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
+                <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                      <AlertCircle className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm truncate">Kollisionsrisiko</div>
+                      <div className="text-xs text-white/85 truncate">KI-Bewertung</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-5">
+                  <div className={`p-4 rounded-lg border ${decisionConfig.bgColor} ${decisionConfig.borderColor} mb-4`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${decisionConfig.badgeColor}`}>
+                        {decisionConfig.badge}
+                      </span>
+                      <span className="text-xs text-gray-500">Risiko: {effectiveRiskScore}%</span>
+                    </div>
+                    <div className={`text-base font-semibold ${decisionConfig.titleColor}`}>{decisionConfig.title}</div>
+                    <div className={`text-sm mt-1 ${decisionConfig.subtitleColor}`}>{decisionConfig.subtitle}</div>
+                  </div>
+
+                  <div className="flex items-center gap-6">
+                    <AnimatedRiskScore score={effectiveRiskScore} risk={effectiveRiskLevel} size="large" />
+                    <div className="flex-1">
+                      <div className="text-sm text-gray-500 mb-1">Konflikte analysiert</div>
+                      <div className="text-3xl font-bold text-gray-900">{conflictCount}</div>
+                      <p className="text-sm text-gray-600 mt-2">{analysis.executiveSummary || "KI-Analyse abgeschlossen."}</p>
+                    </div>
+                  </div>
+                  <div className={`text-center mt-4 text-sm font-semibold ${riskLevelColor}`}>{riskLevelLabel}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Widget 2: KI-Analyse */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
+                <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm truncate">KI-Analyse</div>
+                      <div className="text-xs text-white/85 truncate">Professionelle Bewertung</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex-1 min-h-0 p-5 overflow-y-auto custom-scrollbar">
+                  <div className="space-y-4">
+                    {analysis.nameAnalysis && (
+                      <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="text-xs font-semibold text-gray-700 mb-1">Namensanalyse</div>
+                        <p className="text-sm text-gray-600">{analysis.nameAnalysis}</p>
+                      </div>
+                    )}
+                    {analysis.riskAssessment && (
+                      <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="text-xs font-semibold text-gray-700 mb-1">Risikobewertung</div>
+                        <p className="text-sm text-gray-600">{analysis.riskAssessment}</p>
+                      </div>
+                    )}
+                    {analysis.recommendation && (
+                      <div className="p-3 bg-teal-50 rounded-lg border border-teal-200">
+                        <div className="text-xs font-semibold text-teal-700 mb-1">Empfehlung</div>
+                        <p className="text-sm text-teal-800 font-medium">{analysis.recommendation}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Widget 3: Top Konflikte */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
+                <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                      <AlertCircle className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm truncate">Top Konflikte</div>
+                      <div className="text-xs text-white/85 truncate">{conflicts.length} Treffer</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex-1 min-h-0 p-4 overflow-y-auto custom-scrollbar">
+                  <div className="space-y-3">
+                    {conflicts.slice(0, 10).map((c, idx) => (
+                      <div
+                        key={c.id || idx}
+                        className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-shadow ${
+                          c.riskLevel === "high" ? "bg-red-50 border-red-200" :
+                          c.riskLevel === "medium" ? "bg-orange-50 border-orange-200" :
+                          "bg-gray-50 border-gray-200"
+                        }`}
+                        onClick={() => setSelectedConflict({
+                          id: String(c.id),
+                          name: c.name,
+                          register: c.office,
+                          applicationNumber: c.applicationNumber,
+                          registrationNumber: c.registrationNumber,
+                          status: c.status === "LIVE" ? "active" : "expired",
+                          classes: c.classes.map(Number),
+                          accuracy: c.accuracy,
+                          applicationDate: c.dates?.applied || null,
+                          registrationDate: c.dates?.granted || null,
+                          holder: c.owner?.name || undefined,
+                          isFamousMark: false,
+                          reasoning: c.reasoning,
+                          riskLevel: c.riskLevel,
+                        })}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-gray-900 truncate">{c.name}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">
+                              {c.office} · Kl. {c.classes.slice(0, 3).join(", ")}{c.classes.length > 3 ? "…" : ""}
+                            </div>
+                          </div>
+                          <div className={`text-xs font-bold px-2 py-1 rounded ${
+                            c.riskLevel === "high" ? "bg-red-100 text-red-700" :
+                            c.riskLevel === "medium" ? "bg-orange-100 text-orange-700" :
+                            "bg-gray-100 text-gray-600"
+                          }`}>
+                            {c.riskScore}%
+                          </div>
+                        </div>
+                        {c.reasoning && (
+                          <div className="text-xs text-gray-600 mt-2 line-clamp-2">{c.reasoning}</div>
+                        )}
+                      </div>
+                    ))}
+                    {conflicts.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <Check className="w-8 h-8 mx-auto mb-2 text-teal-500" />
+                        <p className="text-sm">Keine kritischen Konflikte gefunden</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (activeAnalysis) {
       const sortedConflicts = activeAnalysis.conflicts
         ? [...activeAnalysis.conflicts].sort((a, b) => (b.accuracy || 0) - (a.accuracy || 0))
@@ -4018,6 +4405,334 @@ export default function CasePage() {
             onClose={() => setSelectedConflict(null)}
           />
         )}
+
+        {showTMSearchDebugModal && (() => {
+          // Parse raw data for structured view
+          let parsedData: { keyword?: string; isTestMode?: boolean; total?: number; result?: Array<{
+            mid?: string | number;
+            verbal?: string;
+            status?: string;
+            submition?: string;
+            protection?: string[];
+            class?: string[];
+            accuracy?: string | number;
+            app?: string;
+            reg?: string;
+            img?: string;
+            date?: { applied?: string; granted?: string; expiration?: string };
+          }> } | null = null;
+          
+          if (tmsearchDebugPayload && typeof tmsearchDebugPayload === "object") {
+            const payload = tmsearchDebugPayload as { raw?: string; keyword?: string; isTestMode?: boolean };
+            if (payload.raw && typeof payload.raw === "string") {
+              try {
+                parsedData = { ...JSON.parse(payload.raw), keyword: payload.keyword, isTestMode: payload.isTestMode };
+              } catch { /* ignore */ }
+            } else if ((tmsearchDebugPayload as { result?: unknown[] }).result) {
+              parsedData = tmsearchDebugPayload as unknown as typeof parsedData;
+            }
+          }
+          
+          const results = parsedData?.result || [];
+          const selectedCountries = (rechercheForm.countries || []).map((c) => String(c || "").trim()).filter(Boolean);
+          const filteredResults = selectedCountries.length
+            ? results.filter((r) => {
+                const office = (r.submition || "").trim();
+                const protection = (r.protection || []).map((p) => String(p || "").trim()).filter(Boolean);
+                return (office && selectedCountries.includes(office)) || protection.some((p) => selectedCountries.includes(p));
+              })
+            : results;
+
+          const liveOnlyResults = filteredResults.filter((r) => r.status === "LIVE");
+          const excludedNotLiveCount = filteredResults.length - liveOnlyResults.length;
+          
+          // Group by office
+          const byOffice: Record<string, number> = {};
+          liveOnlyResults.forEach(r => {
+            const office = r.submition || "UNKN";
+            byOffice[office] = (byOffice[office] || 0) + 1;
+          });
+          
+          // Group by class
+          const byClass: Record<string, number> = {};
+          liveOnlyResults.forEach(r => {
+            (r.class || []).forEach(c => {
+              byClass[c] = (byClass[c] || 0) + 1;
+            });
+          });
+          
+          const formatDate = (d?: string) => {
+            if (!d || d === "99999999") return "–";
+            if (d.length === 8) return `${d.slice(6,8)}.${d.slice(4,6)}.${d.slice(0,4)}`;
+            return d;
+          };
+          
+          return (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-2 sm:p-4"
+            onClick={() => setShowTMSearchDebugModal(false)}
+          >
+            <div
+              className="bg-white rounded-2xl w-[98vw] max-w-[98vw] h-[95vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-gray-900 truncate">tmsearch API Antwort</div>
+                  <div className="text-xs text-gray-500 truncate">
+                    {parsedData?.keyword ? `Keyword: "${parsedData.keyword}"` : ""}
+                    {parsedData?.isTestMode ? " · Demo-Modus" : ""}
+                    {tmsearchDebugLoading ? " · lädt…" : ""}
+                    {tmsearchDebugError ? " · Fehler" : ""}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTMSearchDebugModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="px-5 pt-3 pb-0 border-b border-gray-200 flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setTMSearchDebugTab("structured")}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                    tmsearchDebugTab === "structured"
+                      ? "bg-teal-50 text-teal-700 border border-b-0 border-gray-200"
+                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  📊 Strukturiert
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTMSearchDebugTab("raw")}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                    tmsearchDebugTab === "raw"
+                      ? "bg-teal-50 text-teal-700 border border-b-0 border-gray-200"
+                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {"{ }"} Raw JSON
+                </button>
+              </div>
+
+              <div className="p-5 overflow-auto flex-1 custom-scrollbar">
+                {tmsearchDebugError && (
+                  <div className="mb-4 px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                    {tmsearchDebugError}
+                  </div>
+                )}
+
+                {tmsearchDebugLoading ? (
+                  <div className="text-center py-8 text-gray-500">Lade Daten…</div>
+                ) : tmsearchDebugTab === "structured" && parsedData ? (
+                  <div className="space-y-6">
+                    {selectedCountries.length > 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+                        <div className="text-sm font-semibold text-blue-800">Filter aktiv</div>
+                        <div className="text-xs text-blue-700 mt-0.5">
+                          Länder/Register: {selectedCountries.join(", ")} · Status: LIVE · Angezeigt: {liveOnlyResults.length} von {filteredResults.length} (gesamt: {parsedData.total || results.length})
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Summary */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-gray-50 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-gray-900">{liveOnlyResults.length}</div>
+                        <div className="text-xs text-gray-500">Treffer (LIVE)</div>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-green-700">{Object.keys(byClass).length}</div>
+                        <div className="text-xs text-green-600">Klassen</div>
+                      </div>
+                      <div className="bg-red-50 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-red-700">{excludedNotLiveCount}</div>
+                        <div className="text-xs text-red-600">Ausgeblendet (nicht LIVE)</div>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-blue-700">{Object.keys(byOffice).length}</div>
+                        <div className="text-xs text-blue-600">Ämter/Register</div>
+                      </div>
+                    </div>
+
+                    {/* By Office */}
+                    <div>
+                      <div className="text-sm font-semibold text-gray-700 mb-2">Nach Amt/Register</div>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(byOffice).sort((a,b) => b[1] - a[1]).slice(0, 15).map(([office, count]) => (
+                          <span key={office} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">
+                            {office}: {count}
+                          </span>
+                        ))}
+                        {Object.keys(byOffice).length > 15 && (
+                          <span className="px-2 py-1 text-gray-500 text-xs">+{Object.keys(byOffice).length - 15} weitere</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* By Class */}
+                    <div>
+                      <div className="text-sm font-semibold text-gray-700 mb-2">Nach Nizza-Klasse</div>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(byClass).sort((a,b) => b[1] - a[1]).slice(0, 20).map(([cls, count]) => (
+                          <span key={cls} className="px-2 py-1 bg-amber-100 text-amber-800 rounded text-xs font-medium">
+                            Kl. {cls}: {count}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Results Table - ALLE FELDER */}
+                    <div>
+                      <div className="text-sm font-semibold text-gray-700 mb-2">
+                        Trefferliste – ALLE FELDER (nur LIVE) (Top 50 von {liveOnlyResults.length})
+                      </div>
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="text-xs whitespace-nowrap min-w-max">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10">mid</th>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600">verbal (Name)</th>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600">status</th>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600">accuracy</th>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600">submition (Amt)</th>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600">protection (Länder)</th>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600">class (Nizza)</th>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600">app (Anmelde-Nr.)</th>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600">reg (Register-Nr.)</th>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600">date.applied</th>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600">date.granted</th>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600">date.expiration</th>
+                                <th className="px-2 py-2 text-left font-semibold text-gray-600">img (Bild-Pfad)</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {liveOnlyResults.slice(0, 50).map((r, idx) => (
+                                <tr key={r.mid || idx} className={r.status === "LIVE" ? "bg-green-50/50" : ""}>
+                                  <td className="px-2 py-2 font-mono text-[10px] text-gray-500 sticky left-0 bg-white z-10">
+                                    {r.mid || "–"}
+                                  </td>
+                                  <td className="px-2 py-2 font-medium text-gray-900">
+                                    {r.verbal || "–"}
+                                  </td>
+                                  <td className="px-2 py-2">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                      r.status === "LIVE" ? "bg-green-100 text-green-700" :
+                                      r.status === "DEAD" ? "bg-red-100 text-red-700" :
+                                      "bg-gray-100 text-gray-600"
+                                    }`}>
+                                      {r.status || "?"}
+                                    </span>
+                                  </td>
+                                  <td className="px-2 py-2">
+                                    <span className={`font-semibold ${
+                                      Number(r.accuracy) >= 95 ? "text-red-600" :
+                                      Number(r.accuracy) >= 85 ? "text-amber-600" :
+                                      "text-gray-600"
+                                    }`}>
+                                      {r.accuracy || "–"}
+                                    </span>
+                                  </td>
+                                  <td className="px-2 py-2 text-gray-600 font-medium">{r.submition || "–"}</td>
+                                  <td className="px-2 py-2 text-gray-500 max-w-[200px] truncate" title={(r.protection || []).join(", ")}>
+                                    {(r.protection || []).join(", ") || "–"}
+                                  </td>
+                                  <td className="px-2 py-2 text-amber-700 font-medium">
+                                    {(r.class || []).join(", ") || "–"}
+                                  </td>
+                                  <td className="px-2 py-2 text-gray-500 font-mono text-[10px]">
+                                    {r.app || "–"}
+                                  </td>
+                                  <td className="px-2 py-2 text-gray-500 font-mono text-[10px]">
+                                    {r.reg || "–"}
+                                  </td>
+                                  <td className="px-2 py-2 text-gray-500">{formatDate(r.date?.applied)}</td>
+                                  <td className="px-2 py-2 text-gray-500">{formatDate(r.date?.granted)}</td>
+                                  <td className="px-2 py-2 text-gray-500">{formatDate(r.date?.expiration)}</td>
+                                  <td className="px-2 py-2 text-blue-600 font-mono text-[10px] max-w-[150px] truncate" title={r.img}>
+                                    {r.img ? (
+                                      <a href={`https://img.tmsearch.ai/img/210/${r.img}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                        {r.img}
+                                      </a>
+                                    ) : "–"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Raw JSON View */
+                  <div>
+                    <div className="flex flex-col sm:flex-row gap-2 justify-end mb-3">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const text = typeof tmsearchDebugPayload === "string" ? tmsearchDebugPayload : JSON.stringify(tmsearchDebugPayload, null, 2);
+                          try {
+                            await navigator.clipboard.writeText(text);
+                          } catch { /* ignore */ }
+                        }}
+                        className="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                        disabled={tmsearchDebugPayload === null}
+                      >
+                        Kopieren
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const text = typeof tmsearchDebugPayload === "string" ? tmsearchDebugPayload : JSON.stringify(tmsearchDebugPayload, null, 2);
+                          const blob = new Blob([text], { type: "application/json" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          const keyword = (rechercheForm.trademarkName || "").trim().replace(/\s+/g, "_") || "tmsearch";
+                          a.href = url;
+                          a.download = `${keyword}_tmsearch.json`;
+                          document.body.appendChild(a);
+                          a.click();
+                          a.remove();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="px-3 py-2 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
+                        disabled={tmsearchDebugPayload === null}
+                      >
+                        Download .json
+                      </button>
+                    </div>
+                    <pre className="text-xs leading-relaxed bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto max-h-[60vh]">
+                      {tmsearchDebugPayload === null
+                        ? "(keine Daten)"
+                        : typeof tmsearchDebugPayload === "string"
+                        ? tmsearchDebugPayload
+                        : JSON.stringify(tmsearchDebugPayload, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 border-t border-gray-100 bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => setShowTMSearchDebugModal(false)}
+                  className="w-full px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-medium"
+                >
+                  Schließen
+                </button>
+              </div>
+            </div>
+          </div>
+          );
+        })()}
 
         {showTransferModal && (
           <div

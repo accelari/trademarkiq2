@@ -48,7 +48,17 @@ export function ConflictDetailModal({ conflict, onClose }: ConflictDetailModalPr
   const formatGermanDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return "-";
     try {
-      const date = new Date(dateStr);
+      let date: Date;
+      // Handle YYYYMMDD format from tmsearch API
+      if (/^\d{8}$/.test(dateStr)) {
+        const year = parseInt(dateStr.slice(0, 4), 10);
+        const month = parseInt(dateStr.slice(4, 6), 10) - 1;
+        const day = parseInt(dateStr.slice(6, 8), 10);
+        date = new Date(year, month, day);
+      } else {
+        date = new Date(dateStr);
+      }
+      if (isNaN(date.getTime())) return "-";
       return date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
     } catch {
       return "-";
