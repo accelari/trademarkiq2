@@ -13,6 +13,7 @@ import {
   FolderOpen,
   LayoutDashboard,
   Mic,
+  Type,
   Search,
   ClipboardCheck,
   FileText,
@@ -67,10 +68,20 @@ function Sidebar({
   const CasesIcon = casesItem.icon;
 
   const [isCreatingCase, setIsCreatingCase] = useState(false);
+  const [showNewCaseModal, setShowNewCaseModal] = useState(false);
+  const [pendingHash, setPendingHash] = useState<string | null>(null);
+  const [createCaseError, setCreateCaseError] = useState<string | null>(null);
 
-  const createCaseAndNavigate = async (hash: string) => {
-    if (isCreatingCase) return;
+  const openNewCaseModal = (hash: string) => {
+    setPendingHash(hash);
+    setCreateCaseError(null);
+    setShowNewCaseModal(true);
+  };
+
+  const confirmCreateCase = async () => {
+    if (isCreatingCase || !pendingHash) return;
     setIsCreatingCase(true);
+    setCreateCaseError(null);
     try {
       const res = await fetch("/api/cases", {
         method: "POST",
@@ -79,22 +90,30 @@ function Sidebar({
       });
 
       if (!res.ok) {
-        throw new Error("Failed to create case");
+        throw new Error("Fehler beim Erstellen");
       }
 
       const result = await res.json();
       const newCaseId = result?.case?.id;
       if (!newCaseId) {
-        throw new Error("Missing case id");
+        throw new Error("Fehler beim Erstellen");
       }
 
+      setShowNewCaseModal(false);
       setSidebarOpen(false);
-      router.push(`/dashboard/case/${newCaseId}#${hash}`);
+      router.push(`/dashboard/case/${newCaseId}#${pendingHash}`);
     } catch (err) {
-      console.error("[Sidebar] Failed to auto-create case:", err);
+      console.error("[Sidebar] Failed to create case:", err);
+      setCreateCaseError("Fehler beim Erstellen. Bitte erneut versuchen.");
     } finally {
       setIsCreatingCase(false);
     }
+  };
+
+  const cancelNewCaseModal = () => {
+    setShowNewCaseModal(false);
+    setPendingHash(null);
+    setCreateCaseError(null);
   };
 
   useEffect(() => {
@@ -114,8 +133,9 @@ function Sidebar({
 
   const caseTabs = [
     { name: "Beratung", hash: "beratung", icon: Mic },
+    { name: "Markenname", hash: "markenname", icon: Type },
     { name: "Recherche", hash: "recherche", icon: Search },
-    { name: "Überprüfung", hash: "ueberpruefung", icon: ClipboardCheck },
+    { name: "Checkliste", hash: "ueberpruefung", icon: ClipboardCheck },
     { name: "Anmeldung", hash: "anmeldung", icon: FileText },
     { name: "Kommunikation", hash: "kommunikation", icon: MessageCircle },
     { name: "Überwachung", hash: "ueberwachung", icon: Eye },
@@ -198,25 +218,30 @@ function Sidebar({
                   href={href}
                   onClick={(e) => {
                     if (isCasePage) {
-                      handleNavClick(e, href);
+                      e.preventDefault();
+                      window.location.hash = `#${tab.hash}`;
+                      setSidebarOpen(false);
                       return;
                     }
 
                     e.preventDefault();
-                    void createCaseAndNavigate(tab.hash);
+                    openNewCaseModal(tab.hash);
                   }}
                   className={`
-                    flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium
+                    relative flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium
                     transition-colors duration-200 group
                     ${isCreatingCase ? 'opacity-60 pointer-events-none' : ''}
                     ${isActive ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'}
                   `}
                   aria-disabled={isCreatingCase}
                 >
-                  <tab.icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'}`} />
-                  <span className="truncate">{tab.name}</span>
                   {isActive && (
-                    <span className="ml-auto w-6 h-6 rounded-md bg-white/20 flex items-center justify-center">
+                    <span className="absolute inset-0 rounded-lg animate-pulse bg-primary/20" />
+                  )}
+                  <tab.icon className={`relative z-10 w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'}`} />
+                  <span className="relative z-10 truncate">{tab.name}</span>
+                  {isActive && (
+                    <span className="relative z-10 ml-auto w-6 h-6 rounded-md bg-white/20 flex items-center justify-center">
                       <ChevronRight className="w-4 h-4 text-white" />
                     </span>
                   )}
@@ -276,6 +301,61 @@ function Sidebar({
           </button>
         </div>
       </div>
+
+      {/* New Case Modal */}
+      {showNewCaseModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4"
+          onClick={cancelNewCaseModal}
+        >
+          <div 
+            className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FolderOpen className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Neuen Markenfall starten
+              </h3>
+              <p className="text-sm text-gray-600">
+                Wir legen einen neuen Markenfall für Sie an. Keine Sorge – Sie können ihn jederzeit löschen.
+              </p>
+            </div>
+
+            {createCaseError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                {createCaseError}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={confirmCreateCase}
+                disabled={isCreatingCase}
+                className="w-full px-4 py-2.5 text-white bg-primary hover:bg-primary/90 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isCreatingCase ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Erstelle...
+                  </>
+                ) : (
+                  "Los geht's"
+                )}
+              </button>
+              <button
+                onClick={cancelNewCaseModal}
+                disabled={isCreatingCase}
+                className="w-full px-4 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

@@ -5,16 +5,19 @@ import { useParams, useRouter } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import {
   ArrowLeft,
+  ArrowRight,
   ChevronDown,
   ChevronUp,
   MessageCircle,
   Mic,
+  Type,
   Search,
   BarChart3,
   Clock,
   Check,
   Circle,
   AlertCircle,
+  AlertTriangle,
   Globe,
   Tag,
   Sparkles,
@@ -251,7 +254,7 @@ const WORKFLOW_STEPS: WorkflowStep[] = [
   { id: "markenname", title: "Markenname", icon: Tag, buttonText: "Markenname festlegen", buttonAction: "edit" },
   { id: "recherche", title: "Recherche", icon: Search, buttonText: "Recherche starten", buttonAction: "open" },
   { id: "analyse", title: "Analyse", icon: BarChart3, buttonText: "Analyse anzeigen", buttonAction: "show" },
-  { id: "ueberpruefung", title: "Überprüfung", icon: CheckCircle, buttonText: "Überprüfung dokumentieren", buttonAction: "placeholder" },
+  { id: "ueberpruefung", title: "Checkliste", icon: CheckCircle, buttonText: "Checkliste prüfen", buttonAction: "placeholder" },
   { id: "anmeldung", title: "Anmeldung", icon: FileText, buttonText: "Anmeldung vorbereiten", buttonAction: "placeholder" },
   { id: "kommunikation", title: "Kommunikation", icon: Mail, buttonText: "Kommunikation erfassen", buttonAction: "placeholder" },
   { id: "ueberwachung", title: "Überwachung", icon: Eye, buttonText: "Überwachung starten", buttonAction: "placeholder" },
@@ -263,6 +266,7 @@ function AccordionSection({
   title,
   icon: Icon,
   isCompleted,
+  isSkipped,
   status,
   isOpen,
   onToggle,
@@ -273,6 +277,7 @@ function AccordionSection({
   title: string;
   icon: React.ElementType;
   isCompleted: boolean;
+  isSkipped: boolean;
   status: string;
   isOpen: boolean;
   onToggle: () => void;
@@ -297,7 +302,11 @@ function AccordionSection({
           ) : (
             <span className="w-4 h-4" />
           )}
-          <Icon className={`w-5 h-5 ${isCompleted ? "text-teal-600" : "text-gray-400"}`} />
+          <Icon
+            className={`w-5 h-5 ${
+              isCompleted ? "text-teal-600" : isSkipped ? "text-yellow-600" : "text-gray-400"
+            }`}
+          />
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <span className="font-semibold text-gray-900 truncate">{title}</span>
             {headerMeta && (
@@ -308,6 +317,14 @@ function AccordionSection({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {isSkipped && (
+            <span
+              className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-400 shadow-sm cursor-help"
+              title="Übersprungen – du kannst diesen Schritt jederzeit nachholen"
+            >
+              <span className="text-white text-[10px] font-bold leading-none">!</span>
+            </span>
+          )}
           {isOpen ? (
             <ChevronUp className="w-5 h-5 text-gray-400" />
           ) : (
@@ -452,6 +469,7 @@ export default function CasePage() {
   const [applyAlternativeError, setApplyAlternativeError] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [pendingTransferHash, setPendingTransferHash] = useState<string | null>(null);
+  const [skippedStepsNotice, setSkippedStepsNotice] = useState<string[] | null>(null);
   const [isStartingRecherche, setIsStartingRecherche] = useState(false);
   const [rechercheStartError, setRechercheStartError] = useState<string | null>(null);
   const [isSavingRechercheForm, setIsSavingRechercheForm] = useState(false);
@@ -799,6 +817,7 @@ export default function CasePage() {
 
       const map: Record<string, WorkflowStepId> = {
         beratung: "beratung",
+        markenname: "markenname",
         markenpruefung: "recherche",
         recherche: "recherche",
         ueberpruefung: "ueberpruefung",
@@ -837,6 +856,25 @@ export default function CasePage() {
           setShowTransferModal(true);
           return;
         }
+      }
+
+      // Mark previous pending steps as skipped
+      const stepOrder: WorkflowStepId[] = ["beratung", "markenname", "recherche", "ueberpruefung", "anmeldung", "kommunikation", "ueberwachung", "fristen"];
+      const currentIndex = stepOrder.indexOf(next);
+      if (currentIndex > 0) {
+        for (let i = 0; i < currentIndex; i++) {
+          const prevStepId = stepOrder[i];
+          const prevStatus = data?.steps?.[prevStepId];
+          if (prevStatus?.status === "pending" || !prevStatus) {
+            void setStepStatus(prevStepId, "completed", { skipped: true, skippedAt: new Date().toISOString() });
+          }
+        }
+      }
+
+      // Set current step to in_progress if pending
+      const currentStatus = data?.steps?.[next];
+      if (currentStatus?.status === "pending" || !currentStatus) {
+        void setStepStatus(next, "in_progress");
       }
 
       setOpenAccordion(next);
@@ -1999,11 +2037,11 @@ export default function CasePage() {
     return steps?.[stepId] || { status: "pending", completedAt: null, skippedAt: null, metadata: {} };
   };
 
-  const setStepStatus = async (
+  async function setStepStatus(
     stepId: WorkflowStepId,
     status: "pending" | "in_progress" | "completed",
     metadata?: Record<string, any>
-  ) => {
+  ) {
     if (isUpdatingStep) return;
     setStepUpdateError(null);
     setIsUpdatingStep(stepId);
@@ -2027,7 +2065,7 @@ export default function CasePage() {
     } finally {
       setIsUpdatingStep(null);
     }
-  };
+  }
 
   const updateChecklistItem = async (
     stepId: WorkflowStepId,
@@ -2128,11 +2166,53 @@ export default function CasePage() {
     const isOpening = openAccordion !== stepId;
     setOpenAccordion(isOpening ? stepId : null);
 
-    if (!isOpening) return;
+    if (!isOpening) {
+      // When closing, clear the hash
+      if (window.location.hash) {
+        history.replaceState(null, "", window.location.pathname);
+      }
+      return;
+    }
+
+    // When opening, set the hash to sync sidebar and progress bar
+    window.location.hash = `#${stepId}`;
+
+    // Mark previous pending steps as skipped
+    const stepOrder: WorkflowStepId[] = ["beratung", "markenname", "recherche", "ueberpruefung", "anmeldung", "kommunikation", "ueberwachung", "fristen"];
+    const stepLabels: Record<WorkflowStepId, string> = {
+      beratung: "Beratung", markenname: "Markenname", recherche: "Recherche",
+      ueberpruefung: "Checkliste", anmeldung: "Anmeldung", kommunikation: "Kommunikation",
+      ueberwachung: "Überwachung", fristen: "Fristen", analyse: "Analyse"
+    };
+    const currentIndex = stepOrder.indexOf(stepId);
+    const skippedNames: string[] = [];
+    if (currentIndex > 0) {
+      for (let i = 0; i < currentIndex; i++) {
+        const prevStepId = stepOrder[i];
+        const prevStatus = getStepStatus(prevStepId);
+        if (prevStatus.status === "pending") {
+          skippedNames.push(stepLabels[prevStepId]);
+          void setStepStatus(prevStepId, "completed", { skipped: true, skippedAt: new Date().toISOString() });
+        }
+      }
+    }
+    if (skippedNames.length > 0) {
+      setSkippedStepsNotice(skippedNames);
+      setTimeout(() => setSkippedStepsNotice(null), 5000);
+    }
+
     const current = getStepStatus(stepId);
     if (current.status === "pending") {
       void setStepStatus(stepId, "in_progress");
     }
+
+    // Scroll to accordion after it opens
+    setTimeout(() => {
+      const element = document.getElementById(`accordion-${stepId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 100);
   };
 
   const getStatusBadge = (status: string) => {
@@ -2159,6 +2239,26 @@ export default function CasePage() {
       default:
         return status;
     }
+  };
+
+  // Helper: Render "Weiter zum nächsten Schritt" button
+  const renderNextStepButton = (currentStepId: WorkflowStepId, nextStepId: WorkflowStepId, nextStepLabel: string) => {
+    return (
+      <div className="mt-6 pt-4 border-t border-gray-200">
+        <div className="flex justify-end">
+          <button
+            onClick={() => {
+              void setStepStatus(currentStepId, "completed");
+              setTimeout(() => handleToggleAccordion(nextStepId), 200);
+            }}
+            className="w-full sm:w-auto px-4 py-3 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors flex items-center justify-center gap-2"
+          >
+            Weiter zu {nextStepLabel}
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
   };
 
   const renderBeratungContent = () => {
@@ -2304,9 +2404,24 @@ export default function CasePage() {
                 </div>
               )}
             </div>
+
+            {/* Footer with Next Step Button */}
+            <div className="p-4 border-t border-gray-200">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    void setStepStatus("beratung", "completed");
+                    setTimeout(() => handleToggleAccordion("markenname"), 200);
+                  }}
+                  className="w-full sm:w-[320px] py-3 px-4 s-gradient-button text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  Weiter zu Markenname
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-
       </div>
     );
   };
@@ -2376,6 +2491,9 @@ export default function CasePage() {
             </button>
           )}
         </div>
+
+        {/* Weiter-Button */}
+        {renderNextStepButton("kommunikation", "ueberwachung", "Überwachung")}
       </div>
     );
   };
@@ -2445,6 +2563,9 @@ export default function CasePage() {
             </button>
           )}
         </div>
+
+        {/* Weiter-Button */}
+        {renderNextStepButton("ueberwachung", "fristen", "Fristen")}
       </div>
     );
   };
@@ -3173,6 +3294,22 @@ export default function CasePage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+
+                {/* Footer with Next Step Button */}
+                <div className="p-4 border-t border-gray-200">
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => {
+                        void setStepStatus("markenname", "completed");
+                        setTimeout(() => handleToggleAccordion("recherche"), 200);
+                      }}
+                      className="w-full sm:w-[320px] py-3 px-4 s-gradient-button text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      Weiter zu Recherche
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -4054,6 +4191,9 @@ export default function CasePage() {
               Klassen/Länder anpassen
             </button>
           </div>
+
+          {/* Weiter-Button */}
+          {renderNextStepButton("analyse", "ueberpruefung", "Checkliste")}
         </div>
       );
     }
@@ -4113,66 +4253,169 @@ export default function CasePage() {
     const s = getStepStatus("ueberpruefung");
     const isBusy = isUpdatingStep === "ueberpruefung";
 
-    return (
-      <div className="space-y-4">
-        {stepUpdateError && (
-          <div className="px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-            {stepUpdateError}
-          </div>
-        )}
+    // Auto-check items based on completed steps
+    const hasTrademarkName = Boolean(data?.case?.trademarkName || manualNameInput);
+    const hasTrademarkType = Boolean(trademarkType);
+    const hasNiceClasses = (rechercheForm.niceClasses?.length ?? 0) > 0;
+    const hasCountries = (rechercheForm.countries?.length ?? 0) > 0;
+    const rechercheStatus = getStepStatus("recherche");
+    const hasRecherche = rechercheStatus.status === "completed" || rechercheStatus.status === "in_progress";
+    const analyseStatus = getStepStatus("analyse");
+    const hasAnalyse = analyseStatus.status === "completed" || (analysesData?.analyses?.length ?? 0) > 0;
 
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="text-sm font-semibold text-gray-900 mb-1">Checkliste (Mock)</div>
-          <div className="text-xs text-gray-500 mb-3">Dokumentiere die finale Prüfung vor der Anmeldung.</div>
-          {renderChecklist("ueberpruefung", [
-            { key: "conflicts_reviewed", label: "Konflikte im Detail geprüft (Ähnlichkeit, Waren/Dienstleistungen, Registerstatus)" },
-            { key: "classes_confirmed", label: "Nizza-Klassen & Länder final bestätigt" },
-            { key: "recommendation_documented", label: "Empfehlung / nächste Schritte dokumentiert" },
-          ])}
+    const checklistItems = [
+      { key: "trademark_name", label: "Markenname festgelegt", auto: hasTrademarkName, detail: hasTrademarkName ? (data?.case?.trademarkName || manualNameInput) : "Noch nicht festgelegt" },
+      { key: "trademark_type", label: "Markenart gewählt", auto: hasTrademarkType, detail: hasTrademarkType ? (trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke") : "Noch nicht gewählt" },
+      { key: "nice_classes", label: "Nizza-Klassen ausgewählt", auto: hasNiceClasses, detail: hasNiceClasses ? `${rechercheForm.niceClasses?.length ?? 0} Klassen` : "Noch keine Klassen" },
+      { key: "countries", label: "Länder/Regionen festgelegt", auto: hasCountries, detail: hasCountries ? `${rechercheForm.countries?.length ?? 0} Länder` : "Noch keine Länder" },
+      { key: "recherche", label: "Markenrecherche durchgeführt", auto: hasRecherche, detail: hasRecherche ? "Recherche abgeschlossen" : "Noch nicht durchgeführt" },
+      { key: "analyse", label: "Risikobewertung eingesehen", auto: hasAnalyse, detail: hasAnalyse ? "Analyse verfügbar" : "Noch keine Analyse" },
+    ];
+
+    const completedCount = checklistItems.filter(item => item.auto).length;
+    const allCompleted = completedCount === checklistItems.length;
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Checkliste */}
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">Finale Checkliste</div>
+                  <div className="text-xs text-white/85 truncate">Vor der Anmeldung prüfen</div>
+                </div>
+              </div>
+              <div className="text-white text-sm font-medium">
+                {completedCount}/{checklistItems.length}
+              </div>
+            </div>
+
+            <div className="p-4 space-y-3">
+              {stepUpdateError && (
+                <div className="px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                  {stepUpdateError}
+                </div>
+              )}
+
+              {checklistItems.map((item) => (
+                <div
+                  key={item.key}
+                  className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                    item.auto
+                      ? "bg-green-50 border-green-200"
+                      : "bg-gray-50 border-gray-200"
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                    item.auto ? "bg-green-500" : "bg-gray-300"
+                  }`}>
+                    {item.auto ? (
+                      <Check className="w-3 h-3 text-white" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-white" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm font-medium ${item.auto ? "text-green-800" : "text-gray-600"}`}>
+                      {item.label}
+                    </div>
+                    <div className={`text-xs mt-0.5 ${item.auto ? "text-green-600" : "text-gray-400"}`}>
+                      {item.detail}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          {s.status === "pending" && (
-            <button
-              onClick={() => setStepStatus("ueberpruefung", "in_progress")}
-              disabled={isBusy}
-              className={
-                isBusy
-                  ? "px-4 py-2 bg-teal-200 text-white rounded-lg text-sm font-medium cursor-not-allowed"
-                  : "px-4 py-2 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
-              }
-            >
-              {isBusy ? "Speichere…" : "Überprüfung starten"}
-            </button>
-          )}
+        {/* Right: Status & Aktion */}
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                  <ArrowRight className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">Bereit zur Anmeldung?</div>
+                  <div className="text-xs text-white/85 truncate">Status & nächster Schritt</div>
+                </div>
+              </div>
+            </div>
 
-          {s.status !== "completed" && (
-            <button
-              onClick={() => setStepStatus("ueberpruefung", "completed")}
-              disabled={isBusy}
-              className={
-                isBusy
-                  ? "px-4 py-2 bg-teal-200 text-white rounded-lg text-sm font-medium cursor-not-allowed"
-                  : "px-4 py-2 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
-              }
-            >
-              {isBusy ? "Speichere…" : "Als abgeschlossen markieren"}
-            </button>
-          )}
+            <div className="p-4 flex flex-col gap-4">
+              {/* Status */}
+              <div className={`p-4 rounded-lg border ${
+                allCompleted
+                  ? "bg-green-50 border-green-200"
+                  : "bg-yellow-50 border-yellow-200"
+              }`}>
+                <div className="flex items-center gap-3">
+                  {allCompleted ? (
+                    <>
+                      <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                        <Check className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-green-800">Alles erledigt!</div>
+                        <div className="text-sm text-green-600">Du kannst zur Anmeldung fortfahren.</div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center">
+                        <AlertTriangle className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-yellow-800">Noch {checklistItems.length - completedCount} Punkte offen</div>
+                        <div className="text-sm text-yellow-600">Bitte alle Punkte abhaken vor der Anmeldung.</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
 
-          {s.status !== "skipped" && (
-            <button
-              onClick={() => skipStep("ueberpruefung")}
-              disabled={isBusy}
-              className={
-                isBusy
-                  ? "px-4 py-2 bg-gray-200 text-gray-600 rounded-lg text-sm font-medium cursor-not-allowed"
-                  : "px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-              }
-            >
-              Überspringen
-            </button>
-          )}
+              {/* Hinweis */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-blue-700">
+                    Die Checkliste wird automatisch aktualisiert, wenn du die vorherigen Schritte abschließt. So behältst du den Überblick.
+                  </div>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex flex-col gap-2 mt-2">
+                {allCompleted && s.status !== "completed" && renderNextStepButton("ueberpruefung", "anmeldung", "Anmeldung")}
+
+                {!allCompleted && (
+                  <button
+                    onClick={() => handleToggleAccordion("beratung")}
+                    className="w-full px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Offene Schritte nachholen
+                  </button>
+                )}
+
+                {s.status !== "skipped" && s.status !== "completed" && (
+                  <button
+                    onClick={() => skipStep("ueberpruefung")}
+                    disabled={isBusy}
+                    className="w-full px-4 py-2 text-gray-500 text-sm hover:text-gray-700 transition-colors"
+                  >
+                    Überspringen
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -4243,6 +4486,9 @@ export default function CasePage() {
             </button>
           )}
         </div>
+
+        {/* Weiter-Button */}
+        {renderNextStepButton("anmeldung", "kommunikation", "Kommunikation")}
       </div>
     );
   };
@@ -4274,8 +4520,9 @@ export default function CasePage() {
 
   const bannerSteps = [
     { hash: "beratung", label: "Beratung", stepId: "beratung" as WorkflowStepId, icon: Mic },
+    { hash: "markenname", label: "Markenname", stepId: "markenname" as WorkflowStepId, icon: Type },
     { hash: "recherche", label: "Recherche", stepId: "recherche" as WorkflowStepId, icon: Search },
-    { hash: "ueberpruefung", label: "Überprüfung", stepId: "ueberpruefung" as WorkflowStepId, icon: CheckCircle },
+    { hash: "ueberpruefung", label: "Checkliste", stepId: "ueberpruefung" as WorkflowStepId, icon: CheckCircle },
     { hash: "anmeldung", label: "Anmeldung", stepId: "anmeldung" as WorkflowStepId, icon: FileText },
     { hash: "kommunikation", label: "Kommunikation", stepId: "kommunikation" as WorkflowStepId, icon: Mail },
     { hash: "ueberwachung", label: "Überwachung", stepId: "ueberwachung" as WorkflowStepId, icon: Eye },
@@ -4293,6 +4540,33 @@ export default function CasePage() {
 
   return (
     <div className="space-y-6">
+      {/* Toast for skipped steps notification */}
+      {skippedStepsNotice && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg shadow-lg p-4 max-w-sm">
+            <div className="flex items-start gap-3">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 shrink-0">
+                <span className="text-white text-xs font-bold">!</span>
+              </span>
+              <div>
+                <p className="text-sm font-medium text-yellow-800">
+                  {skippedStepsNotice.length === 1 ? "Schritt übersprungen" : "Schritte übersprungen"}
+                </p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  {skippedStepsNotice.join(" & ")} {skippedStepsNotice.length === 1 ? "wurde" : "wurden"} als übersprungen markiert. Du kannst {skippedStepsNotice.length === 1 ? "ihn" : "sie"} jederzeit nachholen.
+                </p>
+              </div>
+              <button
+                onClick={() => setSkippedStepsNotice(null)}
+                className="text-yellow-600 hover:text-yellow-800 shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <div className="sticky top-0 z-40 bg-gray-50 pt-2 pb-0">
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
@@ -4314,27 +4588,28 @@ export default function CasePage() {
 
                   <div className="relative flex items-start justify-between">
                     {bannerSteps.map((s) => {
-                      const status = getStepStatus(s.stepId).status;
-                      const isCompleted = status === "completed";
-                      const isSkipped = status === "skipped";
-                      const isActive = status === "in_progress";
+                      const stepStatus = getStepStatus(s.stepId);
+                      const status = stepStatus.status;
+                      const isSkipped = status === "skipped" || (status === "completed" && stepStatus.metadata?.skipped === true);
+                      const isCompleted = status === "completed" && !isSkipped;
+                      const isCurrentlyOpen = openAccordion === s.stepId;
 
                       const Icon = s.icon;
 
-                      const circleClass = isCompleted
-                        ? "bg-primary border-primary text-white shadow-sm"
-                        : isActive
-                          ? "bg-white border-primary text-primary ring-2 ring-primary/15 shadow-sm"
-                          : isSkipped
-                            ? "bg-gray-100 border-gray-300 text-gray-500 group-hover:border-gray-400 group-hover:text-gray-600"
+                      const circleClass = isCurrentlyOpen
+                        ? "bg-white border border-primary text-primary ring-1 ring-primary/20 shadow-sm"
+                        : isSkipped
+                          ? "bg-yellow-100 border-yellow-400 text-yellow-600 shadow-sm"
+                          : isCompleted
+                            ? "bg-primary border-primary text-white shadow-sm"
                             : "bg-white border-gray-300 text-gray-500 group-hover:border-gray-400 group-hover:text-gray-600";
 
-                      const labelClass = isCompleted
-                        ? "text-primary"
-                        : isActive
-                          ? "text-gray-900"
-                          : isSkipped
-                            ? "text-gray-500"
+                      const labelClass = isCurrentlyOpen
+                        ? "text-primary font-semibold"
+                        : isSkipped
+                          ? "text-yellow-600"
+                          : isCompleted
+                            ? "text-primary"
                             : "text-gray-500";
 
                       return (
@@ -4342,21 +4617,25 @@ export default function CasePage() {
                           key={s.hash}
                           type="button"
                           onClick={() => {
-                            window.location.hash = `#${s.hash}`;
-
-                            if (s.stepId === "beratung") {
-                              setOpenAccordion("beratung");
-                              setTimeout(() => {
-                                voiceAssistantRef.current?.startSession("voice");
-                              }, 100);
-                            }
+                            handleToggleAccordion(s.stepId);
                           }}
                           className="group relative min-w-[68px] flex flex-col items-center"
                         >
                           <span
-                            className={`w-8 h-8 rounded-full border flex items-center justify-center transition-colors ${circleClass}`}
+                            className={`relative w-8 h-8 rounded-full border flex items-center justify-center transition-colors ${circleClass}`}
                           >
-                            <Icon className="w-4 h-4" />
+                            {isCurrentlyOpen && (
+                              <span className="absolute inset-0 rounded-full animate-ping bg-primary/30" />
+                            )}
+                            {isSkipped && !isCurrentlyOpen && (
+                              <span
+                                className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-yellow-400 border-2 border-white shadow-sm cursor-help"
+                                title="Übersprungen – klicke hier, um diesen Schritt nachzuholen"
+                              >
+                                <span className="text-white text-[9px] font-bold leading-none">!</span>
+                              </span>
+                            )}
+                            <Icon className="w-4 h-4 relative z-10" />
                           </span>
 
                           <span className={`mt-1 text-[11px] font-medium leading-tight ${labelClass}`}>
@@ -4388,7 +4667,15 @@ export default function CasePage() {
               stepId={step.id}
               title={step.title}
               icon={step.icon}
-              isCompleted={isStepComplete(step.id)}
+              isCompleted={(() => {
+                const s = getStepStatus(step.id);
+                const skipped = s.status === "skipped" || (s.status === "completed" && s.metadata?.skipped === true);
+                return s.status === "completed" && !skipped;
+              })()}
+              isSkipped={(() => {
+                const s = getStepStatus(step.id);
+                return s.status === "skipped" || (s.status === "completed" && s.metadata?.skipped === true);
+              })()}
               status={getStepStatus(step.id).status}
               isOpen={openAccordion === step.id}
               onToggle={() => handleToggleAccordion(step.id)}
