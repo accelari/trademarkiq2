@@ -160,28 +160,30 @@ export async function POST(
             max_tokens: 300,
             messages: [{
               role: "system",
-              content: shouldUseIncremental
-                ? `Du aktualisierst eine bestehende Sitzungszusammenfassung eines Beratungsgesprächs über Markenrecht. Sei SEHR KURZ und PRÄZISE. Maximal 3-4 Stichpunkte. Keine langen Sätze.${brandContext}`
-                : `Du fasst Beratungsgespräche über Markenrecht zusammen. Sei SEHR KURZ und PRÄZISE. Maximal 3-4 Stichpunkte. Keine langen Sätze.${brandContext}`
+              content: `Du fasst Beratungsgespräche über Markenrecht zusammen. ERFINDE NIEMALS Daten - schreibe NUR was im Gespräch gesagt wurde!${brandContext}`
             }, {
               role: "user",
               content: shouldUseIncremental
-                ? `Aktuelle Zusammenfassung (Stand vorher):
+                ? `Aktuelle Zusammenfassung:
 ${previousSummary}
 
-Neue Nachrichten seitdem:
+Neue Nachrichten:
 ${deltaConversationText}
 
-Aktualisiere die Zusammenfassung. Maximal 4 Stichpunkte:
-- Marke/Thema
-- Kernaussage
-- Empfehlung
-- Nächster Schritt`
-                : `Fasse dieses Gespräch KURZ zusammen (max. 4 Stichpunkte):
-- Marke/Thema
-- Kernaussage  
-- Empfehlung
-- Nächster Schritt
+Aktualisiere die Zusammenfassung (2-3 Sätze).
+
+Am Ende IMMER diese 4 Zeilen - NUR mit echten Werten aus dem Gespräch, sonst leer lassen:
+Marke: 
+Art: 
+Klassen: 
+Länder: `
+                : `Fasse das Gespräch zusammen (2-3 Sätze).
+
+Am Ende IMMER diese 4 Zeilen - NUR mit echten Werten aus dem Gespräch, sonst leer lassen:
+Marke: 
+Art: 
+Klassen: 
+Länder: 
 
 Gespräch:
 ${conversationText}`

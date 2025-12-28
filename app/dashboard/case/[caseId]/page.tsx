@@ -32,6 +32,10 @@ import {
   Wand2,
   Info,
   Upload,
+  MessageSquare,
+  MoreVertical,
+  Phone,
+  Zap,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
@@ -88,72 +92,88 @@ const COUNTRY_OPTIONS: CountryOption[] = [
   { code: "AE", label: "Vereinigte Arabische Emirate", icon: "🇦🇪", numeric: "784" },
   { code: "AM", label: "Armenien", icon: "🇦🇲", numeric: "051" },
   { code: "AR", label: "Argentinien", icon: "🇦🇷", numeric: "032" },
-  { code: "AT", label: "Österreich", icon: "🇦🇹", numeric: "040" },
   { code: "AU", label: "Australien", icon: "🇦🇺", numeric: "036" },
   { code: "AZ", label: "Aserbaidschan", icon: "🇦🇿", numeric: "031" },
-  { code: "BA", label: "Bosnien und Herzegowina", icon: "🇧🇦", numeric: "070" },
-  { code: "BE", label: "Belgien", icon: "🇧🇪", numeric: "056" },
-  { code: "BG", label: "Bulgarien", icon: "🇧🇬", numeric: "100" },
   { code: "BH", label: "Bahrain", icon: "🇧🇭", numeric: "048" },
   { code: "BW", label: "Botswana", icon: "🇧🇼", numeric: "072" },
-  { code: "BR", label: "Brasilien", icon: "🇧🇷", numeric: "076" },
   { code: "BY", label: "Belarus", icon: "🇧🇾", numeric: "112" },
   { code: "CA", label: "Kanada", icon: "🇨🇦", numeric: "124" },
   { code: "CH", label: "Schweiz", icon: "🇨🇭", numeric: "756" },
-  { code: "CN", label: "China", icon: "🇨🇳", numeric: "156" },
-  { code: "CZ", label: "Tschechien", icon: "🇨🇿", numeric: "203" },
-  { code: "DE", label: "Deutschland", icon: "🇩🇪", numeric: "276" },
-  { code: "DK", label: "Dänemark", icon: "🇩🇰", numeric: "208" },
   { code: "EE", label: "Estland", icon: "🇪🇪", numeric: "233" },
   { code: "EG", label: "Ägypten", icon: "🇪🇬", numeric: "818" },
   { code: "ES", label: "Spanien", icon: "🇪🇸", numeric: "724" },
   { code: "EU", label: "Europäische Union", icon: "🇪🇺" },
-  { code: "EUIPO", label: "EUIPO", icon: "🇪🇺" },
-  { code: "FI", label: "Finnland", icon: "🇫🇮", numeric: "246" },
-  { code: "FR", label: "Frankreich", icon: "🇫🇷", numeric: "250" },
   { code: "GB", label: "Vereinigtes Königreich", icon: "🇬🇧", numeric: "826" },
   { code: "GE", label: "Georgien", icon: "🇬🇪", numeric: "268" },
-  { code: "GR", label: "Griechenland", icon: "🇬🇷", numeric: "300" },
   { code: "HK", label: "Hongkong", icon: "🇭🇰", numeric: "344" },
-  { code: "HR", label: "Kroatien", icon: "🇭🇷", numeric: "191" },
-  { code: "HU", label: "Ungarn", icon: "🇭🇺", numeric: "348" },
-  { code: "ID", label: "Indonesien", icon: "🇮🇩", numeric: "360" },
-  { code: "IE", label: "Irland", icon: "🇮🇪", numeric: "372" },
   { code: "IL", label: "Israel", icon: "🇮🇱", numeric: "376" },
   { code: "IN", label: "Indien", icon: "🇮🇳", numeric: "356" },
   { code: "IT", label: "Italien", icon: "🇮🇹", numeric: "380" },
-  { code: "JP", label: "Japan", icon: "🇯🇵", numeric: "392" },
   { code: "KE", label: "Kenia", icon: "🇰🇪", numeric: "404" },
   { code: "KG", label: "Kirgisistan", icon: "🇰🇬", numeric: "417" },
   { code: "KZ", label: "Kasachstan", icon: "🇰🇿", numeric: "398" },
-  { code: "KR", label: "Südkorea", icon: "🇰🇷", numeric: "410" },
   { code: "LT", label: "Litauen", icon: "🇱🇹", numeric: "440" },
   { code: "LV", label: "Lettland", icon: "🇱🇻", numeric: "428" },
   { code: "MA", label: "Marokko", icon: "🇲🇦", numeric: "504" },
   { code: "MD", label: "Moldau", icon: "🇲🇩", numeric: "498" },
   { code: "MX", label: "Mexiko", icon: "🇲🇽", numeric: "484" },
-  { code: "MY", label: "Malaysia", icon: "🇲🇾", numeric: "458" },
-  { code: "NL", label: "Niederlande", icon: "🇳🇱", numeric: "528" },
   { code: "NO", label: "Norwegen", icon: "🇳🇴", numeric: "578" },
   { code: "OM", label: "Oman", icon: "🇴🇲", numeric: "512" },
-  { code: "PH", label: "Philippinen", icon: "🇵🇭", numeric: "608" },
-  { code: "PL", label: "Polen", icon: "🇵🇱", numeric: "616" },
-  { code: "PT", label: "Portugal", icon: "🇵🇹", numeric: "620" },
-  { code: "RO", label: "Rumänien", icon: "🇷🇴", numeric: "642" },
   { code: "RU", label: "Russische Föderation", icon: "🇷🇺", numeric: "643" },
   { code: "SA", label: "Saudi-Arabien", icon: "🇸🇦", numeric: "682" },
-  { code: "SE", label: "Schweden", icon: "🇸🇪", numeric: "752" },
-  { code: "SG", label: "Singapur", icon: "🇸🇬", numeric: "702" },
-  { code: "TH", label: "Thailand", icon: "🇹🇭", numeric: "764" },
   { code: "TR", label: "Türkei", icon: "🇹🇷", numeric: "792" },
   { code: "TW", label: "Taiwan", icon: "🇹🇼", numeric: "158" },
   { code: "UA", label: "Ukraine", icon: "🇺🇦", numeric: "804" },
   { code: "US", label: "Vereinigte Staaten", icon: "🇺🇸", numeric: "840" },
   { code: "UZ", label: "Usbekistan", icon: "🇺🇿", numeric: "860" },
-  { code: "VN", label: "Vietnam", icon: "🇻🇳", numeric: "704" },
   { code: "WO", label: "WIPO", icon: "🌐" },
-  { code: "ZA", label: "Südafrika", icon: "🇿🇦", numeric: "710" },
 ].slice().sort((a, b) => a.label.localeCompare(b.label));
+
+// Welche Länder erlauben Selbstanmeldung ohne lokalen Vertreter?
+// true = Selbstanmeldung möglich, false = Vertreter erforderlich
+const SELF_REGISTER_ALLOWED: Record<string, boolean> = {
+  // Selbstanmeldung möglich
+  AU: true,  // Australien
+  CA: true,  // Kanada
+  CH: true,  // Schweiz
+  EU: true,  // EUIPO
+  GB: true,  // UK
+  NO: true,  // Norwegen
+  WO: true,  // WIPO Madrid
+  // EU-Länder (EU-Bürger können selbst anmelden)
+  EE: true,  // Estland
+  ES: true,  // Spanien
+  IT: true,  // Italien
+  LT: true,  // Litauen
+  LV: true,  // Lettland
+  // Vertreter erforderlich
+  AE: false, // VAE
+  AM: false, // Armenien
+  AR: false, // Argentinien
+  AZ: false, // Aserbaidschan
+  BH: false, // Bahrain
+  BW: false, // Botswana
+  BY: false, // Belarus
+  EG: false, // Ägypten
+  GE: false, // Georgien
+  HK: false, // Hongkong
+  IL: false, // Israel
+  IN: false, // Indien
+  KE: false, // Kenia
+  KG: false, // Kirgisistan
+  KZ: false, // Kasachstan
+  MA: false, // Marokko
+  MD: false, // Moldau
+  MX: false, // Mexiko
+  OM: false, // Oman
+  RU: false, // Russland
+  SA: false, // Saudi-Arabien
+  TR: false, // Türkei
+  TW: false, // Taiwan
+  UA: false, // Ukraine
+  US: false, // USA (Ausländer brauchen Anwalt)
+  UZ: false, // Usbekistan
+};
 
 interface StepStatus {
   status: string;
@@ -550,10 +570,33 @@ export default function CasePage() {
   // Trademark type and details state
   const [markennameTab, setMarkennameTab] = useState<"markenname" | "generator">("markenname");
   const [trademarkType, setTrademarkType] = useState<"wortmarke" | "wort-bildmarke" | "bildmarke">("wortmarke");
+  const [isTrademarkTypeConfirmed, setIsTrademarkTypeConfirmed] = useState(false); // Erst true wenn User explizit wählt
   const [trademarkImageUrl, setTrademarkImageUrl] = useState<string | null>(null);
   const [trademarkImageFile, setTrademarkImageFile] = useState<File | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+
+  // Anmeldung form state
+  const [anmeldungTab, setAnmeldungTab] = useState<"amt" | "anmelder" | "vertreter">("amt");
+  const [anmeldungOfficeSearch, setAnmeldungOfficeSearch] = useState("");
+  const [anmeldungForm, setAnmeldungForm] = useState({
+    selectedOffices: [] as string[],
+    // Pro Land: "self" oder "representative" - wird automatisch gesetzt basierend auf SELF_REGISTER_ALLOWED
+    officeRegistrationMode: {} as Record<string, "self" | "representative">,
+    applicantType: "person" as "person" | "company",
+    applicantName: "",
+    applicantCompany: "",
+    applicantLegalForm: "",
+    applicantStreet: "",
+    applicantZip: "",
+    applicantCity: "",
+    applicantCountry: "DE",
+    applicantEmail: "",
+    applicantPhone: "",
+    representativeName: "",
+    representativeFirm: "",
+    representativeEmail: "",
+  });
 
   // KI-Logo Generator Modal state
   const [showLogoGeneratorModal, setShowLogoGeneratorModal] = useState(false);
@@ -683,6 +726,7 @@ export default function CasePage() {
 
   const alternativeNamesRef = useRef<HTMLDivElement>(null);
   
+  // Beratung Voice Assistant
   const voiceAssistantRef = useRef<VoiceAssistantHandle>(null);
   const [sessionMessages, setSessionMessages] = useState<any[]>([]);
   const [isSavingSession, setIsSavingSession] = useState(false);
@@ -694,6 +738,166 @@ export default function CasePage() {
   const summaryDebounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSummarySavedAtRef = useRef<number>(0);
   const lastSummarySavedMessageCountRef = useRef<number>(0);
+
+  // Markenname Voice Assistant
+  const markennameVoiceRef = useRef<VoiceAssistantHandle>(null);
+  const [markennameMessages, setMarkennameMessages] = useState<any[]>([]);
+
+  // Recherche Voice Assistant
+  const rechercheVoiceRef = useRef<VoiceAssistantHandle>(null);
+  const [rechercheMessages, setRechercheMessages] = useState<any[]>([]);
+
+  // Anmeldung Voice Assistant
+  const anmeldungVoiceRef = useRef<VoiceAssistantHandle>(null);
+  const [anmeldungMessages, setAnmeldungMessages] = useState<any[]>([]);
+  const [anmeldungSummary, setAnmeldungSummary] = useState<string | null>(null);
+  const [anmeldungStrategy, setAnmeldungStrategy] = useState<{
+    route: string;
+    steps: { country: string; office: string; selfRegister: boolean; cost: number; icon: string }[];
+    totalCost: number;
+    hints: string[];
+  } | null>(null);
+  const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
+  const lastStrategyMessageCountRef = useRef(0);
+
+  // Generiere Strategie aus Anmeldungs-Nachrichten
+  const generateAnmeldungStrategy = useCallback(async () => {
+    if (anmeldungMessages.length < 4) return; // Mindestens 2 Austausche
+    if (isGeneratingStrategy) return;
+    if (anmeldungMessages.length === lastStrategyMessageCountRef.current) return;
+
+    setIsGeneratingStrategy(true);
+    lastStrategyMessageCountRef.current = anmeldungMessages.length;
+
+    try {
+      const response = await fetch("/api/anmeldung/generate-strategy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: anmeldungMessages,
+          context: {
+            trademarkName: data?.case?.trademarkName || manualNameInput || "",
+            trademarkType: trademarkType,
+            niceClasses: rechercheForm.niceClasses || [],
+            selectedCountries: rechercheForm.countries || [],
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const { strategy } = await response.json();
+        if (strategy) {
+          setAnmeldungStrategy(strategy);
+        }
+      }
+    } catch (error) {
+      console.error("Strategy generation failed:", error);
+    } finally {
+      setIsGeneratingStrategy(false);
+    }
+  }, [anmeldungMessages, data?.case?.trademarkName, manualNameInput, trademarkType, rechercheForm.niceClasses, rechercheForm.countries, isGeneratingStrategy]);
+
+  // Automatisch Strategie generieren wenn neue Nachrichten kommen
+  useEffect(() => {
+    if (anmeldungMessages.length >= 4 && anmeldungMessages.length > lastStrategyMessageCountRef.current) {
+      // Debounce: Warte 2 Sekunden nach der letzten Nachricht
+      const timer = setTimeout(() => {
+        generateAnmeldungStrategy();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [anmeldungMessages.length, generateAnmeldungStrategy]);
+
+  // Automatischer Akkordeon-Wechsel wenn Assistent weiterleitet
+  useEffect(() => {
+    if (sessionMessages.length < 2) return;
+    
+    const lastMessage = sessionMessages[sessionMessages.length - 1];
+    if (lastMessage?.role !== "assistant") return;
+    
+    const content = (lastMessage.content || "").toLowerCase();
+    
+    // Erkennung der Weiterleitung
+    if (content.includes("leite dich weiter") || content.includes("leite ich dich weiter")) {
+      // Bestimme Ziel basierend auf Markenart
+      const targetAccordion = (trademarkType === "bildmarke" || trademarkType === "wort-bildmarke") 
+        ? "markenname" 
+        : "recherche";
+      
+      // Wechsle nach kurzer Verzögerung
+      setTimeout(() => {
+        setOpenAccordion(targetAccordion);
+        // Scrolle zum Akkordeon
+        const el = document.getElementById(`accordion-${targetAccordion}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 1500);
+    }
+  }, [sessionMessages, trademarkType]);
+
+  // Auto-Sync: Extrahierte Daten aus Zusammenfassung in Formulare übertragen
+  useEffect(() => {
+    const summaryText = String(sessionSummary || data?.consultation?.summary || "");
+    if (!summaryText) return;
+    
+    const summaryLower = summaryText.toLowerCase();
+    const blacklist = ["markenrecht", "markenanmeldung", "markenschutz", "nizza", "klasse", "recherche", "beratung", "anmeldung", "namensfindung", "wortmarke", "bildmarke", "marke", "logo", "schutz"];
+    
+    // Einfache Extraktion: Suche nach "Marke:", "Art:", "Klassen:", "Länder:"
+    
+    // MARKE: Alles nach "Marke:" bis Zeilenende
+    const markeMatch = summaryText.match(/^Marke:\s*(.+)$/m);
+    if (markeMatch?.[1]) {
+      const name = markeMatch[1].trim();
+      if (name && name.length >= 2 && !blacklist.some(b => name.toLowerCase().includes(b))) {
+        if (!manualNameInput) {
+          setManualNameInput(name);
+          setRechercheForm(prev => ({ ...prev, trademarkName: prev.trademarkName || name }));
+        }
+      }
+    }
+    
+    // ART: Alles nach "Art:" bis Zeilenende - IMMER aus Zusammenfassung übernehmen
+    const artMatch = summaryText.match(/^Art:\s*(.+)$/m);
+    if (artMatch?.[1]) {
+      const art = artMatch[1].trim().toLowerCase();
+      if (art.includes("wort") && art.includes("bild")) {
+        setTrademarkType("wort-bildmarke");
+        setIsTrademarkTypeConfirmed(true);
+      } else if (art.includes("bild")) {
+        setTrademarkType("bildmarke");
+        setIsTrademarkTypeConfirmed(true);
+      } else if (art.includes("wort")) {
+        setTrademarkType("wortmarke");
+        setIsTrademarkTypeConfirmed(true);
+      }
+    }
+    
+    // KLASSEN: Alles nach "Klassen:" bis Zeilenende
+    const klassenMatch = summaryText.match(/^Klassen:\s*(.+)$/m);
+    if (klassenMatch?.[1]) {
+      const nums = Array.from(klassenMatch[1].matchAll(/\b(\d{1,2})\b/g)).map((x) => Number(x[1]));
+      const validClasses = [...new Set(nums.filter((n) => Number.isFinite(n) && n >= 1 && n <= 45))];
+      if (validClasses.length > 0 && rechercheForm.niceClasses.length === 0) {
+        setRechercheForm(prev => ({ ...prev, niceClasses: validClasses }));
+      }
+    }
+    
+    // LÄNDER: Alles nach "Länder:" bis Zeilenende
+    const laenderMatch = summaryText.match(/^Länder:\s*(.+)$/m);
+    if (laenderMatch?.[1]) {
+      const countries: string[] = [];
+      const laenderText = laenderMatch[1].toUpperCase();
+      if (laenderText.includes("US") || laenderText.includes("USA") || laenderText.includes("AMERIKA")) countries.push("US");
+      if (laenderText.includes("DE") || laenderText.includes("DEUTSCH")) countries.push("DE");
+      if (laenderText.includes("AT") || laenderText.includes("ÖSTER")) countries.push("AT");
+      if (laenderText.includes("CH") || laenderText.includes("SCHWEIZ")) countries.push("CH");
+      if (laenderText.includes("EU") || laenderText.includes("EUROP")) countries.push("EU");
+      
+      if (countries.length > 0 && rechercheForm.countries.length === 0) {
+        setRechercheForm(prev => ({ ...prev, countries: [...new Set(countries)] }));
+      }
+    }
+  }, [sessionSummary, data?.consultation?.summary]);
 
   const renderBeratungHeaderMeta = useCallback(() => {
     const decision = data?.decisions as any;
@@ -710,24 +914,33 @@ export default function CasePage() {
     };
 
     const extractNameFromSummary = () => {
-      const quoted = summaryText.match(
-        /\b(?:marke\/thema|marke|markenname)\s*:\s*(?:[^\n\r]*?)["'„“”‚‘’]([^"'„“”‚‘’\n\r]{2,60})["'„“”‚‘’]/i
-      );
-      if (quoted?.[1]) return quoted[1].trim();
-
-      const m = summaryText.match(/\b(?:marke\/thema|marke|markenname)\s*:\s*([^\n\r]{2,80})/i);
-      if (!m?.[1]) return "";
-
-      const rest = m[1].trim();
-      const cleaned = rest.replace(/^anmeldung\s+der\s+marke\s+/i, "").trim();
-      return cleaned;
+      const blacklist = ["markenrecht", "markenanmeldung", "markenschutz", "nizza", "klasse", "recherche", "beratung", "anmeldung", "namensfindung", "wortmarke", "bildmarke", "marke", "logo", "schutz"];
+      
+      // Einfach: Finde JEDEN Namen in Anführungszeichen
+      const allQuoted = Array.from(summaryText.matchAll(/["'„""‚'']([^"'„""‚''\n\r]{2,40})["'„""‚'']/gi));
+      for (const match of allQuoted) {
+        const name = match[1].trim();
+        if (name.length >= 2 && !blacklist.some(b => name.toLowerCase().includes(b))) {
+          return name;
+        }
+      }
+      
+      // Fallback: Namen in Klammern
+      const inParens = summaryText.match(/\(([A-Z][a-zA-ZäöüÄÖÜß]{2,30})\)/);
+      if (inParens?.[1]) {
+        const name = inParens[1].trim();
+        if (!blacklist.some(b => name.toLowerCase().includes(b))) return name;
+      }
+      
+      return "";
     };
 
     const extractClassesFromSummary = (): number[] => {
       const m = summaryText.match(/\bklasse(?:n)?\s*:?\s*([^\n\r]{1,80})/i);
       if (!m?.[1]) return [];
       const nums = Array.from(m[1].matchAll(/\b(\d{1,2})\b/g)).map((x) => Number(x[1]));
-      return nums.filter((n) => Number.isFinite(n) && n >= 1 && n <= 45);
+      const valid = nums.filter((n) => Number.isFinite(n) && n >= 1 && n <= 45);
+      return [...new Set(valid)]; // Duplikate entfernen
     };
 
     const extractCountriesFromSummary = (): string[] => {
@@ -752,7 +965,8 @@ export default function CasePage() {
       : "";
 
     const nameFromCase = String(caseRecord?.trademarkName || "").trim();
-    const name = nameFromDecisions || nameFromCase || extractNameFromSummary();
+    // Priorität: React State > Decisions > Case > Summary
+    const name = manualNameInput || nameFromDecisions || nameFromCase || extractNameFromSummary();
 
     const classesFromDecisions = Array.isArray(decision?.niceClasses)
       ? decision.niceClasses
@@ -760,13 +974,19 @@ export default function CasePage() {
           .filter((n: any) => Number.isFinite(n) && n >= 1 && n <= 45)
       : [];
 
-    const classes = classesFromDecisions.length > 0 ? classesFromDecisions : extractClassesFromSummary();
+    // Priorität: React State > Decisions > Summary
+    const classes = rechercheForm.niceClasses.length > 0 
+      ? rechercheForm.niceClasses 
+      : (classesFromDecisions.length > 0 ? classesFromDecisions : extractClassesFromSummary());
 
     const countriesFromDecisions = Array.isArray(decision?.countries)
       ? decision.countries.map((c: any) => String(c || "").trim()).filter(Boolean)
       : [];
 
-    const countries = countriesFromDecisions.length > 0 ? countriesFromDecisions : extractCountriesFromSummary();
+    // Priorität: React State > Decisions > Summary
+    const countries = rechercheForm.countries.length > 0 
+      ? rechercheForm.countries 
+      : (countriesFromDecisions.length > 0 ? countriesFromDecisions : extractCountriesFromSummary());
 
     const countryLabelByCode = new Map(
       COUNTRY_OPTIONS.map((c) => [String(c.code || "").toUpperCase(), String(c.label || "")])
@@ -778,6 +998,56 @@ export default function CasePage() {
         return countryLabelByCode.get(upper) || upper;
       })
       .filter(Boolean);
+
+    // Markenart extrahieren - einfache Logik
+    const extractTrademarkTypeFromSummary = (): string => {
+      // Prüfe ob es nur eine Frage ist (endet mit ? oder enthält "ob", "soll", "möchtest")
+      const isQuestion = /\?\s*$/.test(summaryText) || 
+        /\b(ob|soll|möchtest|welche variante)\b.*\b(wortmarke|bildmarke)/i.test(summaryLower);
+      
+      // Wenn Frage und keine klare Entscheidung, ignorieren
+      if (isQuestion && !/\b(entscheid|gewählt|gehen wir mit|möchte die|möchte)\b/i.test(summaryLower)) {
+        return "";
+      }
+      
+      // Priorität: Wort-/Bildmarke zuerst
+      if (/wort-?\/?\s*bildmarke/i.test(summaryLower)) return "wort-bildmarke";
+      
+      // Zähle Vorkommen - die häufigere gewinnt
+      const bildCount = (summaryLower.match(/\bbildmarke\b/gi) || []).length;
+      const wortCount = (summaryLower.match(/\bwortmarke\b/gi) || []).length;
+      
+      if (bildCount > 0 && wortCount > 0) {
+        // Beide erwähnt - prüfe welche zuerst in "Marke/Thema:" steht
+        const themaLine = summaryLower.match(/marke\/thema[^-\n]*/i)?.[0] || "";
+        if (themaLine.includes("bildmarke")) return "bildmarke";
+        if (themaLine.includes("wortmarke")) return "wortmarke";
+        // Fallback: die häufigere
+        return bildCount >= wortCount ? "bildmarke" : "wortmarke";
+      }
+      
+      if (bildCount > 0) return "bildmarke";
+      if (wortCount > 0) return "wortmarke";
+      
+      return "";
+    };
+
+    const typeFromDecisions = String(decision?.trademarkType || "").trim();
+    const typeFromSummary = extractTrademarkTypeFromSummary();
+    
+    // Markenart gilt nur als "erfüllt" wenn:
+    // 1. Aus Decisions vorhanden ODER
+    // 2. User hat explizit gewählt (isTrademarkTypeConfirmed) ODER
+    // 3. Aus Zusammenfassung erkannt
+    const isTypeConfirmed = !!typeFromDecisions || isTrademarkTypeConfirmed || !!typeFromSummary;
+    const detectedType = typeFromDecisions || (isTrademarkTypeConfirmed ? trademarkType : "") || typeFromSummary;
+    
+    const typeLabel = isTypeConfirmed 
+      ? (detectedType === "wortmarke" ? "Wortmarke" 
+        : detectedType === "bildmarke" ? "Bildmarke" 
+        : detectedType === "wort-bildmarke" ? "Wort-/Bildmarke" 
+        : "")
+      : "";
 
     const chip = (label: string, value: string, missing: boolean) => (
       <span
@@ -795,6 +1065,7 @@ export default function CasePage() {
     return (
       <div className="flex flex-wrap gap-1.5 justify-end">
         {chip("Marke", truncateText(name, 28), !name)}
+        {chip("Art", typeLabel, !typeLabel)}
         {chip(
           "Klassen",
           classes.length > 0 ? formatList(classes.map(String), 5) : "",
@@ -807,7 +1078,7 @@ export default function CasePage() {
         )}
       </div>
     );
-  }, [data?.case, data?.consultation?.summary, data?.decisions, sessionSummary]);
+  }, [data?.case, data?.consultation?.summary, data?.decisions, sessionSummary, trademarkType, isTrademarkTypeConfirmed, manualNameInput, rechercheForm.niceClasses, rechercheForm.countries]);
 
   useEffect(() => {
     const applyHash = () => {
@@ -1259,6 +1530,7 @@ export default function CasePage() {
       });
       
       if (response.ok) {
+        // Chat-Nachrichten und Zusammenfassung löschen
         setSessionMessages([]);
         setSessionSummary(null);
         setMessagesLoaded(false);
@@ -1268,6 +1540,18 @@ export default function CasePage() {
           clearTimeout(summaryDebounceTimeoutRef.current);
           summaryDebounceTimeoutRef.current = null;
         }
+        
+        // Alle Beratungs-relevanten States zurücksetzen
+        setManualNameInput("");
+        setTrademarkType("wortmarke");
+        setIsTrademarkTypeConfirmed(false);
+        setRechercheForm({
+          trademarkName: "",
+          countries: [],
+          niceClasses: [],
+          includeRelatedNiceClasses: true,
+        });
+        
         mutate();
       }
     } catch (err) {
@@ -2241,26 +2525,6 @@ export default function CasePage() {
     }
   };
 
-  // Helper: Render "Weiter zum nächsten Schritt" button
-  const renderNextStepButton = (currentStepId: WorkflowStepId, nextStepId: WorkflowStepId, nextStepLabel: string) => {
-    return (
-      <div className="mt-6 pt-4 border-t border-gray-200">
-        <div className="flex justify-end">
-          <button
-            onClick={() => {
-              void setStepStatus(currentStepId, "completed");
-              setTimeout(() => handleToggleAccordion(nextStepId), 200);
-            }}
-            className="w-full sm:w-auto px-4 py-3 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors flex items-center justify-center gap-2"
-          >
-            Weiter zu {nextStepLabel}
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   const renderBeratungContent = () => {
     const isComplete = isStepComplete("beratung");
     
@@ -2319,6 +2583,38 @@ export default function CasePage() {
             previousMessages={sessionMessages}
             previousSummary={(sessionSummary || consultation?.summary) || undefined}
             onDelete={handleDeleteConsultation}
+            title="KI-Markenberater"
+            subtitle="Erstberatung für deine Marke"
+            systemPromptAddition={`
+DEIN ZIEL: Hilf dem Kunden, alle 4 Kriterien für die Markenanmeldung zu klären.
+
+CHECKLISTE (geh diese Punkte locker der Reihe nach durch):
+1. MARKENNAME - Wie soll die Marke heißen?
+2. MARKENART - Wortmarke, Bildmarke oder Wort-/Bildmarke?
+3. NIZZA-KLASSEN - Welche Waren/Dienstleistungen sollen geschützt werden?
+4. LÄNDER - In welchen Ländern soll die Marke geschützt werden?
+
+AKTUELLER STAND (NUR DIESE WERTE ZÄHLEN - NICHT DIE ZUSAMMENFASSUNG!):
+- Markenname: ${manualNameInput || "⚠️ FEHLT NOCH"}
+- Markenart: ${isTrademarkTypeConfirmed ? (trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke") : "⚠️ FEHLT NOCH"}
+- Klassen: ${rechercheForm.niceClasses?.length > 0 ? rechercheForm.niceClasses.join(", ") : "⚠️ FEHLT NOCH"}
+- Länder: ${rechercheForm.countries?.length > 0 ? rechercheForm.countries.join(", ") : "⚠️ FEHLT NOCH"}
+
+KRITISCH: Du darfst NUR sagen "wir sind durch" wenn ALLE 4 Punkte oben KEINE "⚠️ FEHLT NOCH" haben!
+
+WICHTIGE REGELN:
+- Geh locker vor, KEIN Druck! Der Kunde kann unsicher sein
+- Frag immer nur EINE Sache auf einmal
+- Erkläre kurz warum jeder Punkt wichtig ist
+- Bei Unsicherheit: Gib Beispiele oder hilf bei der Entscheidung
+- WENN DU AUF VORHERIGE GESPRÄCHE BEZUG NIMMST: Nenne ALLE Details vollständig (alle Klassen, alle Länder, etc.) - nicht nur einen Teil!
+
+WENN ALLE 4 KRITERIEN ERFÜLLT SIND:
+- Bei BILDMARKE oder WORT-/BILDMARKE: Sag "Perfekt! Sollen wir jetzt dein Logo erstellen? Ich kann dich zum Logo-Bereich weiterleiten."
+- Bei WORTMARKE: Sag "Super! Sollen wir prüfen ob der Name noch frei ist? Ich kann dich zur Recherche weiterleiten."
+
+WICHTIG: Wenn der Kunde mit JA antwortet, sage genau: "Alles klar, ich leite dich weiter!" - Das System erkennt diese Phrase und wechselt automatisch.
+`}
           />
         </div>
 
@@ -2385,6 +2681,7 @@ export default function CasePage() {
                   <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
                     <p className="text-sm text-teal-800 whitespace-pre-wrap leading-relaxed">{sessionSummary}</p>
                   </div>
+                  
                   {sessionMessages.length > 0 && (
                     <div className="text-xs text-gray-500 text-center">
                       Basierend auf {sessionMessages.length} Nachrichten
@@ -2394,7 +2691,7 @@ export default function CasePage() {
               ) : sessionMessages.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   <FileDown className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-sm">Führen Sie ein Gespräch mit Klaus. Die Zusammenfassung wird automatisch erstellt.</p>
+                  <p className="text-sm">Starte ein Gespräch. Die Zusammenfassung wird automatisch erstellt.</p>
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
@@ -2404,24 +2701,9 @@ export default function CasePage() {
                 </div>
               )}
             </div>
-
-            {/* Footer with Next Step Button */}
-            <div className="p-4 border-t border-gray-200">
-              <div className="flex justify-end">
-                <button
-                  onClick={() => {
-                    void setStepStatus("beratung", "completed");
-                    setTimeout(() => handleToggleAccordion("markenname"), 200);
-                  }}
-                  className="w-full sm:w-[320px] py-3 px-4 s-gradient-button text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  Weiter zu Markenname
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
           </div>
         </div>
+
       </div>
     );
   };
@@ -2491,9 +2773,6 @@ export default function CasePage() {
             </button>
           )}
         </div>
-
-        {/* Weiter-Button */}
-        {renderNextStepButton("kommunikation", "ueberwachung", "Überwachung")}
       </div>
     );
   };
@@ -2563,9 +2842,6 @@ export default function CasePage() {
             </button>
           )}
         </div>
-
-        {/* Weiter-Button */}
-        {renderNextStepButton("ueberwachung", "fristen", "Fristen")}
       </div>
     );
   };
@@ -2741,326 +3017,230 @@ export default function CasePage() {
     const hasValidationErrors = trademarkNameMissing || countriesMissing || classesMissing;
 
     return (
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:min-h-[400px] flex flex-col">
-        {/* Header Banner */}
-        <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
-              <Search className="w-5 h-5 text-white" />
-            </div>
-            <div className="min-w-0">
-              <div className="font-semibold text-sm truncate">Recherche</div>
-              <div className="text-xs text-white/85 truncate">Markenrecherche starten</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={openTMSearchDebug}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/15 hover:bg-white/20 text-white text-sm font-medium transition-colors"
-              title="tmsearch API Rohantwort anzeigen"
-            >
-              <Info className="w-4 h-4" />
-              API
-            </button>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Widget 1: KI-Berater */}
+        <OpenAIVoiceAssistant
+          ref={rechercheVoiceRef}
+          caseId={caseId}
+          onMessageSent={(msg) => setRechercheMessages((prev) => [...prev, msg])}
+          previousMessages={rechercheMessages}
+          title="KI-Rechercheberater"
+          subtitle="Hilfe bei der Markenrecherche"
+          systemPromptAddition={`
+Du bist ein freundlicher KI-Berater für Markenrecherche. Sprich den Kunden per DU an.
 
-        {/* Content Area */}
-        <div className="flex-1 p-6">
-          <div className="space-y-6">
-            {/* Validation Info Box */}
-            {(hasValidationErrors || (!rechercheForm.trademarkName && rechercheForm.countries.length === 0 && baseNiceClasses.length === 0)) && (
-              <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <HelpCircle className="w-4 h-4 text-teal-600" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-teal-800 mb-2">Bitte füllen Sie alle Felder aus:</div>
-                    <ul className="space-y-1">
-                      <li className={`flex items-center gap-2 text-sm ${trademarkNameMissing || !rechercheForm.trademarkName ? "text-teal-700" : "text-teal-600"}`}>
-                        {rechercheForm.trademarkName ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <X className="w-4 h-4 text-teal-400" />
-                        )}
-                        <span>Markenname eingeben</span>
-                      </li>
-                      <li className={`flex items-center gap-2 text-sm ${countriesMissing || rechercheForm.countries.length === 0 ? "text-teal-700" : "text-teal-600"}`}>
-                        {rechercheForm.countries.length > 0 ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <X className="w-4 h-4 text-teal-400" />
-                        )}
-                        <span>Mindestens ein Land / Register auswählen</span>
-                      </li>
-                      <li className={`flex items-center gap-2 text-sm ${classesMissing || baseNiceClasses.length === 0 ? "text-teal-700" : "text-teal-600"}`}>
-                        {baseNiceClasses.length > 0 ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <X className="w-4 h-4 text-teal-400" />
-                        )}
-                        <span>Mindestens eine Nizza-Klasse auswählen</span>
-                      </li>
-                    </ul>
-                  </div>
+AKTUELLER STAND:
+- Markenname: ${rechercheForm.trademarkName || "noch nicht festgelegt"}
+- Länder: ${rechercheForm.countries?.length > 0 ? rechercheForm.countries.join(", ") : "noch nicht ausgewählt"}
+- Nizza-Klassen: ${baseNiceClasses.length > 0 ? baseNiceClasses.join(", ") : "noch nicht ausgewählt"}
+- Markenart: ${trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke"}
+
+DEINE AUFGABEN:
+1. Erkläre was eine Markenrecherche ist und warum sie wichtig ist
+2. Hilf bei der Auswahl der richtigen Länder/Register
+3. Erkläre die Nizza-Klassifikation und hilf bei der Auswahl
+4. Erkläre den Unterschied zwischen nationaler, EU- und WIPO-Recherche
+5. Beantworte Fragen zu verwandten Klassen
+
+WICHTIGE REGELN:
+- EU-Marken gelten in allen 27 EU-Ländern
+- WIPO-Recherche deckt internationale Registrierungen ab
+- Verwandte Klassen prüfen erhöht die Sicherheit
+- Je mehr Klassen, desto teurer die Anmeldung
+`}
+        />
+
+        {/* Widget 2: Schnellfragen */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                <Zap className="w-5 h-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-sm truncate">Schnellfragen</div>
+                <div className="text-xs text-white/85 truncate">Hilfe zur Recherche</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {[
+              { category: "RECHERCHE", questions: [
+                "Was ist eine Markenrecherche?",
+                "Warum sollte ich recherchieren?",
+                "Was kostet eine Recherche?",
+              ]},
+              { category: "LÄNDER", questions: [
+                "Welche Länder sollte ich wählen?",
+                "Was ist der Unterschied EU vs. national?",
+                "Wann brauche ich WIPO?",
+              ]},
+              { category: "KLASSEN", questions: [
+                "Wie finde ich die richtige Klasse?",
+                "Was sind verwandte Klassen?",
+                "Wie viele Klassen brauche ich?",
+              ]},
+            ].map((cat) => (
+              <div key={cat.category}>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  {cat.category}
+                </div>
+                <div className="space-y-1">
+                  {cat.questions.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => rechercheVoiceRef.current?.sendQuestion(q)}
+                      className="w-full text-left px-3 py-2 text-sm text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
+                    >
+                      {q}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
-
-            {rechercheFormSaveError && (
-              <div className="px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-                {rechercheFormSaveError}
-              </div>
-            )}
-
-            {/* Markenname Input */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Markenname</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  value={rechercheForm.trademarkName}
-                  onChange={(e) => setRechercheForm((prev) => ({ ...prev, trademarkName: e.target.value }))}
-                  placeholder="z.B. TechFlow, BrandX..."
-                  className={`w-full h-11 pl-10 pr-4 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 transition-all ${
-                    trademarkNameMissing
-                      ? "border-red-300 focus:ring-red-100 focus:border-red-400"
-                      : "border-gray-200 focus:ring-gray-100 focus:border-gray-300"
-                  }`}
-                />
-              </div>
-            </div>
-
-            {/* Two Column Dropdowns */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Countries Dropdown */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Länder / Register</label>
-                <button
-                  type="button"
-                  onClick={() => setCountriesOpen(true)}
-                  className={`w-full h-11 px-4 border rounded-lg text-sm bg-white text-left flex items-center justify-between focus:outline-none focus:ring-2 transition-all ${
-                    countriesMissing
-                      ? "border-red-300 focus:ring-red-100 focus:border-red-400"
-                      : "border-gray-200 focus:ring-teal-100 focus:border-teal-300 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Globe className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className={`truncate ${rechercheForm.countries.length ? "text-gray-900" : "text-gray-400"}`}>
-                      {rechercheForm.countries.length 
-                        ? `${rechercheForm.countries.length} ausgewählt` 
-                        : "Länder / Register auswählen"}
-                    </span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                </button>
-                {rechercheForm.countries.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {rechercheForm.countries.slice(0, 5).map((c) => (
-                      <span
-                        key={c}
-                        className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs rounded-md font-medium border border-teal-200"
-                      >
-                        {c}
-                        <button
-                          type="button"
-                          className="text-teal-500 hover:text-teal-700"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRechercheForm((prev) => ({
-                              ...prev,
-                              countries: prev.countries.filter((x) => x !== c),
-                            }));
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                    {rechercheForm.countries.length > 5 && (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-md font-medium">
-                        +{rechercheForm.countries.length - 5} weitere
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Nizza Classes Dropdown */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nizza-Klassifikation</label>
-                <button
-                  type="button"
-                  onClick={() => setClassesOpen(true)}
-                  className={`w-full h-11 px-4 border rounded-lg text-sm bg-white text-left flex items-center justify-between focus:outline-none focus:ring-2 transition-all ${
-                    classesMissing
-                      ? "border-red-300 focus:ring-red-100 focus:border-red-400"
-                      : "border-gray-200 focus:ring-teal-100 focus:border-teal-300 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Tag className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className={`truncate ${baseNiceClasses.length ? "text-gray-900" : "text-gray-400"}`}>
-                      {baseNiceClasses.length 
-                        ? (isAllClassesSelected ? "Alle Klassen" : `${baseNiceClasses.length} Klassen ausgewählt`)
-                        : "Nizza-Klassen auswählen"}
-                    </span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                </button>
-                {baseNiceClasses.length > 0 && !isAllClassesSelected && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {baseNiceClasses.slice(0, 8).map((c) => (
-                      <span
-                        key={c}
-                        className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs rounded-md font-medium border border-teal-200"
-                      >
-                        Klasse {c}
-                        <button
-                          type="button"
-                          className="text-teal-500 hover:text-teal-700"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRechercheForm((prev) => ({
-                              ...prev,
-                              niceClasses: (prev.niceClasses || []).filter((x) => Number(x) !== c),
-                            }));
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                    {baseNiceClasses.length > 8 && (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-md font-medium">
-                        +{baseNiceClasses.length - 8} weitere
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Related Classes Checkbox */}
-                {baseNiceClasses.length > 0 && !isAllClassesSelected && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={!!rechercheForm.includeRelatedNiceClasses}
-                        onChange={(e) => setRechercheForm((prev) => ({ ...prev, includeRelatedNiceClasses: e.target.checked }))}
-                        className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 focus:ring-offset-0"
-                      />
-                      <span className="text-sm text-gray-700">Auch verwandte Klassen prüfen</span>
-                      <span className="text-[10px] px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded font-medium">empfohlen</span>
-                    </label>
-                    
-                    {rechercheForm.includeRelatedNiceClasses && relatedClasses.length > 0 && (
-                      <div className="mt-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs text-gray-500">Verwandt:</span>
-                          {relatedClasses.map((c) => (
-                            <span
-                              key={c}
-                              className="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs rounded border border-amber-200 font-medium"
-                            >
-                              {c}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="text-[11px] text-gray-400 mt-2">
-                          Findet Konflikte in Klassen mit typischen Überschneidungen bei Waren/Dienstleistungen
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Markenart Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Markenart</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { value: "wortmarke", label: "Wortmarke" },
-                  { value: "wort-bildmarke", label: "Wort-/Bildmarke" },
-                  { value: "bildmarke", label: "Bildmarke" },
-                ].map((type) => (
-                  <button
-                    key={type.value}
-                    type="button"
-                    onClick={() => setTrademarkType(type.value as "wortmarke" | "wort-bildmarke" | "bildmarke")}
-                    className={`p-3 rounded-lg border text-center transition-all ${
-                      trademarkType === type.value
-                        ? "border-teal-500 bg-teal-50 ring-1 ring-teal-500"
-                        : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className={`text-sm font-semibold ${trademarkType === type.value ? "text-teal-700" : "text-gray-800"}`}>
-                      {type.label}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {rechercheStartError && (
-              <div className="px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{rechercheStartError}</span>
-              </div>
-            )}
+            ))}
           </div>
         </div>
 
-        {/* Footer with Buttons */}
-        <div className="p-4 border-t border-gray-200 bg-white space-y-2">
-          {liveAnalysisError && (
-            <div className="px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm mb-2">
-              {liveAnalysisError}
+        {/* Widget 3: Recherche-Felder */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                <Search className="w-5 h-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-sm truncate">Recherche</div>
+                <div className="text-xs text-white/85 truncate">Parameter festlegen</div>
+              </div>
             </div>
-          )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => void startRechercheFromForm()}
-              disabled={isSavingRechercheForm || isStartingRecherche || isRunningLiveAnalysis}
-              className="py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isSavingRechercheForm ? (
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Markenname */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Markenname</label>
+              <input
+                value={rechercheForm.trademarkName}
+                onChange={(e) => setRechercheForm((prev) => ({ ...prev, trademarkName: e.target.value }))}
+                placeholder="z.B. TechFlow, BrandX..."
+                className={`w-full px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 ${
+                  trademarkNameMissing ? "border-red-300 focus:ring-red-100" : "border-gray-200 focus:ring-teal-100"
+                }`}
+              />
+            </div>
+
+            {/* Länder */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Länder / Register</label>
+              <button
+                type="button"
+                onClick={() => setCountriesOpen(true)}
+                className={`w-full px-3 py-2 border rounded-lg text-sm bg-white text-left flex items-center justify-between ${
+                  countriesMissing ? "border-red-300" : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <span className={rechercheForm.countries.length ? "text-gray-900" : "text-gray-400"}>
+                  {rechercheForm.countries.length ? `${rechercheForm.countries.length} ausgewählt` : "Auswählen..."}
+                </span>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+              {rechercheForm.countries.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {rechercheForm.countries.slice(0, 4).map((c) => (
+                    <span key={c} className="px-1.5 py-0.5 bg-teal-50 text-teal-700 text-xs rounded border border-teal-200">
+                      {c}
+                    </span>
+                  ))}
+                  {rechercheForm.countries.length > 4 && (
+                    <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                      +{rechercheForm.countries.length - 4}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Nizza-Klassen */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Nizza-Klassen</label>
+              <button
+                type="button"
+                onClick={() => setClassesOpen(true)}
+                className={`w-full px-3 py-2 border rounded-lg text-sm bg-white text-left flex items-center justify-between ${
+                  classesMissing ? "border-red-300" : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <span className={baseNiceClasses.length ? "text-gray-900" : "text-gray-400"}>
+                  {baseNiceClasses.length ? (isAllClassesSelected ? "Alle Klassen" : `${baseNiceClasses.length} Klassen`) : "Auswählen..."}
+                </span>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+              {baseNiceClasses.length > 0 && !isAllClassesSelected && (
                 <>
-                  <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-600 rounded-full animate-spin" />
-                  <span>Speichere...</span>
-                </>
-              ) : isStartingRecherche ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-600 rounded-full animate-spin" />
-                  <span>Starte...</span>
-                </>
-              ) : (
-                <>
-                  <Search className="w-4 h-4" />
-                  <span>Recherche speichern</span>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {baseNiceClasses.slice(0, 6).map((c) => (
+                      <span key={c} className="px-1.5 py-0.5 bg-teal-50 text-teal-700 text-xs rounded border border-teal-200">
+                        {c}
+                      </span>
+                    ))}
+                    {baseNiceClasses.length > 6 && (
+                      <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                        +{baseNiceClasses.length - 6}
+                      </span>
+                    )}
+                  </div>
+                  <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!rechercheForm.includeRelatedNiceClasses}
+                      onChange={(e) => setRechercheForm((prev) => ({ ...prev, includeRelatedNiceClasses: e.target.checked }))}
+                      className="w-3.5 h-3.5 rounded border-gray-300 text-teal-600"
+                    />
+                    <span className="text-xs text-gray-600">Verwandte Klassen prüfen</span>
+                  </label>
                 </>
               )}
-            </button>
+            </div>
+
+            {/* Markenart */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Markenart</label>
+              <select
+                value={trademarkType}
+                onChange={(e) => { setTrademarkType(e.target.value as any); setIsTrademarkTypeConfirmed(true); }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-100"
+              >
+                <option value="wortmarke">Wortmarke</option>
+                <option value="wort-bildmarke">Wort-/Bildmarke</option>
+                <option value="bildmarke">Bildmarke</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Footer: Buttons */}
+          <div className="p-3 border-t border-gray-200 bg-gray-50 space-y-2">
+            {(liveAnalysisError || rechercheStartError) && (
+              <div className="px-2 py-1.5 bg-red-50 border border-red-200 text-red-700 rounded text-xs">
+                {liveAnalysisError || rechercheStartError}
+              </div>
+            )}
             <button
               type="button"
               onClick={() => void startLiveAnalysis()}
               disabled={isSavingRechercheForm || isStartingRecherche || isRunningLiveAnalysis}
-              className="py-3 px-4 s-gradient-button text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-2.5 px-4 s-gradient-button text-sm font-medium rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isRunningLiveAnalysis ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Analysiere mit KI...</span>
+                  <span>Analysiere...</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>KI-Risikoanalyse starten</span>
+                  <span>Recherche starten</span>
                 </>
               )}
             </button>
@@ -3099,570 +3279,519 @@ export default function CasePage() {
           </button>
         </div>
 
-        {/* Tab 1: Markenname */}
+        {/* Tab 1: Markenname - 3-Widget Layout */}
         {markennameTab === "markenname" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left: Input Area */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
-                <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
-                      <MessageCircle className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-sm truncate">Markenname</div>
-                      <div className="text-xs text-white/85 truncate">Name und Markenart festlegen</div>
-                    </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Widget 1: KI-Berater */}
+            <OpenAIVoiceAssistant
+              ref={markennameVoiceRef}
+              caseId={caseId}
+              onMessageSent={(msg) => setMarkennameMessages((prev) => [...prev, msg])}
+              previousMessages={markennameMessages}
+              title="KI-Namensberater"
+              subtitle="Beratung zu Markenname & -art"
+              systemPromptAddition={`
+Du bist ein freundlicher KI-Berater für Markennamen und Markenarten. Sprich den Kunden per DU an.
+
+AKTUELLER STAND:
+- Markenname: ${manualNameInput || "noch nicht festgelegt"}
+- Markenart: ${trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke"}
+
+DEINE AUFGABEN:
+1. Berate den Kunden bei der Wahl des richtigen Markennamens
+2. Erkläre die Unterschiede zwischen Wortmarke, Bildmarke und Wort-/Bildmarke
+3. Prüfe ob der Name schutzfähig ist (keine beschreibenden Begriffe, keine Gattungsbezeichnungen)
+4. Warne vor typischen Fehlern (zu generisch, beschreibend, irreführend)
+5. Gib Tipps für starke, unterscheidungskräftige Namen
+
+WICHTIGE REGELN:
+- Wortmarke: Nur Text, keine Grafik - flexibelste Variante
+- Bildmarke: Nur Grafik, kein Text - gut für Logos
+- Wort-/Bildmarke: Kombination - Schutz nur für exakte Kombination
+- Beschreibende Namen (z.B. "Schnell-Lieferung") sind nicht schutzfähig
+- Fantasienamen (z.B. "Zalando") haben stärksten Schutz
+`}
+            />
+
+            {/* Widget 2: Schnellfragen */}
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">Schnellfragen</div>
+                    <div className="text-xs text-white/85 truncate">Häufige Fragen zu Markennamen</div>
                   </div>
                 </div>
+              </div>
 
-                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-                  <div className="p-4 flex flex-col gap-4">
-                    <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
-                      <div className="text-xs font-semibold text-teal-700 mb-2">Übernommener Name aus Beratung</div>
-                      <input
-                        type="text"
-                        value={manualNameInput}
-                        onChange={(e) => setManualNameInput(e.target.value)}
-                        placeholder="Markenname eingeben"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300"
-                      />
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {[
+                  { category: "SCHUTZFÄHIGKEIT", questions: [
+                    "Ist mein Name schutzfähig?",
+                    "Was macht einen Namen schutzfähig?",
+                    "Welche Namen sind nicht erlaubt?",
+                  ]},
+                  { category: "MARKENART", questions: [
+                    "Welche Markenart passt zu mir?",
+                    "Was ist der Unterschied?",
+                    "Wann brauche ich eine Bildmarke?",
+                  ]},
+                  { category: "TIPPS", questions: [
+                    "Wie finde ich einen starken Namen?",
+                    "Was sind typische Fehler?",
+                    "Fantasiename vs. beschreibend?",
+                  ]},
+                ].map((cat) => (
+                  <div key={cat.category}>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      {cat.category}
                     </div>
-
-                    <div className="bg-white border border-gray-200 rounded-lg p-3">
-                      <div className="text-xs font-semibold text-gray-700 mb-2">Markenart</div>
-                      <div className="space-y-2">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="trademarkType"
-                            value="wortmarke"
-                            checked={trademarkType === "wortmarke"}
-                            onChange={(e) => setTrademarkType(e.target.value as any)}
-                            className="w-4 h-4 text-gray-600 focus:ring-2 focus:ring-gray-200 focus:ring-offset-0"
-                          />
-                          <span className="text-sm text-gray-700">Wortmarke</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="trademarkType"
-                            value="wort-bildmarke"
-                            checked={trademarkType === "wort-bildmarke"}
-                            onChange={(e) => setTrademarkType(e.target.value as any)}
-                            className="w-4 h-4 text-gray-600 focus:ring-2 focus:ring-gray-200 focus:ring-offset-0"
-                          />
-                          <span className="text-sm text-gray-700">Wort-/Bildmarke</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="trademarkType"
-                            value="bildmarke"
-                            checked={trademarkType === "bildmarke"}
-                            onChange={(e) => setTrademarkType(e.target.value as any)}
-                            className="w-4 h-4 text-gray-600 focus:ring-2 focus:ring-gray-200 focus:ring-offset-0"
-                          />
-                          <span className="text-sm text-gray-700">Bildmarke</span>
-                        </label>
-                      </div>
+                    <div className="space-y-1">
+                      {cat.questions.map((q) => (
+                        <button
+                          key={q}
+                          type="button"
+                          onClick={() => markennameVoiceRef.current?.sendQuestion(q)}
+                          className="w-full text-left px-3 py-2 text-sm text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
+                        >
+                          {q}
+                        </button>
+                      ))}
                     </div>
-
-                    {(trademarkType === "wort-bildmarke" || trademarkType === "bildmarke") && (
-                      <div className="bg-white border border-gray-200 rounded-lg p-3">
-                        <div className="text-xs font-semibold text-gray-700 mb-2">
-                          {trademarkType === "bildmarke" ? "Bildmarke hochladen" : "Logo/Bildanteil"}
-                        </div>
-                        
-                        {imageUploadError && (
-                          <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs">
-                            {imageUploadError}
-                          </div>
-                        )}
-
-                        <div className="space-y-2">
-                          <label className="block">
-                            <input
-                              type="file"
-                              accept="image/png,image/jpeg,image/jpg,image/svg+xml"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                if (file.size > 5 * 1024 * 1024) {
-                                  setImageUploadError("Datei zu groß (max. 5 MB)");
-                                  return;
-                                }
-                                setImageUploadError(null);
-                                setTrademarkImageFile(file);
-                                const url = URL.createObjectURL(file);
-                                setTrademarkImageUrl(url);
-                              }}
-                              className="hidden"
-                              id="trademark-image-upload"
-                            />
-                            <div className="cursor-pointer px-4 py-3 bg-gray-50 hover:bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-700 text-center transition-colors">
-                              Bild hochladen (.png, .jpg, .svg)
-                            </div>
-                          </label>
-
-                          <button
-                            type="button"
-                            onClick={() => setShowLogoGeneratorModal(true)}
-                            className="w-full px-4 py-3 s-gradient-button text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
-                          >
-                            <Sparkles className="w-4 h-4" />
-                            KI-Logo generieren
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
-                </div>
-
-                <div className="p-4 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      alert(`Marke gespeichert:\nName: ${manualNameInput}\nTyp: ${trademarkType}`);
-                    }}
-                    disabled={!manualNameInput.trim()}
-                    className="w-full py-3 px-4 s-gradient-button text-sm rounded-lg transition-colors"
-                  >
-                    Speichern
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
 
-            {/* Right: Large Preview */}
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
-                <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
-                      <Eye className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-sm truncate">Vorschau</div>
-                      <div className="text-xs text-white/85 truncate">
-                        {trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke"}
-                      </div>
-                    </div>
+            {/* Widget 3: Markenname + Vorschau */}
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                    <Eye className="w-5 h-5 text-white" />
                   </div>
-                </div>
-
-                <div className="flex-1 min-h-0 flex items-center justify-center p-8 bg-gray-50">
-                  <div className="text-center">
-                    {trademarkType === "wortmarke" && (
-                      <div className="text-5xl font-bold text-gray-900">
-                        {manualNameInput || "Markenname"}
-                      </div>
-                    )}
-
-                    {trademarkType === "bildmarke" && (
-                      <>
-                        {trademarkImageUrl ? (
-                          <img
-                            src={trademarkImageUrl}
-                            alt="Bildmarke preview"
-                            className="max-w-full max-h-80 object-contain mx-auto"
-                          />
-                        ) : (
-                          <div className="text-gray-400 text-lg">
-                            Bild hochladen um Vorschau zu sehen
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {trademarkType === "wort-bildmarke" && (
-                      <div className="flex flex-col items-center gap-4">
-                        {trademarkImageUrl ? (
-                          <img
-                            src={trademarkImageUrl}
-                            alt="Logo preview"
-                            className="max-w-full max-h-48 object-contain"
-                          />
-                        ) : (
-                          <div className="w-32 h-32 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-xs">
-                            Logo fehlt
-                          </div>
-                        )}
-                        <div className="text-4xl font-bold text-gray-900">
-                          {manualNameInput || "Markenname"}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Footer with Next Step Button */}
-                <div className="p-4 border-t border-gray-200">
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => {
-                        void setStepStatus("markenname", "completed");
-                        setTimeout(() => handleToggleAccordion("recherche"), 200);
-                      }}
-                      className="w-full sm:w-[320px] py-3 px-4 s-gradient-button text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                      Weiter zu Recherche
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">Vorschau</div>
+                    <div className="text-xs text-white/85 truncate">
+                      {trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke"}
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Oben: Name + Dropdown */}
+              <div className="p-3 border-b border-gray-200 bg-gray-50">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={manualNameInput}
+                    onChange={(e) => setManualNameInput(e.target.value)}
+                    placeholder="Markenname eingeben"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300"
+                  />
+                  <select
+                    value={trademarkType}
+                    onChange={(e) => { setTrademarkType(e.target.value as any); setIsTrademarkTypeConfirmed(true); }}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300"
+                  >
+                    <option value="wortmarke">Wortmarke</option>
+                    <option value="wort-bildmarke">Wort-/Bildmarke</option>
+                    <option value="bildmarke">Bildmarke</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Mitte: Vorschau */}
+              <div className="flex-1 min-h-[200px] flex items-center justify-center p-6 bg-white">
+                <div className="text-center">
+                  {trademarkType === "wortmarke" && (
+                    <div className="text-3xl font-bold text-gray-900">
+                      {manualNameInput || "Markenname"}
+                    </div>
+                  )}
+
+                  {trademarkType === "bildmarke" && (
+                    <>
+                      {trademarkImageUrl ? (
+                        <img
+                          src={trademarkImageUrl}
+                          alt="Bildmarke preview"
+                          className="max-w-full max-h-40 object-contain mx-auto"
+                        />
+                      ) : (
+                        <div className="text-gray-400 text-sm">
+                          Bild hochladen um Vorschau zu sehen
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {trademarkType === "wort-bildmarke" && (
+                    <div className="flex flex-col items-center gap-2">
+                      {trademarkImageUrl ? (
+                        <img
+                          src={trademarkImageUrl}
+                          alt="Logo preview"
+                          className="max-w-full max-h-24 object-contain"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-300">
+                          Logo
+                        </div>
+                      )}
+                      <div className="text-2xl font-bold text-gray-900">
+                        {manualNameInput || "Markenname"}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Unten: Buttons für Bild-Upload (nur bei Bild-/Wort-Bildmarke) */}
+              {(trademarkType === "wort-bildmarke" || trademarkType === "bildmarke") && (
+                <div className="p-3 border-t border-gray-200 bg-gray-50">
+                  {imageUploadError && (
+                    <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs">
+                      {imageUploadError}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowLogoGeneratorModal(true)}
+                      className="flex-1 px-3 py-2.5 s-gradient-button text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      KI-Logo generieren
+                    </button>
+                    <label className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 5 * 1024 * 1024) {
+                            setImageUploadError("Datei zu groß (max. 5 MB)");
+                            return;
+                          }
+                          setImageUploadError(null);
+                          setTrademarkImageFile(file);
+                          const url = URL.createObjectURL(file);
+                          setTrademarkImageUrl(url);
+                        }}
+                        className="hidden"
+                      />
+                      <div className="cursor-pointer px-3 py-2.5 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-700 text-center transition-colors flex items-center justify-center gap-2">
+                        <Upload className="w-4 h-4" />
+                        Bild hochladen
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Tab 2: Markengenerator */}
+        {/* Tab 2: Markengenerator - 3-Widget Layout */}
         {markennameTab === "generator" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left: Generator */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
-                <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
-                      <Sparkles className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-sm truncate">Marken-Generator</div>
-                      <div className="text-xs text-white/85 truncate">KI-gestützte Namensvorschläge</div>
-                    </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Widget 1: KI-Berater */}
+            <OpenAIVoiceAssistant
+              ref={markennameVoiceRef}
+              caseId={caseId}
+              onMessageSent={(msg) => setMarkennameMessages((prev) => [...prev, msg])}
+              previousMessages={markennameMessages}
+              title="KI-Namensberater"
+              subtitle="Hilfe beim Generieren"
+              systemPromptAddition={`
+Du bist ein freundlicher KI-Berater für kreative Markennamen. Sprich den Kunden per DU an.
+
+AKTUELLER STAND:
+- Basis-Name: ${manualNameInput || "noch nicht festgelegt"}
+- Stil: ${generatorStyle === "similar" ? "Ähnlich" : generatorStyle === "modern" ? "Modern" : generatorStyle === "creative" ? "Kreativ" : "Seriös"}
+- Keywords: ${generatorKeywords || "keine"}
+- Shortlist: ${shortlist.length} Namen
+
+DEINE AUFGABEN:
+1. Hilf dem Kunden kreative Markennamen zu finden
+2. Erkläre die verschiedenen Namens-Stile (ähnlich, modern, kreativ, seriös)
+3. Gib Tipps für gute Keywords
+4. Bewerte Namen auf der Shortlist hinsichtlich Schutzfähigkeit
+
+WICHTIGE REGELN:
+- Ähnlich: Namen die dem Original ähneln
+- Modern: Zeitgemäße, trendige Namen
+- Kreativ: Ungewöhnliche, auffällige Namen
+- Seriös: Professionelle, vertrauenswürdige Namen
+`}
+            />
+
+            {/* Widget 2: Schnellfragen */}
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">Schnellfragen</div>
+                    <div className="text-xs text-white/85 truncate">Tipps für den Generator</div>
                   </div>
                 </div>
+              </div>
 
-                <div className="flex-1 min-h-0 flex flex-col p-4 gap-3">
-                  {/* Settings Section */}
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Tag className="w-4 h-4 text-gray-500" />
-                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Stil & Keywords</span>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {[
+                  { category: "STIL", questions: [
+                    "Welcher Stil passt zu meiner Branche?",
+                    "Was ist der Unterschied zwischen den Stilen?",
+                    "Wann sollte ich 'Ähnlich' wählen?",
+                  ]},
+                  { category: "KEYWORDS", questions: [
+                    "Welche Keywords sind sinnvoll?",
+                    "Wie viele Keywords sollte ich eingeben?",
+                    "Kann ich mehrere Sprachen mischen?",
+                  ]},
+                  { category: "AUSWAHL", questions: [
+                    "Wie wähle ich den besten Namen?",
+                    "Was macht einen Namen einzigartig?",
+                    "Sollte ich mehrere Namen testen?",
+                  ]},
+                ].map((cat) => (
+                  <div key={cat.category}>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      {cat.category}
                     </div>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-2">
-                        {(["similar", "modern", "creative", "serious"] as const).map((style) => (
-                          <button
-                            key={style}
-                            type="button"
-                            onClick={() => setGeneratorStyle(style)}
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                              generatorStyle === style
-                                ? "bg-teal-600 text-white shadow-sm"
-                                : "bg-white border border-gray-200 text-gray-700 hover:border-teal-300 hover:bg-teal-50"
-                            }`}
-                          >
-                            {style === "similar" ? "Ähnlich" : style === "modern" ? "Modern" : style === "creative" ? "Kreativ" : "Seriös"}
-                          </button>
-                        ))}
-                      </div>
-                      <input
-                        value={generatorKeywords}
-                        onChange={(e) => setGeneratorKeywords(e.target.value)}
-                        placeholder="Keywords eingeben (optional)"
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-300 transition-all"
-                      />
+                    <div className="space-y-1">
+                      {cat.questions.map((q) => (
+                        <button
+                          key={q}
+                          type="button"
+                          onClick={() => markennameVoiceRef.current?.sendQuestion(q)}
+                          className="w-full text-left px-3 py-2 text-sm text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
+                        >
+                          {q}
+                        </button>
+                      ))}
                     </div>
                   </div>
+                ))}
+              </div>
+            </div>
 
-                  {/* Generate Button */}
+            {/* Widget 3: Generator + Shortlist */}
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">Generator</div>
+                    <div className="text-xs text-white/85 truncate">KI-Namensvorschläge</div>
+                  </div>
+                </div>
+                {shortlist.length > 0 && (
+                  <span className="text-xs font-medium text-white/90 bg-white/20 px-2 py-0.5 rounded-full">
+                    {shortlist.length} in Shortlist
+                  </span>
+                )}
+              </div>
+
+              {/* Oben: Stil-Dropdown + Keywords */}
+              <div className="p-3 border-b border-gray-200 bg-gray-50">
+                <div className="flex gap-2 mb-2">
+                  <select
+                    value={generatorStyle}
+                    onChange={(e) => setGeneratorStyle(e.target.value as any)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-200"
+                  >
+                    <option value="similar">Ähnlich</option>
+                    <option value="modern">Modern</option>
+                    <option value="creative">Kreativ</option>
+                    <option value="serious">Seriös</option>
+                  </select>
                   <button
                     type="button"
                     onClick={generateSuggestions}
                     disabled={isGeneratingNames || !manualNameInput.trim()}
-                    className="w-full py-3.5 px-4 s-gradient-button text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="px-4 py-2 s-gradient-button text-sm rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
                   >
                     {isGeneratingNames ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        <span>Generiere Vorschläge...</span>
-                      </>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
-                      <>
-                        <Sparkles className="w-4 h-4" />
-                        <span>Vorschläge generieren</span>
-                      </>
+                      <Sparkles className="w-4 h-4" />
                     )}
+                    Generieren
                   </button>
-
-                  {nameGenError && (
-                    <div className="flex items-center gap-2 px-3 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs">
-                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                      <span>{nameGenError}</span>
-                    </div>
-                  )}
-
-                  {/* Suggestions Section */}
-                  <div className="flex-1 min-h-0 bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                          Vorschläge
-                        </span>
-                        {nameSuggestions.length > 0 && (
-                          <span className="text-xs font-medium text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
-                            {nameSuggestions.length} Namen
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {nameSuggestions.length > 0 ? (
-                      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-2">
-                        <div className="space-y-1.5">
-                          {nameSuggestions.map((s) => {
-                            const isInShortlist = shortlist.some((x) => x.name === s.name);
-                            return (
-                              <div
-                                key={s.name}
-                                className={`group flex items-center justify-between p-3 rounded-lg transition-all ${
-                                  isInShortlist
-                                    ? "bg-teal-50 border border-teal-200"
-                                    : "bg-gray-50 hover:bg-gray-100 border border-transparent"
-                                }`}
-                              >
-                                <div className="min-w-0 flex-1">
-                                  <div className="font-medium text-sm text-gray-900">{s.name}</div>
-                                  {s.explanation && (
-                                    <div className="text-xs text-gray-500 mt-0.5 line-clamp-1">{s.explanation}</div>
-                                  )}
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (isInShortlist) return;
-                                    setShortlist((prev) => [
-                                      {
-                                        name: s.name,
-                                        riskLevel: "unknown" as const,
-                                        riskScore: 0,
-                                        conflicts: 0,
-                                        criticalCount: 0,
-                                      },
-                                      ...prev,
-                                    ].slice(0, 10));
-                                  }}
-                                  disabled={isInShortlist}
-                                  className={`ml-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                    isInShortlist
-                                      ? "bg-teal-100 text-teal-600 cursor-default"
-                                      : "bg-white border border-gray-200 text-gray-700 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 shadow-sm"
-                                  }`}
-                                >
-                                  {isInShortlist ? (
-                                    <>
-                                      <Check className="w-3 h-3" />
-                                      <span>Hinzugefügt</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <span>Zur Shortlist</span>
-                                      <ChevronDown className="w-3 h-3 rotate-[-90deg]" />
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                          <Sparkles className="w-6 h-6 text-gray-400" />
-                        </div>
-                        <div className="text-sm font-medium text-gray-600 mb-1">Keine Vorschläge</div>
-                        <div className="text-xs text-gray-400">
-                          Klicke auf „Vorschläge generieren" um KI-basierte Namensideen zu erhalten
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
+                <input
+                  value={generatorKeywords}
+                  onChange={(e) => setGeneratorKeywords(e.target.value)}
+                  placeholder="Keywords eingeben (optional)"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-100"
+                />
               </div>
-            </div>
 
-            {/* Right: Shortlist */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
-                <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
-                      <CheckCircle className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-sm truncate">Shortlist</div>
-                      <div className="text-xs text-white/85 truncate">Ausgewählte Namen prüfen</div>
-                    </div>
+              {/* Mitte: Vorschläge + Shortlist */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-3">
+                {nameGenError && (
+                  <div className="mb-2 flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{nameGenError}</span>
                   </div>
-                  {shortlist.length > 0 && (
-                    <span className="text-xs font-medium text-white/90 bg-white/20 px-2 py-0.5 rounded-full">
-                      {shortlist.length}
-                    </span>
-                  )}
-                </div>
+                )}
 
-                <div className="flex-1 min-h-0 flex flex-col">
-                  {shortlist.length > 0 ? (
-                    <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-3">
-                      <div className="space-y-2">
-                        {shortlist.map((item) => (
+                {/* Vorschläge */}
+                {nameSuggestions.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center justify-between">
+                      <span>Vorschläge</span>
+                      <span className="text-teal-600">{nameSuggestions.length}</span>
+                    </div>
+                    <div className="space-y-1">
+                      {nameSuggestions.slice(0, 5).map((s) => {
+                        const isInShortlist = shortlist.some((x) => x.name === s.name);
+                        return (
                           <div
-                            key={item.name}
-                            className={`p-3 rounded-lg border transition-all ${
-                              item.riskLevel === "low"
-                                ? "bg-green-50 border-green-200"
-                                : item.riskLevel === "medium"
-                                ? "bg-orange-50 border-orange-200"
-                                : item.riskLevel === "high"
-                                ? "bg-red-50 border-red-200"
-                                : "bg-white border-gray-200 hover:border-gray-300"
+                            key={s.name}
+                            className={`flex items-center justify-between p-2 rounded-lg text-sm ${
+                              isInShortlist ? "bg-teal-50 border border-teal-200" : "bg-gray-50 hover:bg-gray-100"
                             }`}
                           >
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div className="font-medium text-sm text-gray-900">{item.name}</div>
+                            <span className="font-medium text-gray-900 truncate">{s.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isInShortlist) return;
+                                setShortlist((prev) => [
+                                  { name: s.name, riskLevel: "unknown" as const, riskScore: 0, conflicts: 0, criticalCount: 0 },
+                                  ...prev,
+                                ].slice(0, 10));
+                              }}
+                              disabled={isInShortlist}
+                              className={`ml-2 px-2 py-1 rounded text-xs ${
+                                isInShortlist ? "text-teal-600" : "text-gray-500 hover:text-teal-600"
+                              }`}
+                            >
+                              {isInShortlist ? <Check className="w-3 h-3" /> : "+"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Shortlist */}
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center justify-between">
+                    <span>Shortlist</span>
+                    <span className="text-gray-400">{shortlist.length}/10</span>
+                  </div>
+                  {shortlist.length > 0 ? (
+                    <div className="space-y-1">
+                      {shortlist.map((item) => (
+                        <div
+                          key={item.name}
+                          className={`flex items-center justify-between p-2 rounded-lg text-sm ${
+                            item.riskLevel === "low" ? "bg-green-50" :
+                            item.riskLevel === "medium" ? "bg-orange-50" :
+                            item.riskLevel === "high" ? "bg-red-50" : "bg-white border border-gray-200"
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium text-gray-900">{item.name}</span>
+                            {item.riskLevel !== "unknown" && (
+                              <span className={`ml-2 text-xs ${
+                                item.riskLevel === "low" ? "text-green-600" :
+                                item.riskLevel === "medium" ? "text-orange-600" : "text-red-600"
+                              }`}>
+                                {item.riskScore}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {item.riskLevel === "unknown" && (
                               <button
                                 type="button"
-                                onClick={() => setShortlist((prev) => prev.filter((x) => x.name !== item.name))}
-                                className="text-gray-400 hover:text-red-500 transition-colors p-0.5"
+                                onClick={() => quickCheckName(item.name)}
+                                disabled={isCheckingManualName}
+                                className="px-2 py-1 text-xs text-teal-600 hover:bg-teal-50 rounded"
                               >
-                                <X className="w-4 h-4" />
+                                Prüfen
                               </button>
-                            </div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {item.riskLevel === "unknown" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => quickCheckName(item.name)}
-                                  disabled={isCheckingManualName}
-                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-teal-600 text-white rounded-md text-xs font-medium hover:bg-teal-700 transition-colors disabled:opacity-50"
-                                >
-                                  {isCheckingManualName ? (
-                                    <>
-                                      <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                      <span>Prüfe...</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Search className="w-3 h-3" />
-                                      <span>Quick-Check</span>
-                                    </>
-                                  )}
-                                </button>
-                              ) : (
-                                <>
-                                  <span
-                                    className={`text-xs font-semibold px-2 py-1 rounded-md ${
-                                      item.riskLevel === "low"
-                                        ? "bg-green-100 text-green-700"
-                                        : item.riskLevel === "medium"
-                                        ? "bg-orange-100 text-orange-700"
-                                        : "bg-red-100 text-red-700"
-                                    }`}
-                                  >
-                                    {item.riskLevel === "low" ? "✓ Niedriges Risiko" : item.riskLevel === "medium" ? "⚠ Mittleres Risiko" : "✕ Hohes Risiko"}
-                                  </span>
-                                  <span className="text-xs text-gray-500">
-                                    {item.riskScore}% · {item.conflicts} Konflikte
-                                  </span>
-                                </>
-                              )}
-                            </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setShortlist((prev) => prev.filter((x) => x.name !== item.name))}
+                              className="p-1 text-gray-400 hover:text-red-500"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                      <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                        <CheckCircle className="w-6 h-6 text-gray-400" />
-                      </div>
-                      <div className="text-sm font-medium text-gray-600 mb-1">Shortlist leer</div>
-                      <div className="text-xs text-gray-400 max-w-[200px]">
-                        Füge Namen aus dem Generator hinzu oder gib sie unten manuell ein
-                      </div>
+                    <div className="text-center py-4 text-xs text-gray-400">
+                      Füge Namen zur Shortlist hinzu
                     </div>
                   )}
-
-                  {/* Manual Add Section */}
-                  <div className="p-3 border-t border-gray-100 bg-gray-50/50">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Name manuell eingeben..."
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-300 transition-all"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            const input = e.currentTarget;
-                            const name = input.value.trim();
-                            if (!name) return;
-                            if (shortlist.some((x) => x.name === name)) return;
-                            setShortlist((prev) => [
-                              {
-                                name,
-                                riskLevel: "unknown" as const,
-                                riskScore: 0,
-                                conflicts: 0,
-                                criticalCount: 0,
-                              },
-                              ...prev,
-                            ].slice(0, 10));
-                            input.value = "";
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                          const name = input?.value?.trim();
-                          if (!name) return;
-                          if (shortlist.some((x) => x.name === name)) return;
-                          setShortlist((prev) => [
-                            {
-                              name,
-                              riskLevel: "unknown" as const,
-                              riskScore: 0,
-                              conflicts: 0,
-                              criticalCount: 0,
-                            },
-                              ...prev,
-                            ].slice(0, 10));
-                            input.value = "";
-                          }}
-                          className="px-3 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 transition-colors font-medium"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                  {/* Footer with Research Button */}
-                  <div className="p-4 border-t border-gray-200 bg-white">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs text-gray-500">
-                        {shortlist.filter((s) => s.riskLevel !== "unknown").length} von {shortlist.length} geprüft
-                      </span>
-                      {shortlist.length > 0 && shortlist.every((s) => s.riskLevel !== "unknown") && (
-                        <span className="text-xs font-medium text-green-600 flex items-center gap-1">
-                          <Check className="w-3 h-3" />
-                          Alle geprüft
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setOpenAccordion("recherche")}
-                      disabled={shortlist.length === 0}
-                      className="w-full py-3 px-4 s-gradient-button text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      <span>Zur Recherche</span>
-                      <ChevronDown className="w-4 h-4 rotate-[-90deg]" />
-                    </button>
-                  </div>
                 </div>
+              </div>
+
+              {/* Unten: Manuell hinzufügen + Weiter */}
+              <div className="p-3 border-t border-gray-200 bg-gray-50 space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Name manuell eingeben..."
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-100"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const input = e.currentTarget;
+                        const name = input.value.trim();
+                        if (!name || shortlist.some((x) => x.name === name)) return;
+                        setShortlist((prev) => [
+                          { name, riskLevel: "unknown" as const, riskScore: 0, conflicts: 0, criticalCount: 0 },
+                          ...prev,
+                        ].slice(0, 10));
+                        input.value = "";
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                      const name = input?.value?.trim();
+                      if (!name || shortlist.some((x) => x.name === name)) return;
+                      setShortlist((prev) => [
+                        { name, riskLevel: "unknown" as const, riskScore: 0, conflicts: 0, criticalCount: 0 },
+                        ...prev,
+                      ].slice(0, 10));
+                      input.value = "";
+                    }}
+                    className="px-3 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700"
+                  >
+                    +
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenAccordion("recherche")}
+                  disabled={shortlist.length === 0}
+                  className="w-full py-2.5 px-4 s-gradient-button text-sm font-medium rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  Zur Recherche
+                  <ChevronDown className="w-4 h-4 rotate-[-90deg]" />
+                </button>
               </div>
             </div>
           </div>
@@ -4191,9 +4320,6 @@ export default function CasePage() {
               Klassen/Länder anpassen
             </button>
           </div>
-
-          {/* Weiter-Button */}
-          {renderNextStepButton("analyse", "ueberpruefung", "Checkliste")}
         </div>
       );
     }
@@ -4393,7 +4519,22 @@ export default function CasePage() {
 
               {/* Buttons */}
               <div className="flex flex-col gap-2 mt-2">
-                {allCompleted && s.status !== "completed" && renderNextStepButton("ueberpruefung", "anmeldung", "Anmeldung")}
+                {allCompleted && s.status !== "completed" && (
+                  <button
+                    onClick={() => {
+                      void setStepStatus("ueberpruefung", "completed");
+                      setTimeout(() => handleToggleAccordion("anmeldung"), 300);
+                    }}
+                    disabled={isBusy}
+                    className={
+                      isBusy
+                        ? "w-full px-4 py-3 bg-teal-200 text-white rounded-lg text-sm font-medium cursor-not-allowed"
+                        : "w-full px-4 py-3 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
+                    }
+                  >
+                    {isBusy ? "Speichere…" : "Weiter zur Anmeldung →"}
+                  </button>
+                )}
 
                 {!allCompleted && (
                   <button
@@ -4425,70 +4566,239 @@ export default function CasePage() {
     const s = getStepStatus("anmeldung");
     const isBusy = isUpdatingStep === "anmeldung";
 
+    // Schnellfragen für Anmeldung
+    const anmeldungQuickQuestions = [
+      { category: "EUIPO (EU-MARKE)", questions: [
+        "Was ist eine EU-Marke?",
+        "Kann ich beim EUIPO selbst anmelden?",
+        "Was kostet eine EU-Marke?",
+        "Welche Länder deckt die EU-Marke ab?",
+      ]},
+      { category: "WIPO / MADRID", questions: [
+        "Was ist das Madrid-System?",
+        "Wann lohnt sich eine WIPO-Anmeldung?",
+        "Brauche ich eine Basismarke?",
+        "Welche Länder sind Mitglied?",
+      ]},
+      { category: "BENELUX (BOIP)", questions: [
+        "Was ist die Benelux-Marke?",
+        "Deckt sie BE, NL, LU ab?",
+        "Kann ich dort selbst anmelden?",
+      ]},
+      { category: "VERTRETER", questions: [
+        "Wann brauche ich einen Vertreter?",
+        "Was kostet ein Vertreter?",
+        "Kann ich trotzdem selbst anmelden?",
+      ]},
+      { category: "KOSTEN", questions: [
+        "Was kostet die Anmeldung insgesamt?",
+        "Welche Gebühren gibt es?",
+        "Wie berechnen sich Klassengebühren?",
+      ]},
+      { category: "MÄNGELBESCHEIDE", questions: [
+        "Was ist ein Mängelbescheid?",
+        "Wie vermeide ich Mängelbescheide?",
+        "Was passiert bei Ablehnung?",
+      ]},
+    ];
+
+    // Kontext für KI-Anmeldungsberater
+    const anmeldungContext = {
+      trademarkName: data?.case?.trademarkName || manualNameInput || "",
+      trademarkType: trademarkType,
+      niceClasses: rechercheForm.niceClasses || [],
+      selectedCountries: rechercheForm.countries || [],
+      hasConflicts: false, // TODO: aus Recherche-Ergebnissen
+    };
+
     return (
       <div className="space-y-4">
-        {stepUpdateError && (
-          <div className="px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-            {stepUpdateError}
-          </div>
-        )}
+        {/* 3-Widget Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          
+          {/* Widget 1: KI-Anmeldungsberater */}
+          <OpenAIVoiceAssistant
+            ref={anmeldungVoiceRef}
+            caseId={caseId}
+            onMessageSent={(msg) => setAnmeldungMessages((prev) => [...prev, msg])}
+            previousMessages={anmeldungMessages}
+            title="KI-Anmeldungsberater"
+            subtitle="Sprachgesteuerte Anmeldeberatung"
+            systemPromptAddition={`
+Du bist ein freundlicher KI-Anmeldungsberater für Markenanmeldungen. Sprich den Kunden per DU an.
 
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="text-sm font-semibold text-gray-900 mb-1">Anmeldung vorbereiten (Mock)</div>
-          <div className="text-xs text-gray-500 mb-3">Nächste Schritte für die formale Einreichung.</div>
-          {renderChecklist("anmeldung", [
-            { key: "applicant_data", label: "Anmeldedaten (Inhaber, Adresse, Vertreter) zusammenstellen" },
-            { key: "goods_services", label: "Waren- & Dienstleistungsverzeichnis finalisieren" },
-            { key: "filing_plan", label: "Einreichung planen (DPMA/EUIPO/WIPO) und Gebühren prüfen" },
-          ])}
+KONTEXT DES KUNDEN:
+- Markenname: ${anmeldungContext.trademarkName || "noch nicht festgelegt"}
+- Markentyp: ${anmeldungContext.trademarkType === "wortmarke" ? "Wortmarke" : anmeldungContext.trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke"}
+- Nizza-Klassen: ${anmeldungContext.niceClasses.length > 0 ? anmeldungContext.niceClasses.join(", ") : "noch nicht festgelegt"}
+- Gewünschte Länder: ${anmeldungContext.selectedCountries.length > 0 ? anmeldungContext.selectedCountries.join(", ") : "noch nicht festgelegt"}
+
+DEINE AUFGABEN:
+1. Berate den Kunden zur optimalen Anmeldestrategie
+2. Erkläre die Unterschiede zwischen nationaler Anmeldung, EUIPO (EU-Marke), WIPO Madrid (internationale Registrierung), Benelux (BOIP)
+3. Informiere über Vertreter-Pflicht: 
+   - Selbstanmeldung möglich bei: EUIPO, WIPO, Schweiz, UK, Australien, Kanada, Norwegen, EU-Länder (für EU-Bürger)
+   - Vertreter erforderlich bei: USA (für Ausländer), China, Russland, Indien, und viele andere
+4. Berechne ungefähre Kosten und empfehle die günstigste Route
+5. Warne vor Mängelbescheiden und erkläre, wie man sie vermeidet (präzise Klassifizierung)
+
+WICHTIGE REGELN:
+- Bei mehreren Ländern: Prüfe ob WIPO Madrid sinnvoller ist als einzelne nationale Anmeldungen
+- WIPO braucht eine Basismarke (z.B. DE oder EU)
+- Erkläre immer die Vor- und Nachteile jeder Option
+- Gib konkrete Kostenbeispiele
+`}
+          />
+
+          {/* Widget 2: Schnellfragen */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">Schnellfragen</div>
+                  <div className="text-xs text-white/85 truncate">Häufige Fragen sofort beantwortet</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[400px]">
+              {anmeldungQuickQuestions.map((cat) => (
+                <div key={cat.category}>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    {cat.category}
+                  </div>
+                  <div className="space-y-1">
+                    {cat.questions.map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => anmeldungVoiceRef.current?.sendQuestion(q)}
+                        className="w-full text-left px-3 py-2 text-sm text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Widget 3: Anmeldestrategie */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">Anmeldestrategie</div>
+                  <div className="text-xs text-white/85 truncate">Automatisch aus dem Gespräch erstellt</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex-1 p-4 space-y-4 overflow-y-auto max-h-[400px]">
+              {/* Placeholder, Lade-Indikator oder Strategie */}
+              {isGeneratingStrategy ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="w-16 h-16 rounded-full bg-teal-100 flex items-center justify-center mb-4 animate-pulse">
+                    <BarChart3 className="w-8 h-8 text-teal-600" />
+                  </div>
+                  <p className="text-sm text-teal-600 font-medium">
+                    Strategie wird generiert...
+                  </p>
+                </div>
+              ) : !anmeldungStrategy ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                    <FileText className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-sm text-gray-500 max-w-[200px]">
+                    Starte ein Gespräch. Die Zusammenfassung wird automatisch erstellt.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
+                    <div className="text-xs font-semibold text-teal-800 mb-2">EMPFOHLENE ROUTE</div>
+                    <div className="text-sm font-medium text-teal-900">{anmeldungStrategy.route}</div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {anmeldungStrategy.steps.map((step, idx) => (
+                      <div key={idx} className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span>{step.icon}</span>
+                          <span className="text-sm font-medium">Schritt {idx + 1}: {step.country}</span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {step.office} • {step.selfRegister ? "Selbstanmeldung" : "Vertreter"} • {step.cost} €
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="bg-teal-100 border border-teal-300 rounded-lg p-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-semibold text-teal-800">Geschätzte Gesamtkosten</span>
+                      <span className="text-lg font-bold text-teal-900">~{anmeldungStrategy.totalCost} €</span>
+                    </div>
+                  </div>
+
+                  {anmeldungStrategy.hints.length > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="text-xs text-amber-700 space-y-1">
+                          {anmeldungStrategy.hints.map((hint, idx) => (
+                            <div key={idx}><strong>Hinweis:</strong> {hint}</div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-2 space-y-2">
+                    <button
+                      type="button"
+                      className="w-full px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FileDown className="w-4 h-4" />
+                      Als PDF exportieren
+                    </button>
+                    <button
+                      type="button"
+                      className="w-full px-4 py-3 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
+                    >
+                      Anmeldung starten →
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          {s.status === "pending" && (
-            <button
-              onClick={() => setStepStatus("anmeldung", "in_progress")}
-              disabled={isBusy}
-              className={
-                isBusy
-                  ? "px-4 py-2 bg-teal-200 text-white rounded-lg text-sm font-medium cursor-not-allowed"
-                  : "px-4 py-2 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
-              }
-            >
-              {isBusy ? "Speichere…" : "Anmeldung starten"}
-            </button>
-          )}
-
-          {s.status !== "completed" && (
+        {/* Abschließen Button */}
+        {s.status !== "completed" && (
+          <div className="flex justify-end">
             <button
               onClick={() => setStepStatus("anmeldung", "completed")}
               disabled={isBusy}
               className={
                 isBusy
-                  ? "px-4 py-2 bg-teal-200 text-white rounded-lg text-sm font-medium cursor-not-allowed"
-                  : "px-4 py-2 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
+                  ? "px-6 py-3 bg-teal-200 text-white rounded-lg text-sm font-medium cursor-not-allowed"
+                  : "px-6 py-3 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
               }
             >
-              {isBusy ? "Speichere…" : "Als abgeschlossen markieren"}
+              {isBusy ? "Speichere…" : "Anmeldung abschließen ✓"}
             </button>
-          )}
-
-          {s.status !== "skipped" && (
-            <button
-              onClick={() => skipStep("anmeldung")}
-              disabled={isBusy}
-              className={
-                isBusy
-                  ? "px-4 py-2 bg-gray-200 text-gray-600 rounded-lg text-sm font-medium cursor-not-allowed"
-                  : "px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-              }
-            >
-              Überspringen
-            </button>
-          )}
-        </div>
-
-        {/* Weiter-Button */}
-        {renderNextStepButton("anmeldung", "kommunikation", "Kommunikation")}
+          </div>
+        )}
       </div>
     );
   };

@@ -23,10 +23,13 @@ interface OpenAIVoiceAssistantProps {
   onDelete?: () => void;
   previousMessages?: Message[];
   previousSummary?: string;
+  title?: string;
+  subtitle?: string;
+  systemPromptAddition?: string;
 }
 
 const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssistantProps>(
-  ({ caseId, onMessageSent, onDelete, previousMessages = [], previousSummary }, ref) => {
+  ({ caseId, onMessageSent, onDelete, previousMessages = [], previousSummary, title, subtitle, systemPromptAddition }, ref) => {
     const [isConnected, setIsConnected] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
@@ -207,7 +210,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
         const tokenResponse = await fetch("/api/openai-realtime/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ previousSummary, currentConversation })
+          body: JSON.stringify({ previousSummary, currentConversation, systemPromptAddition })
         });
 
         if (!tokenResponse.ok) {
@@ -253,6 +256,25 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
               setTimeout(() => sendTextMessage(q), idx * 500);
             });
             pendingQuestionsRef.current = [];
+          } else if (messages.length === 0) {
+            // Sofortige Begrüßung wenn keine vorherigen Nachrichten
+            const greeting = {
+              type: "response.create",
+              response: {
+                modalities: ["text", "audio"],
+                instructions: "Begrüße den Kunden freundlich per Du. Sag 'Hallo!' oder 'Guten Tag!' und frag kurz wie du helfen kannst. Maximal 1 Satz. Nenne NICHT deinen Namen. Sei freundlich und professionell, nicht zu jugendlich."
+              }
+            };
+            dc.send(JSON.stringify(greeting));
+          } else {
+            // Beratung fortsetzen - sende einfache Aufforderung, System-Prompt hat bereits den Kontext
+            const continuation = {
+              type: "response.create",
+              response: {
+                modalities: ["text", "audio"]
+              }
+            };
+            dc.send(JSON.stringify(continuation));
           }
         };
 
@@ -305,6 +327,13 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
         }
 
         const answerSdp = await sdpResponse.text();
+        
+        // Prüfe ob Verbindung noch offen ist bevor setRemoteDescription
+        if (pc.signalingState === "closed") {
+          console.warn("RTCPeerConnection already closed, aborting");
+          return;
+        }
+        
         await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
         setIsConnected(true);
       } catch (err) {
@@ -401,7 +430,11 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
       ignorePreviousMessagesRef.current = true;
       setMessages([]);
       onDelete?.();
-    }, [disconnect, onDelete]);
+      // Automatisch neue Sitzung starten nach kurzer Verzögerung
+      setTimeout(() => {
+        startSession(inputMode);
+      }, 300);
+    }, [disconnect, onDelete, startSession, inputMode]);
 
     return (
       <div className="relative flex flex-col h-full bg-white rounded-lg border border-gray-200">
@@ -417,8 +450,8 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
               <Mic className="w-5 h-5 text-white" />
             </button>
             <div className="min-w-0">
-              <div className="font-semibold text-sm truncate">KI-Markenberater</div>
-              <div className="text-xs text-white/85 truncate">Sprachgesteuerte Beratung</div>
+              <div className="font-semibold text-sm truncate">{title || "KI-Markenberater"}</div>
+              <div className="text-xs text-white/85 truncate">{subtitle || "Sprachgesteuerte Beratung"}</div>
             </div>
           </div>
 
@@ -468,7 +501,18 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <Phone className="w-10 h-10 mb-3 text-gray-300" />
               <p className="text-sm text-center leading-relaxed">
-                Klicken Sie auf "{previousMessages.length > 0 ? 'Beratung fortsetzen' : 'Beratung starten'}" um mit Klaus zu sprechen.
+                Klick auf "{previousMessages.length > 0 ? 'Beratung fortsetzen' : 'Beratung starten'}" um loszulegen.
+              </p>
+            </div>
+          )}
+
+          {messages.length === 0 && isConnected && !assistantResponse && (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500">
+              <div className="w-12 h-12 mb-3 rounded-full bg-teal-100 flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+              <p className="text-sm text-center text-teal-600 font-medium">
+                Einen Moment...
               </p>
             </div>
           )}
