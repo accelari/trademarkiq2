@@ -36,6 +36,7 @@ import {
   MoreVertical,
   Phone,
   Zap,
+  Image as ImageIcon,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
@@ -809,95 +810,299 @@ export default function CasePage() {
   }, [anmeldungMessages.length, generateAnmeldungStrategy]);
 
   // Automatischer Akkordeon-Wechsel wenn Assistent weiterleitet
+  const lastRedirectMsgIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (sessionMessages.length < 2) return;
     
     const lastMessage = sessionMessages[sessionMessages.length - 1];
     if (lastMessage?.role !== "assistant") return;
     
+    // Verhindere doppelte Weiterleitung
+    if (lastMessage.id === lastRedirectMsgIdRef.current) return;
+    
     const content = (lastMessage.content || "").toLowerCase();
     
     // Erkennung der Weiterleitung
     if (content.includes("leite dich weiter") || content.includes("leite ich dich weiter")) {
+      lastRedirectMsgIdRef.current = lastMessage.id;
+      
       // Bestimme Ziel basierend auf Markenart
       const targetAccordion = (trademarkType === "bildmarke" || trademarkType === "wort-bildmarke") 
         ? "markenname" 
         : "recherche";
       
+      console.log("Weiterleitung zu:", targetAccordion, "Markenart:", trademarkType);
+      
       // Wechsle nach kurzer Verzögerung
       setTimeout(() => {
         setOpenAccordion(targetAccordion);
+        // URL-Hash setzen für Stabilität
+        window.location.hash = `#${targetAccordion}`;
         // Scrolle zum Akkordeon
-        const el = document.getElementById(`accordion-${targetAccordion}`);
-        el?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 1500);
+        setTimeout(() => {
+          const el = document.getElementById(`accordion-${targetAccordion}`);
+          el?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+      }, 2000);
     }
   }, [sessionMessages, trademarkType]);
 
-  // Auto-Sync: Extrahierte Daten aus Zusammenfassung in Formulare übertragen
+  // Daten-Extraktion erfolgt jetzt NUR über Chat-Trigger [MARKE:...], [KLASSEN:...], etc.
+  // Zusammenfassungs-Extraktion entfernt - konsistent mit Markenname und Recherche
+
+  // Wenn Beratung abgeschlossen und User zu Markenname wechselt, übertrage Nachrichten
   useEffect(() => {
-    const summaryText = String(sessionSummary || data?.consultation?.summary || "");
-    if (!summaryText) return;
+    if (openAccordion === "markenname" && sessionMessages.length > 0 && markennameMessages.length === 0) {
+      const beratungStatus = data?.steps?.beratung?.status;
+      if (beratungStatus === "completed" || sessionMessages.length >= 2) {
+        setMarkennameMessages(sessionMessages);
+      }
+    }
+  }, [openAccordion, sessionMessages, markennameMessages.length, data?.steps?.beratung?.status]);
+
+  // Trigger-Erkennung für BERATUNG (sessionMessages)
+  const lastProcessedBeratungMsgIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (sessionMessages.length === 0) return;
+    const lastMsg = sessionMessages[sessionMessages.length - 1];
+    if (lastMsg?.role !== "assistant") return;
+    if (lastMsg.id === lastProcessedBeratungMsgIdRef.current) return;
     
-    const summaryLower = summaryText.toLowerCase();
-    const blacklist = ["markenrecht", "markenanmeldung", "markenschutz", "nizza", "klasse", "recherche", "beratung", "anmeldung", "namensfindung", "wortmarke", "bildmarke", "marke", "logo", "schutz"];
+    const content = lastMsg.content || "";
+    let hasAction = false;
     
-    // Einfache Extraktion: Suche nach "Marke:", "Art:", "Klassen:", "Länder:"
-    
-    // MARKE: Alles nach "Marke:" bis Zeilenende
-    const markeMatch = summaryText.match(/^Marke:\s*(.+)$/m);
+    // [MARKE:Name] - Markenname ändern (auch ins Recherche-Formular!)
+    const markeMatch = content.match(/\[MARKE:([^\]]+)\]/);
     if (markeMatch?.[1]) {
+      hasAction = true;
       const name = markeMatch[1].trim();
-      if (name && name.length >= 2 && !blacklist.some(b => name.toLowerCase().includes(b))) {
-        if (!manualNameInput) {
-          setManualNameInput(name);
-          setRechercheForm(prev => ({ ...prev, trademarkName: prev.trademarkName || name }));
-        }
-      }
+      setManualNameInput(name);
+      setRechercheForm(prev => ({ ...prev, trademarkName: name }));
     }
     
-    // ART: Alles nach "Art:" bis Zeilenende - IMMER aus Zusammenfassung übernehmen
-    const artMatch = summaryText.match(/^Art:\s*(.+)$/m);
-    if (artMatch?.[1]) {
-      const art = artMatch[1].trim().toLowerCase();
-      if (art.includes("wort") && art.includes("bild")) {
-        setTrademarkType("wort-bildmarke");
-        setIsTrademarkTypeConfirmed(true);
-      } else if (art.includes("bild")) {
-        setTrademarkType("bildmarke");
-        setIsTrademarkTypeConfirmed(true);
-      } else if (art.includes("wort")) {
-        setTrademarkType("wortmarke");
-        setIsTrademarkTypeConfirmed(true);
-      }
-    }
-    
-    // KLASSEN: Alles nach "Klassen:" bis Zeilenende
-    const klassenMatch = summaryText.match(/^Klassen:\s*(.+)$/m);
+    // [KLASSEN:01,03,09] - Klassen ändern
+    const klassenMatch = content.match(/\[KLASSEN:([^\]]+)\]/);
     if (klassenMatch?.[1]) {
-      const nums = Array.from(klassenMatch[1].matchAll(/\b(\d{1,2})\b/g)).map((x) => Number(x[1]));
-      const validClasses = [...new Set(nums.filter((n) => Number.isFinite(n) && n >= 1 && n <= 45))];
-      if (validClasses.length > 0 && rechercheForm.niceClasses.length === 0) {
-        setRechercheForm(prev => ({ ...prev, niceClasses: validClasses }));
+      hasAction = true;
+      const classes = klassenMatch[1].split(",").map((c: string) => parseInt(c.trim(), 10)).filter((n: number) => !isNaN(n) && n >= 1 && n <= 45);
+      if (classes.length > 0) {
+        setRechercheForm(prev => ({ ...prev, niceClasses: [...new Set(classes)] as number[] }));
       }
     }
     
-    // LÄNDER: Alles nach "Länder:" bis Zeilenende
-    const laenderMatch = summaryText.match(/^Länder:\s*(.+)$/m);
+    // [LAENDER:DE,US,EU] - Länder ändern
+    const laenderMatch = content.match(/\[LAENDER:([^\]]+)\]/);
     if (laenderMatch?.[1]) {
-      const countries: string[] = [];
-      const laenderText = laenderMatch[1].toUpperCase();
-      if (laenderText.includes("US") || laenderText.includes("USA") || laenderText.includes("AMERIKA")) countries.push("US");
-      if (laenderText.includes("DE") || laenderText.includes("DEUTSCH")) countries.push("DE");
-      if (laenderText.includes("AT") || laenderText.includes("ÖSTER")) countries.push("AT");
-      if (laenderText.includes("CH") || laenderText.includes("SCHWEIZ")) countries.push("CH");
-      if (laenderText.includes("EU") || laenderText.includes("EUROP")) countries.push("EU");
-      
-      if (countries.length > 0 && rechercheForm.countries.length === 0) {
-        setRechercheForm(prev => ({ ...prev, countries: [...new Set(countries)] }));
+      hasAction = true;
+      const codes = laenderMatch[1].split(",").map((c: string) => c.trim().toUpperCase()).filter((c: string) => c.length >= 2);
+      if (codes.length > 0) {
+        setRechercheForm(prev => ({ ...prev, countries: [...new Set(codes)] as string[] }));
       }
     }
-  }, [sessionSummary, data?.consultation?.summary]);
+    
+    // [ART:wortmarke] - Markenart ändern
+    const artMatch = content.match(/\[ART:(wortmarke|bildmarke|wort-bildmarke)\]/i);
+    if (artMatch?.[1]) {
+      hasAction = true;
+      const art = artMatch[1].toLowerCase() as "wortmarke" | "bildmarke" | "wort-bildmarke";
+      setTrademarkType(art);
+      setIsTrademarkTypeConfirmed(true);
+    }
+    
+    // [BERATUNG_FERTIG] - Beratung abschließen
+    if (content.includes("[BERATUNG_FERTIG]")) {
+      hasAction = true;
+      // Optional: Beratung als abgeschlossen markieren
+    }
+    
+    if (hasAction) {
+      lastProcessedBeratungMsgIdRef.current = lastMsg.id;
+    }
+  }, [sessionMessages]);
+
+  // Trigger-Erkennung für RECHERCHE (rechercheMessages)
+  const lastProcessedRechercheMsgIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (rechercheMessages.length === 0) return;
+    const lastMsg = rechercheMessages[rechercheMessages.length - 1];
+    if (lastMsg?.role !== "assistant") return;
+    if (lastMsg.id === lastProcessedRechercheMsgIdRef.current) return;
+    
+    const content = lastMsg.content || "";
+    let hasAction = false;
+    
+    // [MARKE:Name] - Markenname ändern
+    const markeMatch = content.match(/\[MARKE:([^\]]+)\]/);
+    if (markeMatch?.[1]) {
+      hasAction = true;
+      const name = markeMatch[1].trim();
+      setManualNameInput(name);
+      setRechercheForm(prev => ({ ...prev, trademarkName: name }));
+    }
+    
+    // [KLASSEN:01,03,09] - Klassen ändern
+    const klassenMatch = content.match(/\[KLASSEN:([^\]]+)\]/);
+    if (klassenMatch?.[1]) {
+      hasAction = true;
+      const classes = klassenMatch[1].split(",").map((c: string) => parseInt(c.trim(), 10)).filter((n: number) => !isNaN(n) && n >= 1 && n <= 45);
+      if (classes.length > 0) {
+        setRechercheForm(prev => ({ ...prev, niceClasses: [...new Set(classes)] as number[] }));
+      }
+    }
+    
+    // [LAENDER:DE,US,EU] - Länder ändern
+    const laenderMatch = content.match(/\[LAENDER:([^\]]+)\]/);
+    if (laenderMatch?.[1]) {
+      hasAction = true;
+      const codes = laenderMatch[1].split(",").map((c: string) => c.trim().toUpperCase()).filter((c: string) => c.length >= 2);
+      if (codes.length > 0) {
+        setRechercheForm(prev => ({ ...prev, countries: [...new Set(codes)] as string[] }));
+      }
+    }
+    
+    // [RECHERCHE_STARTEN] - Recherche starten wird über UI getriggert
+    if (content.includes("[RECHERCHE_STARTEN]")) {
+      hasAction = true;
+      // Navigiere zum Recherche-Akkordeon und setze Flag für automatischen Start
+      setOpenAccordion("recherche");
+    }
+    
+    if (hasAction) {
+      lastProcessedRechercheMsgIdRef.current = lastMsg.id;
+    }
+  }, [rechercheMessages]);
+
+  // Trigger-Erkennung für MARKENNAME (markennameMessages)
+  const lastProcessedMsgIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (markennameMessages.length === 0) return;
+    const lastMsg = markennameMessages[markennameMessages.length - 1];
+    if (lastMsg?.role !== "assistant") return;
+    if (lastMsg.id === lastProcessedMsgIdRef.current) return; // Bereits verarbeitet
+    
+    const content = lastMsg.content || "";
+    let hasAction = false;
+    
+    // [LOGO_GENERIEREN] - Logo generieren mit Chat-Kontext + Referenzbild
+    if (content.includes("[LOGO_GENERIEREN]")) {
+      hasAction = true;
+      const brandName = manualNameInput || "Marke";
+      
+      // Konvertiere Referenzbild zu Base64 (falls vorhanden)
+      const getBase64FromUrl = async (url: string): Promise<string | null> => {
+        try {
+          const response = await fetch(url);
+          const blob = await response.blob();
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+        } catch {
+          return null;
+        }
+      };
+      
+      // Starte Lade-Animation
+      setIsGeneratingLogo(true);
+      setLogoGenerationError(null);
+      
+      (async () => {
+        try {
+          // 1. Hole Referenzbild als Base64 (falls vorhanden)
+          const refBase64 = referenceImageUrl ? await getBase64FromUrl(referenceImageUrl) : null;
+          
+          // 2. Generiere optimierten Prompt mit GPT-4o-mini
+          const promptResponse = await fetch("/api/generate-logo-prompt", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chatMessages: markennameMessages.map(m => ({ role: m.role, content: m.content })),
+              referenceImageBase64: refBase64,
+              brandName,
+              trademarkType,
+            }),
+          });
+          
+          const promptResult = await promptResponse.json();
+          if (!promptResult.prompt) {
+            console.error("No prompt generated:", promptResult.error);
+            setLogoGenerationError("Prompt-Generierung fehlgeschlagen");
+            setIsGeneratingLogo(false);
+            return;
+          }
+          
+          console.log("Generated prompt:", promptResult.prompt);
+          
+          // 3. Generiere Logo mit DALL-E
+          const logoResponse = await fetch("/api/generate-logo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: promptResult.prompt,
+              trademarkType,
+              brandName,
+              quality: "high",
+            }),
+          });
+          
+          const logoResult = await logoResponse.json();
+          if (logoResult.imageUrl) {
+            setTrademarkImageUrl(logoResult.imageUrl);
+            // Lösche Referenzbild nach erfolgreicher Generierung
+            setReferenceImageUrl(null);
+          } else if (logoResult.error) {
+            setLogoGenerationError(logoResult.error);
+          }
+        } catch (err) {
+          console.error("Logo generation failed:", err);
+          setLogoGenerationError("Logo-Generierung fehlgeschlagen");
+        } finally {
+          setIsGeneratingLogo(false);
+        }
+      })();
+    }
+    
+    // [MARKE:Name] - Markenname ändern
+    const markeMatch = content.match(/\[MARKE:([^\]]+)\]/);
+    if (markeMatch?.[1]) {
+      hasAction = true;
+      setManualNameInput(markeMatch[1].trim());
+    }
+    
+    // [KLASSEN:01,03,09] - Klassen ändern
+    const klassenMatch = content.match(/\[KLASSEN:([^\]]+)\]/);
+    if (klassenMatch?.[1]) {
+      hasAction = true;
+      const classes = klassenMatch[1].split(",").map((c: string) => parseInt(c.trim(), 10)).filter((n: number) => !isNaN(n) && n >= 1 && n <= 45);
+      if (classes.length > 0) {
+        setRechercheForm(prev => ({ ...prev, niceClasses: [...new Set(classes)] as number[] }));
+      }
+    }
+    
+    // [LAENDER:DE,US,EU] - Länder ändern
+    const laenderMatch = content.match(/\[LAENDER:([^\]]+)\]/);
+    if (laenderMatch?.[1]) {
+      hasAction = true;
+      const codes = laenderMatch[1].split(",").map((c: string) => c.trim().toUpperCase()).filter((c: string) => c.length === 2);
+      if (codes.length > 0) {
+        setRechercheForm(prev => ({ ...prev, countries: [...new Set(codes)] as string[] }));
+      }
+    }
+    
+    // [ART:wortmarke] - Markenart ändern
+    const artMatch = content.match(/\[ART:(wortmarke|bildmarke|wort-bildmarke)\]/i);
+    if (artMatch?.[1]) {
+      hasAction = true;
+      const art = artMatch[1].toLowerCase() as "wortmarke" | "bildmarke" | "wort-bildmarke";
+      setTrademarkType(art);
+      setIsTrademarkTypeConfirmed(true);
+    }
+    
+    if (hasAction) {
+      lastProcessedMsgIdRef.current = lastMsg.id;
+    }
+  }, [markennameMessages, manualNameInput, trademarkType]);
 
   const renderBeratungHeaderMeta = useCallback(() => {
     const decision = data?.decisions as any;
@@ -1068,13 +1273,13 @@ export default function CasePage() {
         {chip("Art", typeLabel, !typeLabel)}
         {chip(
           "Klassen",
-          classes.length > 0 ? formatList(classes.map(String), 5) : "",
+          classes.length > 0 ? formatList(classes.map((n: number) => n < 10 ? `0${n}` : String(n)), 5) : "",
           classes.length === 0
         )}
         {chip(
           "Länder",
-          countriesLabel.length > 0 ? formatList(countriesLabel, 4) : "",
-          countriesLabel.length === 0
+          countries.length > 0 ? formatList(countries.map((c: string) => c.toUpperCase()), 4) : "",
+          countries.length === 0
         )}
       </div>
     );
@@ -1121,11 +1326,10 @@ export default function CasePage() {
         const rechercheMeta = (data?.steps?.recherche?.metadata || {}) as Record<string, any>;
         const transferChoice = rechercheMeta?.transferFromBeratung;
 
-        const shouldAsk = beratungDone && (hasUsefulDecisions || hasSummaryData) && !transferChoice;
-        if (shouldAsk) {
-          setPendingTransferHash(hash);
-          setShowTransferModal(true);
-          return;
+        // Daten werden jetzt automatisch übernommen (useEffect), kein Pop-up mehr nötig
+        // Wenn noch keine Entscheidung gespeichert, automatisch als "accepted" markieren
+        if (beratungDone && (hasUsefulDecisions || hasSummaryData) && !transferChoice) {
+          void persistRechercheTransferChoice("accepted").catch(() => {});
         }
       }
 
@@ -2600,20 +2804,64 @@ AKTUELLER STAND (NUR DIESE WERTE ZÄHLEN - NICHT DIE ZUSAMMENFASSUNG!):
 - Klassen: ${rechercheForm.niceClasses?.length > 0 ? rechercheForm.niceClasses.join(", ") : "⚠️ FEHLT NOCH"}
 - Länder: ${rechercheForm.countries?.length > 0 ? rechercheForm.countries.join(", ") : "⚠️ FEHLT NOCH"}
 
-KRITISCH: Du darfst NUR sagen "wir sind durch" wenn ALLE 4 Punkte oben KEINE "⚠️ FEHLT NOCH" haben!
+⚠️ STRENGE VALIDIERUNG - LIES DAS SORGFÄLTIG:
+Du darfst NIEMALS weiterleiten oder eine Zusammenfassung machen, wenn oben ein "⚠️ FEHLT NOCH" steht!
+
+BEVOR du eine Zusammenfassung machst, PRÜFE JEDEN PUNKT:
+1. Hat Markenname einen echten Wert? (nicht "⚠️ FEHLT NOCH")
+2. Hat Markenart einen Wert? (nicht "⚠️ FEHLT NOCH")
+3. Hat Klassen einen Wert? (nicht "⚠️ FEHLT NOCH")
+4. Hat Länder einen Wert? (nicht "⚠️ FEHLT NOCH")
+
+⛔ WENN AUCH NUR EIN PUNKT FEHLT:
+- Frag ZUERST nach dem fehlenden Punkt!
+- Sag z.B.: "Moment, wir haben noch keinen Markennamen festgelegt. Wie soll deine Marke heißen?"
+- KEINE Zusammenfassung, KEINE Weiterleitung bis ALLE 4 Punkte ausgefüllt sind!
 
 WICHTIGE REGELN:
 - Geh locker vor, KEIN Druck! Der Kunde kann unsicher sein
 - Frag immer nur EINE Sache auf einmal
 - Erkläre kurz warum jeder Punkt wichtig ist
 - Bei Unsicherheit: Gib Beispiele oder hilf bei der Entscheidung
-- WENN DU AUF VORHERIGE GESPRÄCHE BEZUG NIMMST: Nenne ALLE Details vollständig (alle Klassen, alle Länder, etc.) - nicht nur einen Teil!
 
-WENN ALLE 4 KRITERIEN ERFÜLLT SIND:
-- Bei BILDMARKE oder WORT-/BILDMARKE: Sag "Perfekt! Sollen wir jetzt dein Logo erstellen? Ich kann dich zum Logo-Bereich weiterleiten."
-- Bei WORTMARKE: Sag "Super! Sollen wir prüfen ob der Name noch frei ist? Ich kann dich zur Recherche weiterleiten."
+AKTIONEN DIE DU AUSLÖSEN KANNST:
+Wenn der Kunde Daten nennt oder ändert, beende deine Antwort mit dem passenden Trigger:
 
-WICHTIG: Wenn der Kunde mit JA antwortet, sage genau: "Alles klar, ich leite dich weiter!" - Das System erkennt diese Phrase und wechselt automatisch.
+1. Markenname: [MARKE:Name]
+   Beispiel: "Super, der Name 'Altana' gefällt mir! [MARKE:Altana]"
+
+2. Markenart: [ART:wortmarke] oder [ART:bildmarke] oder [ART:wort-bildmarke]
+   Beispiel: "Eine Wort-/Bildmarke ist perfekt! [ART:wort-bildmarke]"
+
+3. Klassen: [KLASSEN:01,03,09] (mit führender Null bei einstelligen)
+   Beispiel: "Klasse 03 für Kosmetik und 09 für Software! [KLASSEN:03,09]"
+
+4. Länder: [LAENDER:DE,US,EU] (Ländercodes)
+   Beispiel: "Deutschland und die EU sind eingetragen! [LAENDER:DE,EU]"
+
+5. Beratung abschließen: [BERATUNG_FERTIG]
+   NUR wenn ALLE 4 Punkte ausgefüllt sind!
+
+✅ NUR WENN ALLE 4 KRITERIEN ERFÜLLT SIND (KEINES zeigt "⚠️ FEHLT NOCH"):
+Fasse alle Daten zusammen und frage zur Bestätigung:
+
+"Perfekt! Lass mich kurz zusammenfassen:
+📝 Marke: [ECHTER Markenname - NIEMALS 'fehlt noch'!]
+🎨 Art: [Wortmarke/Bildmarke/Wort-Bildmarke]
+📋 Klassen: [alle Klassen mit Beschreibung]
+🌍 Länder: [alle Länder]
+
+Ist das alles so richtig? Falls du etwas ändern möchtest, sag einfach Bescheid!"
+
+ERST WENN der Kunde bestätigt (ja, passt, korrekt, stimmt, etc.):
+- Bei BILDMARKE oder WORT-/BILDMARKE: "Super! Dann lass uns jetzt dein Logo erstellen. Ich leite dich zum Logo-Bereich weiter!"
+- Bei WORTMARKE: "Sehr gut! Dann prüfen wir jetzt ob der Name noch frei ist. Ich leite dich zur Recherche weiter!"
+
+WICHTIG: Wenn der Kunde mit JA/PASST/KORREKT antwortet, sage genau: "Alles klar, ich leite dich weiter!" - Das System erkennt diese Phrase und wechselt automatisch.
+
+FALLS der Kunde etwas ändern möchte: Passe die Daten an und frage erneut zur Bestätigung.
+
+⛔ ABSOLUT VERBOTEN: Zusammenfassung oder Weiterleitung wenn Markenname "⚠️ FEHLT NOCH" zeigt!
 `}
           />
         </div>
@@ -2664,42 +2912,36 @@ WICHTIG: Wenn der Kunde mit JA antwortet, sage genau: "Alles klar, ich leite dic
                   <FileText className="w-5 h-5 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <div className="font-semibold text-sm truncate">Sitzungszusammenfassung</div>
-                  <div className="text-xs text-white/85 truncate">Automatisch aus dem Gespräch</div>
+                  <div className="font-semibold text-sm truncate">Zusammenfassung</div>
+                  <div className="text-xs text-white/85 truncate">Aktueller Stand der Beratung</div>
                 </div>
               </div>
             </div>
             
             <div className="flex-1 overflow-y-auto max-h-[400px] custom-scrollbar p-4">
-              {isSavingSession ? (
-                <div className="text-center py-8">
-                  <div className="w-8 h-8 border-3 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                  <p className="text-sm text-gray-600">OpenAI erstellt Ihre Zusammenfassung...</p>
-                </div>
-              ) : sessionSummary ? (
-                <div className="space-y-3">
-                  <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
-                    <p className="text-sm text-teal-800 whitespace-pre-wrap leading-relaxed">{sessionSummary}</p>
+              {/* Aktueller Stand aus State-Variablen (wie Banner) */}
+              <div className="space-y-3">
+                <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg space-y-2">
+                  <div className="text-sm text-teal-800">
+                    <span className="font-medium">Marke:</span> {manualNameInput || <span className="text-gray-400 italic">fehlt</span>}
                   </div>
-                  
-                  {sessionMessages.length > 0 && (
-                    <div className="text-xs text-gray-500 text-center">
-                      Basierend auf {sessionMessages.length} Nachrichten
-                    </div>
-                  )}
+                  <div className="text-sm text-teal-800">
+                    <span className="font-medium">Art:</span> {isTrademarkTypeConfirmed ? (trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke") : <span className="text-gray-400 italic">fehlt</span>}
+                  </div>
+                  <div className="text-sm text-teal-800">
+                    <span className="font-medium">Klassen:</span> {rechercheForm.niceClasses?.length > 0 ? rechercheForm.niceClasses.map(n => n.toString().padStart(2, "0")).join(", ") : <span className="text-gray-400 italic">fehlt</span>}
+                  </div>
+                  <div className="text-sm text-teal-800">
+                    <span className="font-medium">Länder:</span> {rechercheForm.countries?.length > 0 ? rechercheForm.countries.join(", ") : <span className="text-gray-400 italic">fehlt</span>}
+                  </div>
                 </div>
-              ) : sessionMessages.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <FileDown className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-sm">Starte ein Gespräch. Die Zusammenfassung wird automatisch erstellt.</p>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="w-8 h-8 mx-auto mb-2 text-teal-600" />
-                  <p className="text-sm mb-2">{sessionMessages.length} Nachrichten im Gespräch</p>
-                  <p className="text-xs text-gray-400">Die Zusammenfassung wird automatisch erstellt, wenn Sie das Akkordeon schließen.</p>
-                </div>
-              )}
+                
+                {sessionMessages.length > 0 && (
+                  <div className="text-xs text-gray-500 text-center">
+                    Basierend auf {sessionMessages.length} Nachrichten
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -3047,6 +3289,21 @@ WICHTIGE REGELN:
 - WIPO-Recherche deckt internationale Registrierungen ab
 - Verwandte Klassen prüfen erhöht die Sicherheit
 - Je mehr Klassen, desto teurer die Anmeldung
+
+AKTIONEN DIE DU AUSLÖSEN KANNST:
+Wenn der Kunde Daten ändert, beende deine Antwort mit dem passenden Trigger:
+
+1. Markenname: [MARKE:Name]
+   Beispiel: "Okay, ich ändere den Namen auf 'Altana'! [MARKE:Altana]"
+
+2. Klassen ändern: [KLASSEN:01,03,09]
+   Beispiel: "Ich füge Klasse 09 hinzu! [KLASSEN:01,03,09]"
+
+3. Länder ändern: [LAENDER:DE,US,EU]
+   Beispiel: "EU ist eingetragen! [LAENDER:DE,EU]"
+
+4. Recherche starten: [RECHERCHE_STARTEN]
+   Beispiel: "Alles klar, ich starte die Recherche! [RECHERCHE_STARTEN]"
 `}
         />
 
@@ -3182,7 +3439,7 @@ WICHTIGE REGELN:
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {baseNiceClasses.slice(0, 6).map((c) => (
                       <span key={c} className="px-1.5 py-0.5 bg-teal-50 text-teal-700 text-xs rounded border border-teal-200">
-                        {c}
+                        {c < 10 ? `0${c}` : c}
                       </span>
                     ))}
                     {baseNiceClasses.length > 6 && (
@@ -3287,22 +3544,74 @@ WICHTIGE REGELN:
               ref={markennameVoiceRef}
               caseId={caseId}
               onMessageSent={(msg) => setMarkennameMessages((prev) => [...prev, msg])}
+              onImageUploaded={(url) => setTrademarkImageUrl(url)}
+              showImageUpload={true}
               previousMessages={markennameMessages}
               title="KI-Namensberater"
               subtitle="Beratung zu Markenname & -art"
               systemPromptAddition={`
 Du bist ein freundlicher KI-Berater für Markennamen und Markenarten. Sprich den Kunden per DU an.
 
+${sessionSummary ? `ZUSAMMENFASSUNG AUS VORHERIGER BERATUNG:
+${sessionSummary}
+
+Du erinnerst dich an das vorherige Gespräch. Beziehe dich darauf, wenn relevant.` : ""}
+
 AKTUELLER STAND:
 - Markenname: ${manualNameInput || "noch nicht festgelegt"}
 - Markenart: ${trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke"}
+- Nizza-Klassen: ${rechercheForm.niceClasses?.length > 0 ? rechercheForm.niceClasses.map((n: number) => n < 10 ? `0${n}` : n).join(", ") : "noch nicht festgelegt"}
+- Länder: ${rechercheForm.countries.length > 0 ? rechercheForm.countries.join(", ") : "noch nicht festgelegt"}
+
+AKTIONEN DIE DU AUSLÖSEN KANNST:
+Beende deine Antwort mit einem dieser Trigger (in eckigen Klammern), um Aktionen auszulösen:
+
+1. Logo generieren: [LOGO_GENERIEREN]
+   Beispiel: "Super, ich generiere dir jetzt ein Logo! [LOGO_GENERIEREN]"
+
+2. Markenname ändern: [MARKE:NeuerName]
+   Beispiel: "Alles klar, ich ändere den Namen auf 'Altana'! [MARKE:Altana]"
+
+3. Klassen ändern: [KLASSEN:01,03,09]
+   Beispiel: "Gut, ich trage die Klassen 01, 03 und 09 ein! [KLASSEN:01,03,09]"
+
+4. Länder ändern: [LAENDER:DE,US,EU]
+   Beispiel: "Perfekt, ich füge Deutschland, USA und EU hinzu! [LAENDER:DE,US,EU]"
+
+5. Markenart ändern: [ART:wortmarke] oder [ART:bildmarke] oder [ART:wort-bildmarke]
+   Beispiel: "Eine Bildmarke passt besser! [ART:bildmarke]"
+
+UI-LAYOUT (3 Spalten nebeneinander):
+- LINKS: Dieser Chat (KI-Namensberater) - hier sprichst du mit dem Kunden
+- MITTE: Schnellfragen - häufige Fragen zu Markennamen
+- RECHTS: Vorschau-Widget mit:
+  * Oben: Eingabefeld für Markenname + Dropdown für Markenart
+  * Mitte: Live-Vorschau der Marke (zeigt Name und/oder Logo)
+  * Unten: DREI Buttons:
+    - "KI-Logo" (grün) - generiert ein Logo basierend auf Besprechung
+    - "Referenz" (blau) - lädt ein Inspirationsbild hoch für den Stil
+    - "Logo" (weiß) - lädt das fertige eigene Logo hoch
+
+REFERENZBILDER:
+- Ein Referenzbild ist ein INSPIRATIONSBILD für den Stil (z.B. "so ähnlich soll mein Logo aussehen")
+- Das Referenzbild wird NICHT als Logo verwendet, sondern als Stilvorlage für die KI-Generierung
+- Wenn Kunde sagt "ich habe ein Beispiel" oder "so ähnlich wie..." → "Lade es als Referenzbild hoch!"
+- Aktuell hochgeladenes Referenzbild: ${referenceImageUrl ? "JA - wird bei Generierung berücksichtigt" : "Keines"}
+
+Wenn der Kunde fragt WO er etwas machen soll:
+- Logo generieren: "Klicke rechts auf den grünen Button 'KI-Logo'"
+- Referenzbild hochladen: "Klicke rechts auf den blauen Button 'Referenz'"
+- Eigenes Logo hochladen: "Klicke rechts auf 'Logo'"
+- Markenname eingeben: "Gib den Namen oben rechts im Eingabefeld ein"
+- Markenart ändern: "Wähle die Art im Dropdown rechts oben"
+- Direkt im Chat: "Du kannst auch hier im Chat auf 📎 klicken um ein Bild hochzuladen"
 
 DEINE AUFGABEN:
-1. Berate den Kunden bei der Wahl des richtigen Markennamens
-2. Erkläre die Unterschiede zwischen Wortmarke, Bildmarke und Wort-/Bildmarke
-3. Prüfe ob der Name schutzfähig ist (keine beschreibenden Begriffe, keine Gattungsbezeichnungen)
-4. Warne vor typischen Fehlern (zu generisch, beschreibend, irreführend)
-5. Gib Tipps für starke, unterscheidungskräftige Namen
+1. Setze das Gespräch nahtlos fort
+2. Berate bei Markennamen und Markenart
+3. Generiere auf Wunsch ein Logo mit [LOGO_GENERIEREN]
+4. Aktualisiere Daten wenn der Kunde Änderungen wünscht
+5. Erkläre dem Kunden WO er Buttons findet wenn er fragt
 
 WICHTIGE REGELN:
 - Wortmarke: Nur Text, keine Grafik - flexibelste Variante
@@ -3406,6 +3715,23 @@ WICHTIGE REGELN:
 
               {/* Mitte: Vorschau */}
               <div className="flex-1 min-h-[200px] flex items-center justify-center p-6 bg-white">
+                {/* Lade-Animation bei Logo-Generierung */}
+                {isGeneratingLogo ? (
+                  <div className="flex flex-col items-center justify-center gap-4">
+                    <div className="relative">
+                      {/* Äußerer rotierender Ring */}
+                      <div className="w-20 h-20 border-4 border-teal-100 border-t-teal-500 rounded-full animate-spin" />
+                      {/* Inneres pulsierendes Icon */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Sparkles className="w-8 h-8 text-teal-500 animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm font-medium text-gray-700">Logo wird generiert...</div>
+                      <div className="text-xs text-gray-500 mt-1">KI analysiert und gestaltet dein Design</div>
+                    </div>
+                  </div>
+                ) : (
                 <div className="text-center">
                   {trademarkType === "wortmarke" && (
                     <div className="text-3xl font-bold text-gray-900">
@@ -3448,6 +3774,7 @@ WICHTIGE REGELN:
                     </div>
                   )}
                 </div>
+                )}
               </div>
 
               {/* Unten: Buttons für Bild-Upload (nur bei Bild-/Wort-Bildmarke) */}
@@ -3458,15 +3785,69 @@ WICHTIGE REGELN:
                       {imageUploadError}
                     </div>
                   )}
+                  {/* Referenzbild Anzeige */}
+                  {referenceImageUrl && (
+                    <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+                      <img src={referenceImageUrl} alt="Referenz" className="w-10 h-10 object-cover rounded" />
+                      <span className="text-xs text-blue-700 flex-1">Referenzbild für Logo-Generierung</span>
+                      <button
+                        type="button"
+                        onClick={() => setReferenceImageUrl(null)}
+                        className="text-blue-500 hover:text-blue-700 text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setShowLogoGeneratorModal(true)}
+                      onClick={() => {
+                        // Prüfe ob im Chat schon Logo-Wünsche besprochen wurden
+                        const hasLogoContext = markennameMessages.some(m => 
+                          m.content?.toLowerCase().includes("logo") || 
+                          m.content?.toLowerCase().includes("design") ||
+                          m.content?.toLowerCase().includes("stil")
+                        );
+                        
+                        if (hasLogoContext || referenceImageUrl) {
+                          // Direkt generieren - KI hat schon Kontext oder Referenzbild
+                          const refMsg = referenceImageUrl ? " Nutze das hochgeladene Referenzbild als Stilvorlage." : "";
+                          markennameVoiceRef.current?.sendQuestion("Bitte generiere jetzt das Logo basierend auf unserer Besprechung." + refMsg);
+                        } else {
+                          // KI fragen was generiert werden soll
+                          markennameVoiceRef.current?.sendQuestion("Ich möchte ein Logo generieren lassen. Wie soll es aussehen? Ich kann auch ein Referenzbild hochladen wenn ich einen bestimmten Stil möchte.");
+                        }
+                      }}
                       className="flex-1 px-3 py-2.5 s-gradient-button text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
                       <Sparkles className="w-4 h-4" />
-                      KI-Logo generieren
+                      KI-Logo
                     </button>
+                    <label className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 5 * 1024 * 1024) {
+                            setImageUploadError("Datei zu groß (max. 5 MB)");
+                            return;
+                          }
+                          setImageUploadError(null);
+                          const url = URL.createObjectURL(file);
+                          setReferenceImageUrl(url);
+                          // Informiere KI-Assistent über das Referenzbild
+                          markennameVoiceRef.current?.sendQuestion("Ich habe ein Referenzbild hochgeladen. Bitte nutze diesen Stil als Inspiration für mein Logo.");
+                        }}
+                        className="hidden"
+                      />
+                      <div className="cursor-pointer px-3 py-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-sm text-blue-700 text-center transition-colors flex items-center justify-center gap-2">
+                        <ImageIcon className="w-4 h-4" />
+                        Referenz
+                      </div>
+                    </label>
                     <label className="flex-1">
                       <input
                         type="file"
@@ -3482,12 +3863,14 @@ WICHTIGE REGELN:
                           setTrademarkImageFile(file);
                           const url = URL.createObjectURL(file);
                           setTrademarkImageUrl(url);
+                          // Informiere KI-Assistent über das hochgeladene Logo
+                          markennameVoiceRef.current?.sendQuestion("Ich habe mein eigenes Logo hochgeladen. Es ist jetzt in der Vorschau zu sehen.");
                         }}
                         className="hidden"
                       />
                       <div className="cursor-pointer px-3 py-2.5 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-700 text-center transition-colors flex items-center justify-center gap-2">
                         <Upload className="w-4 h-4" />
-                        Bild hochladen
+                        Logo
                       </div>
                     </label>
                   </div>

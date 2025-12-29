@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
-import { Mic, MicOff, Phone, PhoneOff, Send, Keyboard, Volume2, MoreVertical, RefreshCw } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff, Send, Keyboard, Volume2, MoreVertical, RefreshCw, Paperclip, Image } from "lucide-react";
 
 interface Message {
   id: string;
@@ -9,6 +9,7 @@ interface Message {
   content: string;
   timestamp: Date | string;
   isTranscription?: boolean;
+  imageUrl?: string;
 }
 
 export interface VoiceAssistantHandle {
@@ -21,15 +22,17 @@ interface OpenAIVoiceAssistantProps {
   caseId: string;
   onMessageSent?: (message: Message) => void;
   onDelete?: () => void;
+  onImageUploaded?: (imageUrl: string) => void;
   previousMessages?: Message[];
   previousSummary?: string;
   title?: string;
   subtitle?: string;
   systemPromptAddition?: string;
+  showImageUpload?: boolean;
 }
 
 const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssistantProps>(
-  ({ caseId, onMessageSent, onDelete, previousMessages = [], previousSummary, title, subtitle, systemPromptAddition }, ref) => {
+  ({ caseId, onMessageSent, onDelete, onImageUploaded, previousMessages = [], previousSummary, title, subtitle, systemPromptAddition, showImageUpload = false }, ref) => {
     const [isConnected, setIsConnected] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
@@ -387,6 +390,47 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
       }
     }, [handleSendText]);
 
+    const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Datei zu groß (max. 5 MB)");
+        return;
+      }
+      
+      const url = URL.createObjectURL(file);
+      
+      // Add image message to chat
+      const imageMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: "[Bild hochgeladen]",
+        timestamp: new Date(),
+        imageUrl: url
+      };
+      setMessages(prev => [...prev, imageMessage]);
+      onMessageSent?.(imageMessage);
+      onImageUploaded?.(url);
+      
+      // Send message to assistant about the image
+      if (dataChannelRef.current?.readyState === "open") {
+        const event = {
+          type: "conversation.item.create",
+          item: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "Ich habe gerade ein Bild/Logo hochgeladen. Bitte bestätige, dass du es siehst und es als mein Logo verwendet werden kann." }]
+          }
+        };
+        dataChannelRef.current.send(JSON.stringify(event));
+        dataChannelRef.current.send(JSON.stringify({ type: "response.create" }));
+      }
+      
+      // Reset input
+      e.target.value = "";
+    }, [onMessageSent, onImageUploaded]);
+
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
       sendQuestion: (question: string) => {
@@ -529,6 +573,13 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
                     : "bg-gray-100 text-gray-900"
                 }`}
               >
+                {message.imageUrl && (
+                  <img 
+                    src={message.imageUrl} 
+                    alt="Hochgeladenes Bild" 
+                    className="max-w-full max-h-32 rounded-lg mb-2 object-contain"
+                  />
+                )}
                 <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
                 {message.isTranscription && (
                   <span className="text-xs opacity-70 mt-1 block">
@@ -610,6 +661,17 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
             </div>
           ) : (
             <div className="flex gap-2">
+              {showImageUpload && (
+                <label className="px-3 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer" title="Bild hochladen">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <Paperclip className="w-5 h-5 text-gray-600" />
+                </label>
+              )}
               <input
                 type="text"
                 value={textInput}

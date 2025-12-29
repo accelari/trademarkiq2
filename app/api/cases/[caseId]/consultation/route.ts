@@ -160,30 +160,24 @@ export async function POST(
             max_tokens: 300,
             messages: [{
               role: "system",
-              content: `Du fasst Beratungsgespräche über Markenrecht zusammen. ERFINDE NIEMALS Daten - schreibe NUR was im Gespräch gesagt wurde!${brandContext}`
+              content: `Du extrahierst NUR wörtlich vom KUNDEN genannte Daten. ERFINDE NIEMALS etwas! Ignoriere was Klaus sagt.${brandContext}`
             }, {
               role: "user",
-              content: shouldUseIncremental
-                ? `Aktuelle Zusammenfassung:
-${previousSummary}
+              content: `Lies das Gespräch und extrahiere NUR was der KUNDE wörtlich gesagt hat.
 
-Neue Nachrichten:
-${deltaConversationText}
-
-Aktualisiere die Zusammenfassung (2-3 Sätze).
-
-Am Ende IMMER diese 4 Zeilen - NUR mit echten Werten aus dem Gespräch, sonst leer lassen:
-Marke: 
-Art: 
-Klassen: 
-Länder: `
-                : `Fasse das Gespräch zusammen (2-3 Sätze).
-
-Am Ende IMMER diese 4 Zeilen - NUR mit echten Werten aus dem Gespräch, sonst leer lassen:
+AUSGABE - NUR diese 4 Zeilen, NICHTS anderes:
 Marke: 
 Art: 
 Klassen: 
 Länder: 
+
+STRENGE REGELN:
+- Marke: NUR den exakten Namen den der KUNDE genannt hat (NICHT was Klaus vorschlägt!)
+- Art: NUR wenn KUNDE "Wortmarke", "Bildmarke" oder "Wort-Bildmarke" gesagt hat
+- Klassen: NUR Nummern die der KUNDE genannt hat (Format: 01, 03, 25)
+- Länder: NUR Länder die der KUNDE genannt hat (Format: DE, US, CH, AT, EU)
+- Wenn der KUNDE etwas NICHT genannt hat, lass es LEER!
+- KEINE Zusammenfassung, KEINE Erklärung, NUR die 4 Zeilen!
 
 Gespräch:
 ${conversationText}`
