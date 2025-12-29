@@ -29,10 +29,11 @@ interface OpenAIVoiceAssistantProps {
   subtitle?: string;
   systemPromptAddition?: string;
   showImageUpload?: boolean;
+  alwaysShowMessages?: boolean; // Zeigt Nachrichten ohne "Fortsetzen"-Button
 }
 
 const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssistantProps>(
-  ({ caseId, onMessageSent, onDelete, onImageUploaded, previousMessages = [], previousSummary, title, subtitle, systemPromptAddition, showImageUpload = false }, ref) => {
+  ({ caseId, onMessageSent, onDelete, onImageUploaded, previousMessages = [], previousSummary, title, subtitle, systemPromptAddition, showImageUpload = false, alwaysShowMessages = false }, ref) => {
     const [isConnected, setIsConnected] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
@@ -541,7 +542,7 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
 
         {/* Messages */}
         <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] max-h-[400px] custom-scrollbar">
-          {messages.length === 0 && !isConnected && (
+          {messages.length === 0 && !isConnected && !alwaysShowMessages && (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <Phone className="w-10 h-10 mb-3 text-gray-300" />
               <p className="text-sm text-center leading-relaxed">

@@ -860,6 +860,67 @@ export default function CasePage() {
     }
   }, [openAccordion, sessionMessages, markennameMessages.length, data?.steps?.beratung?.status]);
 
+  // Automatische Kontextnachricht bei Akkordeon-Wechsel
+  const lastVisitedAccordionRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openAccordion) return;
+    if (openAccordion === lastVisitedAccordionRef.current) return;
+    
+    // Nur bei Akkordeons mit KI-Berater (Beratung, Markenname, Recherche)
+    const accordionsWithAI = ["beratung", "markenname", "recherche"];
+    if (!accordionsWithAI.includes(openAccordion)) {
+      lastVisitedAccordionRef.current = openAccordion;
+      return;
+    }
+    
+    // Nicht beim ersten Laden (wenn noch keine Nachrichten da sind)
+    if (sessionMessages.length === 0 && openAccordion === "beratung") {
+      lastVisitedAccordionRef.current = openAccordion;
+      return;
+    }
+    
+    // Kontextnachricht je nach Akkordeon
+    const contextMessages: Record<string, string> = {
+      beratung: `Wir sind jetzt im Bereich **Beratung**. Hier können wir:
+- Deinen Markennamen besprechen
+- Die passende Markenart wählen (Wort-, Bild- oder Wort-/Bildmarke)
+- Die richtigen Nizza-Klassen für dein Geschäft finden
+- Die Länder/Regionen für den Markenschutz auswählen
+
+Was möchtest du als nächstes tun?`,
+      markenname: `Super, wir sind jetzt bei **Markenname**! Hier können wir:
+- Deinen finalen Markennamen festlegen
+- Die Markenart bestätigen${trademarkType !== "wortmarke" ? "\n- Ein Logo hochladen oder generieren lassen" : ""}
+- Kreative Namensalternativen generieren
+
+${manualNameInput ? `Aktuell: "${manualNameInput}" als ${trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke"}` : "Wie soll deine Marke heißen?"}`,
+      recherche: `Perfekt, wir sind jetzt bei der **Markenrecherche**! Hier prüfen wir:
+- Ob dein Markenname bereits geschützt ist
+- Ähnliche eingetragene Marken in deinen Klassen
+- Konflikte in den gewählten Ländern/Regionen
+
+${rechercheForm.trademarkName ? `Markenname: "${rechercheForm.trademarkName}"` : ""}
+${(rechercheForm.niceClasses?.length ?? 0) > 0 ? `Klassen: ${rechercheForm.niceClasses?.join(", ")}` : ""}
+${(rechercheForm.countries?.length ?? 0) > 0 ? `Länder: ${rechercheForm.countries?.join(", ")}` : ""}
+
+Soll ich die Recherche starten?`
+    };
+    
+    const contextMsg = contextMessages[openAccordion];
+    if (contextMsg && lastVisitedAccordionRef.current !== null) {
+      // Füge Kontextnachricht als Assistenten-Nachricht hinzu
+      const assistantMsg = {
+        id: `ctx-${openAccordion}-${Date.now()}`,
+        role: "assistant" as const,
+        content: contextMsg,
+        timestamp: new Date().toISOString()
+      };
+      setSessionMessages(prev => [...prev, assistantMsg]);
+    }
+    
+    lastVisitedAccordionRef.current = openAccordion;
+  }, [openAccordion, sessionMessages.length, manualNameInput, trademarkType, rechercheForm.trademarkName, rechercheForm.niceClasses, rechercheForm.countries]);
+
   // Trigger-Erkennung für BERATUNG (sessionMessages)
   const lastProcessedBeratungMsgIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -1104,6 +1165,60 @@ export default function CasePage() {
     }
   }, [markennameMessages, manualNameInput, trademarkType]);
 
+  // Auto-Complete: Beratung als abgeschlossen markieren wenn alle Kriterien erfüllt
+  // (ohne Ref - prüft bei jeder Änderung und setzt Status nur wenn nötig)
+  useEffect(() => {
+    // Berücksichtigt State-Variablen UND Daten aus decisions (wie Banner)
+    const decision = data?.decisions as any;
+    const hasNameFromState = !!manualNameInput?.trim();
+    const hasNameFromDecisions = Array.isArray(decision?.trademarkNames) && decision.trademarkNames.some((n: any) => typeof n === "string" && n.trim().length > 0);
+    const hasName = hasNameFromState || hasNameFromDecisions || !!(data?.case as any)?.trademarkName;
+    
+    const hasClassesFromState = (rechercheForm.niceClasses?.length ?? 0) > 0;
+    const hasClassesFromDecisions = Array.isArray(decision?.niceClasses) && decision.niceClasses.length > 0;
+    const hasClasses = hasClassesFromState || hasClassesFromDecisions;
+    
+    const hasCountriesFromState = (rechercheForm.countries?.length ?? 0) > 0;
+    const hasCountriesFromDecisions = Array.isArray(decision?.countries) && decision.countries.length > 0;
+    const hasCountries = hasCountriesFromState || hasCountriesFromDecisions;
+    
+    const allCriteriaFulfilled = hasName && hasClasses && hasCountries;
+    const currentStatus = data?.steps?.beratung?.status;
+    
+    // Setze auf "completed" wenn alle Kriterien erfüllt und noch nicht completed
+    if (allCriteriaFulfilled && currentStatus !== "completed") {
+      void fetch(`/api/cases/${caseId}/steps`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: "beratung", status: "completed" }),
+      }).then(() => mutate());
+    }
+  }, [manualNameInput, rechercheForm.niceClasses?.length, rechercheForm.countries?.length, data?.steps?.beratung?.status, data?.decisions, data?.case, caseId, mutate]);
+
+  // Auto-Complete: Markenname als abgeschlossen markieren wenn Kriterien erfüllt
+  useEffect(() => {
+    // Berücksichtigt State-Variablen UND Daten aus decisions (wie Banner)
+    const decision = data?.decisions as any;
+    const hasNameFromState = !!manualNameInput?.trim();
+    const hasNameFromDecisions = Array.isArray(decision?.trademarkNames) && decision.trademarkNames.some((n: any) => typeof n === "string" && n.trim().length > 0);
+    const hasName = hasNameFromState || hasNameFromDecisions || !!(data?.case as any)?.trademarkName;
+    const needsLogo = trademarkType === "bildmarke" || trademarkType === "wort-bildmarke";
+    const hasLogo = !!trademarkImageUrl;
+    
+    // Wortmarke: nur Name nötig | Bild/Wort-Bild: Name + Logo nötig
+    const isComplete = hasName && (!needsLogo || hasLogo);
+    const currentStatus = data?.steps?.markenname?.status;
+    
+    // Setze auf "completed" wenn alle Kriterien erfüllt und noch nicht completed
+    if (isComplete && currentStatus !== "completed") {
+      void fetch(`/api/cases/${caseId}/steps`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: "markenname", status: "completed" }),
+      }).then(() => mutate());
+    }
+  }, [manualNameInput, trademarkType, trademarkImageUrl, data?.steps?.markenname?.status, data?.decisions, data?.case, caseId, mutate]);
+
   const renderBeratungHeaderMeta = useCallback(() => {
     const decision = data?.decisions as any;
     const caseRecord = data?.case as any;
@@ -1284,6 +1399,38 @@ export default function CasePage() {
       </div>
     );
   }, [data?.case, data?.consultation?.summary, data?.decisions, sessionSummary, trademarkType, isTrademarkTypeConfirmed, manualNameInput, rechercheForm.niceClasses, rechercheForm.countries]);
+
+  const renderMarkennameHeaderMeta = useCallback(() => {
+    const hasName = !!manualNameInput?.trim();
+    const hasType = isTrademarkTypeConfirmed;
+    const needsLogo = trademarkType === "bildmarke" || trademarkType === "wort-bildmarke";
+    const hasLogo = !!trademarkImageUrl;
+    
+    const typeLabel = trademarkType === "wortmarke" ? "Wortmarke" 
+      : trademarkType === "bildmarke" ? "Bildmarke" 
+      : "Wort-/Bildmarke";
+
+    const chip = (label: string, value: string, missing: boolean) => (
+      <span
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-medium max-w-[200px] ${
+          missing
+            ? "bg-red-50 text-red-700 border-red-200"
+            : "bg-teal-50 text-teal-700 border-teal-200"
+        }`}
+      >
+        <span className="opacity-80">{label}:</span>
+        <span className="font-semibold truncate">{missing ? "fehlt" : value}</span>
+      </span>
+    );
+
+    return (
+      <div className="flex flex-wrap gap-1.5 justify-end">
+        {chip("Name", manualNameInput || "", !hasName)}
+        {chip("Art", hasType ? typeLabel : "", !hasType)}
+        {needsLogo && chip("Logo", hasLogo ? "✓" : "", !hasLogo)}
+      </div>
+    );
+  }, [manualNameInput, trademarkType, isTrademarkTypeConfirmed, trademarkImageUrl]);
 
   useEffect(() => {
     const applyHash = () => {
@@ -2789,7 +2936,10 @@ export default function CasePage() {
             onDelete={handleDeleteConsultation}
             title="KI-Markenberater"
             subtitle="Erstberatung für deine Marke"
+            alwaysShowMessages={sessionMessages.length > 0}
             systemPromptAddition={`
+DU BIST: Ein erfahrener Markenberater mit 40 Jahren Berufserfahrung. Du kennst das Markenrecht in- und auswendig und gibst IMMER korrekte, fachlich fundierte Antworten. Du prüfst JEDE Eingabe des Kunden auf Richtigkeit!
+
 DEIN ZIEL: Hilf dem Kunden, alle 4 Kriterien für die Markenanmeldung zu klären.
 
 CHECKLISTE (geh diese Punkte locker der Reihe nach durch):
@@ -2797,6 +2947,28 @@ CHECKLISTE (geh diese Punkte locker der Reihe nach durch):
 2. MARKENART - Wortmarke, Bildmarke oder Wort-/Bildmarke?
 3. NIZZA-KLASSEN - Welche Waren/Dienstleistungen sollen geschützt werden?
 4. LÄNDER - In welchen Ländern soll die Marke geschützt werden?
+
+⚠️ WICHTIGE VALIDIERUNGEN - PRÜFE IMMER:
+
+NIZZA-KLASSEN (1-45):
+- Es gibt NUR 45 Nizza-Klassen (01 bis 45)!
+- Klassen 01-34 = Waren, Klassen 35-45 = Dienstleistungen
+- Wenn Kunde eine ungültige Klasse nennt (z.B. 66, 99, 0), korrigiere SOFORT:
+  "Die Nizza-Klassifikation umfasst nur die Klassen 1 bis 45. Es gibt keine Klasse 66. 
+   Kannst du mir beschreiben, welche Waren oder Dienstleistungen du schützen möchtest? 
+   Dann finde ich die richtige Klasse für dich."
+- Beliebte Klassen: 09 (Software), 25 (Bekleidung), 35 (Werbung), 41 (Bildung), 42 (IT-Dienste)
+
+LÄNDER/REGISTER:
+- Gültige Ländercodes: DE, AT, CH, EU, US, GB, FR, IT, ES, etc.
+- EU = Europäische Union (alle 27 Mitgliedsstaaten mit einer Anmeldung)
+- WIPO = Internationale Registrierung (Madrid-System)
+- Bei ungültigen Codes: Frag nach dem korrekten Land
+
+MARKENART:
+- Wortmarke: Nur Text, keine Grafik
+- Bildmarke: Nur Logo/Grafik, kein Text
+- Wort-/Bildmarke: Text + Grafik kombiniert
 
 AKTUELLER STAND (NUR DIESE WERTE ZÄHLEN - NICHT DIE ZUSAMMENFASSUNG!):
 - Markenname: ${manualNameInput || "⚠️ FEHLT NOCH"}
@@ -2919,28 +3091,10 @@ FALLS der Kunde etwas ändern möchte: Passe die Daten an und frage erneut zur B
             </div>
             
             <div className="flex-1 overflow-y-auto max-h-[400px] custom-scrollbar p-4">
-              {/* Aktueller Stand aus State-Variablen (wie Banner) */}
-              <div className="space-y-3">
-                <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg space-y-2">
-                  <div className="text-sm text-teal-800">
-                    <span className="font-medium">Marke:</span> {manualNameInput || <span className="text-gray-400 italic">fehlt</span>}
-                  </div>
-                  <div className="text-sm text-teal-800">
-                    <span className="font-medium">Art:</span> {isTrademarkTypeConfirmed ? (trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke") : <span className="text-gray-400 italic">fehlt</span>}
-                  </div>
-                  <div className="text-sm text-teal-800">
-                    <span className="font-medium">Klassen:</span> {rechercheForm.niceClasses?.length > 0 ? rechercheForm.niceClasses.map(n => n.toString().padStart(2, "0")).join(", ") : <span className="text-gray-400 italic">fehlt</span>}
-                  </div>
-                  <div className="text-sm text-teal-800">
-                    <span className="font-medium">Länder:</span> {rechercheForm.countries?.length > 0 ? rechercheForm.countries.join(", ") : <span className="text-gray-400 italic">fehlt</span>}
-                  </div>
-                </div>
-                
-                {sessionMessages.length > 0 && (
-                  <div className="text-xs text-gray-500 text-center">
-                    Basierend auf {sessionMessages.length} Nachrichten
-                  </div>
-                )}
+              {/* TODO: Zusammenfassung später implementieren */}
+              <div className="text-center py-8 text-gray-400">
+                <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Kommt bald...</p>
               </div>
             </div>
           </div>
@@ -3260,16 +3414,36 @@ FALLS der Kunde etwas ändern möchte: Passe die Daten an und frage erneut zur B
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Widget 1: KI-Berater */}
+        {/* Widget 1: KI-Berater (globaler Chat wie in Beratung/Markenname) */}
         <OpenAIVoiceAssistant
           ref={rechercheVoiceRef}
           caseId={caseId}
-          onMessageSent={(msg) => setRechercheMessages((prev) => [...prev, msg])}
-          previousMessages={rechercheMessages}
+          onMessageSent={(msg) => {
+            setSessionMessages((prev) => [...prev, msg]);
+            setRechercheMessages((prev) => [...prev, msg]);
+          }}
+          previousMessages={sessionMessages}
           title="KI-Rechercheberater"
           subtitle="Hilfe bei der Markenrecherche"
+          alwaysShowMessages={sessionMessages.length > 0}
           systemPromptAddition={`
-Du bist ein freundlicher KI-Berater für Markenrecherche. Sprich den Kunden per DU an.
+DU BIST: Ein erfahrener Markenberater mit 40 Jahren Berufserfahrung. Du kennst das Markenrecht in- und auswendig und gibst IMMER korrekte, fachlich fundierte Antworten. Sprich den Kunden per DU an.
+
+⚠️ WICHTIGE VALIDIERUNGEN - PRÜFE IMMER:
+
+NIZZA-KLASSEN (1-45):
+- Es gibt NUR 45 Nizza-Klassen (01 bis 45)!
+- Klassen 01-34 = Waren, Klassen 35-45 = Dienstleistungen
+- Wenn Kunde eine ungültige Klasse nennt (z.B. 66, 99, 0), korrigiere SOFORT:
+  "Die Nizza-Klassifikation umfasst nur die Klassen 1 bis 45. Klasse [X] existiert nicht.
+   Welche Waren oder Dienstleistungen möchtest du schützen? Dann finde ich die richtige Klasse."
+- Beliebte Klassen: 09 (Software), 25 (Bekleidung), 35 (Werbung), 41 (Bildung), 42 (IT-Dienste)
+
+LÄNDER/REGISTER:
+- Gültige Codes: DE, AT, CH, EU, US, GB, FR, IT, ES, CN, JP, etc.
+- EU = Europäische Union (alle 27 Mitgliedsstaaten mit einer Anmeldung)
+- WIPO = Internationale Registrierung (Madrid-System)
+- Bei ungültigen Codes: Frag nach dem korrekten Land
 
 AKTUELLER STAND:
 - Markenname: ${rechercheForm.trademarkName || "noch nicht festgelegt"}
@@ -3380,7 +3554,11 @@ Wenn der Kunde Daten ändert, beende deine Antwort mit dem passenden Trigger:
               <label className="block text-xs font-medium text-gray-700 mb-1.5">Markenname</label>
               <input
                 value={rechercheForm.trademarkName}
-                onChange={(e) => setRechercheForm((prev) => ({ ...prev, trademarkName: e.target.value }))}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setRechercheForm((prev) => ({ ...prev, trademarkName: name }));
+                  setManualNameInput(name);
+                }}
                 placeholder="z.B. TechFlow, BrandX..."
                 className={`w-full px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 ${
                   trademarkNameMissing ? "border-red-300 focus:ring-red-100" : "border-gray-200 focus:ring-teal-100"
@@ -3543,19 +3721,28 @@ Wenn der Kunde Daten ändert, beende deine Antwort mit dem passenden Trigger:
             <OpenAIVoiceAssistant
               ref={markennameVoiceRef}
               caseId={caseId}
-              onMessageSent={(msg) => setMarkennameMessages((prev) => [...prev, msg])}
+              onMessageSent={(msg) => {
+                setSessionMessages((prev) => [...prev, msg]);
+                setMarkennameMessages((prev) => [...prev, msg]);
+              }}
               onImageUploaded={(url) => setTrademarkImageUrl(url)}
               showImageUpload={true}
-              previousMessages={markennameMessages}
+              previousMessages={sessionMessages}
               title="KI-Namensberater"
               subtitle="Beratung zu Markenname & -art"
+              alwaysShowMessages={sessionMessages.length > 0}
               systemPromptAddition={`
-Du bist ein freundlicher KI-Berater für Markennamen und Markenarten. Sprich den Kunden per DU an.
+DU BIST: Ein erfahrener Markenberater mit 40 Jahren Berufserfahrung. Du kennst das Markenrecht in- und auswendig und gibst IMMER korrekte, fachlich fundierte Antworten. Sprich den Kunden per DU an.
 
 ${sessionSummary ? `ZUSAMMENFASSUNG AUS VORHERIGER BERATUNG:
 ${sessionSummary}
 
 Du erinnerst dich an das vorherige Gespräch. Beziehe dich darauf, wenn relevant.` : ""}
+
+⚠️ WICHTIGE VALIDIERUNGEN - PRÜFE IMMER:
+- NIZZA-KLASSEN: Es gibt NUR 45 Klassen (01-45)! Bei ungültiger Klasse (z.B. 66) korrigiere sofort!
+- LÄNDERCODES: Nur gültige Codes (DE, AT, CH, EU, US, etc.). EU = alle 27 EU-Staaten.
+- MARKENART: Wortmarke (nur Text), Bildmarke (nur Logo), Wort-/Bildmarke (beides)
 
 AKTUELLER STAND:
 - Markenname: ${manualNameInput || "noch nicht festgelegt"}
@@ -3697,7 +3884,11 @@ WICHTIGE REGELN:
                   <input
                     type="text"
                     value={manualNameInput}
-                    onChange={(e) => setManualNameInput(e.target.value)}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setManualNameInput(name);
+                      setRechercheForm((prev) => ({ ...prev, trademarkName: name }));
+                    }}
                     placeholder="Markenname eingeben"
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300"
                   />
@@ -3887,10 +4078,14 @@ WICHTIGE REGELN:
             <OpenAIVoiceAssistant
               ref={markennameVoiceRef}
               caseId={caseId}
-              onMessageSent={(msg) => setMarkennameMessages((prev) => [...prev, msg])}
-              previousMessages={markennameMessages}
+              onMessageSent={(msg) => {
+                setSessionMessages((prev) => [...prev, msg]);
+                setMarkennameMessages((prev) => [...prev, msg]);
+              }}
+              previousMessages={sessionMessages}
               title="KI-Namensberater"
               subtitle="Hilfe beim Generieren"
+              alwaysShowMessages={sessionMessages.length > 0}
               systemPromptAddition={`
 Du bist ein freundlicher KI-Berater für kreative Markennamen. Sprich den Kunden per DU an.
 
@@ -5283,8 +5478,42 @@ WICHTIGE REGELN:
                     {bannerSteps.map((s) => {
                       const stepStatus = getStepStatus(s.stepId);
                       const status = stepStatus.status;
-                      const isSkipped = status === "skipped" || (status === "completed" && stepStatus.metadata?.skipped === true);
-                      const isCompleted = status === "completed" && !isSkipped;
+                      
+                      // Dynamische Prüfung ob Kriterien fehlen (für Beratung & Markenname)
+                      // Berücksichtigt auch Daten aus decisions/summary (wie Banner)
+                      let hasMissingCriteria = false;
+                      if (s.stepId === "beratung") {
+                        const decision = data?.decisions as any;
+                        const hasNameFromState = !!manualNameInput?.trim();
+                        const hasNameFromDecisions = Array.isArray(decision?.trademarkNames) && decision.trademarkNames.some((n: any) => typeof n === "string" && n.trim().length > 0);
+                        const hasName = hasNameFromState || hasNameFromDecisions || !!(data?.case as any)?.trademarkName;
+                        
+                        const hasClassesFromState = (rechercheForm.niceClasses?.length ?? 0) > 0;
+                        const hasClassesFromDecisions = Array.isArray(decision?.niceClasses) && decision.niceClasses.length > 0;
+                        const hasClasses = hasClassesFromState || hasClassesFromDecisions;
+                        
+                        const hasCountriesFromState = (rechercheForm.countries?.length ?? 0) > 0;
+                        const hasCountriesFromDecisions = Array.isArray(decision?.countries) && decision.countries.length > 0;
+                        const hasCountries = hasCountriesFromState || hasCountriesFromDecisions;
+                        
+                        hasMissingCriteria = !hasName || !hasClasses || !hasCountries;
+                      } else if (s.stepId === "markenname") {
+                        const decision = data?.decisions as any;
+                        const hasNameFromState = !!manualNameInput?.trim();
+                        const hasNameFromDecisions = Array.isArray(decision?.trademarkNames) && decision.trademarkNames.some((n: any) => typeof n === "string" && n.trim().length > 0);
+                        const hasName = hasNameFromState || hasNameFromDecisions || !!(data?.case as any)?.trademarkName;
+                        const needsLogo = trademarkType === "bildmarke" || trademarkType === "wort-bildmarke";
+                        const hasLogo = !!trademarkImageUrl;
+                        hasMissingCriteria = !hasName || (needsLogo && !hasLogo);
+                      }
+                      
+                      // Für Beratung/Markenname: Grün wenn alle Kriterien erfüllt (unabhängig vom DB-Status)
+                      // Für andere Schritte: Grün nur wenn DB-Status "completed"
+                      const wasSkipped = status === "skipped" || (status === "completed" && stepStatus.metadata?.skipped === true);
+                      const isSkipped = wasSkipped || ((status === "completed" || status === "in_progress") && hasMissingCriteria);
+                      const isCompleted = (s.stepId === "beratung" || s.stepId === "markenname")
+                        ? !hasMissingCriteria && !wasSkipped
+                        : status === "completed" && !isSkipped && !hasMissingCriteria;
                       const isCurrentlyOpen = openAccordion === s.stepId;
 
                       const Icon = s.icon;
@@ -5363,16 +5592,78 @@ WICHTIGE REGELN:
               isCompleted={(() => {
                 const s = getStepStatus(step.id);
                 const skipped = s.status === "skipped" || (s.status === "completed" && s.metadata?.skipped === true);
-                return s.status === "completed" && !skipped;
+                
+                // Dynamische Prüfung ob Kriterien fehlen (berücksichtigt auch decisions)
+                let hasMissingCriteria = false;
+                if (step.id === "beratung") {
+                  const decision = data?.decisions as any;
+                  const hasNameFromState = !!manualNameInput?.trim();
+                  const hasNameFromDecisions = Array.isArray(decision?.trademarkNames) && decision.trademarkNames.some((n: any) => typeof n === "string" && n.trim().length > 0);
+                  const hasName = hasNameFromState || hasNameFromDecisions || !!(data?.case as any)?.trademarkName;
+                  
+                  const hasClassesFromState = (rechercheForm.niceClasses?.length ?? 0) > 0;
+                  const hasClassesFromDecisions = Array.isArray(decision?.niceClasses) && decision.niceClasses.length > 0;
+                  const hasClasses = hasClassesFromState || hasClassesFromDecisions;
+                  
+                  const hasCountriesFromState = (rechercheForm.countries?.length ?? 0) > 0;
+                  const hasCountriesFromDecisions = Array.isArray(decision?.countries) && decision.countries.length > 0;
+                  const hasCountries = hasCountriesFromState || hasCountriesFromDecisions;
+                  
+                  hasMissingCriteria = !hasName || !hasClasses || !hasCountries;
+                } else if (step.id === "markenname") {
+                  const decision = data?.decisions as any;
+                  const hasNameFromState = !!manualNameInput?.trim();
+                  const hasNameFromDecisions = Array.isArray(decision?.trademarkNames) && decision.trademarkNames.some((n: any) => typeof n === "string" && n.trim().length > 0);
+                  const hasName = hasNameFromState || hasNameFromDecisions || !!(data?.case as any)?.trademarkName;
+                  const needsLogo = trademarkType === "bildmarke" || trademarkType === "wort-bildmarke";
+                  const hasLogo = !!trademarkImageUrl;
+                  hasMissingCriteria = !hasName || (needsLogo && !hasLogo);
+                }
+                
+                // Für Beratung/Markenname: Grün wenn Kriterien erfüllt (unabhängig vom DB-Status)
+                const wasSkipped = skipped;
+                return (step.id === "beratung" || step.id === "markenname")
+                  ? !hasMissingCriteria && !wasSkipped
+                  : s.status === "completed" && !skipped && !hasMissingCriteria;
               })()}
               isSkipped={(() => {
                 const s = getStepStatus(step.id);
-                return s.status === "skipped" || (s.status === "completed" && s.metadata?.skipped === true);
+                const skipped = s.status === "skipped" || (s.status === "completed" && s.metadata?.skipped === true);
+                
+                // Dynamische Prüfung ob Kriterien fehlen (berücksichtigt auch decisions)
+                let hasMissingCriteria = false;
+                if (step.id === "beratung") {
+                  const decision = data?.decisions as any;
+                  const hasNameFromState = !!manualNameInput?.trim();
+                  const hasNameFromDecisions = Array.isArray(decision?.trademarkNames) && decision.trademarkNames.some((n: any) => typeof n === "string" && n.trim().length > 0);
+                  const hasName = hasNameFromState || hasNameFromDecisions || !!(data?.case as any)?.trademarkName;
+                  
+                  const hasClassesFromState = (rechercheForm.niceClasses?.length ?? 0) > 0;
+                  const hasClassesFromDecisions = Array.isArray(decision?.niceClasses) && decision.niceClasses.length > 0;
+                  const hasClasses = hasClassesFromState || hasClassesFromDecisions;
+                  
+                  const hasCountriesFromState = (rechercheForm.countries?.length ?? 0) > 0;
+                  const hasCountriesFromDecisions = Array.isArray(decision?.countries) && decision.countries.length > 0;
+                  const hasCountries = hasCountriesFromState || hasCountriesFromDecisions;
+                  
+                  hasMissingCriteria = !hasName || !hasClasses || !hasCountries;
+                } else if (step.id === "markenname") {
+                  const decision = data?.decisions as any;
+                  const hasNameFromState = !!manualNameInput?.trim();
+                  const hasNameFromDecisions = Array.isArray(decision?.trademarkNames) && decision.trademarkNames.some((n: any) => typeof n === "string" && n.trim().length > 0);
+                  const hasName = hasNameFromState || hasNameFromDecisions || !!(data?.case as any)?.trademarkName;
+                  const needsLogo = trademarkType === "bildmarke" || trademarkType === "wort-bildmarke";
+                  const hasLogo = !!trademarkImageUrl;
+                  hasMissingCriteria = !hasName || (needsLogo && !hasLogo);
+                }
+                
+                // Gelb wenn: übersprungen ODER Kriterien fehlen bei Beratung/Markenname
+                return skipped || ((step.id === "beratung" || step.id === "markenname") && hasMissingCriteria);
               })()}
               status={getStepStatus(step.id).status}
               isOpen={openAccordion === step.id}
               onToggle={() => handleToggleAccordion(step.id)}
-              headerMeta={step.id === "beratung" ? renderBeratungHeaderMeta() : undefined}
+              headerMeta={step.id === "beratung" ? renderBeratungHeaderMeta() : step.id === "markenname" ? renderMarkennameHeaderMeta() : undefined}
             >
               {renderStepContent(step)}
             </AccordionSection>
