@@ -30,10 +30,11 @@ interface OpenAIVoiceAssistantProps {
   systemPromptAddition?: string;
   showImageUpload?: boolean;
   alwaysShowMessages?: boolean; // Zeigt Nachrichten ohne "Fortsetzen"-Button
+  autoConnect?: boolean; // Automatisch verbinden wenn vorherige Nachrichten da sind
 }
 
 const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssistantProps>(
-  ({ caseId, onMessageSent, onDelete, onImageUploaded, previousMessages = [], previousSummary, title, subtitle, systemPromptAddition, showImageUpload = false, alwaysShowMessages = false }, ref) => {
+  ({ caseId, onMessageSent, onDelete, onImageUploaded, previousMessages = [], previousSummary, title, subtitle, systemPromptAddition, showImageUpload = false, alwaysShowMessages = false, autoConnect = false }, ref) => {
     const [isConnected, setIsConnected] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
@@ -102,6 +103,18 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
         }, 500);
       }
     }, [previousMessages, messages.length]);
+
+    // Auto-Connect: Automatisch verbinden wenn vorherige Nachrichten da sind
+    const hasAutoConnectedRef = useRef(false);
+    useEffect(() => {
+      if (autoConnect && previousMessages.length > 0 && !isConnected && !isConnecting && !hasAutoConnectedRef.current) {
+        hasAutoConnectedRef.current = true;
+        // Kurze Verzögerung für sanften Übergang
+        setTimeout(() => {
+          startSession("text");
+        }, 300);
+      }
+    }, [autoConnect, previousMessages.length, isConnected, isConnecting]);
 
     const addMessage = useCallback((role: "user" | "assistant", content: string, isTranscription = false) => {
       const newMessage: Message = {
@@ -193,8 +206,9 @@ const OpenAIVoiceAssistant = forwardRef<VoiceAssistantHandle, OpenAIVoiceAssista
           break;
 
         case "error":
-          console.error("Server error:", event.error);
-          setError(event.error?.message || "Serverfehler");
+          console.error("Server error:", JSON.stringify(event, null, 2));
+          const errorMsg = event.error?.message || event.message || (typeof event.error === 'string' ? event.error : "Verbindungsfehler - bitte erneut versuchen");
+          setError(errorMsg);
           break;
       }
     }, [addMessage, assistantResponse]);
