@@ -17,6 +17,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",
     "@auth/drizzle-adapter": "^1.11.1",
+    "@fal-ai/client": "^1.8.1",
     "@humeai/voice-react": "^0.2.11",
     "@neondatabase/serverless": "^1.0.2",
     "@playwright/test": "^1.57.0",

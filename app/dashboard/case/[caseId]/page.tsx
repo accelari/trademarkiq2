@@ -750,6 +750,7 @@ export default function CasePage() {
   const analyseVoiceRef = useRef<ClaudeAssistantHandle>(null);
   const [analyseMessages, setAnalyseMessages] = useState<any[]>([]);
 
+
   // Anmeldung Voice Assistant
   const anmeldungVoiceRef = useRef<ClaudeAssistantHandle>(null);
   const [anmeldungMessages, setAnmeldungMessages] = useState<any[]>([]);
@@ -854,8 +855,26 @@ export default function CasePage() {
 
   // GLOBALER CHAT: Nachrichten-Übertragung nicht mehr nötig - alle nutzen sessionMessages
 
-  // Automatische Kontextnachricht bei Akkordeon-Wechsel
+  // Automatische Kontextnachricht bei Akkordeon-Wechsel (nur einmal pro Akkordeon)
   const lastVisitedAccordionRef = useRef<string | null>(null);
+  const greetedAccordionsRef = useRef<Set<string>>(new Set());
+  const startAccordionMarkedRef = useRef(false);
+  
+  // Start-Akkordeon automatisch als "begrüßt" markieren (bei erster Nachricht)
+  useEffect(() => {
+    // Nur einmal ausführen, wenn erste Nachricht kommt
+    if (startAccordionMarkedRef.current) return;
+    if (sessionMessages.length === 0) return;
+    if (!openAccordion) return;
+    
+    // Das aktuelle Akkordeon ist das Start-Akkordeon → als "begrüßt" markieren
+    const accordionsWithAI = ["beratung", "markenname", "recherche"];
+    if (accordionsWithAI.includes(openAccordion)) {
+      greetedAccordionsRef.current.add(openAccordion);
+      startAccordionMarkedRef.current = true;
+    }
+  }, [sessionMessages.length, openAccordion]);
+  
   useEffect(() => {
     if (!openAccordion) return;
     if (openAccordion === lastVisitedAccordionRef.current) return;
@@ -868,7 +887,13 @@ export default function CasePage() {
     }
     
     // Nicht beim ersten Laden (wenn noch keine Nachrichten da sind)
-    if (sessionMessages.length === 0 && openAccordion === "beratung") {
+    if (sessionMessages.length === 0) {
+      lastVisitedAccordionRef.current = openAccordion;
+      return;
+    }
+    
+    // Begrüßung nur einmal pro Akkordeon in der Session
+    if (greetedAccordionsRef.current.has(openAccordion)) {
       lastVisitedAccordionRef.current = openAccordion;
       return;
     }
@@ -938,10 +963,14 @@ Soll ich die Recherche starten?`
       
       // Streaming-Effekt wie bei Begrüßung
       targetRef.current?.simulateStreaming(contextMsg);
+      
+      // Akkordeon als "begrüßt" markieren - wird in dieser Session nicht mehr begrüßt
+      greetedAccordionsRef.current.add(openAccordion);
     }
     
     lastVisitedAccordionRef.current = openAccordion;
   }, [openAccordion, sessionMessages.length, manualNameInput, trademarkType, rechercheForm.trademarkName, rechercheForm.niceClasses, rechercheForm.countries]);
+
 
   // Refs für Trigger- und manuelle Änderungs-Erkennung
   const lastProcessedBeratungMsgIdRef = useRef<string | null>(null);
@@ -1036,18 +1065,37 @@ Soll ich die Recherche starten?`
   }, [sessionMessages, manualNameInput, rechercheForm.niceClasses, rechercheForm.countries, trademarkType, isTrademarkTypeConfirmed, openAccordion]);
 
   // Erkennung manueller Änderungen - KI reagiert mit Verzögerung (nur bei ECHTEN manuellen Änderungen)
+  const lastAccordionRef = useRef<string | null>(null);
   useEffect(() => {
     // Nicht wenn keine Session aktiv oder wenn Änderung durch KI-Trigger kam
     if (sessionMessages.length === 0) return;
     if (triggerChangeInProgressRef.current) return;
+    // Nur in Beratung, Markenname oder Recherche aktiv
+    if (openAccordion !== "beratung" && openAccordion !== "markenname" && openAccordion !== "recherche") return;
     
-    // Aktueller Zustand als String für Vergleich
+    // Akkordeon-Wechsel erkennen und überspringen (keine Benachrichtigung bei Wechsel)
+    if (lastAccordionRef.current !== openAccordion) {
+      lastAccordionRef.current = openAccordion;
+      // Aktuellen Zustand speichern ohne Benachrichtigung
+      lastNotifiedStateRef.current = JSON.stringify({
+        name: openAccordion === "recherche" ? rechercheForm.trademarkName : manualNameInput,
+        classes: rechercheForm.niceClasses,
+        countries: rechercheForm.countries,
+        type: trademarkType,
+        typeConfirmed: isTrademarkTypeConfirmed,
+        logo: trademarkImageUrl
+      });
+      return;
+    }
+    
+    // Aktueller Zustand als String für Vergleich (OHNE accordion - sonst löst Wechsel aus)
     const currentState = JSON.stringify({
-      name: manualNameInput,
+      name: openAccordion === "recherche" ? rechercheForm.trademarkName : manualNameInput,
       classes: rechercheForm.niceClasses,
       countries: rechercheForm.countries,
       type: trademarkType,
-      typeConfirmed: isTrademarkTypeConfirmed
+      typeConfirmed: isTrademarkTypeConfirmed,
+      logo: trademarkImageUrl
     });
     
     // Ersten Render überspringen - nur initialen Zustand speichern
@@ -1067,36 +1115,79 @@ Soll ich die Recherche starten?`
     
     // Neuen Timeout setzen - KI reagiert erst nach 3 Sekunden Inaktivität
     manualChangeTimeoutRef.current = setTimeout(() => {
-      // Prüfe was fehlt
-      const missing: string[] = [];
-      if (!manualNameInput) missing.push("Markenname");
-      if (rechercheForm.niceClasses.length === 0) missing.push("Nizza-Klassen");
-      if (rechercheForm.countries.length === 0) missing.push("Länder");
-      if (!isTrademarkTypeConfirmed) missing.push("Markenart");
+      // Wähle die richtige Ref je nach Akkordeon
+      const targetRef = openAccordion === "recherche" 
+        ? rechercheVoiceRef 
+        : openAccordion === "markenname" 
+          ? markennameVoiceRef 
+          : voiceAssistantRef;
+      const currentName = openAccordion === "recherche" ? rechercheForm.trademarkName : manualNameInput;
       
-      // Prüfe was vorhanden ist
+      // Prüfe was fehlt (je nach Akkordeon unterschiedlich)
+      const missing: string[] = [];
       const present: string[] = [];
-      if (manualNameInput) present.push(`Marke: "${manualNameInput}"`);
-      if (rechercheForm.niceClasses.length > 0) present.push(`Klassen: ${rechercheForm.niceClasses.join(", ")}`);
-      if (rechercheForm.countries.length > 0) present.push(`Länder: ${rechercheForm.countries.join(", ")}`);
-      if (isTrademarkTypeConfirmed) {
-        const typeLabel = trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke";
-        present.push(`Art: ${typeLabel}`);
+      
+      if (openAccordion === "markenname") {
+        // Im Markenname-Akkordeon: Name, Art, Logo (bei Bild-/Wort-Bildmarke)
+        if (!currentName) missing.push("Markenname");
+        if (!isTrademarkTypeConfirmed) missing.push("Markenart");
+        const needsLogo = trademarkType === "bildmarke" || trademarkType === "wort-bildmarke";
+        if (needsLogo && !trademarkImageUrl) missing.push("Logo");
+        
+        if (currentName) present.push(`Marke: "${currentName}"`);
+        if (isTrademarkTypeConfirmed) {
+          const typeLabel = trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke";
+          present.push(`Art: ${typeLabel}`);
+        }
+        if (trademarkImageUrl) present.push("Logo vorhanden");
+      } else {
+        // Beratung/Recherche: Name, Klassen, Länder, Art
+        if (!currentName) missing.push("Markenname");
+        if (rechercheForm.niceClasses.length === 0) missing.push("Nizza-Klassen");
+        if (rechercheForm.countries.length === 0) missing.push("Länder");
+        if (openAccordion === "beratung" && !isTrademarkTypeConfirmed) missing.push("Markenart");
+        
+        if (currentName) present.push(`Marke: "${currentName}"`);
+        if (rechercheForm.niceClasses.length > 0) present.push(`Klassen: ${rechercheForm.niceClasses.join(", ")}`);
+        if (rechercheForm.countries.length > 0) present.push(`Länder: ${rechercheForm.countries.join(", ")}`);
+        if (isTrademarkTypeConfirmed) {
+          const typeLabel = trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke";
+          present.push(`Art: ${typeLabel}`);
+        }
       }
       
       // Nachricht an KI - immer wenn sich etwas geändert hat
       lastNotifiedStateRef.current = currentState;
       
-      if (missing.length === 0) {
-        // Alles komplett!
-        voiceAssistantRef.current?.sendQuestion(
-          `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. Bestätige kurz und frag ob der Benutzer zur Recherche weitergehen möchte.]`
-        );
+      if (openAccordion === "markenname") {
+        // Im Markenname-Akkordeon
+        if (present.length > 0) {
+          const needsLogo = trademarkType === "bildmarke" || trademarkType === "wort-bildmarke";
+          const nextStep = missing.length === 0 
+            ? (needsLogo ? "Logo ist bereit! Weiter zur Recherche?" : "Alles bereit für die Recherche!")
+            : `Noch offen: ${missing.join(", ")}.`;
+          targetRef.current?.sendQuestion(
+            `[SYSTEM: Formular aktualisiert: ${present.join(", ")}. ${nextStep} Bestätige kurz.]`
+          );
+        }
+      } else if (openAccordion === "recherche") {
+        // Im Recherche-Akkordeon
+        if (present.length > 0) {
+          targetRef.current?.sendQuestion(
+            `[SYSTEM: Formular aktualisiert: ${present.join(", ")}. ${missing.length > 0 ? `Noch offen: ${missing.join(", ")}.` : "Alles bereit für die Recherche!"} Bestätige kurz.]`
+          );
+        }
       } else {
-        // Noch nicht komplett - bestätige was da ist und frag nach dem Rest
-        voiceAssistantRef.current?.sendQuestion(
-          `[SYSTEM: Aktueller Stand: ${present.length > 0 ? present.join(", ") : "noch nichts eingetragen"}. Noch offen: ${missing.join(", ")}. Bestätige kurz was eingetragen wurde und frag nach dem nächsten fehlenden Punkt.]`
-        );
+        // Im Beratung-Akkordeon: Original-Logik
+        if (missing.length === 0) {
+          targetRef.current?.sendQuestion(
+            `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. Bestätige kurz und frag ob der Benutzer zur Recherche weitergehen möchte.]`
+          );
+        } else {
+          targetRef.current?.sendQuestion(
+            `[SYSTEM: Aktueller Stand: ${present.length > 0 ? present.join(", ") : "noch nichts eingetragen"}. Noch offen: ${missing.join(", ")}. Bestätige kurz was eingetragen wurde und frag nach dem nächsten fehlenden Punkt.]`
+          );
+        }
       }
     }, 3000); // 3 Sekunden warten
     
@@ -1106,7 +1197,7 @@ Soll ich die Recherche starten?`
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manualNameInput, rechercheForm.niceClasses.join(","), rechercheForm.countries.join(","), trademarkType, isTrademarkTypeConfirmed, sessionMessages.length]);
+  }, [manualNameInput, rechercheForm.trademarkName, rechercheForm.niceClasses?.join(",") || "", rechercheForm.countries?.join(",") || "", trademarkType, isTrademarkTypeConfirmed, trademarkImageUrl || "", sessionMessages.length, openAccordion]);
 
   // Trigger-Erkennung für RECHERCHE (jetzt auch sessionMessages)
   const lastProcessedRechercheMsgIdRef = useRef<string | null>(null);
@@ -1171,25 +1262,13 @@ Soll ich die Recherche starten?`
     const content = lastMsg.content || "";
     let hasAction = false;
     
-    // [LOGO_GENERIEREN] - Logo generieren mit Chat-Kontext + Referenzbild
-    if (content.includes("[LOGO_GENERIEREN]")) {
+    // [LOGO_GENERIEREN:prompt] - Logo generieren mit Prompt aus Claude
+    const logoMatch = content.match(/\[LOGO_GENERIEREN:([^\]]+)\]/);
+    if (logoMatch?.[1] || content.includes("[LOGO_GENERIEREN]")) {
       hasAction = true;
       const brandName = manualNameInput || "Marke";
-      
-      // Konvertiere Referenzbild zu Base64 (falls vorhanden)
-      const getBase64FromUrl = async (url: string): Promise<string | null> => {
-        try {
-          const response = await fetch(url);
-          const blob = await response.blob();
-          return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
-        } catch {
-          return null;
-        }
-      };
+      // Extrahiere Prompt aus Trigger oder verwende Default
+      const customPrompt = logoMatch?.[1]?.trim() || `Professional logo for "${brandName}", modern minimalist, clean vector style, white background`;
       
       // Starte Lade-Animation
       setIsGeneratingLogo(true);
@@ -1197,40 +1276,20 @@ Soll ich die Recherche starten?`
       
       (async () => {
         try {
-          // 1. Hole Referenzbild als Base64 (falls vorhanden)
-          const refBase64 = referenceImageUrl ? await getBase64FromUrl(referenceImageUrl) : null;
+          console.log("=== LOGO GENERATION DEBUG ===");
+          console.log("Custom prompt from Claude:", customPrompt);
+          console.log("Trademark type:", trademarkType);
+          console.log("Brand name:", brandName);
+          console.log("==============================");
           
-          // 2. Generiere optimierten Prompt mit GPT-4o-mini
-          const promptResponse = await fetch("/api/generate-logo-prompt", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chatMessages: sessionMessages.map((m: any) => ({ role: m.role, content: m.content })),
-              referenceImageBase64: refBase64,
-              brandName,
-              trademarkType,
-            }),
-          });
-          
-          const promptResult = await promptResponse.json();
-          if (!promptResult.prompt) {
-            console.error("No prompt generated:", promptResult.error);
-            setLogoGenerationError("Prompt-Generierung fehlgeschlagen");
-            setIsGeneratingLogo(false);
-            return;
-          }
-          
-          console.log("Generated prompt:", promptResult.prompt);
-          
-          // 3. Generiere Logo mit DALL-E
+          // Generiere Logo mit fal.ai NanoBanana
           const logoResponse = await fetch("/api/generate-logo", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              prompt: promptResult.prompt,
+              prompt: customPrompt,
               trademarkType,
               brandName,
-              quality: "high",
             }),
           });
           
@@ -1239,21 +1298,60 @@ Soll ich die Recherche starten?`
             setTrademarkImageUrl(logoResult.imageUrl);
             // Lösche Referenzbild nach erfolgreicher Generierung
             setReferenceImageUrl(null);
-            
-            // NACH erfolgreicher Generierung: Frage ob Logo gefällt
-            const logoReadyMsg = {
-              id: `logo-ready-${Date.now()}`,
-              role: "assistant" as const,
-              content: `Hier ist dein generiertes Logo! 🎨 Gefällt es dir so? Oder sollen wir ein anderes Design ausprobieren?`,
-              timestamp: new Date().toISOString()
-            };
-            setSessionMessages(prev => [...prev, logoReadyMsg]);
+            // Keine System-Nachricht mehr - Claude fragt bereits aus seinem Workflow
           } else if (logoResult.error) {
             setLogoGenerationError(logoResult.error);
+            // Bei Fehler: Claude informieren
+            markennameVoiceRef.current?.sendQuestion(
+              `[SYSTEM: Logo-Generierung fehlgeschlagen: ${logoResult.error}. Informiere den User und biete an, es nochmal zu versuchen.]`
+            );
           }
         } catch (err) {
           console.error("Logo generation failed:", err);
           setLogoGenerationError("Logo-Generierung fehlgeschlagen");
+        } finally {
+          setIsGeneratingLogo(false);
+        }
+      })();
+    }
+
+    // [LOGO_BEARBEITEN:prompt] - Bestehendes Logo bearbeiten mit Flux Kontext
+    const editMatch = content.match(/\[LOGO_BEARBEITEN:([^\]]+)\]/);
+    console.log("LOGO_BEARBEITEN check:", { found: !!editMatch, prompt: editMatch?.[1], hasImage: !!trademarkImageUrl, content: content.substring(0, 200) });
+    if (editMatch?.[1] && trademarkImageUrl) {
+      hasAction = true;
+      const editPrompt = editMatch[1].trim();
+      const brandName = manualNameInput || "Marke";
+      
+      setIsGeneratingLogo(true);
+      setLogoGenerationError(null);
+      
+      (async () => {
+        try {
+          console.log("=== LOGO EDIT DEBUG ===");
+          console.log("Edit prompt:", editPrompt);
+          console.log("Current image URL:", trademarkImageUrl);
+          console.log("========================");
+          
+          const editResponse = await fetch("/api/edit-logo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageUrl: trademarkImageUrl,
+              editPrompt,
+              brandName,
+            }),
+          });
+          
+          const editResult = await editResponse.json();
+          if (editResult.imageUrl) {
+            setTrademarkImageUrl(editResult.imageUrl);
+          } else if (editResult.error) {
+            setLogoGenerationError(editResult.error);
+          }
+        } catch (err) {
+          console.error("Logo edit failed:", err);
+          setLogoGenerationError("Logo-Bearbeitung fehlgeschlagen");
         } finally {
           setIsGeneratingLogo(false);
         }
@@ -3862,6 +3960,20 @@ SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfra
                     />
                     <span className="text-xs text-gray-600">Verwandte Klassen prüfen</span>
                   </label>
+                  {rechercheForm.includeRelatedNiceClasses && relatedClasses.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {relatedClasses.slice(0, 8).map((c) => (
+                        <span key={c} className="inline-flex items-center px-1.5 py-0.5 bg-yellow-50 text-yellow-700 text-xs rounded border border-yellow-300">
+                          {c < 10 ? `0${c}` : c}
+                        </span>
+                      ))}
+                      {relatedClasses.length > 8 && (
+                        <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded">
+                          +{relatedClasses.length - 8}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -3964,7 +4076,7 @@ SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfra
               alwaysShowMessages={sessionMessages.length > 0}
               autoConnect={sessionMessages.length > 0}
               systemPromptAddition={`
-DU BIST: Ein Markenrechts-Experte mit 40 Jahren Erfahrung. Du weißt ALLES über Markenrecht. Sprich per DU.
+DU BIST: Ein erfahrener LOGO-DESIGNER und Markenrechts-Experte mit 20+ Jahren Erfahrung. Sprich per DU.
 
 AKTUELLER STAND:
 - Markenname: ${manualNameInput || "❌ fehlt"}
@@ -3973,29 +4085,86 @@ AKTUELLER STAND:
 - Länder: ${rechercheForm.countries.length > 0 ? rechercheForm.countries.join(", ") : "❌ fehlt"}
 - Logo: ${trademarkImageUrl ? "✅ vorhanden" : "❌ fehlt"}
 
-Wir sind im MARKENNAME-Bereich. Hier geht es um Namen und Logo.
+🎨 LOGO-DESIGN-EXPERTISE:
+
+GUTE MARKENLOGOS müssen:
+- Einfach & einprägsam (in 2 Sekunden erkennbar)
+- In klein (Favicon) UND groß funktionieren
+- In Schwarz/Weiß noch erkennbar sein
+- Zeitlos sein (keine kurzlebigen Trends)
+- Zur Branche passen
+
+WENN USER EIN REFERENZBILD HOCHLÄDT - STRUKTURIERTE ANALYSE:
+1. **STIL:** Minimalistisch/Vintage/Modern/Abstrakt/Handgezeichnet
+2. **FARBEN:** Hauptfarben + Palette (warm/kalt/monochrom) - WICHTIG für Logo-Prompt!
+3. **FORMEN:** Geometrisch/Organisch, Linien, Symmetrie
+4. **STIMMUNG:** Professionell/Verspielt/Luxuriös/Bodenständig
+
+⚠️ FARBEN AUS REFERENZBILD ÜBERNEHMEN:
+Wenn User ein Referenzbild hochlädt und die Farben übernehmen will:
+- Analysiere die EXAKTEN Farben im Bild (z.B. "sky blue #87CEEB", "sunset orange #FF6B35")
+- Nenne diese Farben EXPLIZIT im Logo-Prompt!
+- Beispiel: Bild zeigt Sonnenuntergang → Prompt: "...sky blue and warm sunset orange colors..."
+
+WENN REFERENZBILD UNGEEIGNET FÜR LOGO (z.B. Foto, zu detailliert):
+→ Erkläre freundlich WARUM es als Logo nicht optimal ist
+→ Schlage vor, die STIMMUNG/FARBEN zu übernehmen, aber logo-gerecht umzusetzen
+→ Beispiel: "Das Foto hat tolle Farben! Ich übernehme das Himmelblau und das warme Orange für dein Logo."
 
 TRIGGER-SYSTEM:
 - Name ändern: [MARKE:Name]
 - Art ändern: [ART:bildmarke] oder [ART:wortmarke] oder [ART:wort-bildmarke]
-- Logo generieren: [LOGO_GENERIEREN]
+- Logo NEU generieren: [LOGO_GENERIEREN:dein detaillierter prompt hier]
+- Logo BEARBEITEN: [LOGO_BEARBEITEN:was soll geändert werden]
 - Klassen: [KLASSEN:01,02]
 - Länder: [LAENDER:DE,EU]
 
+🔄 WANN BEARBEITEN vs. NEU GENERIEREN:
+- User will KLEINES Element ändern (Farbe, Form, Element entfernen) → [LOGO_BEARBEITEN:...]
+- User will KOMPLETT neues Design → [LOGO_GENERIEREN:...]
+
+LOGO_BEARBEITEN Format (nur die Änderung beschreiben!):
+[LOGO_BEARBEITEN:remove the person, keep everything else]
+[LOGO_BEARBEITEN:change the color to blue]
+[LOGO_BEARBEITEN:make the text bigger]
+
+LOGO-PROMPT FORMAT (englisch, für KI-Bildgenerator):
+⚠️⚠️⚠️ KRITISCH: Der Prompt im Trigger bestimmt das Logo! Nur was IM TRIGGER steht, wird generiert!
+⚠️ FARBEN: Wenn User bestimmte Farben will → MUSS im Trigger stehen: "sky blue color", "orange tones" etc.
+⚠️ MOTIV: Beschreibe NUR das gewünschte Logo-Motiv, KEINE Personen/Kameras/etc. es sei denn explizit gewünscht!
+
+PFLICHT-ELEMENTE im Trigger:
+1. Markenname: "${manualNameInput || "Brand"}"
+2. Stil: minimalist/modern/vintage/etc.
+3. FARBEN: Die gewünschten Farben EXPLIZIT nennen!
+4. Form: geometric/organic/abstract
+
+[LOGO_GENERIEREN:Logo for "${manualNameInput || "Brand"}", [stil], [FARBE 1] and [FARBE 2] colors, [form], vector style, clean design]
+
+BEISPIELE:
+- [LOGO_GENERIEREN:Logo for "Akasiel", modern minimalist, bright sky blue and white colors, abstract geometric shape, vector style, clean design]
+- [LOGO_GENERIEREN:Logo for "Brand", elegant, deep ocean blue color, flowing wave shape, vector style]
+- [LOGO_GENERIEREN:Logo for "TechCo", futuristic, electric blue and silver metallic colors, angular geometric, vector style]
+
 UI-HINWEISE für den Kunden:
-- Rechts oben: Eingabefeld für Namen + Dropdown für Markenart
-- Rechts unten: "KI-Logo" (generieren), "Referenz" (Stilvorlage), "Logo" (eigenes hochladen)
+- Rechts: Eingabefeld für Namen + Dropdown für Markenart
+- Buttons: "KI-Logo", "Referenz", "Logo hochladen"
 
-WICHTIGER WORKFLOW:
-Wenn User Logo generieren will → Sage nur "Ich generiere dein Logo..." und setze [LOGO_GENERIEREN]
-Das System fragt AUTOMATISCH ob das Logo gefällt - DU musst das NICHT fragen!
+WORKFLOW:
+1. User beschreibt Logo-Wunsch ODER lädt Referenzbild hoch
+2. Du analysierst und fragst nach Anpassungswünschen
+3. Du sagst NUR: "Ich generiere dein Logo... 🎨" und setzt [LOGO_GENERIEREN:prompt]
+4. ⚠️ STOPP! Schreibe NICHTS mehr nach dem Trigger! Das System generiert das Logo und zeigt es dem User.
+5. Frage ob es gefällt oder Änderungen gewünscht sind
+6. Wenn User sagt es gefällt → Frage "Sollen wir zur Recherche?" → Bei JA: [GOTO:recherche]
+7. Wenn User kleine Änderung will (entferne X, ändere Farbe) → [LOGO_BEARBEITEN:remove X] oder [LOGO_BEARBEITEN:change color to blue]
+8. Wenn User komplett neues Design will → [LOGO_GENERIEREN:...]
 
-Wenn User sagt Logo gefällt (z.B. "Ja", "Passt", "Gefällt mir", "Weiter"):
-"Perfekt! Dann weiter zur Recherche! [GOTO:recherche]"
+🛑 BLEIBE IM MARKENNAME-BEREICH! Gehe NIEMALS zu [GOTO:beratung]!
+⚠️ Nach [LOGO_GENERIEREN:...] oder [LOGO_BEARBEITEN:...] KEINE weiteren Sätze - das System zeigt das Ergebnis!
 
-Wenn User sagt Logo gefällt NICHT → Biete an neu zu generieren
-
-SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfragen.
+⚠️ RECHTLICHER HINWEIS bei KI-Logos:
+"KI-generierte Logos können als Marke geschützt werden. Für zusätzlichen Urheberrechtsschutz empfehle ich, das Logo nach der Generierung leicht anzupassen."
 `}
             />
 
@@ -4131,7 +4300,7 @@ SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfra
                         <img
                           src={trademarkImageUrl}
                           alt="Bildmarke preview"
-                          className="max-w-full max-h-40 object-contain mx-auto"
+                          className="max-w-full max-h-64 object-contain mx-auto"
                         />
                       ) : (
                         <div className="text-gray-400 text-sm">
@@ -4147,16 +4316,18 @@ SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfra
                         <img
                           src={trademarkImageUrl}
                           alt="Logo preview"
-                          className="max-w-full max-h-24 object-contain"
+                          className="max-w-full max-h-64 object-contain"
                         />
                       ) : (
-                        <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-300">
-                          Logo
-                        </div>
+                        <>
+                          <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-300">
+                            Logo
+                          </div>
+                          <div className="text-2xl font-bold text-gray-900">
+                            {manualNameInput || "Markenname"}
+                          </div>
+                        </>
                       )}
-                      <div className="text-2xl font-bold text-gray-900">
-                        {manualNameInput || "Markenname"}
-                      </div>
                     </div>
                   )}
                 </div>

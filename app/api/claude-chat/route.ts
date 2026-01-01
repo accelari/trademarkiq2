@@ -33,11 +33,19 @@ Wenn du nach Markenart fragst, nenne ALLE 3 Optionen!
 1. Wortmarke: Name → Klassen → Länder → FRAGE ob zur Recherche → bei JA: [GOTO:recherche]
 2. Bildmarke/Wort-Bildmarke: Name → Klassen → Länder → FRAGE ob Logo erstellen → bei JA: [GOTO:markenname]
 
-❌ NIEMALS automatisch navigieren! Immer FRAGEN und WARTEN auf Bestätigung!
-❌ FALSCH: "Super, alles komplett! [GOTO:markenname]" (navigiert ohne zu fragen)
-✅ RICHTIG: "Möchtest du jetzt dein Logo erstellen?" → User: "Ja" → "Super! [GOTO:markenname]"
+🛑🛑🛑 KRITISCHE REGEL - AKKORDEON-WECHSEL:
+- Du darfst NIEMALS selbständig zu einem anderen Bereich wechseln!
+- IMMER erst FRAGEN: "Sollen wir zur Recherche gehen?" oder "Möchtest du jetzt dein Logo erstellen?"
+- DANN STOPP! Warte auf User-Antwort!
+- NUR wenn User "ja", "ok", "machen wir" o.ä. antwortet → DANN [GOTO:...]
+- NIEMALS in derselben Nachricht fragen UND navigieren!
 
-Der GOTO-Trigger darf NUR gesetzt werden wenn der User EXPLIZIT bestätigt hat!
+❌ FALSCH: "Super! Sollen wir zur Recherche? [GOTO:recherche]" (fragt und navigiert gleichzeitig)
+❌ FALSCH: "Alles komplett! [GOTO:markenname]" (navigiert ohne zu fragen)
+✅ RICHTIG: "Möchtest du jetzt dein Logo erstellen?" → STOPP → Warte auf Antwort
+✅ RICHTIG: User sagt "ja" → "Super! [GOTO:markenname]"
+
+Der GOTO-Trigger darf NUR in einer SEPARATEN Nachricht gesetzt werden, NACHDEM der User bestätigt hat!
 
 ⚠️ TRIGGER - IMMER SETZEN wenn du etwas festlegst:
 - Markenname: [MARKE:Name]
@@ -57,7 +65,13 @@ BEISPIEL gute Antwort mit Trigger:
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { messages, systemPromptAddition, previousSummary } = body;
+    const { messages: rawMessages, message, previousMessages, systemPromptAddition, previousSummary, image } = body;
+
+    // Support both formats: messages array OR message + previousMessages
+    let messages = rawMessages;
+    if (!messages && message) {
+      messages = [...(previousMessages || []), { role: "user", content: message }];
+    }
 
     if (!messages || !Array.isArray(messages)) {
       return Response.json({ error: "Messages array required" }, { status: 400 });
@@ -74,11 +88,33 @@ export async function POST(request: NextRequest) {
       systemPrompt += `\n\n${systemPromptAddition}`;
     }
 
-    // Convert messages to Claude format
-    const claudeMessages = messages.map((msg: { role: string; content: string }) => ({
-      role: msg.role as "user" | "assistant",
-      content: msg.content,
-    }));
+    // Convert messages to Claude format (mit Bild-Support)
+    const claudeMessages = messages.map((msg: { role: string; content: string }, index: number) => {
+      // Wenn es die letzte User-Nachricht ist und ein Bild dabei ist
+      if (image && msg.role === "user" && index === messages.length - 1) {
+        return {
+          role: msg.role as "user" | "assistant",
+          content: [
+            {
+              type: "image" as const,
+              source: {
+                type: "base64" as const,
+                media_type: image.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+                data: image.data,
+              },
+            },
+            {
+              type: "text" as const,
+              text: msg.content,
+            },
+          ],
+        };
+      }
+      return {
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      };
+    });
 
     // Create streaming response
     const encoder = new TextEncoder();

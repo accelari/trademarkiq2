@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import Anthropic from "@anthropic-ai/sdk";
 
 const TMSEARCH_SEARCH_URL = "https://tmsearch.ai/api/search/";
 const TMSEARCH_INFO_URL = "https://tmsearch.ai/api/info/";
 const TEST_API_KEY = "TESTAPIKEY";
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
 const EU_COUNTRIES = [
   "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
@@ -12,37 +12,25 @@ const EU_COUNTRIES = [
   "PL", "PT", "RO", "SK", "SI", "ES", "SE"
 ];
 
-// Helper function to call OpenAI API via fetch
-async function callOpenAI(
-  apiKey: string,
+// Helper function to call Claude API
+async function callClaude(
   systemPrompt: string,
   userPrompt: string,
   maxTokens: number = 500
 ): Promise<string> {
-  const response = await fetch(OPENAI_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.3,
-      max_tokens: maxTokens,
-      response_format: { type: "json_object" },
-    }),
+  const anthropic = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
   });
 
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status}`);
-  }
+  const response = await anthropic.messages.create({
+    model: "claude-opus-4-20250514",
+    max_tokens: maxTokens,
+    system: systemPrompt + "\n\nAntworte IMMER als valides JSON.",
+    messages: [{ role: "user", content: userPrompt }],
+  });
 
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "{}";
+  const textBlock = response.content.find(block => block.type === "text");
+  return textBlock?.type === "text" ? textBlock.text : "{}";
 }
 
 interface TMSearchResult {
@@ -265,10 +253,9 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.TMSEARCH_API_KEY || TEST_API_KEY;
     const isTestMode = !process.env.TMSEARCH_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
 
-    if (!openaiKey) {
-      return NextResponse.json({ error: "OpenAI API Key nicht konfiguriert" }, { status: 500 });
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json({ error: "Anthropic API Key nicht konfiguriert" }, { status: 500 });
     }
 
     // Step 1: Search for trademarks
@@ -349,7 +336,7 @@ export async function POST(request: NextRequest) {
         .replace("{goodsServices}", (conflict.goodsServices || []).join("; ") || "nicht verfügbar");
 
       try {
-        const responseText = await callOpenAI(openaiKey, RISK_ANALYSIS_SYSTEM_PROMPT, conflictPrompt, 300);
+        const responseText = await callClaude(RISK_ANALYSIS_SYSTEM_PROMPT, conflictPrompt, 300);
         const parsed = JSON.parse(responseText);
         
         conflict.riskScore = parsed.riskScore || 0;
@@ -394,7 +381,7 @@ export async function POST(request: NextRequest) {
     };
 
     try {
-      const summaryText = await callOpenAI(openaiKey, RISK_ANALYSIS_SYSTEM_PROMPT, summaryPrompt, 1500);
+      const summaryText = await callClaude(RISK_ANALYSIS_SYSTEM_PROMPT, summaryPrompt, 1500);
       summary = { ...summary, ...JSON.parse(summaryText) };
     } catch (err) {
       console.error("Error generating summary:", err);

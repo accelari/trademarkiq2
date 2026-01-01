@@ -1,35 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fal } from "@fal-ai/client";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
+// Configure fal.ai client
+fal.config({
+  credentials: process.env.FAL_KEY,
+});
 
 // Professional prompt template for trademark-ready logos
 function buildLogoPrompt(userPrompt: string, trademarkType: string, brandName: string): string {
-  const baseStyle = `Professional trademark logo design, clean vector style, high contrast, simple memorable shapes, suitable for trademark registration, white or transparent background, no photorealistic elements, no gradients with more than 2 colors`;
+  // Basis-Stil OHNE white background - Farben kommen aus userPrompt von Claude
+  const baseStyle = `Professional trademark logo design, clean vector style, high contrast, simple memorable shapes, suitable for trademark registration, no photorealistic elements, minimalist, modern`;
   
   if (trademarkType === "bildmarke") {
-    // Pure image mark - no text
-    return `${baseStyle}. Abstract or symbolic logo WITHOUT any text or letters. ${userPrompt}. The design should be distinctive and unique, avoiding generic symbols like globes, arrows, or common geometric shapes.`;
+    // Pure image mark - no text at all
+    return `${baseStyle}. Abstract or symbolic logo WITHOUT any text, letters or words. Pure graphic symbol only. ${userPrompt}. The design should be distinctive and unique, avoiding generic symbols.`;
   } else if (trademarkType === "wort-bildmarke") {
-    // Word-image mark - include the brand name
-    return `${baseStyle}. Logo design incorporating the text "${brandName}" as a key visual element. ${userPrompt}. The typography should be clear and legible, integrated harmoniously with any graphic elements.`;
+    // Word-image mark - text artistically INTEGRATED into the design
+    return `${baseStyle}. Combined word-image logo where the text "${brandName}" is ARTISTICALLY INTEGRATED into the graphic design as ONE unified visual. The text should be part of the artwork, not placed separately below. Creative typography merged with graphic elements. ${userPrompt}. The word and image must form a single cohesive design.`;
   } else {
-    // Wortmarke - stylized text only
-    return `${baseStyle}. Typographic logo design featuring only the text "${brandName}" in a distinctive, memorable font style. ${userPrompt}. No additional graphic elements, focus on unique letterforms and typography.`;
+    // Wortmarke - stylized text only, no graphics
+    return `${baseStyle}. Typographic logo featuring ONLY the text "${brandName}" in a distinctive, artistic font style. No additional graphic elements or symbols. ${userPrompt}. Focus on unique letterforms, creative typography and text design only.`;
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { prompt, trademarkType, brandName, quality = "high" } = body;
+    const { prompt, trademarkType, brandName } = body;
 
     if (!prompt && !brandName) {
       return NextResponse.json({ error: "Prompt oder Markenname ist erforderlich" }, { status: 400 });
     }
 
-    if (!OPENAI_API_KEY) {
-      return NextResponse.json({ error: "OpenAI API Key nicht konfiguriert" }, { status: 500 });
+    if (!process.env.FAL_KEY) {
+      return NextResponse.json({ error: "fal.ai API Key nicht konfiguriert" }, { status: 500 });
     }
 
     // Build the optimized prompt for trademark logos
@@ -46,63 +50,25 @@ export async function POST(req: NextRequest) {
       finalPrompt: finalPrompt.substring(0, 100) + "...",
     });
 
-    // Call OpenAI Images API with DALL-E 3
-    const response = await fetch(OPENAI_IMAGES_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "dall-e-3",
+    // Call fal.ai NanoBanana for logo generation (outputs PNG for Flux Kontext editing)
+    const result = await fal.subscribe("fal-ai/ideogram/v2/turbo", {
+      input: {
         prompt: finalPrompt,
-        n: 1,
-        size: "1024x1024", // dall-e-3 supports: 1024x1024, 1024x1792, 1792x1024
-        quality: quality === "high" ? "hd" : "standard", // dall-e-3: "standard" or "hd"
-        style: "vivid", // "vivid" or "natural"
-      }),
-    });
+        aspect_ratio: "1:1", // Quadratisch für Logos
+      },
+      logs: true,
+    }) as { data?: { images?: { url: string }[] } };
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("OpenAI Images API error:", errorData);
-      
-      // Handle specific error cases
-      if (response.status === 401) {
-        return NextResponse.json({ error: "OpenAI API Key ungültig" }, { status: 401 });
-      }
-      if (response.status === 429) {
-        return NextResponse.json({ error: "Rate Limit erreicht. Bitte warte einen Moment." }, { status: 429 });
-      }
-      if (response.status === 400 && errorData?.error?.code === "content_policy_violation") {
-        return NextResponse.json({ error: "Der Prompt verstößt gegen die Inhaltsrichtlinien. Bitte formuliere ihn um." }, { status: 400 });
-      }
-      
-      return NextResponse.json(
-        { error: errorData?.error?.message || `API Fehler: ${response.status}` },
-        { status: response.status }
-      );
-    }
+    console.log("fal.ai response:", result);
 
-    const data = await response.json();
+    // Extract image URL from result
+    const imageUrl = result.data?.images?.[0]?.url;
     
-    // gpt-image-1 returns base64 encoded images
-    if (data.data && data.data[0]) {
-      const imageData = data.data[0];
-      
-      // Return the image - either as URL or base64
-      if (imageData.url) {
-        return NextResponse.json({ 
-          imageUrl: imageData.url,
-          revisedPrompt: imageData.revised_prompt,
-        });
-      } else if (imageData.b64_json) {
-        // Return as data URL for immediate display
-        return NextResponse.json({ 
-          imageUrl: `data:image/png;base64,${imageData.b64_json}`,
-          revisedPrompt: imageData.revised_prompt,
-        });
-      }
+    if (imageUrl) {
+      return NextResponse.json({ 
+        imageUrl,
+        prompt: finalPrompt,
+      });
     }
 
     return NextResponse.json({ error: "Keine Bilddaten in der Antwort" }, { status: 500 });

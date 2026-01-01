@@ -43,6 +43,9 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
     const [messages, setMessages] = useState<Message[]>(previousMessages);
     const [streamingResponse, setStreamingResponse] = useState("");
     const [error, setError] = useState<string | null>(null);
+    const [isContextMode, setIsContextMode] = useState(false); // Für Akkordeon-Wechsel Nachrichten
+    const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
+    const [isDragOver, setIsDragOver] = useState(false);
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -77,7 +80,9 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
         .replace(/\[ART:[^\]]+\]/g, "")
         .replace(/\[GOTO:[^\]]+\]/g, "")
         .replace(/\[SYSTEM:[^\]]+\]/g, "")
-        .replace(/\[LOGO_GENERIEREN\]/g, "")
+        .replace(/\[LOGO_GENERIEREN:[^\]]+\]/g, "") // Mit Prompt
+        .replace(/\[LOGO_GENERIEREN\]/g, "") // Ohne Prompt
+        .replace(/\[LOGO_BEARBEITEN:[^\]]+\]/g, "") // Logo bearbeiten
         .replace(/\[RECHERCHE_STARTEN\]/g, "")
         .replace(/\s{2,}/g, " ") // Mehrfache Leerzeichen entfernen
         .trim();
@@ -95,8 +100,12 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
     }, []);
 
     useEffect(() => {
-      scrollToBottom();
-    }, [messages, streamingResponse, scrollToBottom]);
+      // Im Kontext-Modus NICHT automatisch nach unten scrollen (verhindert Sprung)
+      if (!isContextMode) {
+        scrollToBottom();
+      }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [messages.length, streamingResponse, isContextMode]);
 
     useEffect(() => {
       if (previousMessages.length === 0) {
@@ -224,6 +233,9 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
     const sendMessage = useCallback(async (text: string) => {
       if (!text.trim() || isLoading) return;
 
+      // Deaktiviere Kontext-Modus bei User-Nachricht (zurück zu WhatsApp-Style)
+      setIsContextMode(false);
+      
       setError(null);
       setIsLoading(true);
       setStreamingResponse("");
@@ -348,43 +360,199 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
       }
     }, [handleSendText]);
 
-    const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      
-      if (file.size > 5 * 1024 * 1024) {
-        setError("Datei zu groß (max. 5 MB)");
+    // Bild verarbeiten (für File Input, Paste und Drag & Drop)
+    const processImageFile = useCallback((file: File) => {
+      if (!file.type.startsWith("image/")) {
+        setError("Nur Bilder werden unterstützt");
         return;
       }
       
-      const url = URL.createObjectURL(file);
+      if (file.size > 10 * 1024 * 1024) {
+        setError("Datei zu groß (max. 10 MB)");
+        return;
+      }
       
-      const imageMessage: Message = {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: "[Bild hochgeladen]",
-        timestamp: new Date(),
-        imageUrl: url
-      };
-      setMessages(prev => [...prev, imageMessage]);
-      onMessageSent?.(imageMessage);
-      onImageUploaded?.(url);
-      
-      // Inform assistant about the image
-      sendMessage("Ich habe gerade ein Bild/Logo hochgeladen. Bitte bestätige, dass du es siehst und es als mein Logo verwendet werden kann.");
-      
+      const preview = URL.createObjectURL(file);
+      setPendingImage({ file, preview });
+      setError(null);
+    }, []);
+
+    const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) processImageFile(file);
       e.target.value = "";
-    }, [onMessageSent, onImageUploaded, sendMessage]);
+    }, [processImageFile]);
+
+    // Paste Handler (Strg+V)
+    const handlePaste = useCallback((e: React.ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) processImageFile(file);
+          return;
+        }
+      }
+    }, [processImageFile]);
+
+    // Drag & Drop Handler
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(true);
+    }, []);
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+    }, []);
+
+    const handleDrop = useCallback((e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+      
+      const file = e.dataTransfer?.files?.[0];
+      if (file) processImageFile(file);
+    }, [processImageFile]);
+
+    // Bild entfernen
+    const removePendingImage = useCallback(() => {
+      if (pendingImage?.preview) {
+        URL.revokeObjectURL(pendingImage.preview);
+      }
+      setPendingImage(null);
+    }, [pendingImage]);
+
+    // Nachricht mit Bild senden
+    const sendMessageWithImage = useCallback(async (text: string, imageFile: File) => {
+      if (!isConnected) {
+        startSession("text");
+        return;
+      }
+      
+      setIsLoading(true);
+      setError(null);
+      setIsContextMode(false);
+      
+      // Bild zu Base64 konvertieren
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(",")[1];
+        
+        const userMessage: Message = {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: text || "Bild hochgeladen",
+          timestamp: new Date(),
+          imageUrl: pendingImage?.preview
+        };
+        setMessages(prev => [...prev, userMessage]);
+        onMessageSent?.(userMessage);
+        removePendingImage();
+        setTextInput(""); // Text-Eingabe leeren
+        
+        try {
+          abortControllerRef.current = new AbortController();
+          
+          const response = await fetch("/api/claude-chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              caseId,
+              message: text || "Ich habe ein Bild hochgeladen. Was siehst du darauf?",
+              previousMessages: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+              previousSummary,
+              systemPromptAddition,
+              image: {
+                type: imageFile.type,
+                data: base64
+              }
+            }),
+            signal: abortControllerRef.current.signal
+          });
+          
+          if (!response.ok) throw new Error("Fehler bei der Anfrage");
+          
+          const reader = response.body?.getReader();
+          if (!reader) throw new Error("Keine Antwort");
+          
+          const decoder = new TextDecoder();
+          let fullResponse = "";
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split("\n");
+            
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const data = line.slice(6);
+                if (data === "[DONE]") continue;
+                try {
+                  const parsed = JSON.parse(data);
+                  // Backend sendet "text", nicht "content"
+                  if (parsed.text) {
+                    fullResponse += parsed.text;
+                    setStreamingResponse(fullResponse);
+                  }
+                } catch {}
+              }
+            }
+          }
+          
+          if (fullResponse) {
+            const assistantMessage: Message = {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: fullResponse,
+              timestamp: new Date()
+            };
+            setMessages(prev => [...prev, assistantMessage]);
+            onMessageSent?.(assistantMessage);
+          }
+        } catch (err: unknown) {
+          if (err instanceof Error && err.name !== "AbortError") {
+            setError("Fehler bei der Kommunikation mit dem Assistenten");
+          }
+        } finally {
+          setStreamingResponse("");
+          setIsLoading(false);
+        }
+      };
+      reader.readAsDataURL(imageFile);
+    }, [isConnected, startSession, messages, caseId, previousSummary, systemPromptAddition, onMessageSent, pendingImage, removePendingImage]);
 
     // Simulate streaming for context messages (like when switching accordions)
     const simulateStreaming = useCallback(async (text: string) => {
       if (isLoading) return;
       
+      // 1. Container ausblenden + scrollen (verhindert Flackern des alten Chats)
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.style.visibility = "hidden";
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+      
       setIsConnected(true);
       setIsLoading(true);
-      setStreamingResponse("");
       
-      // Simulate typing effect - faster than real API
+      // 2. Aktiviere Kontext-Modus für Spacer
+      setIsContextMode(true);
+      
+      // 3. Container nach kurzem Delay wieder einblenden
+      await new Promise(resolve => setTimeout(resolve, 20));
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.style.visibility = "visible";
+      }
+      
+      // 4. Text streamen
+      setStreamingResponse("");
       const words = text.split(" ");
       let currentText = "";
       
@@ -394,9 +562,10 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
         await new Promise(resolve => setTimeout(resolve, 30)); // 30ms per word
       }
       
-      // Add complete message
+      // 3. Nachricht hinzufügen
+      const messageId = crypto.randomUUID();
       const assistantMessage: Message = {
-        id: crypto.randomUUID(),
+        id: messageId,
         role: "assistant",
         content: text,
         timestamp: new Date(),
@@ -405,6 +574,16 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
       onMessageSent?.(assistantMessage);
       setStreamingResponse("");
       setIsLoading(false);
+      
+      // 4. Scroll zur neuen Nachricht (Nachricht oben im sichtbaren Bereich)
+      setTimeout(() => {
+        const container = messagesContainerRef.current;
+        const messageElement = container?.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement;
+        if (container && messageElement) {
+          // Padding (p-4 = 16px) abziehen, damit Nachricht ganz oben erscheint
+          container.scrollTop = messageElement.offsetTop - 16;
+        }
+      }, 100);
     }, [isLoading, onMessageSent]);
 
     // Expose methods via ref
@@ -515,7 +694,7 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
         {/* Messages Area */}
         <div 
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar min-h-0"
+          className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar min-h-0 relative"
           style={{ maxHeight: "400px" }}
         >
           <>
@@ -528,6 +707,7 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
                   return (
                     <div
                       key={message.id}
+                      data-message-id={message.id}
                       className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                     >
                       <div
@@ -580,6 +760,9 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
                 </div>
               )}
               
+              {/* Spacer für Scroll-Raum - groß genug damit Nachricht oben fixiert werden kann */}
+              {isContextMode && <div className="min-h-[50vh]" />}
+              
               <div ref={messagesEndRef} />
             </>
         </div>
@@ -592,27 +775,65 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
         )}
 
         {/* Input Area - always visible */}
-        <div className="p-4 border-t border-gray-200">
+        <div 
+          className={`p-4 border-t border-gray-200 ${isDragOver ? "bg-teal-50 border-teal-300" : ""}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+            {/* Bild-Preview */}
+            {pendingImage && (
+              <div className="mb-3 relative inline-block">
+                <img 
+                  src={pendingImage.preview} 
+                  alt="Vorschau" 
+                  className="max-h-24 rounded-lg border border-gray-200"
+                />
+                <button
+                  onClick={removePendingImage}
+                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600"
+                  title="Bild entfernen"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            
+            {/* Drag & Drop Hinweis */}
+            {isDragOver && (
+              <div className="mb-3 p-3 bg-teal-100 border-2 border-dashed border-teal-400 rounded-lg text-center text-sm text-teal-700">
+                📷 Bild hier ablegen
+              </div>
+            )}
+            
             <div className="flex items-end gap-2">
-              {showImageUpload && (
-                <label className="p-2 text-gray-400 hover:text-gray-600 cursor-pointer transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  <Paperclip className="w-5 h-5" />
-                </label>
-              )}
+              <label className="p-2 text-gray-400 hover:text-gray-600 cursor-pointer transition-colors" title="Bild hochladen">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <Paperclip className="w-5 h-5" />
+              </label>
               
               <div className="flex-1 relative">
                 <textarea
                   ref={textareaRef}
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  placeholder="Nachricht eingeben..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (pendingImage) {
+                        sendMessageWithImage(textInput, pendingImage.file);
+                      } else if (textInput.trim()) {
+                        handleSendText();
+                      }
+                    }
+                  }}
+                  onPaste={handlePaste}
+                  placeholder={pendingImage ? "Beschreibe das Bild (optional)..." : "Nachricht eingeben oder Bild einfügen (Strg+V)..."}
                   className="w-full px-4 py-2.5 pr-12 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
                   rows={1}
                   style={{ minHeight: "44px", maxHeight: "120px" }}
@@ -620,14 +841,24 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
                   autoFocus
                 />
                 <button
-                  onClick={handleSendText}
-                  disabled={!textInput.trim() || isLoading}
+                  onClick={() => {
+                    if (pendingImage) {
+                      sendMessageWithImage(textInput, pendingImage.file);
+                    } else {
+                      handleSendText();
+                    }
+                  }}
+                  disabled={(!textInput.trim() && !pendingImage) || isLoading}
                   className="absolute right-2 bottom-2 p-1.5 text-teal-600 hover:text-teal-700 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
                   <Send className="w-5 h-5" />
                 </button>
               </div>
             </div>
+            
+            <p className="mt-2 text-xs text-gray-400 text-center">
+              💡 Strg+V für Screenshot · Drag & Drop für Bilder
+            </p>
         </div>
       </div>
     );
