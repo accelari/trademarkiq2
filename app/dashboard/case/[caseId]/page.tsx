@@ -41,6 +41,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
+import { RechercheHistoryBanner, RechercheHistoryItem } from "@/app/components/RechercheHistoryBanner";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
 import ClaudeAssistant, { ClaudeAssistantHandle } from "@/app/components/ClaudeAssistant";
 import Tooltip, { 
@@ -504,6 +505,11 @@ export default function CasePage() {
   const [tmsearchDebugError, setTMSearchDebugError] = useState<string | null>(null);
   const [tmsearchDebugPayload, setTMSearchDebugPayload] = useState<unknown>(null);
   const [tmsearchDebugTab, setTMSearchDebugTab] = useState<"request" | "response" | "filter" | "analysis" | "raw">("request");
+  
+  // Recherche Flip View + Historie
+  const [showRechercheAnalysis, setShowRechercheAnalysis] = useState(false);
+  const [rechercheHistory, setRechercheHistory] = useState<RechercheHistoryItem[]>([]);
+  const [activeRechercheId, setActiveRechercheId] = useState<string | null>(null);
   
   // Live Analyse States
   const [isRunningLiveAnalysis, setIsRunningLiveAnalysis] = useState(false);
@@ -3893,8 +3899,17 @@ FALLS der Kunde etwas ändern möchte: Passe die Daten an und frage erneut zur B
           setLiveAnalysisError((json && (json.error || json.message)) || `HTTP ${res.status}`);
         } else {
           setLiveAnalysisResult(json);
-          // Navigate to analyse tab to show results
-          window.location.hash = "#analyse";
+          // Zur Recherche-Historie hinzufügen und Flip-View aktivieren
+          const newId = `recherche-${Date.now()}`;
+          setRechercheHistory(prev => [...prev, {
+            id: newId,
+            keyword: json.query.keyword,
+            riskScore: json.analysis.overallRiskScore,
+            riskLevel: json.analysis.overallRiskLevel,
+            result: json // Vollständiges Ergebnis speichern
+          }]);
+          setActiveRechercheId(newId);
+          setShowRechercheAnalysis(true);
         }
       } catch (e) {
         setLiveAnalysisError(e instanceof Error ? e.message : "Unbekannter Fehler");
@@ -3915,8 +3930,97 @@ FALLS der Kunde etwas ändern möchte: Passe die Daten an und frage erneut zur B
 
     const hasValidationErrors = trademarkNameMissing || countriesMissing || classesMissing;
 
+    // Handler für Recherche-Historie
+    const handleSelectRecherche = (id: string) => {
+      const selected = rechercheHistory.find(r => r.id === id);
+      if (selected) {
+        setLiveAnalysisResult(selected.result); // Ergebnis aus Historie laden
+        setActiveRechercheId(id);
+        setShowRechercheAnalysis(true);
+      }
+    };
+    const handleNewRecherche = () => {
+      setShowRechercheAnalysis(false);
+      setActiveRechercheId(null);
+    };
+
+    // ANALYSE-ANSICHT
+    if (showRechercheAnalysis && liveAnalysisResult) {
+      const { analysis, conflicts, query } = liveAnalysisResult;
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="col-span-full">
+            <RechercheHistoryBanner history={rechercheHistory} activeId={activeRechercheId} showingAnalysis={true} onSelectRecherche={handleSelectRecherche} onNewRecherche={handleNewRecherche} />
+          </div>
+          <ClaudeAssistant ref={rechercheVoiceRef} caseId={caseId} onMessageSent={(msg) => setSessionMessages((prev) => [...prev, msg])} previousMessages={sessionMessages} title="KI-Analyseberater" subtitle="Fragen zur Analyse" alwaysShowMessages={sessionMessages.length > 0} systemPromptAddition={`Die Recherche für "${query.keyword}" ist abgeschlossen. Risiko: ${analysis.overallRiskScore}%. Hilf dem Kunden die Ergebnisse zu verstehen.`} />
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center"><AlertCircle className="w-5 h-5 text-white" /></div>
+                  <div className="min-w-0"><div className="font-semibold text-sm truncate">Kollisionsrisiko</div><div className="text-xs text-white/85 truncate">KI-Bewertung</div></div>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-5">
+                <div className={`p-4 rounded-lg border mb-4 ${analysis.decision === "no_go" ? "bg-red-50 border-red-200" : analysis.decision === "go_with_changes" ? "bg-orange-50 border-orange-200" : "bg-teal-50 border-teal-200"}`}>
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${analysis.decision === "no_go" ? "bg-red-100 text-red-700 border-red-300" : analysis.decision === "go_with_changes" ? "bg-orange-100 text-orange-700 border-orange-300" : "bg-teal-100 text-teal-700 border-teal-300"}`}>
+                    {analysis.decision === "no_go" ? "NO-GO" : analysis.decision === "go_with_changes" ? "GO MIT ANPASSUNG" : "GO"}
+                  </span>
+                  <div className={`text-base font-semibold mt-2 ${analysis.decision === "no_go" ? "text-red-900" : analysis.decision === "go_with_changes" ? "text-orange-900" : "text-teal-900"}`}>
+                    {analysis.decision === "no_go" ? "Aktuell nicht empfohlen" : analysis.decision === "go_with_changes" ? "Mit Anpassungen empfohlen" : "Anmeldung wahrscheinlich sinnvoll"}
+                  </div>
+                </div>
+                <div className="flex items-center gap-6">
+                  <AnimatedRiskScore score={analysis.overallRiskScore} risk={analysis.overallRiskLevel} size="large" />
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-500 mb-1">Konflikte</div>
+                    <div className="text-3xl font-bold text-gray-900">{conflicts.length}</div>
+                    <p className="text-sm text-gray-600 mt-2 line-clamp-3">{analysis.executiveSummary}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center"><AlertCircle className="w-5 h-5 text-white" /></div>
+                  <div className="min-w-0"><div className="font-semibold text-sm truncate">Top Konflikte</div><div className="text-xs text-white/85 truncate">{conflicts.length} Treffer</div></div>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 p-4 overflow-y-auto custom-scrollbar">
+                <div className="space-y-3">
+                  {conflicts.slice(0, 8).map((c, idx) => (
+                    <div key={c.id || idx} className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-shadow ${c.riskLevel === "high" ? "bg-red-50 border-red-200" : c.riskLevel === "medium" ? "bg-orange-50 border-orange-200" : "bg-gray-50 border-gray-200"}`}
+                      onClick={() => setSelectedConflict({ id: String(c.id || idx), name: c.name, register: c.office, applicationNumber: c.applicationNumber, registrationNumber: c.registrationNumber, status: c.status === "LIVE" ? "active" : "expired", classes: c.classes.map(Number), accuracy: c.accuracy || c.riskScore, applicationDate: c.dates?.applied || null, registrationDate: c.dates?.granted || null, holder: c.owner?.name, isFamousMark: false, reasoning: c.reasoning, riskLevel: c.riskLevel })}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-gray-900 truncate">{c.name}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{c.office} · Kl. {c.classes.slice(0, 3).join(", ")}{c.classes.length > 3 ? "…" : ""}</div>
+                        </div>
+                        <div className={`text-xs font-bold px-2 py-1 rounded ${c.riskLevel === "high" ? "bg-red-100 text-red-700" : c.riskLevel === "medium" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-600"}`}>{c.riskScore}%</div>
+                      </div>
+                      {c.reasoning && <div className="text-xs text-gray-600 mt-2 line-clamp-2">{c.reasoning}</div>}
+                    </div>
+                  ))}
+                  {conflicts.length === 0 && <div className="text-center py-8 text-gray-500"><Check className="w-8 h-8 mx-auto mb-2 text-teal-500" /><p className="text-sm">Keine kritischen Konflikte</p></div>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // EINGABE-ANSICHT
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {rechercheHistory.length > 0 && (
+          <div className="col-span-full">
+            <RechercheHistoryBanner history={rechercheHistory} activeId={activeRechercheId} showingAnalysis={false} onSelectRecherche={handleSelectRecherche} onNewRecherche={handleNewRecherche} />
+          </div>
+        )}
         {/* Widget 1: KI-Berater (globaler Chat wie in Beratung/Markenname) */}
         <ClaudeAssistant
           ref={rechercheVoiceRef}

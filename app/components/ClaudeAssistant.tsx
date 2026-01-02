@@ -1,7 +1,51 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
-import { Send, Keyboard, MoreVertical, RefreshCw, Paperclip, MessageSquare } from "lucide-react";
+import { Send, Keyboard, MoreVertical, RefreshCw, Paperclip, MessageSquare, Mic, MicOff } from "lucide-react";
+
+// Web Speech API Type Declarations
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onstart: (() => void) | null;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
 
 interface Message {
   id: string;
@@ -46,6 +90,14 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
     const [isContextMode, setIsContextMode] = useState(false); // Für Akkordeon-Wechsel Nachrichten
     const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
     const [isDragOver, setIsDragOver] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    const [audioLevel, setAudioLevel] = useState<number[]>(new Array(50).fill(0));
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const analyserRef = useRef<AnalyserNode | null>(null);
+    const animationFrameRef = useRef<number | null>(null);
+    const streamRef = useRef<MediaStream | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -69,6 +121,127 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
       } catch {
         return "";
       }
+    }, []);
+
+    // Audio-Wellenform-Visualisierung (50 Balken wie Cascade)
+    const updateAudioLevel = useCallback(() => {
+      if (!analyserRef.current) return;
+      
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteTimeDomainData(dataArray);
+      
+      const samples = 50;
+      const step = Math.floor(dataArray.length / samples);
+      const levels = [];
+      
+      for (let i = 0; i < samples; i++) {
+        const value = dataArray[i * step];
+        const normalized = Math.abs(value - 128) * 2.5;
+        levels.push(Math.min(100, normalized));
+      }
+      
+      setAudioLevel(levels);
+      animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
+    }, []);
+
+    // Aufnahme starten mit Whisper
+    const startRecording = useCallback(async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+        
+        // Audio Context für Visualisierung
+        audioContextRef.current = new AudioContext();
+        analyserRef.current = audioContextRef.current.createAnalyser();
+        analyserRef.current.fftSize = 256;
+        
+        const source = audioContextRef.current.createMediaStreamSource(stream);
+        source.connect(analyserRef.current);
+        
+        // MediaRecorder für Audio-Aufnahme
+        const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+        
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+        
+        mediaRecorder.onstop = async () => {
+          // Audio an Whisper senden (OHNE isLoading - das würde die 3 Punkte zeigen)
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const formData = new FormData();
+          formData.append('audio', audioBlob, 'recording.webm');
+          
+          try {
+            const response = await fetch('/api/whisper', {
+              method: 'POST',
+              body: formData,
+            });
+            
+            const data = await response.json();
+            if (data.success && data.text) {
+              setTextInput(prev => prev ? `${prev} ${data.text}` : data.text);
+            }
+          } catch (err) {
+            console.error('Whisper API error:', err);
+          }
+        };
+        
+        mediaRecorder.start();
+        setIsListening(true);
+        updateAudioLevel();
+        
+      } catch (err) {
+        console.error('Mikrofon-Zugriff verweigert:', err);
+        alert('Bitte erlaube den Zugriff auf das Mikrofon.');
+      }
+    }, [updateAudioLevel]);
+
+    // Aufnahme stoppen
+    const stopRecording = useCallback(() => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      setAudioLevel(new Array(50).fill(0));
+      setIsListening(false);
+    }, []);
+
+    const toggleListening = useCallback(() => {
+      if (isListening) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    }, [isListening, startRecording, stopRecording]);
+
+    // Cleanup bei Unmount
+    useEffect(() => {
+      return () => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close();
+        }
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        }
+      };
     }, []);
 
     // Trigger aus Nachricht entfernen für Anzeige (System behält sie intern)
@@ -96,47 +269,53 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
 
     // Einfacher Markdown-Renderer für Links und Formatierung
     const renderMarkdown = useCallback((text: string) => {
-      // Links: [text](url) -> <a>
-      const parts = text.split(/(\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|_([^_]+)_|\n)/g);
+      const elements: React.ReactNode[] = [];
+      let remaining = text;
+      let keyIndex = 0;
       
-      return parts.map((part, i) => {
-        if (!part) return null;
-        
-        // Markdown Link [text](url)
-        const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      while (remaining.length > 0) {
+        // Link [text](url)
+        const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
         if (linkMatch) {
-          return (
-            <a 
-              key={i} 
-              href={linkMatch[2]} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-teal-600 hover:text-teal-800 underline"
-            >
+          elements.push(
+            <a key={keyIndex++} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-teal-600 hover:text-teal-800 underline">
               {linkMatch[1]}
             </a>
           );
+          remaining = remaining.slice(linkMatch[0].length);
+          continue;
         }
         
         // Bold **text**
-        const boldMatch = part.match(/^\*\*([^*]+)\*\*$/);
+        const boldMatch = remaining.match(/^\*\*([^*]+)\*\*/);
         if (boldMatch) {
-          return <strong key={i}>{boldMatch[1]}</strong>;
-        }
-        
-        // Italic _text_
-        const italicMatch = part.match(/^_([^_]+)_$/);
-        if (italicMatch) {
-          return <em key={i} className="text-gray-500">{italicMatch[1]}</em>;
+          elements.push(<strong key={keyIndex++}>{boldMatch[1]}</strong>);
+          remaining = remaining.slice(boldMatch[0].length);
+          continue;
         }
         
         // Newline
-        if (part === "\n") {
-          return <br key={i} />;
+        if (remaining.startsWith("\n")) {
+          elements.push(<br key={keyIndex++} />);
+          remaining = remaining.slice(1);
+          continue;
         }
         
-        return part;
-      });
+        // Normaler Text bis zum nächsten Special-Zeichen
+        const nextSpecial = remaining.search(/\[|\*\*|\n/);
+        if (nextSpecial === -1) {
+          elements.push(remaining);
+          break;
+        } else if (nextSpecial === 0) {
+          elements.push(remaining[0]);
+          remaining = remaining.slice(1);
+        } else {
+          elements.push(remaining.slice(0, nextSpecial));
+          remaining = remaining.slice(nextSpecial);
+        }
+      }
+      
+      return elements;
     }, []);
 
     const scrollToBottom = useCallback(() => {
@@ -852,59 +1031,92 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
               </div>
             )}
             
-            <div className="flex items-end gap-2">
-              <label className="p-2 text-gray-400 hover:text-gray-600 cursor-pointer transition-colors" title="Bild hochladen">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <Paperclip className="w-5 h-5" />
-              </label>
-              
-              <div className="flex-1 relative">
-                <textarea
-                  ref={textareaRef}
-                  value={textInput}
-                  onChange={(e) => setTextInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      if (pendingImage) {
-                        sendMessageWithImage(textInput, pendingImage.file);
-                      } else if (textInput.trim()) {
-                        handleSendText();
+            {/* Recording-Anzeige mit Wellenform - professionelles Design */}
+              {isListening ? (
+                <div className="flex-1 h-11 px-4 bg-white border border-teal-300 rounded-xl flex items-center gap-3 shadow-sm">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    <span className="text-gray-600 text-xs font-medium">Aufnahme...</span>
+                  </div>
+                  <div className="flex-1 flex items-center justify-center gap-px h-5 overflow-hidden">
+                    {audioLevel.map((level, i) => (
+                      <div
+                        key={i}
+                        className="w-0.5 rounded-full transition-all duration-75"
+                        style={{ 
+                          height: `${Math.max(3, level * 0.25)}px`,
+                          backgroundColor: level > 15 ? '#14b8a6' : '#d1d5db'
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    onClick={stopRecording}
+                    className="w-7 h-7 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-colors shrink-0 shadow-sm"
+                    title="Aufnahme stoppen"
+                  >
+                    <div className="w-2.5 h-2.5 bg-white rounded-sm" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex-1 relative flex items-center">
+                  <textarea
+                    ref={textareaRef}
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        if (pendingImage) {
+                          sendMessageWithImage(textInput, pendingImage.file);
+                        } else if (textInput.trim()) {
+                          handleSendText();
+                        }
                       }
-                    }
-                  }}
-                  onPaste={handlePaste}
-                  placeholder={pendingImage ? "Beschreibe das Bild (optional)..." : "Nachricht eingeben oder Bild einfügen (Strg+V)..."}
-                  className="w-full px-4 py-2.5 pr-12 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
-                  rows={1}
-                  style={{ minHeight: "44px", maxHeight: "120px" }}
-                  disabled={isLoading}
-                  autoFocus
-                />
-                <button
-                  onClick={() => {
-                    if (pendingImage) {
-                      sendMessageWithImage(textInput, pendingImage.file);
-                    } else {
-                      handleSendText();
-                    }
-                  }}
-                  disabled={(!textInput.trim() && !pendingImage) || isLoading}
-                  className="absolute right-2 bottom-2 p-1.5 text-teal-600 hover:text-teal-700 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            
-            <p className="mt-2 text-xs text-gray-400 text-center">
-              💡 Strg+V für Screenshot · Drag & Drop für Bilder
-            </p>
+                    }}
+                    onPaste={handlePaste}
+                    placeholder={pendingImage ? "Beschreibe das Bild (optional)..." : "Nachricht eingeben oder Bild einfügen (Strg+V)..."}
+                    className="w-full px-3 py-2.5 pr-24 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                    rows={1}
+                    style={{ minHeight: "44px", maxHeight: "120px" }}
+                    disabled={isLoading}
+                    autoFocus
+                  />
+                  {/* Icons rechts kompakt */}
+                  <div className="absolute right-3 bottom-2 flex items-center gap-1.5">
+                    <label className="p-1 text-gray-400 hover:text-gray-600 cursor-pointer transition-colors" title="Bild hochladen">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                      <Paperclip className="w-4 h-4" />
+                    </label>
+                    <button
+                      onClick={toggleListening}
+                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Spracheingabe (Mikrofon)"
+                      type="button"
+                    >
+                      <Mic className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (pendingImage) {
+                          sendMessageWithImage(textInput, pendingImage.file);
+                        } else {
+                          handleSendText();
+                        }
+                      }}
+                      disabled={(!textInput.trim() && !pendingImage) || isLoading}
+                      className="p-1 text-teal-600 hover:text-teal-700 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
         </div>
       </div>
     );
