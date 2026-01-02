@@ -37,6 +37,8 @@ import {
   Phone,
   Zap,
   Image as ImageIcon,
+  Download,
+  Trash2,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { ConflictCard, ConflictMark, ConflictDetailModal } from "@/app/components/cases/ConflictCard";
@@ -492,6 +494,7 @@ export default function CasePage() {
   const [pendingTransferHash, setPendingTransferHash] = useState<string | null>(null);
   const [skippedStepsNotice, setSkippedStepsNotice] = useState<string[] | null>(null);
   const [isStartingRecherche, setIsStartingRecherche] = useState(false);
+  const [autoStartRecherche, setAutoStartRecherche] = useState(false); // Flag für automatischen Start durch Claude
   const [rechercheStartError, setRechercheStartError] = useState<string | null>(null);
   const [isSavingRechercheForm, setIsSavingRechercheForm] = useState(false);
   const [rechercheFormSaveError, setRechercheFormSaveError] = useState<string | null>(null);
@@ -500,10 +503,11 @@ export default function CasePage() {
   const [tmsearchDebugLoading, setTMSearchDebugLoading] = useState(false);
   const [tmsearchDebugError, setTMSearchDebugError] = useState<string | null>(null);
   const [tmsearchDebugPayload, setTMSearchDebugPayload] = useState<unknown>(null);
-  const [tmsearchDebugTab, setTMSearchDebugTab] = useState<"structured" | "raw">("structured");
+  const [tmsearchDebugTab, setTMSearchDebugTab] = useState<"request" | "response" | "filter" | "analysis" | "raw">("request");
   
   // Live Analyse States
   const [isRunningLiveAnalysis, setIsRunningLiveAnalysis] = useState(false);
+  const [isRunningWebSearch, setIsRunningWebSearch] = useState(false);
   const [liveAnalysisError, setLiveAnalysisError] = useState<string | null>(null);
   const [liveAnalysisResult, setLiveAnalysisResult] = useState<{
     success: boolean;
@@ -576,6 +580,17 @@ export default function CasePage() {
   const [trademarkImageFile, setTrademarkImageFile] = useState<File | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  
+  // Logo-Galerie: Alle generierten/hochgeladenen Logos
+  const [logoGallery, setLogoGallery] = useState<Array<{
+    id: string;
+    url: string;
+    timestamp: Date;
+    source: "generated" | "uploaded" | "edited";
+    prompt?: string;
+  }>>([]);
+  const [selectedLogoId, setSelectedLogoId] = useState<string | null>(null);
+  const [checkedLogoIds, setCheckedLogoIds] = useState<Set<string>>(new Set());
 
   // Anmeldung form state
   const [anmeldungTab, setAnmeldungTab] = useState<"amt" | "anmelder" | "vertreter">("amt");
@@ -1239,11 +1254,89 @@ Soll ich die Recherche starten?`
       }
     }
     
-    // [RECHERCHE_STARTEN] - Recherche starten wird über UI getriggert
+    // [RECHERCHE_STARTEN] - Recherche automatisch starten
     if (content.includes("[RECHERCHE_STARTEN]")) {
       hasAction = true;
-      // Navigiere zum Recherche-Akkordeon und setze Flag für automatischen Start
+      // Navigiere zum Recherche-Akkordeon und zeige sofort Ladekreis
       setOpenAccordion("recherche");
+      setIsRunningLiveAnalysis(true); // Sofort Ladekreis zeigen
+      setAutoStartRecherche(true); // Flag für automatischen Start
+    }
+
+    // [WEB_SUCHE:query] - Web-Suche über Tavily ausführen
+    const webSearchMatch = content.match(/\[WEB_SUCHE:([^\]]+)\]/);
+    if (webSearchMatch?.[1]) {
+      hasAction = true;
+      const searchQuery = webSearchMatch[1].trim();
+      console.log("[Web-Suche] Trigger erkannt:", searchQuery);
+      
+      // Zeige Ladeanimation
+      setIsRunningWebSearch(true);
+      
+      // Füge sofort eine "Suche läuft" Nachricht hinzu
+      const searchingMsgId = `web-search-loading-${Date.now()}`;
+      setSessionMessages(prev => [...prev, {
+        id: searchingMsgId,
+        role: "assistant" as const,
+        content: `🔍 **Web-Suche läuft...**\n\n_Suche nach: "${searchQuery}"_`
+      }]);
+      
+      // Web-Suche ausführen und Ergebnis in Chat einfügen
+      (async () => {
+        try {
+          const res = await fetch("/api/web-search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: searchQuery })
+          });
+          const data = await res.json();
+          
+          // Entferne "Suche läuft" Nachricht
+          setSessionMessages(prev => prev.filter(m => m.id !== searchingMsgId));
+          
+          if (data.success) {
+            // Quellen extrahieren
+            const sources = data.sources?.slice(0, 3).map((s: { title: string; url: string }) => {
+              try {
+                return new URL(s.url).hostname.replace("www.", "");
+              } catch {
+                return s.title;
+              }
+            }).join(", ") || "keine";
+            
+            // Ergebnis an Claude senden (als System-Nachricht, nicht sichtbar)
+            // Claude liest das Ergebnis und fasst es auf Deutsch zusammen
+            const targetRef = openAccordion === "beratung" 
+              ? voiceAssistantRef 
+              : openAccordion === "markenname" 
+                ? markennameVoiceRef 
+                : rechercheVoiceRef;
+            
+            targetRef.current?.sendQuestion(
+              `[SYSTEM: Web-Recherche Ergebnis für "${searchQuery}":\n${data.answer || "Keine Informationen gefunden."}\nQuellen: ${sources}\n\nBitte fasse das Ergebnis KURZ auf Deutsch zusammen und gib dem Kunden eine klare Empfehlung. Zeige NICHT den englischen Text!]`
+            );
+          } else {
+            console.error("[Web-Suche] Fehler:", data.error);
+            // Zeige Fehlermeldung
+            setSessionMessages(prev => [...prev, {
+              id: `web-search-error-${Date.now()}`,
+              role: "assistant" as const,
+              content: `❌ **Web-Suche fehlgeschlagen**\n\n${data.error || "Unbekannter Fehler"}`
+            }]);
+          }
+        } catch (err) {
+          console.error("[Web-Suche] Fetch error:", err);
+          // Entferne "Suche läuft" Nachricht bei Fehler
+          setSessionMessages(prev => prev.filter(m => m.id !== searchingMsgId));
+          setSessionMessages(prev => [...prev, {
+            id: `web-search-error-${Date.now()}`,
+            role: "assistant" as const,
+            content: `❌ **Web-Suche fehlgeschlagen**\n\nNetzwerkfehler - bitte erneut versuchen.`
+          }]);
+        } finally {
+          setIsRunningWebSearch(false);
+        }
+      })();
     }
     
     if (hasAction) {
@@ -1296,9 +1389,18 @@ Soll ich die Recherche starten?`
           const logoResult = await logoResponse.json();
           if (logoResult.imageUrl) {
             setTrademarkImageUrl(logoResult.imageUrl);
+            // Zur Logo-Galerie hinzufügen
+            const newLogoItem = {
+              id: `logo-${Date.now()}`,
+              url: logoResult.imageUrl,
+              timestamp: new Date(),
+              source: "generated" as const,
+              prompt: customPrompt
+            };
+            setLogoGallery(prev => [newLogoItem, ...prev]);
+            setSelectedLogoId(newLogoItem.id);
             // Lösche Referenzbild nach erfolgreicher Generierung
             setReferenceImageUrl(null);
-            // Keine System-Nachricht mehr - Claude fragt bereits aus seinem Workflow
           } else if (logoResult.error) {
             setLogoGenerationError(logoResult.error);
             // Bei Fehler: Claude informieren
@@ -1346,6 +1448,16 @@ Soll ich die Recherche starten?`
           const editResult = await editResponse.json();
           if (editResult.imageUrl) {
             setTrademarkImageUrl(editResult.imageUrl);
+            // Bearbeitetes Logo zur Galerie hinzufügen
+            const editedLogoItem = {
+              id: `logo-${Date.now()}`,
+              url: editResult.imageUrl,
+              timestamp: new Date(),
+              source: "edited" as const,
+              prompt: editPrompt
+            };
+            setLogoGallery(prev => [editedLogoItem, ...prev]);
+            setSelectedLogoId(editedLogoItem.id);
           } else if (editResult.error) {
             setLogoGenerationError(editResult.error);
           }
@@ -2276,6 +2388,18 @@ Soll ich die Recherche starten?`
     await startRecherche();
   }, [isSavingRechercheForm, isStartingRecherche, saveRechercheForm, startRecherche]);
 
+  // Auto-Start Recherche wenn durch Claude getriggert
+  useEffect(() => {
+    if (autoStartRecherche && !isStartingRecherche) {
+      setAutoStartRecherche(false);
+      // Kurze Verzögerung damit UI aktualisiert wird
+      const timer = setTimeout(() => {
+        startRechercheFromForm();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoStartRecherche, isStartingRecherche, startRechercheFromForm]);
+
   const applyAlternativeAndRerun = useCallback(
     async (alt: { name: string; riskScore: number; riskLevel: string; conflictCount: number }) => {
       if (isApplyingAlternative) return;
@@ -2506,6 +2630,16 @@ Soll ich die Recherche starten?`
       const result = await response.json();
       if (result.imageUrl) {
         setTrademarkImageUrl(result.imageUrl);
+        // Zur Logo-Galerie hinzufügen
+        const newLogoItem = {
+          id: `logo-${Date.now()}`,
+          url: result.imageUrl,
+          timestamp: new Date(),
+          source: "generated" as const,
+          prompt: logoPrompt.trim()
+        };
+        setLogoGallery(prev => [newLogoItem, ...prev]);
+        setSelectedLogoId(newLogoItem.id);
         setShowLogoGeneratorModal(false);
         setLogoPrompt("");
       } else {
@@ -3193,6 +3327,39 @@ Wenn du etwas festlegst, setze am Ende deiner Antwort einen Trigger in eckigen K
 - Art festlegen: [ART:wortmarke] oder [ART:bildmarke] oder [ART:wort-bildmarke]
 - Klassen festlegen: [KLASSEN:09,42] (mit führender Null bei einstelligen)
 - Länder festlegen: [LAENDER:DE,EU,US]
+- Web-Suche: [WEB_SUCHE:Suchanfrage hier]
+
+🔍 WEB-SUCHE - PROAKTIV NUTZEN!
+Wenn der Kunde einen Markennamen nennt, suche SOFORT ob Firmen/Marken existieren:
+User: "Meine Marke soll Accelari heißen"
+Du: "Accelari - interessant! Ich prüfe kurz ob es schon Firmen gibt... [WEB_SUCHE:Accelari company brand products Germany Europe]"
+
+⚠️ WICHTIG - BEI KONFLIKTEN:
+Wenn die Web-Suche einen KONFLIKT findet (bekannte Marke/Firma existiert):
+1. NICHT [MARKE:...] setzen!
+2. Warne den Kunden über das Risiko
+3. Schlage 2-3 Alternativen vor
+4. Frage ob er trotzdem dabei bleiben will
+5. ERST wenn er bestätigt "ja, trotzdem" → [MARKE:Name]
+
+BEISPIEL bei Konflikt:
+Web-Recherche: "NIVEA ist eine große Kosmetikmarke..."
+Du: "⚠️ Vorsicht! 'Nivee' klingt sehr ähnlich wie NIVEA - ein Milliarden-Konzern.
+     Das könnte zu Problemen führen!
+     
+     Alternativen:
+     • Nivelle (eleganter)
+     • Nevea (anders genug)
+     • Komplett anderer Name?
+     
+     Was meinst du - soll ich einen davon prüfen?"
+
+ERST wenn Kunde sagt "ich will trotzdem Nivee":
+Du: "Ok, auf eigenes Risiko! [MARKE:Nivee]"
+
+🛑 KRITISCH: Wenn du "Ich schaue/prüfe/recherchiere..." sagst, MUSST du [WEB_SUCHE:...] setzen!
+❌ FALSCH: "Ich schaue ob es Firmen gibt..." (NICHTS PASSIERT!)
+✅ RICHTIG: "Ich schaue nach... [WEB_SUCHE:Accelari company brand]"
 
 SELBST-CHECK nach jeder Antwort:
 Frag dich: "Habe ich aus dem Gespräch den Trigger richtig verstanden?"
@@ -3719,6 +3886,9 @@ FALLS der Kunde etwas ändern möchte: Passe die Daten an und frage erneut zur B
 
         const json = await res.json().catch(() => null);
         
+        // Debug-Payload speichern für das API Debug Modal
+        setTMSearchDebugPayload(json);
+        
         if (!res.ok) {
           setLiveAnalysisError((json && (json.error || json.message)) || `HTTP ${res.status}`);
         } else {
@@ -3767,14 +3937,73 @@ AKTUELLER STAND:
 - Klassen: ${baseNiceClasses.length > 0 ? baseNiceClasses.join(", ") : "❌ fehlt"}
 - Länder: ${rechercheForm.countries?.length > 0 ? rechercheForm.countries.join(", ") : "❌ fehlt"}
 - Art: ${trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke"}
+- Recherche-Status: ${isRunningLiveAnalysis ? "⏳ LÄUFT GERADE" : "⚪ Nicht gestartet / bereit"}
 
 Wir sind im RECHERCHE-Bereich. Hilf dem Kunden bei der Markenrecherche.
 
-TRIGGER-SYSTEM:
+TRIGGER-SYSTEM (IMMER VERWENDEN!):
 - Name ändern: [MARKE:Name]
 - Klassen ändern: [KLASSEN:01,02,09]
 - Länder ändern: [LAENDER:DE,EU,US]
 - Recherche starten: [RECHERCHE_STARTEN]
+- Web-Suche: [WEB_SUCHE:deine Suchanfrage]
+
+═══════════════════════════════════════════════════════════
+WEB-SUCHE (NEU!) - Für aktuelle Informationen aus dem Internet
+═══════════════════════════════════════════════════════════
+
+Du kannst im Internet recherchieren mit [WEB_SUCHE:query].
+
+WANN WEB-SUCHE ANBIETEN:
+1. Kunde nennt ein "exotisches" Land (CA, JP, CN, AU, etc.)
+   → "Kanada hat besondere Anforderungen. Soll ich die aktuellen CIPO-Richtlinien recherchieren?"
+   
+2. Kunde fragt nach Gebühren/Kosten
+   → "Ich kann die aktuellen Gebühren recherchieren. Soll ich das tun?"
+   
+3. Kunde fragt nach Fristen/Dauer
+   → "Ich recherchiere die aktuellen Bearbeitungszeiten..."
+
+4. Kunde will wissen, wie Klassenbeschreibung formuliert werden muss
+   → "Jedes Amt hat eigene Anforderungen. Soll ich recherchieren?"
+
+WANN NICHT SUCHEN:
+- Bei DE, EU, US → Du kennst die Grundregeln bereits
+- Wenn Kunde nur allgemeine Infos will
+- Wenn Recherche bereits läuft
+
+BEISPIEL-DIALOG:
+User: "Ich will in Kanada anmelden"
+Du: "Kanada (CIPO) hat strenge Anforderungen an Klassenbeschreibungen. 
+     Soll ich eine Web-Recherche zu den aktuellen CIPO-Anforderungen machen?"
+
+User: "Ja bitte"
+Du: "Ich recherchiere die aktuellen CIPO-Anforderungen... 
+     [WEB_SUCHE:CIPO Canada trademark class description requirements 2024]"
+
+→ Das Ergebnis erscheint automatisch mit Quellen!
+
+═══════════════════════════════════════════════════════════
+MARKENRECHERCHE (Konflikte in Datenbanken prüfen)
+═══════════════════════════════════════════════════════════
+
+Wenn der Kunde die Recherche starten will (sagt "ja", "starten", "los", "ok", "recherchieren", "prüfen"):
+1. Sage kurz was du tust
+2. IMMER am Ende den Trigger setzen: [RECHERCHE_STARTEN]
+3. Der Button zeigt dann automatisch den Ladekreis!
+
+BEISPIEL:
+User: "Ja, starte die Recherche"
+Du: "Ich starte die Recherche für '${rechercheForm.trademarkName}' in ${rechercheForm.countries?.join(", ") || "DE"}... [RECHERCHE_STARTEN]"
+
+❌ FALSCH: "Die Recherche läuft..." (ohne Trigger - Button reagiert nicht!)
+✅ RICHTIG: "Ich starte die Recherche... [RECHERCHE_STARTEN]" (Button zeigt Ladekreis!)
+
+═══════════════════════════════════════════════════════════
+UNTERSCHIED WICHTIG:
+- [RECHERCHE_STARTEN] → Sucht Konflikte in Markendatenbanken
+- [WEB_SUCHE:...] → Sucht Infos im Internet (Anforderungen, Gebühren, etc.)
+═══════════════════════════════════════════════════════════
 
 SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfragen.
 `}
@@ -3845,6 +4074,18 @@ SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfra
                 <div className="text-xs text-white/85 truncate">Parameter festlegen</div>
               </div>
             </div>
+            {/* API Debug Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowTMSearchDebugModal(true);
+                setTMSearchDebugTab("request");
+              }}
+              className="px-2 py-1 bg-white/20 hover:bg-white/30 text-white text-xs font-medium rounded transition-colors"
+              title="API Debug anzeigen"
+            >
+              API
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -4005,24 +4246,32 @@ SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfra
                 {liveAnalysisError || rechercheStartError}
               </div>
             )}
-            <button
-              type="button"
-              onClick={() => void startLiveAnalysis()}
-              disabled={isSavingRechercheForm || isStartingRecherche || isRunningLiveAnalysis}
-              className="w-full py-2.5 px-4 s-gradient-button text-sm font-medium rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isRunningLiveAnalysis ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            {isRunningLiveAnalysis ? (
+              <div className="flex gap-2">
+                <div className="flex-1 py-2.5 px-4 bg-teal-100 text-teal-700 text-sm font-medium rounded-lg flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-teal-400 border-t-teal-700 rounded-full animate-spin" />
                   <span>Analysiere...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Recherche starten</span>
-                </>
-              )}
-            </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsRunningLiveAnalysis(false)}
+                  className="px-4 py-2.5 bg-red-100 text-red-600 hover:bg-red-200 text-sm font-medium rounded-lg flex items-center justify-center gap-1 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  Abbrechen
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void startLiveAnalysis()}
+                disabled={isSavingRechercheForm || isStartingRecherche}
+                className="w-full py-2.5 px-4 s-gradient-button text-sm font-medium rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Recherche starten</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -4334,6 +4583,135 @@ WORKFLOW:
                 )}
               </div>
 
+              {/* Logo-Galerie - OBEN (direkt unter Vorschau) */}
+              {logoGallery.length > 0 && (
+                <div className="border-t border-gray-200 p-3 bg-gray-50">
+                  {/* Header mit Aktionen */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-600">Logo-Galerie ({logoGallery.length})</span>
+                      {/* Alle auswählen Checkbox */}
+                      <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={checkedLogoIds.size === logoGallery.length && logoGallery.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setCheckedLogoIds(new Set(logoGallery.map(l => l.id)));
+                            } else {
+                              setCheckedLogoIds(new Set());
+                            }
+                          }}
+                          className="w-3 h-3 rounded border-gray-300 text-teal-500 focus:ring-teal-500"
+                        />
+                        Alle
+                      </label>
+                    </div>
+                    {/* Aktions-Buttons */}
+                    <div className="flex items-center gap-2">
+                      {checkedLogoIds.size > 0 && (
+                        <>
+                          <button
+                            onClick={() => {
+                              // Download alle ausgewählten
+                              checkedLogoIds.forEach(id => {
+                                const logo = logoGallery.find(l => l.id === id);
+                                if (logo) {
+                                  const link = document.createElement("a");
+                                  link.href = logo.url;
+                                  link.download = `logo-${id}.png`;
+                                  link.click();
+                                }
+                              });
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded transition-colors"
+                            title="Ausgewählte herunterladen"
+                          >
+                            <Download className="w-3 h-3" />
+                            {checkedLogoIds.size}
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm(`${checkedLogoIds.size} Logo(s) löschen?`)) {
+                                setLogoGallery(prev => prev.filter(l => !checkedLogoIds.has(l.id)));
+                                // Wenn aktuell ausgewähltes Logo gelöscht wird
+                                if (selectedLogoId && checkedLogoIds.has(selectedLogoId)) {
+                                  const remaining = logoGallery.filter(l => !checkedLogoIds.has(l.id));
+                                  if (remaining.length > 0) {
+                                    setSelectedLogoId(remaining[0].id);
+                                    setTrademarkImageUrl(remaining[0].url);
+                                  } else {
+                                    setSelectedLogoId(null);
+                                    setTrademarkImageUrl(null);
+                                  }
+                                }
+                                setCheckedLogoIds(new Set());
+                              }
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                            title="Ausgewählte löschen"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            {checkedLogoIds.size}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {/* Logo Thumbnails */}
+                  <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                    {logoGallery.map((logo) => (
+                      <div
+                        key={logo.id}
+                        className={`relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                          selectedLogoId === logo.id 
+                            ? "border-teal-500 ring-2 ring-teal-200" 
+                            : "border-gray-200 hover:border-gray-400"
+                        }`}
+                        onClick={() => {
+                          setSelectedLogoId(logo.id);
+                          setTrademarkImageUrl(logo.url);
+                        }}
+                      >
+                        <img 
+                          src={logo.url} 
+                          alt="Logo" 
+                          className="w-full h-full object-contain bg-white"
+                        />
+                        {/* Checkbox oben rechts */}
+                        <div 
+                          className="absolute top-0.5 right-0.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checkedLogoIds.has(logo.id)}
+                            onChange={(e) => {
+                              const newSet = new Set(checkedLogoIds);
+                              if (e.target.checked) {
+                                newSet.add(logo.id);
+                              } else {
+                                newSet.delete(logo.id);
+                              }
+                              setCheckedLogoIds(newSet);
+                            }}
+                            className="w-3.5 h-3.5 rounded border-gray-300 text-teal-500 focus:ring-teal-500 cursor-pointer bg-white/80"
+                          />
+                        </div>
+                        {/* Source Badge */}
+                        <div className={`absolute top-0.5 left-0.5 px-1 py-0.5 rounded text-[8px] font-medium ${
+                          logo.source === "generated" ? "bg-teal-500 text-white" :
+                          logo.source === "edited" ? "bg-blue-500 text-white" :
+                          "bg-gray-500 text-white"
+                        }`}>
+                          {logo.source === "generated" ? "KI" : logo.source === "edited" ? "Edit" : "↑"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Unten: Buttons für Bild-Upload (nur bei Bild-/Wort-Bildmarke) */}
               {(trademarkType === "wort-bildmarke" || trademarkType === "bildmarke") && (
                 <div className="p-3 border-t border-gray-200 bg-gray-50">
@@ -4420,6 +4798,15 @@ WORKFLOW:
                           setTrademarkImageFile(file);
                           const url = URL.createObjectURL(file);
                           setTrademarkImageUrl(url);
+                          // Hochgeladenes Logo zur Galerie hinzufügen
+                          const uploadedLogoItem = {
+                            id: `logo-${Date.now()}`,
+                            url: url,
+                            timestamp: new Date(),
+                            source: "uploaded" as const
+                          };
+                          setLogoGallery(prev => [uploadedLogoItem, ...prev]);
+                          setSelectedLogoId(uploadedLogoItem.id);
                           // Informiere KI-Assistent über das hochgeladene Logo
                           markennameVoiceRef.current?.sendQuestion("Ich habe mein eigenes Logo hochgeladen. Es ist jetzt in der Vorschau zu sehen.");
                         }}
@@ -4463,7 +4850,16 @@ AKTUELLER STAND:
 - Keywords: ${generatorKeywords || "keine"}
 - Shortlist: ${shortlist.length} Namen
 
-TRIGGER: Wenn Kunde einen Namen wählt → [MARKE:Name]
+TRIGGER-SYSTEM:
+- Wenn Kunde einen Namen wählt → [MARKE:Name]
+- Web-Suche: [WEB_SUCHE:Suchanfrage]
+
+🔍 WEB-SUCHE - PROAKTIV NUTZEN!
+Wenn der Kunde einen Namen nennt/wählt, prüfe SOFORT ob Firmen/Marken existieren:
+User: "Ich möchte Accelari nehmen"
+Du: "Gute Wahl! Ich prüfe kurz ob es schon Firmen mit diesem Namen gibt... [MARKE:Accelari] [WEB_SUCHE:Accelari company brand products Germany Europe]"
+
+🛑 KRITISCH: Wenn du "Ich prüfe/schaue..." sagst, MUSST du [WEB_SUCHE:...] setzen!
 
 SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfragen.
 `}
@@ -6119,29 +6515,27 @@ WICHTIGE REGELN:
               </div>
 
               {/* Tabs */}
-              <div className="px-5 pt-3 pb-0 border-b border-gray-200 flex gap-1">
-                <button
-                  type="button"
-                  onClick={() => setTMSearchDebugTab("structured")}
-                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                    tmsearchDebugTab === "structured"
-                      ? "bg-teal-50 text-teal-700 border border-b-0 border-gray-200"
-                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  📊 Strukturiert
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTMSearchDebugTab("raw")}
-                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                    tmsearchDebugTab === "raw"
-                      ? "bg-teal-50 text-teal-700 border border-b-0 border-gray-200"
-                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  {"{ }"} Raw JSON
-                </button>
+              <div className="px-5 pt-3 pb-0 border-b border-gray-200 flex gap-1 overflow-x-auto">
+                {[
+                  { id: "request" as const, label: "📤 Request" },
+                  { id: "response" as const, label: "📥 Response" },
+                  { id: "filter" as const, label: "🔍 Filter" },
+                  { id: "analysis" as const, label: "🤖 Analyse" },
+                  { id: "raw" as const, label: "{ } Raw" },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setTMSearchDebugTab(tab.id)}
+                    className={`px-3 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
+                      tmsearchDebugTab === tab.id
+                        ? "bg-teal-50 text-teal-700 border border-b-0 border-gray-200"
+                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
               <div className="p-5 overflow-auto flex-1 custom-scrollbar">
@@ -6153,7 +6547,105 @@ WICHTIGE REGELN:
 
                 {tmsearchDebugLoading ? (
                   <div className="text-center py-8 text-gray-500">Lade Daten…</div>
-                ) : tmsearchDebugTab === "structured" && parsedData ? (
+                ) : tmsearchDebugTab === "request" ? (
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="text-sm font-semibold text-blue-800 mb-1">📤 API Request</div>
+                      <div className="text-xs text-blue-700">Was wir an tmsearch.ai gesendet haben</div>
+                    </div>
+                    <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto max-h-[60vh]">
+                      {JSON.stringify((tmsearchDebugPayload as Record<string, unknown>)?.debug_request || {}, null, 2)}
+                    </pre>
+                  </div>
+                ) : tmsearchDebugTab === "response" ? (
+                  <div className="space-y-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="text-sm font-semibold text-green-800 mb-1">📥 API Response</div>
+                      <div className="text-xs text-green-700">Rohe Antwort von tmsearch.ai</div>
+                    </div>
+                    <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto max-h-[60vh]">
+                      {JSON.stringify((tmsearchDebugPayload as Record<string, unknown>)?.debug_response || {}, null, 2)}
+                    </pre>
+                  </div>
+                ) : tmsearchDebugTab === "filter" ? (
+                  <div className="space-y-4">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <div className="text-sm font-semibold text-amber-800 mb-1">🔍 Filterung</div>
+                      <div className="text-xs text-amber-700">So wurden die Ergebnisse gefiltert</div>
+                    </div>
+                    <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto max-h-[60vh]">
+                      {JSON.stringify((tmsearchDebugPayload as Record<string, unknown>)?.debug_filter || {}, null, 2)}
+                    </pre>
+                  </div>
+                ) : tmsearchDebugTab === "analysis" ? (
+                  <div className="space-y-4">
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <div className="text-sm font-semibold text-purple-800 mb-1">🤖 Claude Analyse</div>
+                      <div className="text-xs text-purple-700">KI-Bewertung mit Waren/Dienstleistungen und Abgrenzungsvorschlägen</div>
+                    </div>
+                    {(() => {
+                      const analysis = (tmsearchDebugPayload as Record<string, unknown>)?.debug_analysis as Record<string, unknown> || {};
+                      const conflicts = (analysis?.perConflictAnalysis as Array<Record<string, unknown>>) || [];
+                      return (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-gray-50 rounded-lg p-3 text-center">
+                              <div className="text-xl font-bold">{analysis?.analyzedCount as number || 0}</div>
+                              <div className="text-xs text-gray-500">Analysiert</div>
+                            </div>
+                            <div className="bg-gray-50 rounded-lg p-3 text-center">
+                              <div className="text-xs font-mono">{analysis?.modelUsed as string || "–"}</div>
+                              <div className="text-xs text-gray-500">KI-Modell</div>
+                            </div>
+                            <div className="bg-gray-50 rounded-lg p-3 text-center">
+                              <div className="text-xl font-bold">{((analysis?.overallSummary as Record<string, unknown>)?.overallRiskScore as number) || 0}%</div>
+                              <div className="text-xs text-gray-500">Gesamtrisiko</div>
+                            </div>
+                          </div>
+                          {conflicts.map((c, idx) => (
+                            <div key={idx} className={`border rounded-lg p-4 ${c.riskLevel === "high" ? "border-red-300 bg-red-50" : c.riskLevel === "medium" ? "border-amber-300 bg-amber-50" : "border-green-300 bg-green-50"}`}>
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="font-semibold">{c.name as string}</div>
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${c.riskLevel === "high" ? "bg-red-200 text-red-800" : c.riskLevel === "medium" ? "bg-amber-200 text-amber-800" : "bg-green-200 text-green-800"}`}>
+                                  {c.riskScore as number}% Risiko
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-600 mb-2">
+                                Amt: {c.office as string} · Ähnlichkeit: {c.accuracy as string}% · 
+                                Klassen-Überschneidung: <span className="font-medium">{c.classOverlap as string || "?"}</span> · 
+                                Waren-Überschneidung: <span className="font-medium">{c.goodsOverlap as string || "?"}</span>
+                              </div>
+                              <div className="text-sm bg-white/50 rounded p-2 mb-2">
+                                <strong>Begründung:</strong> {c.reasoning as string || "–"}
+                              </div>
+                              {(c.differentiation as string) && (
+                                <div className="text-sm bg-blue-50 border border-blue-200 rounded p-2 mb-2">
+                                  <strong>💡 Abgrenzungsvorschlag:</strong> {c.differentiation as string}
+                                </div>
+                              )}
+                              {((c.goodsServices as string[]) || []).length > 0 && (
+                                <details className="text-xs">
+                                  <summary className="cursor-pointer text-gray-500 hover:text-gray-700">Waren/Dienstleistungen anzeigen</summary>
+                                  <div className="mt-2 bg-gray-50 rounded p-2 max-h-32 overflow-y-auto">
+                                    {(c.goodsServices as string[]).map((gs, i) => (
+                                      <div key={i} className="mb-1">{gs}</div>
+                                    ))}
+                                  </div>
+                                </details>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : tmsearchDebugTab === "raw" ? (
+                  <div>
+                    <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto max-h-[60vh]">
+                      {JSON.stringify(tmsearchDebugPayload, null, 2)}
+                    </pre>
+                  </div>
+                ) : parsedData ? (
                   <div className="space-y-6">
                     {selectedCountries.length > 0 && (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">

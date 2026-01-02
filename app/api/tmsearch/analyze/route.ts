@@ -4,13 +4,96 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const TMSEARCH_SEARCH_URL = "https://tmsearch.ai/api/search/";
 const TMSEARCH_INFO_URL = "https://tmsearch.ai/api/info/";
+const TAVILY_API_URL = "https://api.tavily.com/search";
 const TEST_API_KEY = "TESTAPIKEY";
+
+// Tavily Web Search für länderspezifische Markenamt-Anforderungen
+async function searchTrademarkRequirements(country: string, niceClasses: number[]): Promise<string> {
+  const tavilyKey = process.env.TAVILY_API_KEY;
+  if (!tavilyKey) {
+    console.log("[Tavily] No API key configured, skipping web search");
+    return "";
+  }
+
+  const countryNames: Record<string, string> = {
+    "US": "USA USPTO",
+    "DE": "Germany DPMA",
+    "EU": "EUIPO European Union",
+    "CA": "Canada CIPO",
+    "CH": "Switzerland IGE",
+    "UK": "United Kingdom UKIPO",
+    "AU": "Australia IP Australia",
+    "JP": "Japan JPO",
+    "CN": "China CNIPA",
+    "WO": "WIPO Madrid Protocol"
+  };
+
+  const countryName = countryNames[country] || country;
+  const classesStr = niceClasses.slice(0, 3).join(", ");
+  const query = `${countryName} trademark registration Nice class ${classesStr} goods services description requirements specification acceptable terms`;
+
+  try {
+    console.log(`[Tavily] Searching for: ${query}`);
+    const res = await fetch(TAVILY_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${tavilyKey}`
+      },
+      body: JSON.stringify({
+        query,
+        search_depth: "basic",
+        include_answer: true,
+        max_results: 5
+      })
+    });
+
+    if (!res.ok) {
+      console.error(`[Tavily] API error: ${res.status}`);
+      return "";
+    }
+
+    const data = await res.json();
+    console.log(`[Tavily] Got answer for ${countryName}, credits used: ${data.usage?.credits || "?"}`);
+    
+    // Kombiniere Antwort und Top-Ergebnisse
+    let result = "";
+    if (data.answer) {
+      result += `AKTUELLE ANFORDERUNGEN FÜR ${countryName.toUpperCase()}:\n${data.answer}\n\n`;
+    }
+    if (data.results && data.results.length > 0) {
+      result += "QUELLEN UND DETAILS:\n";
+      data.results.slice(0, 3).forEach((r: { title: string; url: string; content?: string }) => {
+        result += `- ${r.title}: ${r.content?.substring(0, 300) || ""}\n`;
+      });
+    }
+    return result;
+  } catch (err) {
+    console.error("[Tavily] Search error:", err);
+    return "";
+  }
+}
 
 const EU_COUNTRIES = [
   "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
   "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
   "PL", "PT", "RO", "SK", "SI", "ES", "SE"
 ];
+
+// Helper function to extract JSON from Claude's response (handles markdown code blocks)
+function extractJSON(text: string): string {
+  // Try to extract JSON from markdown code blocks
+  const jsonBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonBlockMatch) {
+    return jsonBlockMatch[1].trim();
+  }
+  // Try to find JSON object directly
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    return jsonMatch[0];
+  }
+  return text;
+}
 
 // Helper function to call Claude API
 async function callClaude(
@@ -25,12 +108,15 @@ async function callClaude(
   const response = await anthropic.messages.create({
     model: "claude-opus-4-20250514",
     max_tokens: maxTokens,
-    system: systemPrompt + "\n\nAntworte IMMER als valides JSON.",
+    system: systemPrompt + "\n\nAntworte IMMER als valides JSON ohne Markdown-Formatierung.",
     messages: [{ role: "user", content: userPrompt }],
   });
 
   const textBlock = response.content.find(block => block.type === "text");
-  return textBlock?.type === "text" ? textBlock.text : "{}";
+  const rawText = textBlock?.type === "text" ? textBlock.text : "{}";
+  
+  // Extract JSON from response (handles markdown code blocks)
+  return extractJSON(rawText);
 }
 
 interface TMSearchResult {
@@ -95,12 +181,12 @@ WICHTIG:
 - Formatiere als strukturiertes JSON`;
 
 // Prompt for analyzing individual conflicts
-const CONFLICT_ANALYSIS_PROMPT = `Analysiere diesen potenziellen Markenkonflikt:
+const CONFLICT_ANALYSIS_PROMPT = `Analysiere diesen potenziellen Markenkonflikt als erfahrener Markenanwalt:
 
 NEUE MARKE (Anmeldewunsch):
 - Name: {keyword}
 - Zielländer: {countries}
-- Zielklassen: {classes}
+- Zielklassen (Basis): {classes}
 - Markenart: {trademarkType}
 
 GEFUNDENER KONFLIKT:
@@ -113,10 +199,28 @@ GEFUNDENER KONFLIKT:
 - Anmeldedatum: {applied}
 - Ablaufdatum: {expiration}
 - Inhaber: {owner}
-- Waren/Dienstleistungen: {goodsServices}
+- Waren/Dienstleistungen des Konflikts: {goodsServices}
 
-Bewerte das Kollisionsrisiko (0-100) und begründe kurz (max. 2 Sätze).
-Antworte als JSON: {"riskScore": number, "riskLevel": "low"|"medium"|"high", "reasoning": "string"}`;
+BEWERTUNGSREGELN (WICHTIG!):
+1. IDENTISCHE KLASSE = Basis 70-90% Risiko
+2. VERWANDTE KLASSE (nicht identisch!) = Basis 25-50% Risiko - viel niedriger!
+3. Namensähnlichkeit: +0-20% Aufschlag
+4. Gleiche Waren/DL-Beschreibung: +10-20% Aufschlag
+5. Unterschiedliche Waren/DL trotz gleicher Klasse: -10-20% Abzug
+
+PRÜFE GENAU:
+- Überschneiden sich die KONKRETEN Waren/Dienstleistungen wirklich?
+- Oder sind es nur "verwandte" Klassen ohne echte Warenüberschneidung?
+
+Antworte als JSON:
+{
+  "riskScore": number (0-100),
+  "riskLevel": "low"|"medium"|"high",
+  "reasoning": "string (2-3 Sätze, erkläre WARUM dieses Risiko)",
+  "classOverlap": "identical"|"related"|"none",
+  "goodsOverlap": "high"|"medium"|"low"|"none",
+  "differentiation": "string (Abgrenzungsvorschlag: wie kann die neue Marke sich abgrenzen?)"
+}`;
 
 // Final summary prompt
 const SUMMARY_PROMPT = `Erstelle eine professionelle Zusammenfassung der Markenrecherche:
@@ -131,6 +235,8 @@ RECHERCHE-ERGEBNISSE:
 - Davon in relevanten Klassen: {relevantCount}
 - Top-Konflikte: {topConflicts}
 
+{webSearchResults}
+
 Erstelle eine Analyse mit folgender Struktur (als JSON):
 {
   "overallRiskScore": number (0-100),
@@ -140,6 +246,8 @@ Erstelle eine Analyse mit folgender Struktur (als JSON):
   "nameAnalysis": "string (Bewertung des Namens und seiner Unterscheidungskraft)",
   "riskAssessment": "string (Detaillierte Risikobewertung mit Begründung)",
   "recommendation": "string (Konkrete Handlungsempfehlung)",
+  "suggestedClassDescription": "string (WICHTIG: Formuliere eine konkrete, kopierfertige Klassenbeschreibung für die gewünschten Klassen, die sich von den Konflikt-Marken abgrenzt und den Anforderungen des Zielamtes entspricht. Auf Deutsch.)",
+  "avoidTerms": ["string (Begriffe die vermieden werden sollten wegen Konflikten)"],
   "topConflicts": [
     {
       "name": "string",
@@ -198,24 +306,37 @@ async function fetchTrademarkInfo(mid: number | string, apiKey: string): Promise
     url.searchParams.set("mid", String(mid));
     url.searchParams.set("api_key", apiKey);
 
+    console.log(`[Info-API] Fetching details for mid: ${mid}`);
     const res = await fetch(url.toString(), {
       method: "GET",
       headers: { Accept: "application/json" },
       cache: "no-store",
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.log(`[Info-API] Failed for mid ${mid}: HTTP ${res.status}`);
+      return null;
+    }
 
     const data = await res.json().catch(() => null);
-    if (!data) return null;
+    if (!data) {
+      console.log(`[Info-API] No data for mid ${mid}`);
+      return null;
+    }
+
+    console.log(`[Info-API] Response for mid ${mid}:`, JSON.stringify(data).substring(0, 500));
 
     const goodsServices: string[] = [];
     if (data.class && Array.isArray(data.class)) {
+      console.log(`[Info-API] Classes for mid ${mid}:`, data.class.length, "classes found");
       data.class.forEach((c: { number?: number; description?: string }) => {
         if (c.description) {
           goodsServices.push(`Klasse ${c.number}: ${c.description}`);
         }
       });
+      console.log(`[Info-API] GoodsServices extracted: ${goodsServices.length} items`);
+    } else {
+      console.log(`[Info-API] No class array in response for mid ${mid}`);
     }
 
     return {
@@ -223,7 +344,8 @@ async function fetchTrademarkInfo(mid: number | string, apiKey: string): Promise
       owner: data.owner,
       goodsServices,
     };
-  } catch {
+  } catch (err) {
+    console.error(`[Info-API] Error for mid ${mid}:`, err);
     return null;
   }
 }
@@ -336,19 +458,38 @@ export async function POST(request: NextRequest) {
         .replace("{goodsServices}", (conflict.goodsServices || []).join("; ") || "nicht verfügbar");
 
       try {
-        const responseText = await callClaude(RISK_ANALYSIS_SYSTEM_PROMPT, conflictPrompt, 300);
+        console.log(`[Claude] Analyzing conflict: ${conflict.verbal}, goodsServices: ${(conflict.goodsServices || []).length} items`);
+        const responseText = await callClaude(RISK_ANALYSIS_SYSTEM_PROMPT, conflictPrompt, 500);
+        console.log(`[Claude] Raw response for ${conflict.verbal}:`, responseText.substring(0, 300));
         const parsed = JSON.parse(responseText);
+        console.log(`[Claude] Parsed successfully for ${conflict.verbal}:`, parsed);
         
         conflict.riskScore = parsed.riskScore || 0;
         conflict.riskLevel = parsed.riskLevel || "low";
         conflict.reasoning = parsed.reasoning || "";
+        // Neue Felder für bessere Analyse
+        (conflict as ConflictWithDetails & { classOverlap?: string; goodsOverlap?: string; differentiation?: string }).classOverlap = parsed.classOverlap || "unknown";
+        (conflict as ConflictWithDetails & { classOverlap?: string; goodsOverlap?: string; differentiation?: string }).goodsOverlap = parsed.goodsOverlap || "unknown";
+        (conflict as ConflictWithDetails & { classOverlap?: string; goodsOverlap?: string; differentiation?: string }).differentiation = parsed.differentiation || "";
       } catch (err) {
-        console.error("Error analyzing conflict:", err);
-        // Fallback: calculate basic score from accuracy
+        console.error("[Claude] Error analyzing conflict:", conflict.verbal, "Error:", err);
+        // Fallback: calculate basic score from accuracy - aber niedriger für verwandte Klassen
         const acc = Number(conflict.accuracy || 0);
-        conflict.riskScore = acc >= 95 ? 85 : acc >= 85 ? 65 : acc >= 70 ? 45 : 25;
-        conflict.riskLevel = conflict.riskScore >= 80 ? "high" : conflict.riskScore >= 50 ? "medium" : "low";
-        conflict.reasoning = `Automatische Bewertung basierend auf ${acc}% Namensähnlichkeit.`;
+        const conflictClasses = (conflict.class || []).map(c => String(c).padStart(2, "0"));
+        const targetClasses = classes.map(c => String(c).padStart(2, "0"));
+        const hasIdenticalClass = conflictClasses.some(c => targetClasses.includes(c));
+        
+        // Niedrigere Scores für verwandte Klassen
+        if (hasIdenticalClass) {
+          conflict.riskScore = acc >= 95 ? 85 : acc >= 85 ? 70 : acc >= 70 ? 55 : 40;
+        } else {
+          // Nur verwandte Klasse - viel niedriger!
+          conflict.riskScore = acc >= 95 ? 45 : acc >= 85 ? 35 : acc >= 70 ? 25 : 15;
+        }
+        conflict.riskLevel = conflict.riskScore >= 70 ? "high" : conflict.riskScore >= 40 ? "medium" : "low";
+        conflict.reasoning = hasIdenticalClass 
+          ? `Identische Klasse gefunden. ${acc}% Namensähnlichkeit.`
+          : `Nur verwandte Klassen (keine identische). ${acc}% Namensähnlichkeit - geringeres Risiko.`;
       }
     }
 
@@ -361,13 +502,15 @@ export async function POST(request: NextRequest) {
       reasoning: c.reasoning,
     }));
 
+    // Step 6: Generate summary (Tavily Web Search moved to separate /api/web-search endpoint)
     const summaryPrompt = SUMMARY_PROMPT
       .replace("{keyword}", keyword)
       .replace("{countries}", countries.join(", ") || "nicht spezifiziert")
       .replace("{classes}", classes.join(", ") || "nicht spezifiziert")
       .replace("{totalLive}", String(filteredResults.length))
       .replace("{relevantCount}", String(topConflicts.length))
-      .replace("{topConflicts}", JSON.stringify(topConflictsSummary, null, 2));
+      .replace("{topConflicts}", JSON.stringify(topConflictsSummary, null, 2))
+      .replace("{webSearchResults}", "");
 
     let summary = {
       overallRiskScore: 0,
@@ -377,6 +520,8 @@ export async function POST(request: NextRequest) {
       nameAnalysis: "",
       riskAssessment: "",
       recommendation: "",
+      suggestedClassDescription: "",
+      avoidTerms: [] as string[],
       topConflicts: topConflictsSummary,
     };
 
@@ -401,6 +546,100 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       isTestMode,
+      // TAB 1: Request - Was wir gesendet haben
+      debug_request: {
+        endpoint: TMSEARCH_SEARCH_URL,
+        params: {
+          keyword: keyword.trim(),
+          api_key: "***hidden***",
+        },
+        body: {
+          keyword,
+          countries,
+          classes,
+          includeRelatedClasses,
+          relatedClasses,
+          trademarkType,
+          fetchDetailsTopN,
+        },
+      },
+      // TAB 2: Response - Was wir bekommen haben (roh)
+      debug_response: {
+        totalFromApi: totalRaw,
+        allResultsCount: allResults.length,
+        sampleResults: allResults.slice(0, 20).map(r => ({
+          mid: r.mid,
+          name: r.verbal,
+          status: r.status,
+          office: r.submition,
+          protection: r.protection,
+          classes: r.class,
+          accuracy: r.accuracy,
+        })),
+      },
+      // TAB 3: Filterung - Wie gefiltert wurde
+      debug_filter: {
+        filterCriteria: {
+          statusFilter: "Nur LIVE (keine DEAD)",
+          countryFilter: countries.length > 0 ? `Nur Marken in: ${countries.join(", ")}` : "Kein Länderfilter",
+          classFilter: classes.length > 0 ? `Nur Klassen: ${effectiveClasses.join(", ")}` : "Kein Klassenfilter",
+          includeRelatedClasses: includeRelatedClasses,
+          relatedClassesUsed: relatedClasses,
+        },
+        beforeFilter: {
+          total: allResults.length,
+          liveCount: allResults.filter(r => r.status === "LIVE").length,
+          deadCount: allResults.filter(r => r.status === "DEAD").length,
+        },
+        afterFilter: {
+          total: filteredResults.length,
+          removedByStatus: allResults.length - allResults.filter(r => r.status === "LIVE").length,
+          removedByCountryOrClass: allResults.filter(r => r.status === "LIVE").length - filteredResults.length,
+        },
+        filteredResults: filteredResults.slice(0, 30).map(r => ({
+          mid: r.mid,
+          name: r.verbal,
+          office: r.submition,
+          classes: r.class,
+          accuracy: r.accuracy,
+        })),
+      },
+      // TAB 4: Analyse - Claudes Überlegungen
+      debug_analysis: {
+        analyzedCount: topConflicts.length,
+        modelUsed: "claude-opus-4-20250514",
+        systemPromptSummary: "Markenrechtler mit 40 Jahren Erfahrung, bewertet Kollisionsrisiko 0-100",
+        perConflictAnalysis: topConflicts.map(c => ({
+          name: c.verbal,
+          office: c.submition,
+          accuracy: c.accuracy,
+          riskScore: c.riskScore,
+          riskLevel: c.riskLevel,
+          reasoning: c.reasoning,
+          // Neue Felder für bessere Analyse
+          classOverlap: (c as ConflictWithDetails & { classOverlap?: string }).classOverlap || "unknown",
+          goodsOverlap: (c as ConflictWithDetails & { goodsOverlap?: string }).goodsOverlap || "unknown",
+          differentiation: (c as ConflictWithDetails & { differentiation?: string }).differentiation || "",
+          // Waren/Dienstleistungen des Konflikts
+          goodsServices: c.goodsServices || [],
+          inputToAI: {
+            conflictName: c.verbal,
+            conflictClasses: c.class,
+            conflictProtection: c.protection,
+            owner: c.owner?.name,
+            goodsServices: c.goodsServices || [],
+          },
+        })),
+        overallSummary: summary,
+      },
+      // Klassenbeschreibung wird jetzt vom Chat-Claude mit Web-Suche generiert
+      classDescriptionSuggestion: {
+        suggestedText: summary.suggestedClassDescription || "",
+        avoidTerms: summary.avoidTerms || [],
+        targetCountry: countries[0] || "DE",
+        targetClasses: classes,
+        hint: "Für länderspezifische Anforderungen nutzen Sie die Web-Suche im Chat.",
+      },
       query: {
         keyword,
         countries,

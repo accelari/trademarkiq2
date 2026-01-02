@@ -26,11 +26,11 @@ export async function POST(req: NextRequest) {
     // Build edit prompt for Flux Kontext
     const finalPrompt = `Edit this logo: ${editPrompt}. Keep the brand name "${brandName || 'Brand'}" visible. Maintain professional vector logo style, clean design.`;
 
-    console.log("=== LOGO EDIT DEBUG ===");
+    console.log("=== LOGO EDIT DEBUG (Flux Kontext) ===");
     console.log("Original image URL:", imageUrl);
     console.log("Edit prompt:", editPrompt);
     console.log("Final prompt:", finalPrompt);
-    console.log("========================");
+    console.log("======================================");
 
     // Call Flux Kontext for image editing
     const result = await fal.subscribe("fal-ai/flux-pro/kontext", {
@@ -49,7 +49,9 @@ export async function POST(req: NextRequest) {
       (resultAny.data as { images?: { url: string }[] })?.images?.[0]?.url ||
       (resultAny.images as { url: string }[])?.[0]?.url ||
       (resultAny as { image?: { url: string } })?.image?.url ||
-      (resultAny.data as { image?: { url: string } })?.image?.url;
+      (resultAny.data as { image?: { url: string } })?.image?.url ||
+      (resultAny as { url?: string })?.url ||
+      (resultAny.data as { url?: string })?.url;
     
     console.log("Extracted image URL:", editedImageUrl);
 

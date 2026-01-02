@@ -84,6 +84,7 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
         .replace(/\[LOGO_GENERIEREN\]/g, "") // Ohne Prompt
         .replace(/\[LOGO_BEARBEITEN:[^\]]+\]/g, "") // Logo bearbeiten
         .replace(/\[RECHERCHE_STARTEN\]/g, "")
+        .replace(/\[WEB_SUCHE:[^\]]+\]/g, "") // Web-Suche Trigger
         .replace(/\s{2,}/g, " ") // Mehrfache Leerzeichen entfernen
         .trim();
     }, []);
@@ -91,6 +92,51 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
     // Prüfen ob Nachricht ein System-Prompt ist (nicht anzeigen)
     const isSystemMessage = useCallback((content: string) => {
       return content.trim().startsWith("[SYSTEM:");
+    }, []);
+
+    // Einfacher Markdown-Renderer für Links und Formatierung
+    const renderMarkdown = useCallback((text: string) => {
+      // Links: [text](url) -> <a>
+      const parts = text.split(/(\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|_([^_]+)_|\n)/g);
+      
+      return parts.map((part, i) => {
+        if (!part) return null;
+        
+        // Markdown Link [text](url)
+        const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        if (linkMatch) {
+          return (
+            <a 
+              key={i} 
+              href={linkMatch[2]} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-teal-600 hover:text-teal-800 underline"
+            >
+              {linkMatch[1]}
+            </a>
+          );
+        }
+        
+        // Bold **text**
+        const boldMatch = part.match(/^\*\*([^*]+)\*\*$/);
+        if (boldMatch) {
+          return <strong key={i}>{boldMatch[1]}</strong>;
+        }
+        
+        // Italic _text_
+        const italicMatch = part.match(/^_([^_]+)_$/);
+        if (italicMatch) {
+          return <em key={i} className="text-gray-500">{italicMatch[1]}</em>;
+        }
+        
+        // Newline
+        if (part === "\n") {
+          return <br key={i} />;
+        }
+        
+        return part;
+      });
     }, []);
 
     const scrollToBottom = useCallback(() => {
@@ -725,7 +771,7 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
                           />
                         )}
                         {displayContent && (
-                          <p className="text-sm whitespace-pre-wrap">{displayContent}</p>
+                          <div className="text-sm">{renderMarkdown(displayContent)}</div>
                         )}
                         <p className={`text-xs mt-1 ${
                           message.role === "user" ? "text-teal-100" : "text-gray-400"
@@ -741,7 +787,7 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
               {streamingResponse && (
                 <div className="flex justify-start">
                   <div className="max-w-[85%] rounded-2xl px-4 py-2.5 bg-gray-100 text-gray-900 rounded-bl-md">
-                    <p className="text-sm whitespace-pre-wrap">{cleanMessageForDisplay(streamingResponse)}</p>
+                    <div className="text-sm">{renderMarkdown(cleanMessageForDisplay(streamingResponse))}</div>
                     <span className="inline-block w-2 h-4 bg-teal-500 animate-pulse ml-1" />
                   </div>
                 </div>
