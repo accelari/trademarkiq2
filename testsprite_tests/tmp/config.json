@@ -1,7 +1,6 @@
 {
-  "status": "init",
-  "scope": "codebase",
+  "status": "commited",
   "type": "frontend",
-  "localEndpoint": "http://localhost:5000/login",
-  "serverPort": 65271
+  "scope": "diff",
+  "localEndpoint": "http://localhost:5000/dashboard/case"
 }

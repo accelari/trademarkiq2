@@ -208,6 +208,7 @@ export const trademarkCasesRelations = relations(trademarkCases, ({ one, many })
   events: many(caseEvents),
   consultations: many(consultations),
   analyses: many(caseAnalyses),
+  rechercheHistories: many(rechercheHistory),
 }));
 
 export const caseStepsRelations = relations(caseSteps, ({ one }) => ({
@@ -228,6 +229,31 @@ export const caseAnalysesRelations = relations(caseAnalyses, ({ one }) => ({
   user: one(users, { fields: [caseAnalyses.userId], references: [users.id] }),
 }));
 
+// Recherche-Historie: Speichert durchgeführte Markenrecherchen pro Case
+export const rechercheHistory = pgTable("recherche_history", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id", { length: 255 }).notNull().references(() => trademarkCases.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  keyword: varchar("keyword", { length: 255 }).notNull(),
+  trademarkType: varchar("trademark_type", { length: 50 }),
+  countries: jsonb("countries").$type<string[]>().default([]),
+  niceClasses: jsonb("nice_classes").$type<number[]>().default([]),
+  riskScore: integer("risk_score").default(0),
+  riskLevel: varchar("risk_level", { length: 20 }).default("low"),
+  decision: varchar("decision", { length: 50 }),
+  result: jsonb("result").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  caseIdx: index("recherche_history_case_idx").on(table.caseId),
+  userIdx: index("recherche_history_user_idx").on(table.userId),
+  createdAtIdx: index("recherche_history_created_at_idx").on(table.createdAt),
+}));
+
+export const rechercheHistoryRelations = relations(rechercheHistory, ({ one }) => ({
+  case: one(trademarkCases, { fields: [rechercheHistory.caseId], references: [trademarkCases.id] }),
+  user: one(users, { fields: [rechercheHistory.userId], references: [users.id] }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Consultation = typeof consultations.$inferSelect;
@@ -242,3 +268,5 @@ export type CaseEvent = typeof caseEvents.$inferSelect;
 export type NewCaseEvent = typeof caseEvents.$inferInsert;
 export type CaseAnalysis = typeof caseAnalyses.$inferSelect;
 export type NewCaseAnalysis = typeof caseAnalyses.$inferInsert;
+export type RechercheHistory = typeof rechercheHistory.$inferSelect;
+export type NewRechercheHistory = typeof rechercheHistory.$inferInsert;

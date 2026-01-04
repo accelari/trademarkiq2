@@ -52,6 +52,7 @@ import Tooltip, {
   QuickCheckTooltip, 
   ConflictsTooltip, 
 } from "@/app/components/ui/tooltip";
+import { getBeratungPrompt, getRecherchePrompt, getMarkennamePrompt, getAnmeldungPrompt } from "@/lib/prompts";
 
 interface AnalysisSummary {
   id: string;
@@ -833,10 +834,12 @@ export default function CasePage() {
     }
   }, [anmeldungMessages.length, generateAnmeldungStrategy]);
 
-  // Automatischer Akkordeon-Wechsel wenn Assistent weiterleitet
+  // Automatischer Akkordeon-Wechsel via [WEITER:ziel] Trigger
   const lastRedirectMsgIdRef = useRef<string | null>(null);
+  const VALID_ACCORDIONS = ["beratung", "markenname", "recherche", "checkliste", "anmeldung", "ueberwachung", "kosten"];
+  
   useEffect(() => {
-    if (sessionMessages.length < 2) return;
+    if (sessionMessages.length < 1) return;
     
     const lastMessage = sessionMessages[sessionMessages.length - 1];
     if (lastMessage?.role !== "assistant") return;
@@ -844,25 +847,47 @@ export default function CasePage() {
     // Verhindere doppelte Weiterleitung
     if (lastMessage.id === lastRedirectMsgIdRef.current) return;
     
-    const content = (lastMessage.content || "").toLowerCase();
+    const content = lastMessage.content || "";
     
-    // Erkennung der Weiterleitung
-    if (content.includes("leite dich weiter") || content.includes("leite ich dich weiter")) {
-      lastRedirectMsgIdRef.current = lastMessage.id;
+    // [WEITER:ziel] Trigger erkennen
+    const weiterMatch = content.match(/\[WEITER:(\w+)\]/i);
+    if (weiterMatch) {
+      const target = weiterMatch[1].toLowerCase();
       
-      // Bestimme Ziel basierend auf Markenart
+      // Validiere Ziel-Akkordeon
+      if (!VALID_ACCORDIONS.includes(target)) {
+        console.warn("Ungültiges Akkordeon-Ziel:", target);
+        return;
+      }
+      
+      lastRedirectMsgIdRef.current = lastMessage.id;
+      console.log("Weiterleitung via [WEITER:] zu:", target);
+      
+      // Wechsle nach kurzer Verzögerung (damit User die Nachricht lesen kann)
+      setTimeout(() => {
+        setOpenAccordion(target);
+        window.location.hash = `#${target}`;
+        setTimeout(() => {
+          const el = document.getElementById(`accordion-${target}`);
+          el?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+      }, 1500);
+      return;
+    }
+    
+    // Fallback: Alte Phrase-Erkennung (für Kompatibilität)
+    const contentLower = content.toLowerCase();
+    if (contentLower.includes("leite dich weiter") || contentLower.includes("leite ich dich weiter")) {
+      lastRedirectMsgIdRef.current = lastMessage.id;
       const targetAccordion = (trademarkType === "bildmarke" || trademarkType === "wort-bildmarke") 
         ? "markenname" 
         : "recherche";
       
-      console.log("Weiterleitung zu:", targetAccordion, "Markenart:", trademarkType);
+      console.log("Weiterleitung via Phrase zu:", targetAccordion);
       
-      // Wechsle nach kurzer Verzögerung
       setTimeout(() => {
         setOpenAccordion(targetAccordion);
-        // URL-Hash setzen für Stabilität
         window.location.hash = `#${targetAccordion}`;
-        // Scrolle zum Akkordeon
         setTimeout(() => {
           const el = document.getElementById(`accordion-${targetAccordion}`);
           el?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -3315,93 +3340,14 @@ Soll ich die Recherche starten?`
             title="KI-Markenberater"
             subtitle="Erstberatung für deine Marke"
             alwaysShowMessages={sessionMessages.length > 0}
-            systemPromptAddition={`
-DU BIST: Ein Markenrechts-Experte mit 40 Jahren Berufserfahrung. Du weißt ALLES über Markenrecht weltweit.
-Der Kunde weiß wahrscheinlich wenig - erkläre alles freundlich und verständlich. Sprich per DU.
-
-AKTUELLER STAND IM SYSTEM:
-- Markenname: ${manualNameInput || "❌ fehlt"}
-- Markenart: ${isTrademarkTypeConfirmed ? (trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke") : "❌ fehlt"}
-- Klassen: ${rechercheForm.niceClasses?.length > 0 ? (rechercheForm.niceClasses.length === 45 ? "ALLE (1-45)" : rechercheForm.niceClasses.join(", ")) : "❌ fehlt"}
-- Länder: ${rechercheForm.countries?.length > 0 ? rechercheForm.countries.join(", ") : "❌ fehlt"}
-
-DEINE AUFGABE: Hilf dem Kunden diese 4 Punkte zu klären. Frag einen nach dem anderen durch.
-
-TRIGGER-SYSTEM - So speicherst du Werte:
-Wenn du etwas festlegst, setze am Ende deiner Antwort einen Trigger in eckigen Klammern:
-- Name festlegen: [MARKE:NameHier]
-- Art festlegen: [ART:wortmarke] oder [ART:bildmarke] oder [ART:wort-bildmarke]
-- Klassen festlegen: [KLASSEN:09,42] (mit führender Null bei einstelligen)
-- Länder festlegen: [LAENDER:DE,EU,US]
-- Web-Suche: [WEB_SUCHE:Suchanfrage hier]
-
-🔍 WEB-SUCHE - PROAKTIV NUTZEN!
-Wenn der Kunde einen Markennamen nennt, suche SOFORT ob Firmen/Marken existieren:
-User: "Meine Marke soll Accelari heißen"
-Du: "Accelari - interessant! Ich prüfe kurz ob es schon Firmen gibt... [WEB_SUCHE:Accelari company brand products Germany Europe]"
-
-⚠️ WICHTIG - BEI KONFLIKTEN:
-Wenn die Web-Suche einen KONFLIKT findet (bekannte Marke/Firma existiert):
-1. NICHT [MARKE:...] setzen!
-2. Warne den Kunden über das Risiko
-3. Schlage 2-3 Alternativen vor
-4. Frage ob er trotzdem dabei bleiben will
-5. ERST wenn er bestätigt "ja, trotzdem" → [MARKE:Name]
-
-BEISPIEL bei Konflikt:
-Web-Recherche: "NIVEA ist eine große Kosmetikmarke..."
-Du: "⚠️ Vorsicht! 'Nivee' klingt sehr ähnlich wie NIVEA - ein Milliarden-Konzern.
-     Das könnte zu Problemen führen!
-     
-     Alternativen:
-     • Nivelle (eleganter)
-     • Nevea (anders genug)
-     • Komplett anderer Name?
-     
-     Was meinst du - soll ich einen davon prüfen?"
-
-ERST wenn Kunde sagt "ich will trotzdem Nivee":
-Du: "Ok, auf eigenes Risiko! [MARKE:Nivee]"
-
-🛑 KRITISCH: Wenn du "Ich schaue/prüfe/recherchiere..." sagst, MUSST du [WEB_SUCHE:...] setzen!
-❌ FALSCH: "Ich schaue ob es Firmen gibt..." (NICHTS PASSIERT!)
-✅ RICHTIG: "Ich schaue nach... [WEB_SUCHE:Accelari company brand]"
-
-SELBST-CHECK nach jeder Antwort:
-Frag dich: "Habe ich aus dem Gespräch den Trigger richtig verstanden?"
-- Wenn JA → Setze den Trigger
-- Wenn UNSICHER → Frag den Kunden nochmal nach: "Meinst du...?"
-
-BEISPIELE:
-- Kunde: "Ich verkaufe Eis" → Du: "Eiscreme ist Klasse 30! [KLASSEN:30]"
-- Kunde: "Klasse 1 und 2" → Du: "Klassen 01 und 02, verstanden! [KLASSEN:01,02]"
-- Kunde: "Ein Logo" → Du: "Also eine Bildmarke! [ART:bildmarke]"
-- Kunde: "Europa" → Du: "EU-Marke, gute Wahl! [LAENDER:EU]"
-- Kunde: "USA" → Du: "USA notiert! [LAENDER:US]"
-
-WENN ALLES AUSGEFÜLLT (kein "❌ fehlt" mehr):
-Fasse zusammen und leite zum nächsten Schritt:
-- Bei Bildmarke/Wort-Bildmarke → "Lass uns zum Markenname-Bereich gehen für dein Logo!"
-- Bei Wortmarke → "Alles klar, weiter zur Recherche!"
-
-"Perfekt! Lass mich kurz zusammenfassen:
-📝 Marke: [ECHTER Markenname - NIEMALS 'fehlt noch'!]
-🎨 Art: [Wortmarke/Bildmarke/Wort-Bildmarke]
-📋 Klassen: [alle Klassen mit Beschreibung]
-🌍 Länder: [alle Länder]
-
-Ist das alles so richtig? Falls du etwas ändern möchtest, sag einfach Bescheid!"
-
-ERST WENN der Kunde bestätigt (ja, passt, korrekt, stimmt, etc.):
-- Bei BILDMARKE oder WORT-/BILDMARKE: "Super! Dann lass uns jetzt dein Logo erstellen. Ich leite dich zum Logo-Bereich weiter!"
-- Bei WORTMARKE: "Sehr gut! Dann prüfen wir jetzt ob der Name noch frei ist. Ich leite dich zur Recherche weiter!"
-
-WICHTIG: Wenn der Kunde mit JA/PASST/KORREKT antwortet, sage genau: "Alles klar, ich leite dich weiter!" - Das System erkennt diese Phrase und wechselt automatisch.
-
-FALLS der Kunde etwas ändern möchte: Passe die Daten an und frage erneut zur Bestätigung.
-
-⛔ ABSOLUT VERBOTEN: Zusammenfassung oder Weiterleitung wenn Markenname "⚠️ FEHLT NOCH" zeigt!
-`}
+            systemPromptAddition={getBeratungPrompt({
+              markenname: manualNameInput || "❌ fehlt",
+              markenart: isTrademarkTypeConfirmed ? (trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke") : "❌ fehlt",
+              klassen: rechercheForm.niceClasses?.length > 0 ? (rechercheForm.niceClasses.length === 45 ? "ALLE (1-45)" : rechercheForm.niceClasses.join(", ")) : "❌ fehlt",
+              laender: rechercheForm.countries?.length > 0 ? rechercheForm.countries.join(", ") : "❌ fehlt",
+              isTrademarkTypeConfirmed,
+              trademarkType,
+            })}
           />
         </div>
 
@@ -3906,6 +3852,9 @@ FALLS der Kunde etwas ändern möchte: Passe die Daten an und frage erneut zur B
             keyword: json.query.keyword,
             riskScore: json.analysis.overallRiskScore,
             riskLevel: json.analysis.overallRiskLevel,
+            trademarkType: json.query.trademarkType,
+            classes: json.query.classes,
+            countries: json.query.countries,
             result: json // Vollständiges Ergebnis speichern
           }]);
           setActiveRechercheId(newId);
@@ -3934,14 +3883,39 @@ FALLS der Kunde etwas ändern möchte: Passe die Daten an und frage erneut zur B
     const handleSelectRecherche = (id: string) => {
       const selected = rechercheHistory.find(r => r.id === id);
       if (selected) {
-        setLiveAnalysisResult(selected.result); // Ergebnis aus Historie laden
+        setLiveAnalysisResult(selected.result);
         setActiveRechercheId(id);
         setShowRechercheAnalysis(true);
       }
     };
     const handleNewRecherche = () => {
+      // Nur Markenname leeren, Rest beibehalten (Markenart, Klassen, Land)
+      setRechercheForm(prev => ({
+        ...prev,
+        trademarkName: "", // Nur Markenname leeren
+      }));
+      setManualNameInput("");
+      // trademarkType, countries, niceClasses bleiben erhalten
       setShowRechercheAnalysis(false);
       setActiveRechercheId(null);
+      setRechercheFormValidationAttempted(false);
+      setLiveAnalysisError(null);
+    };
+    const handleDeleteRecherche = async (id: string) => {
+      setRechercheHistory(prev => prev.filter(r => r.id !== id));
+      if (activeRechercheId === id) {
+        setActiveRechercheId(null);
+        setLiveAnalysisResult(null);
+        setShowRechercheAnalysis(false);
+      }
+      // Aus DB löschen
+      if (data?.case?.id) {
+        try {
+          await fetch(`/api/cases/${data.case.id}/recherche-history?id=${id}`, { method: "DELETE" });
+        } catch (e) {
+          console.error("Failed to delete recherche from DB:", e);
+        }
+      }
     };
 
     // ANALYSE-ANSICHT
@@ -3950,9 +3924,9 @@ FALLS der Kunde etwas ändern möchte: Passe die Daten an und frage erneut zur B
       return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="col-span-full">
-            <RechercheHistoryBanner history={rechercheHistory} activeId={activeRechercheId} showingAnalysis={true} onSelectRecherche={handleSelectRecherche} onNewRecherche={handleNewRecherche} />
+            <RechercheHistoryBanner history={rechercheHistory} activeId={activeRechercheId} showingAnalysis={true} onSelectRecherche={handleSelectRecherche} onDeleteRecherche={handleDeleteRecherche} onNewRecherche={handleNewRecherche} />
           </div>
-          <ClaudeAssistant ref={rechercheVoiceRef} caseId={caseId} onMessageSent={(msg) => setSessionMessages((prev) => [...prev, msg])} previousMessages={sessionMessages} title="KI-Analyseberater" subtitle="Fragen zur Analyse" alwaysShowMessages={sessionMessages.length > 0} systemPromptAddition={`Die Recherche für "${query.keyword}" ist abgeschlossen. Risiko: ${analysis.overallRiskScore}%. Hilf dem Kunden die Ergebnisse zu verstehen.`} />
+                    <ClaudeAssistant ref={rechercheVoiceRef} caseId={caseId} onMessageSent={(msg) => setSessionMessages((prev) => [...prev, msg])} previousMessages={sessionMessages} title="KI-Analyseberater" subtitle="Fragen zur Analyse" alwaysShowMessages={sessionMessages.length > 0} systemPromptAddition={`Die Recherche für "${query.keyword}" ist abgeschlossen. Risiko: ${analysis.overallRiskScore}%. Hilf dem Kunden die Ergebnisse zu verstehen.`} />
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
               <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
@@ -3962,6 +3936,13 @@ FALLS der Kunde etwas ändern möchte: Passe die Daten an und frage erneut zur B
                 </div>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-5">
+                {/* Parameter-Übersicht */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-3 pb-3 border-b border-gray-200">
+                  <div><span className="text-gray-500 font-medium">Marke:</span> <span className="font-semibold text-gray-900">&quot;{query.keyword}&quot;</span></div>
+                  <div><span className="text-gray-500 font-medium">Art:</span> <span className="font-semibold text-gray-900">{query.trademarkType === "wortmarke" || query.trademarkType === "word" ? "Wort" : query.trademarkType === "bildmarke" || query.trademarkType === "image" ? "Bild" : "Wort-/Bild"}</span></div>
+                  <div><span className="text-gray-500 font-medium">Klassen:</span> <span className="font-semibold text-gray-900">{query.classes?.join(", ") || "-"}</span></div>
+                  <div><span className="text-gray-500 font-medium">Länder:</span> <span className="font-semibold text-gray-900">{query.countries?.join(", ") || "-"}</span></div>
+                </div>
                 <div className={`p-4 rounded-lg border mb-4 ${analysis.decision === "no_go" ? "bg-red-50 border-red-200" : analysis.decision === "go_with_changes" ? "bg-orange-50 border-orange-200" : "bg-teal-50 border-teal-200"}`}>
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${analysis.decision === "no_go" ? "bg-red-100 text-red-700 border-red-300" : analysis.decision === "go_with_changes" ? "bg-orange-100 text-orange-700 border-orange-300" : "bg-teal-100 text-teal-700 border-teal-300"}`}>
                     {analysis.decision === "no_go" ? "NO-GO" : analysis.decision === "go_with_changes" ? "GO MIT ANPASSUNG" : "GO"}
@@ -4018,7 +3999,7 @@ FALLS der Kunde etwas ändern möchte: Passe die Daten an und frage erneut zur B
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {rechercheHistory.length > 0 && (
           <div className="col-span-full">
-            <RechercheHistoryBanner history={rechercheHistory} activeId={activeRechercheId} showingAnalysis={false} onSelectRecherche={handleSelectRecherche} onNewRecherche={handleNewRecherche} />
+            <RechercheHistoryBanner history={rechercheHistory} activeId={activeRechercheId} showingAnalysis={false} onSelectRecherche={handleSelectRecherche} onDeleteRecherche={handleDeleteRecherche} onNewRecherche={handleNewRecherche} />
           </div>
         )}
         {/* Widget 1: KI-Berater (globaler Chat wie in Beratung/Markenname) */}
@@ -4108,6 +4089,16 @@ UNTERSCHIED WICHTIG:
 - [RECHERCHE_STARTEN] → Sucht Konflikte in Markendatenbanken
 - [WEB_SUCHE:...] → Sucht Infos im Internet (Anforderungen, Gebühren, etc.)
 ═══════════════════════════════════════════════════════════
+
+NAVIGATION-TRIGGER (um zu anderem Bereich zu wechseln):
+[WEITER:beratung]    → Zurück zur Beratung
+[WEITER:markenname]  → Zum Logo-Bereich
+[WEITER:checkliste]  → Zur Checkliste
+[WEITER:anmeldung]   → Zur Anmeldung
+
+NACH RECHERCHE-ERGEBNIS:
+- Bei GO: "Sehr gut! Die Marke ist frei. Soll ich zur Checkliste weiterleiten? [WEITER:checkliste]"
+- Bei NO-GO: Alternativen vorschlagen, NICHT automatisch weiterleiten
 
 SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfragen.
 `}
