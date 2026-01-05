@@ -649,6 +649,92 @@ export default function CasePage() {
     includeRelatedNiceClasses: true,
   });
 
+  // Klassen, Länder und Markenart aus DB laden beim Reload
+  const decisionsInitializedRef = useRef(false);
+  useEffect(() => {
+    if (!data) return; // Warten bis data geladen
+    if (decisionsInitializedRef.current) return; // Nur einmal initialisieren
+    
+    // WICHTIG: Immer auf true setzen wenn data geladen (auch wenn leer!)
+    decisionsInitializedRef.current = true;
+    
+    const decisions = data.decisions as any;
+    if (!decisions) return;
+    
+    const { niceClasses, countries, trademarkNames, trademarkType: savedTrademarkType } = decisions;
+    const hasData = (niceClasses?.length ?? 0) > 0 || (countries?.length ?? 0) > 0 || savedTrademarkType;
+    
+    if (hasData) {
+      setRechercheForm(prev => ({
+        ...prev,
+        trademarkName: trademarkNames?.[0] || prev.trademarkName,
+        niceClasses: niceClasses?.length ? niceClasses : prev.niceClasses,
+        countries: countries?.length ? countries : prev.countries,
+      }));
+      // Markenart wiederherstellen
+      if (savedTrademarkType && !trademarkType) {
+        setTrademarkType(savedTrademarkType);
+        setIsTrademarkTypeConfirmed(true);
+      }
+    }
+  }, [data, trademarkType]);
+
+  // Auto-Save für Felder (wie Chat) - speichert automatisch nach 2 Sekunden
+  const autoSaveDecisionsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedDecisionsRef = useRef<string>("");
+  
+  useEffect(() => {
+    if (!caseId || !data?.case?.id) return;
+    if (!decisionsInitializedRef.current) return; // Nicht speichern bevor initialisiert
+    
+    // Aktueller Zustand als String für Vergleich
+    const currentState = JSON.stringify({
+      name: manualNameInput,
+      type: trademarkType,
+      classes: rechercheForm.niceClasses,
+      countries: rechercheForm.countries,
+    });
+    
+    // Nicht speichern wenn nichts geändert wurde
+    if (currentState === lastSavedDecisionsRef.current) return;
+    
+    // Nicht speichern wenn alles leer ist
+    if (!manualNameInput && !trademarkType && rechercheForm.niceClasses.length === 0 && rechercheForm.countries.length === 0) return;
+    
+    // Debounce: 2 Sekunden warten nach letzter Änderung
+    if (autoSaveDecisionsTimeoutRef.current) {
+      clearTimeout(autoSaveDecisionsTimeoutRef.current);
+    }
+    
+    autoSaveDecisionsTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/cases/save-decisions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            caseId: data.case.id,
+            trademarkName: manualNameInput || undefined,
+            trademarkType: trademarkType || undefined,
+            countries: rechercheForm.countries.length > 0 ? rechercheForm.countries : undefined,
+            niceClasses: rechercheForm.niceClasses.length > 0 ? rechercheForm.niceClasses : undefined,
+          }),
+        });
+        if (res.ok) {
+          lastSavedDecisionsRef.current = currentState;
+          console.log("[Auto-Save] Felder gespeichert");
+        }
+      } catch (err) {
+        console.error("[Auto-Save] Fehler:", err);
+      }
+    }, 2000);
+    
+    return () => {
+      if (autoSaveDecisionsTimeoutRef.current) {
+        clearTimeout(autoSaveDecisionsTimeoutRef.current);
+      }
+    };
+  }, [manualNameInput, trademarkType, rechercheForm.niceClasses, rechercheForm.countries, caseId, data?.case?.id]);
+
   const getRelatedNiceClasses = useCallback((selected: number[]) => {
     const MAP: Record<number, number[]> = {
       1: [2, 3, 5],
@@ -905,6 +991,24 @@ export default function CasePage() {
   const lastVisitedAccordionRef = useRef<string | null>(null);
   const greetedAccordionsRef = useRef<Set<string>>(new Set());
   const startAccordionMarkedRef = useRef(false);
+  const greetingsInitializedRef = useRef(false);
+  
+  // Bei Reload: Nur das START-Akkordeon als "begrüßt" markieren (nicht alle)
+  // So bekommt der User beim ersten Besuch eines anderen Akkordeons noch die Begrüßung
+  useEffect(() => {
+    if (greetingsInitializedRef.current) return;
+    if (!messagesLoaded) return;
+    if (!openAccordion) return;
+    
+    greetingsInitializedRef.current = true;
+    
+    // Wenn bereits Nachrichten da sind, nur das aktuelle Akkordeon als "begrüßt" markieren
+    // (der User ist ja gerade hier, braucht keine erneute Begrüßung)
+    if (sessionMessages.length > 0) {
+      greetedAccordionsRef.current.add(openAccordion);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messagesLoaded, openAccordion]);
   
   // Start-Akkordeon automatisch als "begrüßt" markieren (bei erster Nachricht)
   useEffect(() => {

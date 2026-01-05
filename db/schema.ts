@@ -77,6 +77,7 @@ export const caseDecisions = pgTable("case_decisions", {
   id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
   caseId: varchar("case_id", { length: 255 }).notNull().references(() => trademarkCases.id, { onDelete: "cascade" }),
   trademarkNames: jsonb("trademark_names").$type<string[]>().default([]),
+  trademarkType: varchar("trademark_type", { length: 50 }), // wortmarke, bildmarke, wort-bildmarke
   countries: jsonb("countries").$type<string[]>().default([]),
   niceClasses: jsonb("nice_classes").$type<number[]>().default([]),
   completenessScore: integer("completeness_score").default(0),

@@ -97,6 +97,7 @@ export async function GET(
       } : null,
       decisions: latestDecision ? {
         trademarkNames: latestDecision.trademarkNames,
+        trademarkType: latestDecision.trademarkType,
         countries: latestDecision.countries,
         niceClasses: latestDecision.niceClasses,
         completenessScore: latestDecision.completenessScore,
