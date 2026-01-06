@@ -990,40 +990,33 @@ export default function CasePage() {
   // Automatische Kontextnachricht bei Akkordeon-Wechsel (nur einmal pro Akkordeon)
   const lastVisitedAccordionRef = useRef<string | null>(null);
   const greetedAccordionsRef = useRef<Set<string>>(new Set());
-  const startAccordionMarkedRef = useRef(false);
   const greetingsInitializedRef = useRef(false);
   
-  // Bei Reload: Nur das START-Akkordeon als "begrüßt" markieren (nicht alle)
-  // So bekommt der User beim ersten Besuch eines anderen Akkordeons noch die Begrüßung
+  // Bei Laden: Besuchte Akkordeons aus DB laden
   useEffect(() => {
     if (greetingsInitializedRef.current) return;
-    if (!messagesLoaded) return;
-    if (!openAccordion) return;
+    if (!data) return;
     
     greetingsInitializedRef.current = true;
     
-    // Wenn bereits Nachrichten da sind, nur das aktuelle Akkordeon als "begrüßt" markieren
-    // (der User ist ja gerade hier, braucht keine erneute Begrüßung)
-    if (sessionMessages.length > 0) {
-      greetedAccordionsRef.current.add(openAccordion);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messagesLoaded, openAccordion]);
+    // Besuchte Akkordeons aus DB laden
+    const visitedFromDB = (data.decisions as any)?.visitedAccordions || [];
+    visitedFromDB.forEach((acc: string) => greetedAccordionsRef.current.add(acc));
+  }, [data]);
   
-  // Start-Akkordeon automatisch als "begrüßt" markieren (bei erster Nachricht)
-  useEffect(() => {
-    // Nur einmal ausführen, wenn erste Nachricht kommt
-    if (startAccordionMarkedRef.current) return;
-    if (sessionMessages.length === 0) return;
-    if (!openAccordion) return;
-    
-    // Das aktuelle Akkordeon ist das Start-Akkordeon → als "begrüßt" markieren
-    const accordionsWithAI = ["beratung", "markenname", "recherche"];
-    if (accordionsWithAI.includes(openAccordion)) {
-      greetedAccordionsRef.current.add(openAccordion);
-      startAccordionMarkedRef.current = true;
+  // Akkordeon als besucht in DB speichern
+  const saveVisitedAccordion = useCallback(async (accordion: string) => {
+    if (!caseId) return;
+    try {
+      await fetch(`/api/cases/${caseId}/visited-accordions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accordion }),
+      });
+    } catch (err) {
+      console.error("Failed to save visited accordion:", err);
     }
-  }, [sessionMessages.length, openAccordion]);
+  }, [caseId]);
   
   useEffect(() => {
     if (!openAccordion) return;
@@ -1114,11 +1107,13 @@ Soll ich die Recherche starten?`
       // Streaming-Effekt wie bei Begrüßung
       targetRef.current?.simulateStreaming(contextMsg);
       
-      // Akkordeon als "begrüßt" markieren - wird in dieser Session nicht mehr begrüßt
+      // Akkordeon als "begrüßt" markieren - wird nie mehr begrüßt (auch nach Reload)
       greetedAccordionsRef.current.add(openAccordion);
+      saveVisitedAccordion(openAccordion);
     }
     
     lastVisitedAccordionRef.current = openAccordion;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openAccordion, sessionMessages.length, manualNameInput, trademarkType, rechercheForm.trademarkName, rechercheForm.niceClasses, rechercheForm.countries]);
 
 
@@ -2002,16 +1997,21 @@ Soll ich die Recherche starten?`
   }, [sessionMessages]);
 
   useEffect(() => {
-    if (data?.consultation?.messages && !messagesLoaded) {
+    if (!data || messagesLoaded) return;
+    
+    // Daten wurden geladen - messagesLoaded auf true setzen (auch wenn keine Nachrichten)
+    setMessagesLoaded(true);
+    
+    // Falls Nachrichten vorhanden, diese laden
+    if (data.consultation?.messages) {
       setSessionMessages(data.consultation.messages);
-      setMessagesLoaded(true);
       if (data.consultation.summary) {
         setSessionSummary(data.consultation.summary);
         lastSummarySavedAtRef.current = Date.now();
         lastSummarySavedMessageCountRef.current = data.consultation.messages.length;
       }
     }
-  }, [data?.consultation, messagesLoaded]);
+  }, [data, messagesLoaded]);
 
   // Initialize rechercheForm when data loads
   useEffect(() => {
@@ -3434,25 +3434,31 @@ Soll ich die Recherche starten?`
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
-          <ClaudeAssistant
-            ref={voiceAssistantRef}
-            caseId={caseId}
-            onMessageSent={handleMessageSent}
-            previousMessages={sessionMessages}
-            previousSummary={(sessionSummary || consultation?.summary) || undefined}
-            onDelete={handleDeleteConsultation}
-            title="KI-Markenberater"
-            subtitle="Erstberatung für deine Marke"
-            alwaysShowMessages={sessionMessages.length > 0}
-            systemPromptAddition={getBeratungPrompt({
-              markenname: manualNameInput || "❌ fehlt",
-              markenart: isTrademarkTypeConfirmed ? (trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke") : "❌ fehlt",
-              klassen: rechercheForm.niceClasses?.length > 0 ? (rechercheForm.niceClasses.length === 45 ? "ALLE (1-45)" : rechercheForm.niceClasses.join(", ")) : "❌ fehlt",
-              laender: rechercheForm.countries?.length > 0 ? rechercheForm.countries.join(", ") : "❌ fehlt",
-              isTrademarkTypeConfirmed,
-              trademarkType,
-            })}
-          />
+          {messagesLoaded ? (
+            <ClaudeAssistant
+              ref={voiceAssistantRef}
+              caseId={caseId}
+              onMessageSent={handleMessageSent}
+              previousMessages={sessionMessages}
+              previousSummary={(sessionSummary || consultation?.summary) || undefined}
+              onDelete={handleDeleteConsultation}
+              title="KI-Markenberater"
+              subtitle="Erstberatung für deine Marke"
+              alwaysShowMessages={sessionMessages.length > 0}
+              systemPromptAddition={getBeratungPrompt({
+                markenname: manualNameInput || "❌ fehlt",
+                markenart: isTrademarkTypeConfirmed ? (trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke") : "❌ fehlt",
+                klassen: rechercheForm.niceClasses?.length > 0 ? (rechercheForm.niceClasses.length === 45 ? "ALLE (1-45)" : rechercheForm.niceClasses.join(", ")) : "❌ fehlt",
+                laender: rechercheForm.countries?.length > 0 ? rechercheForm.countries.join(", ") : "❌ fehlt",
+                isTrademarkTypeConfirmed,
+                trademarkType,
+              })}
+            />
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 p-4 lg:h-[560px] flex items-center justify-center">
+              <div className="text-gray-400 text-sm">Lade Beratung...</div>
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-1 space-y-4">
@@ -4107,6 +4113,7 @@ Soll ich die Recherche starten?`
           </div>
         )}
         {/* Widget 1: KI-Berater (globaler Chat wie in Beratung/Markenname) */}
+        {messagesLoaded ? (
         <ClaudeAssistant
           ref={rechercheVoiceRef}
           caseId={caseId}
@@ -4207,6 +4214,11 @@ NACH RECHERCHE-ERGEBNIS:
 SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfragen.
 `}
         />
+        ) : (
+          <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-center h-[400px]">
+            <div className="text-gray-400 text-sm">Lade Beratung...</div>
+          </div>
+        )}
 
         {/* Widget 2: Schnellfragen */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">

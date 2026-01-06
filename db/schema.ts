@@ -78,6 +78,7 @@ export const caseDecisions = pgTable("case_decisions", {
   caseId: varchar("case_id", { length: 255 }).notNull().references(() => trademarkCases.id, { onDelete: "cascade" }),
   trademarkNames: jsonb("trademark_names").$type<string[]>().default([]),
   trademarkType: varchar("trademark_type", { length: 50 }), // wortmarke, bildmarke, wort-bildmarke
+  visitedAccordions: jsonb("visited_accordions").$type<string[]>().default([]), // Besuchte Akkordeons (für Begrüßungen)
   countries: jsonb("countries").$type<string[]>().default([]),
   niceClasses: jsonb("nice_classes").$type<number[]>().default([]),
   completenessScore: integer("completeness_score").default(0),

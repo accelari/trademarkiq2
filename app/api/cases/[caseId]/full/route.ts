@@ -98,6 +98,7 @@ export async function GET(
       decisions: latestDecision ? {
         trademarkNames: latestDecision.trademarkNames,
         trademarkType: latestDecision.trademarkType,
+        visitedAccordions: latestDecision.visitedAccordions,
         countries: latestDecision.countries,
         niceClasses: latestDecision.niceClasses,
         completenessScore: latestDecision.completenessScore,
