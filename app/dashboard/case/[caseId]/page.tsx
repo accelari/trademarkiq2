@@ -863,6 +863,68 @@ export default function CasePage() {
   const anmeldungVoiceRef = useRef<ClaudeAssistantHandle>(null);
   const [anmeldungMessages, setAnmeldungMessages] = useState<any[]>([]);
   const [anmeldungSummary, setAnmeldungSummary] = useState<string | null>(null);
+  
+  // Event-Protokoll System
+  type EventLogEntry = {
+    id: string;
+    timestamp: Date;
+    type: "session_start" | "user_message" | "ai_message" | "ai_greeting" | "field_change" | "accordion_change" | "trigger" | "recherche_start" | "recherche_complete" | "accordion_greeting" | "logo_generate" | "logo_upload" | "logo_reference";
+    icon: string;
+    description: string;
+    details?: string;
+  };
+  const [eventLog, setEventLog] = useState<EventLogEntry[]>([]);
+  const [showEventLogModal, setShowEventLogModal] = useState(false);
+  const eventLogInitializedRef = useRef(false);
+  
+  const logEvent = useCallback((
+    type: EventLogEntry["type"],
+    description: string,
+    details?: string
+  ) => {
+    const icons: Record<EventLogEntry["type"], string> = {
+      session_start: "🟢",
+      user_message: "💬",
+      ai_message: "🤖",
+      ai_greeting: "👋",
+      field_change: "📝",
+      accordion_change: "📂",
+      trigger: "⚠️",
+      recherche_start: "🔍",
+      recherche_complete: "✅",
+      accordion_greeting: "💡",
+      logo_generate: "🎨",
+      logo_upload: "📤",
+      logo_reference: "🖼️"
+    };
+    
+    const newEvent = {
+      id: `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: new Date(),
+      type,
+      icon: icons[type],
+      description,
+      details
+    };
+    
+    // Sofort im State anzeigen
+    setEventLog(prev => [...prev, newEvent]);
+    
+    // In DB speichern (async, non-blocking)
+    fetch(`/api/cases/${caseId}/session-events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: newEvent.id,
+        timestamp: newEvent.timestamp.toISOString(),
+        type: newEvent.type,
+        icon: newEvent.icon,
+        description: newEvent.description,
+        details: newEvent.details
+      })
+    }).catch(err => console.warn("Failed to save event to DB:", err));
+  }, [caseId]);
+  
   const [anmeldungStrategy, setAnmeldungStrategy] = useState<{
     route: string;
     steps: { country: string; office: string; selfRegister: boolean; cost: number; icon: string }[];
@@ -992,17 +1054,48 @@ export default function CasePage() {
   const greetedAccordionsRef = useRef<Set<string>>(new Set());
   const greetingsInitializedRef = useRef(false);
   
-  // Bei Laden: Besuchte Akkordeons aus DB laden
+  // Bei Laden: Events aus DB laden
+  const eventsLoadedRef = useRef(false);
+  useEffect(() => {
+    if (eventsLoadedRef.current) return;
+    if (!caseId) return;
+    
+    eventsLoadedRef.current = true;
+    
+    // Events aus DB laden
+    fetch(`/api/cases/${caseId}/session-events`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.events && Array.isArray(data.events) && data.events.length > 0) {
+          // Events aus DB laden (mit Date-Objekt für timestamp)
+          const loadedEvents = data.events.map((e: any) => ({
+            ...e,
+            timestamp: new Date(e.timestamp)
+          }));
+          setEventLog(loadedEvents);
+          eventLogInitializedRef.current = true;
+        }
+      })
+      .catch(err => console.warn("Failed to load events from DB:", err));
+  }, [caseId]);
+  
+  // Bei Laden: Besuchte Akkordeons aus DB laden + Session Start loggen
   useEffect(() => {
     if (greetingsInitializedRef.current) return;
     if (!data) return;
     
     greetingsInitializedRef.current = true;
     
+    // Session Start loggen (nur wenn noch keine Events aus DB geladen wurden)
+    if (!eventLogInitializedRef.current) {
+      eventLogInitializedRef.current = true;
+      logEvent("session_start", "Beratungs-Session gestartet", `Fall: ${data.case?.caseNumber || caseId}`);
+    }
+    
     // Besuchte Akkordeons aus DB laden
     const visitedFromDB = (data.decisions as any)?.visitedAccordions || [];
     visitedFromDB.forEach((acc: string) => greetedAccordionsRef.current.add(acc));
-  }, [data]);
+  }, [data, caseId, logEvent]);
   
   // Akkordeon als besucht in DB speichern
   const saveVisitedAccordion = useCallback(async (accordion: string) => {
@@ -1018,9 +1111,45 @@ export default function CasePage() {
     }
   }, [caseId]);
   
+  // Fix: Start-Akkordeon als "besucht" markieren, wenn initiale Begrüßung erfolgt
+  // (Wenn erste Nachricht erscheint und Akkordeon noch nicht besucht wurde)
+  const initialGreetingMarkedRef = useRef(false);
+  useEffect(() => {
+    if (initialGreetingMarkedRef.current) return;
+    if (sessionMessages.length === 0) return;
+    if (!openAccordion) return;
+    
+    const accordionsWithAI = ["beratung", "markenname", "recherche"];
+    if (!accordionsWithAI.includes(openAccordion)) return;
+    
+    // Erste Nachricht erscheint → Start-Akkordeon als besucht markieren
+    initialGreetingMarkedRef.current = true;
+    
+    if (!greetedAccordionsRef.current.has(openAccordion)) {
+      greetedAccordionsRef.current.add(openAccordion);
+      saveVisitedAccordion(openAccordion);
+    }
+  }, [sessionMessages.length, openAccordion, saveVisitedAccordion]);
+  
   useEffect(() => {
     if (!openAccordion) return;
     if (openAccordion === lastVisitedAccordionRef.current) return;
+    
+    // Event-Log: Akkordeon-Wechsel (IMMER loggen bei jedem Wechsel)
+    const allAccordionNames: Record<string, string> = { 
+      beratung: "Beratung", 
+      markenname: "Markenname", 
+      recherche: "Recherche",
+      checkliste: "Checkliste",
+      anmeldung: "Anmeldung",
+      kommunikation: "Kommunikation",
+      ueberwachung: "Überwachung",
+      kosten: "Kosten",
+      analyse: "Analyse"
+    };
+    if (eventLogInitializedRef.current) {
+      logEvent("accordion_change", `Wechsel zu "${allAccordionNames[openAccordion] || openAccordion}"`, `Von: ${lastVisitedAccordionRef.current || "Start"}`);
+    }
     
     // Nur bei Akkordeons mit KI-Berater (Beratung, Markenname, Recherche)
     const accordionsWithAI = ["beratung", "markenname", "recherche"];
@@ -1096,6 +1225,7 @@ Soll ich die Recherche starten?`
     };
     
     const contextMsg = contextMessages[openAccordion];
+    
     if (contextMsg && lastVisitedAccordionRef.current !== null) {
       // Wähle die richtige ref je nach Akkordeon für Streaming-Effekt
       const targetRef = openAccordion === "beratung" 
@@ -1106,6 +1236,9 @@ Soll ich die Recherche starten?`
       
       // Streaming-Effekt wie bei Begrüßung
       targetRef.current?.simulateStreaming(contextMsg);
+      
+      // Event-Log: Akkordeon-Begrüßung
+      logEvent("accordion_greeting", `Begrüßung für "${allAccordionNames[openAccordion] || openAccordion}" gesendet`);
       
       // Akkordeon als "begrüßt" markieren - wird nie mehr begrüßt (auch nach Reload)
       greetedAccordionsRef.current.add(openAccordion);
@@ -1123,6 +1256,73 @@ Soll ich die Recherche starten?`
   const lastNotifiedStateRef = useRef<string>("");
   const manualChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isFirstManualCheckRef = useRef(true); // Flag: Ersten Render überspringen
+  
+  // Event-Log: Feldänderungen tracken (debounced)
+  // Wichtig: Initialisiere mit aktuellen Werten, um fake Events beim Laden zu vermeiden
+  const lastLoggedFieldsRef = useRef<{ name?: string; type?: string; classes?: string; countries?: string; initialized?: boolean }>({});
+  const fieldChangeLogTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Initialisiere lastLoggedFieldsRef mit aktuellen Werten beim ersten Laden
+  useEffect(() => {
+    if (!lastLoggedFieldsRef.current.initialized && messagesLoaded) {
+      lastLoggedFieldsRef.current = {
+        name: manualNameInput || undefined,
+        type: trademarkType || undefined,
+        classes: (rechercheForm.niceClasses || []).sort((a, b) => a - b).join(",") || undefined,
+        countries: (rechercheForm.countries || []).sort().join(",") || undefined,
+        initialized: true
+      };
+    }
+  }, [messagesLoaded, manualNameInput, trademarkType, rechercheForm.niceClasses, rechercheForm.countries]);
+  
+  useEffect(() => {
+    // Nicht beim ersten Render loggen
+    if (!eventLogInitializedRef.current) return;
+    // Nicht wenn durch KI-Trigger geändert
+    if (triggerChangeInProgressRef.current) return;
+    // Nicht loggen bevor Initialwerte gesetzt wurden
+    if (!lastLoggedFieldsRef.current.initialized) return;
+    
+    // Debounce: 1.5 Sekunden warten
+    if (fieldChangeLogTimeoutRef.current) {
+      clearTimeout(fieldChangeLogTimeoutRef.current);
+    }
+    
+    fieldChangeLogTimeoutRef.current = setTimeout(() => {
+      // Markenname
+      if (manualNameInput && manualNameInput !== lastLoggedFieldsRef.current.name) {
+        lastLoggedFieldsRef.current.name = manualNameInput;
+        logEvent("field_change", `Markenname → "${manualNameInput}"`);
+      }
+      
+      // Markenart
+      if (trademarkType && trademarkType !== lastLoggedFieldsRef.current.type) {
+        lastLoggedFieldsRef.current.type = trademarkType;
+        const typeNames: Record<string, string> = { wortmarke: "Wortmarke", bildmarke: "Bildmarke", "wort-bildmarke": "Wort-/Bildmarke" };
+        logEvent("field_change", `Markenart → ${typeNames[trademarkType] || trademarkType}`);
+      }
+      
+      // Klassen
+      const classesStr = (rechercheForm.niceClasses || []).sort((a, b) => a - b).join(",");
+      if (classesStr && classesStr !== lastLoggedFieldsRef.current.classes) {
+        lastLoggedFieldsRef.current.classes = classesStr;
+        logEvent("field_change", `Klassen → ${rechercheForm.niceClasses?.join(", ")}`, `${rechercheForm.niceClasses?.length} Klassen`);
+      }
+      
+      // Länder
+      const countriesStr = (rechercheForm.countries || []).sort().join(",");
+      if (countriesStr && countriesStr !== lastLoggedFieldsRef.current.countries) {
+        lastLoggedFieldsRef.current.countries = countriesStr;
+        logEvent("field_change", `Länder → ${rechercheForm.countries?.join(", ")}`, `${rechercheForm.countries?.length} Länder`);
+      }
+    }, 1500);
+    
+    return () => {
+      if (fieldChangeLogTimeoutRef.current) {
+        clearTimeout(fieldChangeLogTimeoutRef.current);
+      }
+    };
+  }, [manualNameInput, trademarkType, rechercheForm.niceClasses, rechercheForm.countries, logEvent]);
 
   // Trigger-Erkennung für BERATUNG (sessionMessages)
   useEffect(() => {
@@ -1425,8 +1625,18 @@ Soll ich die Recherche starten?`
           setSessionMessages(prev => prev.filter(m => m.id !== searchingMsgId));
           
           if (data.success) {
-            // Quellen extrahieren
-            const sources = data.sources?.slice(0, 3).map((s: { title: string; url: string }) => {
+            // Quellen als klickbare Markdown-Links extrahieren
+            const sourcesFormatted = data.sources?.slice(0, 3).map((s: { title: string; url: string }) => {
+              try {
+                const domain = new URL(s.url).hostname.replace("www.", "");
+                return `[${domain}](${s.url})`;
+              } catch {
+                return s.title;
+              }
+            }).join(" · ") || "keine";
+            
+            // Kurze Domain-Liste für Claude
+            const sourcesDomains = data.sources?.slice(0, 3).map((s: { title: string; url: string }) => {
               try {
                 return new URL(s.url).hostname.replace("www.", "");
               } catch {
@@ -1443,7 +1653,7 @@ Soll ich die Recherche starten?`
                 : rechercheVoiceRef;
             
             targetRef.current?.sendQuestion(
-              `[SYSTEM: Web-Recherche Ergebnis für "${searchQuery}":\n${data.answer || "Keine Informationen gefunden."}\nQuellen: ${sources}\n\nBitte fasse das Ergebnis KURZ auf Deutsch zusammen und gib dem Kunden eine klare Empfehlung. Zeige NICHT den englischen Text!]`
+              `[SYSTEM: Web-Recherche Ergebnis für "${searchQuery}":\n${data.answer || "Keine Informationen gefunden."}\nQuellen: ${sourcesDomains}\nQuellen-Links: ${sourcesFormatted}\n\nBitte fasse das Ergebnis KURZ auf Deutsch zusammen und gib dem Kunden eine klare Empfehlung. Zeige die Quellen-Links am Ende deiner Antwort an! Zeige NICHT den englischen Text!]`
             );
           } else {
             console.error("[Web-Suche] Fehler:", data.error);
@@ -2013,6 +2223,42 @@ Soll ich die Recherche starten?`
     }
   }, [data, messagesLoaded]);
 
+  // Recherche-Historie aus DB laden beim Start
+  const rechercheHistoryLoadedRef = useRef(false);
+  useEffect(() => {
+    if (rechercheHistoryLoadedRef.current) return;
+    if (!data?.case?.id) return;
+    
+    rechercheHistoryLoadedRef.current = true;
+    
+    fetch(`/api/cases/${data.case.id}/recherche-history`)
+      .then(res => res.json())
+      .then(historyData => {
+        if (historyData.history && historyData.history.length > 0) {
+          const loadedHistory = historyData.history.map((h: any) => ({
+            id: h.id,
+            keyword: h.keyword,
+            riskScore: h.riskScore || 0,
+            riskLevel: h.riskLevel || "low",
+            trademarkType: h.trademarkType,
+            classes: h.niceClasses || [],
+            countries: h.countries || [],
+            result: h.result
+          }));
+          setRechercheHistory(loadedHistory);
+          
+          // Letzte Recherche automatisch anzeigen
+          const latest = loadedHistory[0]; // Sortiert nach createdAt DESC
+          if (latest?.result) {
+            setLiveAnalysisResult(latest.result);
+            setActiveRechercheId(latest.id);
+            setShowRechercheAnalysis(true);
+          }
+        }
+      })
+      .catch(err => console.error("Failed to load recherche history:", err));
+  }, [data?.case?.id]);
+
   // Initialize rechercheForm when data loads
   useEffect(() => {
     if (data) {
@@ -2357,7 +2603,14 @@ Soll ich die Recherche starten?`
       if (exists) return prev;
       return [...prev, message];
     });
-  }, []);
+    
+    // Event-Log: User- oder AI-Nachricht (vollständiger Text)
+    if (message.role === "user") {
+      logEvent("user_message", "User-Nachricht", message.content || "");
+    } else if (message.role === "assistant") {
+      logEvent("ai_message", "KI-Antwort", message.content || "");
+    }
+  }, [logEvent]);
 
   const handleDeleteConsultation = useCallback(async () => {
     try {
@@ -2777,6 +3030,8 @@ Soll ich die Recherche starten?`
         setSelectedLogoId(newLogoItem.id);
         setShowLogoGeneratorModal(false);
         setLogoPrompt("");
+        // Event-Log: KI-Logo generiert
+        logEvent("logo_generate", "KI-Logo generiert", logoPrompt.trim() || "Automatisch generiert");
       } else {
         throw new Error("Kein Bild generiert");
       }
@@ -2787,7 +3042,7 @@ Soll ich die Recherche starten?`
     } finally {
       setIsGeneratingLogo(false);
     }
-  }, [logoPrompt, trademarkType, manualNameInput]);
+  }, [logoPrompt, trademarkType, manualNameInput, logEvent]);
 
   // Auto-generate logo prompt based on brand name
   const autoGenerateLogoPrompt = useCallback(async () => {
@@ -3930,6 +4185,9 @@ Soll ich die Recherche starten?`
       setIsRunningLiveAnalysis(true);
       setLiveAnalysisError(null);
       setLiveAnalysisResult(null);
+      
+      // Event-Log: Recherche gestartet
+      logEvent("recherche_start", `Recherche gestartet für "${keyword}"`, `Klassen: ${classes.join(", ")} · Länder: ${countries.join(", ")}`);
 
       try {
         const res = await fetch("/api/tmsearch/analyze", {
@@ -3957,7 +4215,7 @@ Soll ich die Recherche starten?`
           setLiveAnalysisResult(json);
           // Zur Recherche-Historie hinzufügen und Flip-View aktivieren
           const newId = `recherche-${Date.now()}`;
-          setRechercheHistory(prev => [...prev, {
+          const newEntry = {
             id: newId,
             keyword: json.query.keyword,
             riskScore: json.analysis.overallRiskScore,
@@ -3966,9 +4224,38 @@ Soll ich die Recherche starten?`
             classes: json.query.classes,
             countries: json.query.countries,
             result: json // Vollständiges Ergebnis speichern
-          }]);
+          };
+          setRechercheHistory(prev => [...prev, newEntry]);
           setActiveRechercheId(newId);
           setShowRechercheAnalysis(true);
+          
+          // Event-Log: Recherche abgeschlossen
+          logEvent("recherche_complete", `Recherche abgeschlossen: ${json.analysis.overallRiskScore}% Risiko`, `${json.conflicts?.length || 0} Konflikte gefunden`);
+          
+          // In DB speichern
+          if (data?.case?.id) {
+            fetch(`/api/cases/${data.case.id}/recherche-history`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                keyword: json.query.keyword,
+                trademarkType: json.query.trademarkType,
+                countries: json.query.countries,
+                niceClasses: json.query.classes,
+                riskScore: json.analysis.overallRiskScore,
+                riskLevel: json.analysis.overallRiskLevel,
+                result: json
+              })
+            }).then(saveRes => saveRes.json()).then(saveData => {
+              // ID aus DB übernehmen für späteres Löschen
+              if (saveData.entry?.id) {
+                setRechercheHistory(prev => prev.map(r => 
+                  r.id === newId ? { ...r, id: saveData.entry.id } : r
+                ));
+                setActiveRechercheId(saveData.entry.id);
+              }
+            }).catch(err => console.error("Failed to save recherche to DB:", err));
+          }
         }
       } catch (e) {
         setLiveAnalysisError(e instanceof Error ? e.message : "Unbekannter Fehler");
@@ -4984,6 +5271,8 @@ WORKFLOW:
                           setImageUploadError(null);
                           const url = URL.createObjectURL(file);
                           setReferenceImageUrl(url);
+                          // Event-Log: Referenzbild hochgeladen
+                          logEvent("logo_reference", "Referenzbild hochgeladen", file.name);
                           // Informiere KI-Assistent über das Referenzbild
                           markennameVoiceRef.current?.sendQuestion("Ich habe ein Referenzbild hochgeladen. Bitte nutze diesen Stil als Inspiration für mein Logo.");
                         }}
@@ -5018,6 +5307,8 @@ WORKFLOW:
                           };
                           setLogoGallery(prev => [uploadedLogoItem, ...prev]);
                           setSelectedLogoId(uploadedLogoItem.id);
+                          // Event-Log: Logo hochgeladen
+                          logEvent("logo_upload", "Logo hochgeladen", file.name);
                           // Informiere KI-Assistent über das hochgeladene Logo
                           markennameVoiceRef.current?.sendQuestion("Ich habe mein eigenes Logo hochgeladen. Es ist jetzt in der Vorschau zu sehen.");
                         }}
@@ -6530,9 +6821,25 @@ WICHTIGE REGELN:
               </div>
 
               <div className="flex flex-col items-end shrink-0">
-                <span className={`px-3 py-1 rounded-sm text-xs font-semibold ${getStatusBadge(caseInfo.status)}`}>
-                  {getStatusLabel(caseInfo.status)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEventLogModal(true)}
+                    className="px-2.5 py-1 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors flex items-center gap-1.5"
+                    title="Beratungs-Protokoll anzeigen"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Protokoll
+                    {eventLog.length > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-teal-500 text-white text-[10px] font-bold">
+                        {eventLog.length}
+                      </span>
+                    )}
+                  </button>
+                  <span className={`px-3 py-1 rounded-sm text-xs font-semibold ${getStatusBadge(caseInfo.status)}`}>
+                    {getStatusLabel(caseInfo.status)}
+                  </span>
+                </div>
                 <div className="text-xs text-gray-500 whitespace-nowrap mt-2">
                   Erstellt: {formatGermanDate(caseInfo.createdAt)}
                 </div>
@@ -7131,6 +7438,144 @@ WICHTIGE REGELN:
           </div>
         )}
 
+        {/* Floating Protokoll-Button - immer sichtbar */}
+        <button
+          type="button"
+          onClick={() => setShowEventLogModal(true)}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all group"
+          title="Session-Protokoll öffnen"
+        >
+          <FileText className="w-5 h-5" />
+          <span className="font-medium">Protokoll</span>
+          {eventLog.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-white text-teal-600 text-xs font-bold">
+              {eventLog.length}
+            </span>
+          )}
+        </button>
+
+        {/* Event-Protokoll Modal - Professionelles Design */}
+        {showEventLogModal && (
+          <div
+            className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-6"
+            onClick={() => setShowEventLogModal(false)}
+          >
+            <div
+              className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden h-[85vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-teal-600 to-teal-700 text-white">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-lg font-semibold">Session-Protokoll</div>
+                    <div className="text-sm text-white/80">{eventLog.length} Ereignisse · Alle Aktivitäten dieser Beratung</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="p-2.5 hover:bg-white/10 rounded-xl transition-colors"
+                  onClick={() => setShowEventLogModal(false)}
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Legende */}
+              <div className="px-6 py-3 bg-gray-50 border-b border-gray-100 flex flex-wrap gap-4 text-xs">
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500"></span> Session</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-500"></span> User</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-teal-500"></span> KI</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-violet-500"></span> Navigation</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-500"></span> Änderung</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-rose-500"></span> Recherche</span>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {eventLog.length === 0 ? (
+                  <div className="text-center text-gray-400 py-16">
+                    <FileText className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                    <div className="text-lg font-medium">Noch keine Ereignisse</div>
+                    <div className="text-sm mt-1">Aktivitäten werden hier protokolliert</div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    {/* Timeline line */}
+                    <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                    
+                    {eventLog.map((event) => {
+                      const typeLabel = 
+                        event.type === "session_start" ? "Session gestartet" :
+                        event.type === "user_message" ? "User-Nachricht" :
+                        event.type === "ai_message" ? "KI-Antwort" :
+                        event.type === "ai_greeting" ? "KI-Begrüßung" :
+                        event.type === "accordion_greeting" ? "Bereichs-Begrüßung" :
+                        event.type === "accordion_change" ? "Navigation" :
+                        event.type === "field_change" ? "Feldänderung" :
+                        event.type === "trigger" ? "Trigger" :
+                        event.type === "recherche_start" ? "Recherche gestartet" :
+                        event.type === "recherche_complete" ? "Recherche abgeschlossen" :
+                        event.type;
+                      
+                      const bgColor = 
+                        event.type === "session_start" ? "bg-emerald-50 border-emerald-200" :
+                        event.type === "user_message" ? "bg-blue-50 border-blue-200" :
+                        event.type === "ai_message" || event.type === "ai_greeting" || event.type === "accordion_greeting" ? "bg-teal-50 border-teal-200" :
+                        event.type === "accordion_change" ? "bg-violet-50 border-violet-200" :
+                        event.type === "field_change" || event.type === "trigger" ? "bg-amber-50 border-amber-200" :
+                        event.type === "recherche_start" || event.type === "recherche_complete" ? "bg-rose-50 border-rose-200" :
+                        "bg-white border-gray-200";
+
+                      return (
+                        <div key={event.id} className="relative flex items-start gap-4 pb-4">
+                          {/* Timeline dot */}
+                          <div className="relative z-10 w-12 h-12 rounded-xl bg-white border-2 border-gray-200 flex items-center justify-center text-2xl shadow-sm">
+                            {event.icon}
+                          </div>
+                          
+                          {/* Content card */}
+                          <div className={`flex-1 p-4 rounded-xl border-2 ${bgColor}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-semibold text-gray-900">{typeLabel}</span>
+                              <span className="text-xs text-gray-500 font-mono bg-white/60 px-2 py-1 rounded">
+                                {event.timestamp.toLocaleTimeString("de-DE")}
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-700 leading-relaxed">{event.description}</div>
+                            {event.details && (
+                              <div className="text-sm text-gray-600 mt-3 bg-white/50 rounded-lg px-3 py-2 border border-gray-100">
+                                {event.details}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-between items-center">
+                <span className="text-sm text-gray-500">
+                  {eventLog.length > 0 && `Erstes Ereignis: ${eventLog[0]?.timestamp.toLocaleTimeString("de-DE")}`}
+                </span>
+                <button
+                  type="button"
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors"
+                  onClick={() => setShowEventLogModal(false)}
+                >
+                  Schließen
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {countriesOpen && (
           <div
             className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center px-4"
@@ -7421,6 +7866,8 @@ WICHTIGE REGELN:
                           const dataUrl = ev.target?.result as string;
                           setReferenceImageUrl(dataUrl);
                           analyzeReferenceImage(dataUrl);
+                          // Event-Log: Referenzbild im Generator hochgeladen
+                          logEvent("logo_reference", "Referenzbild für KI-Generator hochgeladen", file.name);
                         };
                         reader.readAsDataURL(file);
                         e.target.value = "";
