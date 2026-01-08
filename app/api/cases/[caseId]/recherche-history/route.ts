@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { rechercheHistory, trademarkCases } from "@/db/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 // GET: Liste aller Recherchen für einen Case
 export async function GET(
@@ -34,7 +34,7 @@ export async function GET(
 
     const history = await db.query.rechercheHistory.findMany({
       where: eq(rechercheHistory.caseId, trademarkCase.id),
-      orderBy: [desc(rechercheHistory.createdAt)],
+      orderBy: [asc(rechercheHistory.createdAt)],
     });
 
     return NextResponse.json({

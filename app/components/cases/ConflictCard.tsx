@@ -16,6 +16,7 @@ export interface ConflictMark {
   id?: string;
   name: string;
   register?: string;
+  protection?: string[]; // Schutzländer (z.B. ["US", "EU"] bei WO-Marke)
   holder?: string;
   classes?: number[];
   accuracy?: number;
@@ -27,6 +28,8 @@ export interface ConflictMark {
   registrationNumber?: string;
   registrationDate?: string | null;
   isFamousMark?: boolean;
+  goodsServices?: string[]; // Waren/Dienstleistungen
+  image?: string; // Bild/Logo URL
 }
 
 interface ConflictDetailModalProps {
@@ -72,9 +75,19 @@ export function ConflictDetailModal({ conflict, onClose }: ConflictDetailModalPr
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-2 sm:p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full sm:max-w-lg max-h-[95vh] sm:max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl w-full sm:max-w-2xl max-h-[98vh] sm:max-h-[92vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className={`p-6 border-b ${styles.border} ${styles.bg}`}>
           <div className="flex items-start justify-between gap-4">
+            {conflict.image && (
+              <div className="flex-shrink-0 w-16 h-16 bg-white rounded-lg border border-gray-200 overflow-hidden flex items-center justify-center">
+                <img 
+                  src={conflict.image} 
+                  alt={conflict.name} 
+                  className="max-w-full max-h-full object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
+            )}
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${styles.badge}`}>
@@ -103,7 +116,7 @@ export function ConflictDetailModal({ conflict, onClose }: ConflictDetailModalPr
             <div className="p-4 bg-gray-50 rounded-xl">
               <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
                 <Globe className="w-3.5 h-3.5" />
-                Register
+                Register (Amt)
               </div>
               <p className="font-semibold text-gray-900">{conflict.register || "-"}</p>
             </div>
@@ -114,6 +127,22 @@ export function ConflictDetailModal({ conflict, onClose }: ConflictDetailModalPr
               </span>
             </div>
           </div>
+
+          {conflict.protection && conflict.protection.length > 0 && (
+            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+              <div className="flex items-center gap-2 text-blue-600 text-xs mb-2">
+                <Globe className="w-3.5 h-3.5" />
+                Betroffene Länder/Regionen
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {conflict.protection.map((country) => (
+                  <span key={country} className="px-2.5 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-lg">
+                    {country}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 bg-gray-50 rounded-xl">
@@ -171,6 +200,25 @@ export function ConflictDetailModal({ conflict, onClose }: ConflictDetailModalPr
                     Klasse {cls}
                   </span>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {conflict.goodsServices && conflict.goodsServices.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <Tag className="w-4 h-4 text-purple-600" />
+                Waren/Dienstleistungen
+              </h3>
+              <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 max-h-32 overflow-y-auto">
+                <ul className="text-sm text-gray-700 space-y-1">
+                  {conflict.goodsServices.slice(0, 10).map((gs, idx) => (
+                    <li key={idx} className="leading-relaxed">• {gs}</li>
+                  ))}
+                  {conflict.goodsServices.length > 10 && (
+                    <li className="text-purple-600 font-medium">... und {conflict.goodsServices.length - 10} weitere</li>
+                  )}
+                </ul>
               </div>
             </div>
           )}

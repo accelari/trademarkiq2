@@ -17,11 +17,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Audio an Whisper API senden
+    // Audio an Whisper API senden - automatische Spracherkennung
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: "whisper-1",
-      language: "de", // Deutsch
+      // language entfernt → Whisper erkennt automatisch ~100 Sprachen
       response_format: "text",
     });
 

@@ -53,6 +53,7 @@ import Tooltip, {
   ConflictsTooltip, 
 } from "@/app/components/ui/tooltip";
 import { getBeratungPrompt, getRecherchePrompt, getMarkennamePrompt, getAnmeldungPrompt } from "@/lib/prompts";
+import { RechercheSteps, RechercheStep } from "@/app/components/RechercheSteps";
 
 interface AnalysisSummary {
   id: string;
@@ -516,6 +517,8 @@ export default function CasePage() {
   const [isRunningLiveAnalysis, setIsRunningLiveAnalysis] = useState(false);
   const [isRunningWebSearch, setIsRunningWebSearch] = useState(false);
   const [liveAnalysisError, setLiveAnalysisError] = useState<string | null>(null);
+  const [rechercheSteps, setRechercheSteps] = useState<RechercheStep[]>([]);
+  const rechercheStepsRef = useRef<RechercheStep[]>([]); // Ref für aktuelle Steps (Closure-Fix)
   const [liveAnalysisResult, setLiveAnalysisResult] = useState<{
     success: boolean;
     isTestMode: boolean;
@@ -1587,10 +1590,11 @@ Soll ich die Recherche starten?`
     // [RECHERCHE_STARTEN] - Recherche automatisch starten
     if (content.includes("[RECHERCHE_STARTEN]")) {
       hasAction = true;
-      // Navigiere zum Recherche-Akkordeon und zeige sofort Ladekreis
+      // Navigiere zum Recherche-Akkordeon
       setOpenAccordion("recherche");
-      setIsRunningLiveAnalysis(true); // Sofort Ladekreis zeigen
-      setAutoStartRecherche(true); // Flag für automatischen Start
+      // NUR das Flag setzen - startLiveAnalysis() setzt isRunningLiveAnalysis selbst
+      // und initialisiert die Schritte korrekt
+      setAutoStartRecherche(true);
     }
 
     // [WEB_SUCHE:query] - Web-Suche über Tavily ausführen
@@ -2247,12 +2251,16 @@ Soll ich die Recherche starten?`
           }));
           setRechercheHistory(loadedHistory);
           
-          // Letzte Recherche automatisch anzeigen
-          const latest = loadedHistory[0]; // Sortiert nach createdAt DESC
+          // Letzte Recherche automatisch anzeigen (jetzt sortiert nach createdAt ASC, also letztes Element ist das neueste)
+          const latest = loadedHistory[loadedHistory.length - 1];
           if (latest?.result) {
             setLiveAnalysisResult(latest.result);
             setActiveRechercheId(latest.id);
             setShowRechercheAnalysis(true);
+            // Schritte aus result laden (falls vorhanden)
+            if (latest.result?.steps && Array.isArray(latest.result.steps)) {
+              setRechercheSteps(latest.result.steps);
+            }
           }
         }
       })
@@ -2777,16 +2785,8 @@ Soll ich die Recherche starten?`
   }, [isSavingRechercheForm, isStartingRecherche, saveRechercheForm, startRecherche]);
 
   // Auto-Start Recherche wenn durch Claude getriggert
-  useEffect(() => {
-    if (autoStartRecherche && !isStartingRecherche) {
-      setAutoStartRecherche(false);
-      // Kurze Verzögerung damit UI aktualisiert wird
-      const timer = setTimeout(() => {
-        startRechercheFromForm();
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [autoStartRecherche, isStartingRecherche, startRechercheFromForm]);
+  // HINWEIS: Die Logik wurde in den Render-Block verschoben (siehe startLiveAnalysis)
+  // Dieser useEffect ist nicht mehr notwendig, da die Live-Analyse direkt im Render gestartet wird
 
   const applyAlternativeAndRerun = useCallback(
     async (alt: { name: string; riskScore: number; riskLevel: string; conflictCount: number }) => {
@@ -4164,6 +4164,11 @@ Soll ich die Recherche starten?`
     };
 
     const startLiveAnalysis = async () => {
+      // Falls durch Chat getriggert, Flag zurücksetzen
+      if (autoStartRecherche) {
+        setAutoStartRecherche(false);
+      }
+      
       const keyword = (rechercheForm.trademarkName || "").trim();
       const countries = rechercheForm.countries || [];
       const classes = (rechercheForm.niceClasses || []).filter((n: number) => Number.isFinite(n));
@@ -4185,12 +4190,22 @@ Soll ich die Recherche starten?`
       setIsRunningLiveAnalysis(true);
       setLiveAnalysisError(null);
       setLiveAnalysisResult(null);
+      // Alle 5 Schritte als "pending" initialisieren
+      const initialSteps: RechercheStep[] = [
+        { id: "search", name: "TMSearch API", status: "pending" },
+        { id: "filter", name: "Filter anwenden", status: "pending" },
+        { id: "details", name: "Details laden", status: "pending" },
+        { id: "ai-analysis", name: "AI Analyse", status: "pending" },
+        { id: "summary", name: "Zusammenfassung", status: "pending" },
+      ];
+      setRechercheSteps(initialSteps);
+      rechercheStepsRef.current = initialSteps; // Ref auch initialisieren
       
       // Event-Log: Recherche gestartet
       logEvent("recherche_start", `Recherche gestartet für "${keyword}"`, `Klassen: ${classes.join(", ")} · Länder: ${countries.join(", ")}`);
 
       try {
-        const res = await fetch("/api/tmsearch/analyze", {
+        const res = await fetch("/api/tmsearch/analyze-stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -4204,57 +4219,162 @@ Soll ich die Recherche starten?`
           }),
         });
 
-        const json = await res.json().catch(() => null);
-        
-        // Debug-Payload speichern für das API Debug Modal
-        setTMSearchDebugPayload(json);
-        
         if (!res.ok) {
-          setLiveAnalysisError((json && (json.error || json.message)) || `HTTP ${res.status}`);
-        } else {
-          setLiveAnalysisResult(json);
-          // Zur Recherche-Historie hinzufügen und Flip-View aktivieren
-          const newId = `recherche-${Date.now()}`;
-          const newEntry = {
-            id: newId,
-            keyword: json.query.keyword,
-            riskScore: json.analysis.overallRiskScore,
-            riskLevel: json.analysis.overallRiskLevel,
-            trademarkType: json.query.trademarkType,
-            classes: json.query.classes,
-            countries: json.query.countries,
-            result: json // Vollständiges Ergebnis speichern
-          };
-          setRechercheHistory(prev => [...prev, newEntry]);
-          setActiveRechercheId(newId);
-          setShowRechercheAnalysis(true);
-          
-          // Event-Log: Recherche abgeschlossen
-          logEvent("recherche_complete", `Recherche abgeschlossen: ${json.analysis.overallRiskScore}% Risiko`, `${json.conflicts?.length || 0} Konflikte gefunden`);
-          
-          // In DB speichern
-          if (data?.case?.id) {
-            fetch(`/api/cases/${data.case.id}/recherche-history`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                keyword: json.query.keyword,
-                trademarkType: json.query.trademarkType,
-                countries: json.query.countries,
-                niceClasses: json.query.classes,
-                riskScore: json.analysis.overallRiskScore,
-                riskLevel: json.analysis.overallRiskLevel,
-                result: json
-              })
-            }).then(saveRes => saveRes.json()).then(saveData => {
-              // ID aus DB übernehmen für späteres Löschen
-              if (saveData.entry?.id) {
-                setRechercheHistory(prev => prev.map(r => 
-                  r.id === newId ? { ...r, id: saveData.entry.id } : r
-                ));
-                setActiveRechercheId(saveData.entry.id);
+          setLiveAnalysisError(`HTTP ${res.status}`);
+          setIsRunningLiveAnalysis(false);
+          return;
+        }
+
+        const reader = res.body?.getReader();
+        if (!reader) {
+          setLiveAnalysisError("Stream nicht verfügbar");
+          setIsRunningLiveAnalysis(false);
+          return;
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                
+                if (data.type === "step") {
+                  setRechercheSteps(prev => {
+                    const existing = prev.findIndex(s => s.id === data.step.id);
+                    let updated: RechercheStep[];
+                    if (existing >= 0) {
+                      updated = [...prev];
+                      updated[existing] = { ...updated[existing], ...data.step };
+                    } else {
+                      updated = [...prev, data.step];
+                    }
+                    // Ref synchron halten für Closure-Fix
+                    rechercheStepsRef.current = updated;
+                    return updated;
+                  });
+                }
+                
+                if (data.type === "result") {
+                  const json = data.result;
+                  setTMSearchDebugPayload(json);
+                  
+                  // Alle Steps auf "done" setzen (Recherche ist abgeschlossen)
+                  const finalSteps = rechercheStepsRef.current.map(step => ({
+                    ...step,
+                    status: "done" as const
+                  }));
+                  rechercheStepsRef.current = finalSteps;
+                  setRechercheSteps(finalSteps);
+                  
+                  // Schritte zum Result hinzufügen (für lokale UND DB-Speicherung)
+                  const resultWithSteps = {
+                    ...json,
+                    steps: finalSteps
+                  };
+                  
+                  setLiveAnalysisResult(resultWithSteps);
+                  
+                  const newId = `recherche-${Date.now()}`;
+                  const newEntry = {
+                    id: newId,
+                    keyword: json.query.keyword,
+                    riskScore: json.analysis.overallRiskScore,
+                    riskLevel: json.analysis.overallRiskLevel,
+                    trademarkType: json.query.trademarkType,
+                    classes: json.query.classes,
+                    countries: json.query.countries,
+                    result: resultWithSteps // Mit Steps speichern!
+                  };
+                  setRechercheHistory(prev => [...prev, newEntry]);
+                  setActiveRechercheId(newId);
+                  setShowRechercheAnalysis(true);
+                  
+                  logEvent("recherche_complete", `Recherche abgeschlossen: ${json.analysis.overallRiskScore}% Risiko`, `${json.conflicts?.length || 0} Konflikte gefunden`);
+                  
+                  // KI-Berater: Analyse-Zusammenfassung mit Streaming anzeigen
+                  const riskEmoji = json.analysis.overallRiskScore >= 80 ? "🔴" : json.analysis.overallRiskScore >= 50 ? "🟡" : "🟢";
+                  const decisionText = json.analysis.decision === "go" ? "**Anmeldung empfohlen**" 
+                    : json.analysis.decision === "go_with_changes" ? "**Anmeldung mit Anpassungen möglich**" 
+                    : "**Anmeldung nicht empfohlen**";
+                  
+                  const topConflictNames = json.conflicts?.slice(0, 3).map((c: { name: string }) => c.name).join(", ") || "";
+                  
+                  const analyseMessage = `${riskEmoji} **Recherche für "${json.query.keyword}" abgeschlossen**
+
+**Risiko:** ${json.analysis.overallRiskScore}% (${json.analysis.overallRiskLevel === "high" ? "Hoch" : json.analysis.overallRiskLevel === "medium" ? "Mittel" : "Niedrig"})
+**Empfehlung:** ${decisionText}
+
+${json.analysis.executiveSummary || ""}
+
+${json.conflicts?.length > 0 ? `**Top-Konflikte:** ${topConflictNames}` : "Keine kritischen Konflikte gefunden."}
+
+${json.analysis.recommendation || ""}
+
+*Klicke auf einen Konflikt rechts für Details oder frag mich!*`;
+
+                  // Streaming im KI-Berater
+                  rechercheVoiceRef.current?.simulateStreaming(analyseMessage);
+                  
+                  // DEBUG: Logging für Recherche-Speicherung
+                  console.log("[RECHERCHE-SAVE] Checking caseId:", caseId);
+                  
+                  if (caseId) {
+                    console.log("[RECHERCHE-SAVE] Saving to DB:", json.query.keyword);
+                    fetch(`/api/cases/${caseId}/recherche-history`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        keyword: json.query.keyword,
+                        trademarkType: json.query.trademarkType,
+                        countries: json.query.countries,
+                        niceClasses: json.query.classes,
+                        riskScore: json.analysis.overallRiskScore,
+                        riskLevel: json.analysis.overallRiskLevel,
+                        result: resultWithSteps
+                      })
+                    }).then(saveRes => {
+                      console.log("[RECHERCHE-SAVE] Response status:", saveRes.status);
+                      return saveRes.json();
+                    }).then(saveData => {
+                      console.log("[RECHERCHE-SAVE] Response data:", saveData);
+                      if (saveData.entry?.id) {
+                        setRechercheHistory(prev => prev.map(r => 
+                          r.id === newId ? { ...r, id: saveData.entry.id } : r
+                        ));
+                        setActiveRechercheId(saveData.entry.id);
+                      } else if (saveData.error === "Fall nicht gefunden") {
+                        // Fall existiert noch nicht in DB - ignorieren (lokaler State reicht)
+                        console.log("[RECHERCHE-SAVE] Case not in DB yet, keeping local state");
+                      } else if (saveData.error) {
+                        console.error("[RECHERCHE-SAVE] Server error:", saveData.error);
+                      }
+                    }).catch(err => console.error("[RECHERCHE-SAVE] Failed:", err));
+                  } else {
+                    console.warn("[RECHERCHE-SAVE] SKIPPED - No caseId available!");
+                  }
+                }
+                
+                if (data.type === "error") {
+                  setLiveAnalysisError(data.error || "Unbekannter Fehler");
+                }
+                
+                if (data.type === "done") {
+                  setIsRunningLiveAnalysis(false);
+                }
+              } catch {
+                // Ignore JSON parse errors
               }
-            }).catch(err => console.error("Failed to save recherche to DB:", err));
+            }
           }
         }
       } catch (e) {
@@ -4263,6 +4383,11 @@ Soll ich die Recherche starten?`
         setIsRunningLiveAnalysis(false);
       }
     };
+
+    // Auto-Start: Wenn durch Chat getriggert, Live-Analyse starten
+    if (autoStartRecherche && !isRunningLiveAnalysis) {
+      startLiveAnalysis();
+    }
 
     const baseNiceClasses = Array.from(
       new Set((rechercheForm.niceClasses || []).filter((n) => Number.isFinite(n)).map((n) => Math.max(1, Math.min(45, Math.floor(n)))))
@@ -4283,6 +4408,12 @@ Soll ich die Recherche starten?`
         setLiveAnalysisResult(selected.result);
         setActiveRechercheId(id);
         setShowRechercheAnalysis(true);
+        // Schritte aus result laden (falls vorhanden)
+        if (selected.result?.steps && Array.isArray(selected.result.steps)) {
+          setRechercheSteps(selected.result.steps);
+        } else {
+          setRechercheSteps([]); // Keine Schritte vorhanden (alte Recherchen)
+        }
       }
     };
     const handleNewRecherche = () => {
@@ -4306,9 +4437,9 @@ Soll ich die Recherche starten?`
         setShowRechercheAnalysis(false);
       }
       // Aus DB löschen
-      if (data?.case?.id) {
+      if (caseId) {
         try {
-          await fetch(`/api/cases/${data.case.id}/recherche-history?id=${id}`, { method: "DELETE" });
+          await fetch(`/api/cases/${caseId}/recherche-history?id=${id}`, { method: "DELETE" });
         } catch (e) {
           console.error("Failed to delete recherche from DB:", e);
         }
@@ -4322,6 +4453,12 @@ Soll ich die Recherche starten?`
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="col-span-full">
             <RechercheHistoryBanner history={rechercheHistory} activeId={activeRechercheId} showingAnalysis={true} onSelectRecherche={handleSelectRecherche} onDeleteRecherche={handleDeleteRecherche} onNewRecherche={handleNewRecherche} />
+            {/* Recherche-Schritte auch in der Analyse-Ansicht anzeigen */}
+            {rechercheSteps.length > 0 && (
+              <div className="mt-2">
+                <RechercheSteps steps={rechercheSteps} isRunning={false} />
+              </div>
+            )}
           </div>
                     <ClaudeAssistant ref={rechercheVoiceRef} caseId={caseId} onMessageSent={(msg) => setSessionMessages((prev) => [...prev, msg])} previousMessages={sessionMessages} title="KI-Analyseberater" subtitle="Fragen zur Analyse" alwaysShowMessages={sessionMessages.length > 0} systemPromptAddition={`Die Recherche für "${query.keyword}" ist abgeschlossen. Risiko: ${analysis.overallRiskScore}%. Hilf dem Kunden die Ergebnisse zu verstehen.`} />
           <div className="lg:col-span-1">
@@ -4394,11 +4531,16 @@ Soll ich die Recherche starten?`
     // EINGABE-ANSICHT
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {rechercheHistory.length > 0 && (
-          <div className="col-span-full">
+        {/* Historie-Banner und Recherche-Schritte oben */}
+        <div className="col-span-full space-y-2">
+          {rechercheHistory.length > 0 && (
             <RechercheHistoryBanner history={rechercheHistory} activeId={activeRechercheId} showingAnalysis={false} onSelectRecherche={handleSelectRecherche} onDeleteRecherche={handleDeleteRecherche} onNewRecherche={handleNewRecherche} />
-          </div>
-        )}
+          )}
+          {/* Recherche-Schritte - auch während der Recherche sichtbar */}
+          {(isRunningLiveAnalysis || rechercheSteps.length > 0) && (
+            <RechercheSteps steps={rechercheSteps} isRunning={isRunningLiveAnalysis} />
+          )}
+        </div>
         {/* Widget 1: KI-Berater (globaler Chat wie in Beratung/Markenname) */}
         {messagesLoaded ? (
         <ClaudeAssistant
@@ -5808,6 +5950,7 @@ Antworte kurz und prägnant. Per DU.
                           id: String(c.id),
                           name: c.name,
                           register: c.office,
+                          protection: c.protection, // Schutzländer
                           applicationNumber: c.applicationNumber,
                           registrationNumber: c.registrationNumber,
                           status: c.status === "LIVE" ? "active" : "expired",
@@ -5819,6 +5962,8 @@ Antworte kurz und prägnant. Per DU.
                           isFamousMark: false,
                           reasoning: c.reasoning,
                           riskLevel: c.riskLevel,
+                          goodsServices: c.goodsServices,
+                          image: c.image,
                         })}
                       >
                         <div className="flex items-start justify-between gap-2">
