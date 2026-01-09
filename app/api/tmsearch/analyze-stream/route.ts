@@ -353,7 +353,7 @@ export async function POST(request: NextRequest) {
         sendStep({ id: "ai-analysis", name: `AI Analyse (${topConflicts.length})`, status: "done", result: { analyzed: topConflicts.length }, endTime: Date.now() });
 
         // STEP 5: Summary
-        sendStep({ id: "summary", name: "Zusammenfassung", status: "running", startTime: Date.now() });
+        sendStep({ id: "summary", name: "Zusammenfassung", status: "running", startTime: Date.now(), payload: { conflictsAnalyzed: topConflicts.length, keyword, countries, classes } });
 
         const topConflictsSummary = topConflicts.slice(0, 5).map(c => ({
           name: c.verbal, office: c.submition, classes: c.class, riskScore: c.riskScore, reasoning: c.reasoning,

@@ -331,7 +331,7 @@ function ResultSummary({ stepId, result, payload }: { stepId: string; result: un
 function StepDetailModal({ step, onClose }: { step: RechercheStep; onClose: () => void }) {
   const isRunning = step.status === "running";
   const explanation = stepExplanations[step.id];
-  const [showRawData, setShowRawData] = useState(false);
+  const [showRawData, setShowRawData] = useState(true);
   
   return (
     <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
@@ -339,7 +339,7 @@ function StepDetailModal({ step, onClose }: { step: RechercheStep; onClose: () =
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden" style={{ zIndex: 10000 }}>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-[95vw] max-w-[1400px] max-h-[95vh] overflow-hidden" style={{ zIndex: 10000 }}>
         {/* Header mit Gradient */}
         <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-teal-600 to-teal-700 text-white">
           <div className="flex items-center gap-3">

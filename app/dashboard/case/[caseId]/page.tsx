@@ -54,6 +54,7 @@ import Tooltip, {
 } from "@/app/components/ui/tooltip";
 import { getBeratungPrompt, getRecherchePrompt, getMarkennamePrompt, getAnmeldungPrompt } from "@/lib/prompts";
 import { RechercheSteps, RechercheStep } from "@/app/components/RechercheSteps";
+import { ReportGenerator } from "@/app/components/ReportGenerator";
 
 interface AnalysisSummary {
   id: string;
@@ -503,6 +504,7 @@ export default function CasePage() {
   const [rechercheFormSaveError, setRechercheFormSaveError] = useState<string | null>(null);
   const [rechercheFormValidationAttempted, setRechercheFormValidationAttempted] = useState(false);
   const [showTMSearchDebugModal, setShowTMSearchDebugModal] = useState(false);
+  const [showReportGenerator, setShowReportGenerator] = useState(false);
   const [tmsearchDebugLoading, setTMSearchDebugLoading] = useState(false);
   const [tmsearchDebugError, setTMSearchDebugError] = useState<string | null>(null);
   const [tmsearchDebugPayload, setTMSearchDebugPayload] = useState<unknown>(null);
@@ -4512,7 +4514,7 @@ ${json.analysis.recommendation || ""}
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-gray-900 truncate">{c.name}</div>
-                          <div className="text-xs text-gray-500 mt-0.5">{c.office} · Kl. {c.classes.slice(0, 3).join(", ")}{c.classes.length > 3 ? "…" : ""}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{c.office} · Kl. {c.classes.join(", ")}</div>
                         </div>
                         <div className={`text-xs font-bold px-2 py-1 rounded ${c.riskLevel === "high" ? "bg-red-100 text-red-700" : c.riskLevel === "medium" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-600"}`}>{c.riskScore}%</div>
                       </div>
@@ -5826,6 +5828,7 @@ SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfra
       const riskLevelColor = effectiveRiskLevel === "high" ? "text-red-600" : effectiveRiskLevel === "medium" ? "text-orange-600" : "text-teal-600";
 
       return (
+        <>
         <div className="space-y-6">
           {/* Live Analysis Banner */}
           <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg p-4 flex items-center justify-between">
@@ -5917,6 +5920,15 @@ Antworte kurz und prägnant. Per DU.
                     </div>
                   </div>
                   <div className={`text-center mt-4 text-sm font-semibold ${riskLevelColor}`}>{riskLevelLabel}</div>
+                  
+                  {/* Bericht erstellen Button */}
+                  <button
+                    onClick={() => setShowReportGenerator(true)}
+                    className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Gutachten erstellen
+                  </button>
                 </div>
               </div>
             </div>
@@ -5970,7 +5982,7 @@ Antworte kurz und prägnant. Per DU.
                           <div className="min-w-0 flex-1">
                             <div className="font-medium text-gray-900 truncate">{c.name}</div>
                             <div className="text-xs text-gray-500 mt-0.5">
-                              {c.office} · Kl. {c.classes.slice(0, 3).join(", ")}{c.classes.length > 3 ? "…" : ""}
+                              {c.office} · Kl. {c.classes.join(", ")}
                             </div>
                           </div>
                           <div className={`text-xs font-bold px-2 py-1 rounded ${
@@ -5998,6 +6010,40 @@ Antworte kurz und prägnant. Per DU.
             </div>
           </div>
         </div>
+
+          {/* Report Generator Modal */}
+          {showReportGenerator && (
+            <ReportGenerator
+              isOpen={showReportGenerator}
+              onClose={() => setShowReportGenerator(false)}
+              reportData={{
+                trademarkName: query.keyword || rechercheForm.trademarkName || manualNameInput || "Unbekannt",
+                trademarkType: trademarkType || "Wortmarke",
+                niceClasses: rechercheForm.niceClasses,
+                countries: rechercheForm.countries,
+                riskScore: effectiveRiskScore,
+                riskLevel: effectiveRiskLevel,
+                conflicts: conflicts.map((c: { id?: string | number; name: string; office?: string; classes: (string | number)[]; riskLevel?: "high" | "medium" | "low"; riskScore?: number; accuracy?: number; reasoning?: string; status?: string; applicationNumber?: string; registrationNumber?: string; dates?: { applied?: string; granted?: string }; owner?: { name?: string } }) => ({
+                  id: String(c.id || ""),
+                  name: c.name,
+                  office: c.office,
+                  classes: c.classes,
+                  riskLevel: c.riskLevel,
+                  riskScore: c.riskScore,
+                  accuracy: c.accuracy,
+                  reasoning: c.reasoning,
+                  status: c.status,
+                  applicationNumber: c.applicationNumber,
+                  registrationNumber: c.registrationNumber,
+                  dates: c.dates,
+                  owner: c.owner,
+                })),
+                summary: analysis.executiveSummary,
+              }}
+              caseNumber={data?.case?.caseNumber}
+            />
+          )}
+        </>
       );
     }
 
@@ -7088,6 +7134,7 @@ WICHTIGE REGELN:
           />
         )}
 
+        
         {showTMSearchDebugModal && (() => {
           // Parse raw data for structured view
           let parsedData: { keyword?: string; isTestMode?: boolean; total?: number; result?: Array<{

@@ -75,7 +75,7 @@ export function ConflictDetailModal({ conflict, onClose }: ConflictDetailModalPr
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-2 sm:p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full sm:max-w-2xl max-h-[98vh] sm:max-h-[92vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl w-full sm:max-w-4xl max-h-[98vh] sm:max-h-[92vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className={`p-6 border-b ${styles.border} ${styles.bg}`}>
           <div className="flex items-start justify-between gap-4">
             {conflict.image && (
