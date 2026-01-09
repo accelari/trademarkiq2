@@ -4432,11 +4432,17 @@ ${json.analysis.recommendation || ""}
       setLiveAnalysisError(null);
     };
     const handleDeleteRecherche = async (id: string) => {
-      setRechercheHistory(prev => prev.filter(r => r.id !== id));
+      const remainingAfterDelete = rechercheHistory.filter(r => r.id !== id);
+      setRechercheHistory(remainingAfterDelete);
       if (activeRechercheId === id) {
         setActiveRechercheId(null);
         setLiveAnalysisResult(null);
         setShowRechercheAnalysis(false);
+        setRechercheSteps([]); // Steps zurücksetzen wenn aktive Recherche gelöscht
+      }
+      // Wenn alle Recherchen gelöscht wurden, Steps auch zurücksetzen
+      if (remainingAfterDelete.length === 0) {
+        setRechercheSteps([]);
       }
       // Aus DB löschen
       if (caseId) {
@@ -4509,7 +4515,7 @@ ${json.analysis.recommendation || ""}
               <div className="flex-1 min-h-0 p-4 overflow-y-auto custom-scrollbar">
                 <div className="space-y-3">
                   {conflicts.slice(0, 8).map((c, idx) => (
-                    <div key={c.id || idx} className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-shadow ${c.riskLevel === "high" ? "bg-red-50 border-red-200" : c.riskLevel === "medium" ? "bg-orange-50 border-orange-200" : "bg-gray-50 border-gray-200"}`}
+                    <div key={`${c.id}-${idx}`} className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-shadow ${c.riskLevel === "high" ? "bg-red-50 border-red-200" : c.riskLevel === "medium" ? "bg-orange-50 border-orange-200" : "bg-gray-50 border-gray-200"}`}
                       onClick={() => setSelectedConflict({ id: String(c.id || idx), name: c.name, register: c.office, applicationNumber: c.applicationNumber, registrationNumber: c.registrationNumber, status: c.status === "LIVE" ? "active" : "expired", classes: c.classes.map(Number), accuracy: c.accuracy || c.riskScore, applicationDate: c.dates?.applied || null, registrationDate: c.dates?.granted || null, holder: c.owner?.name, isFamousMark: false, reasoning: c.reasoning, riskLevel: c.riskLevel })}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">

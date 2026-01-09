@@ -23,11 +23,12 @@ interface TMSearchResult {
   app?: string;
   reg?: string;
   img?: string;
-  date?: { applied?: string; granted?: string; expiration?: string };
+  date?: { applied?: string; granted?: string; expiration?: string; renewal?: string };
 }
 
 interface ConflictWithDetails extends TMSearchResult {
-  owner?: { name?: string; country?: string };
+  owner?: { name?: string; address?: string; country?: string };
+  attorney?: { name?: string; address?: string };
   goodsServices?: string[];
   riskScore?: number;
   riskLevel?: "low" | "medium" | "high";
@@ -122,7 +123,16 @@ async function fetchTrademarkInfo(mid: number | string, apiKey: string): Promise
       });
     }
 
-    return { ...data, owner: data.owner, goodsServices };
+    return { 
+      ...data, 
+      owner: data.owner, 
+      attorney: data.attorney,
+      goodsServices,
+      date: {
+        ...data.date,
+        renewal: data.date?.renewal
+      }
+    };
   } catch {
     return null;
   }
@@ -136,76 +146,82 @@ RECHTLICHE GRUNDLAGEN:
 - CH: Art. 3 MSchG - Ausschlussgründe, Kollisionsprüfung
 - International: Pariser Verbandsübereinkunft, Madrider Protokoll
 
+DEINE AUFGABE:
+Du erhältst Suchergebnisse einer Markenrecherche als JSON.
+Analysiere JEDEN relevanten Treffer auf Kollisionspotential.
+Bewerte die Zeichenähnlichkeit SELBST - ignoriere den accuracy-Wert der API.
+
 VERWECHSLUNGSGEFAHR-KRITERIEN (EuGH/BGH-Rechtsprechung):
 1. Zeichenähnlichkeit: visuell, phonetisch, begrifflich (Gesamteindruck)
-2. Waren-/Dienstleistungsähnlichkeit: nicht nur Klasse, sondern tatsächliche Verwendung
-3. Kennzeichnungskraft der älteren Marke: schwach (beschreibend) bis stark (bekannte Marke)
-4. Aufmerksamkeit des Durchschnittsverbrauchers: höher bei teuren/speziellen Waren
-5. Wechselwirkung: hohe Zeichenähnlichkeit kann geringe Warenähnlichkeit ausgleichen
+2. Klassenüberschneidung: Gleiche Nizza-Klassen erhöhen das Risiko
+3. Territoriale Überschneidung: Gleiche Schutzländer = Kollision möglich
+4. Kennzeichnungskraft: beschreibend (schwach) vs. fantasievoll (stark)
 
 RISIKO-EINSTUFUNG:
-- HIGH (80-100): Identität/hochgradige Ähnlichkeit + gleiche/ähnliche Waren = Widerspruch sehr wahrscheinlich
-- MEDIUM (50-79): Ähnlichkeit + verwandte Waren = Widerspruch möglich, Koexistenz prüfen
-- LOW (0-49): Geringe Ähnlichkeit oder verschiedene Branchen = Anmeldung vertretbar
+- HIGH (80-100): Identität/hochgradige Ähnlichkeit + gleiche Klassen = Widerspruch sehr wahrscheinlich
+- MEDIUM (50-79): Ähnlichkeit + verwandte Klassen = Widerspruch möglich
+- LOW (0-49): Geringe Ähnlichkeit oder verschiedene Klassen = Anmeldung vertretbar
 
 Antworte auf Deutsch und formatiere als JSON.`;
 
-const CONFLICT_ANALYSIS_PROMPT = `Analysiere diesen Markenkonflikt nach markenrechtlichen Kriterien:
+const FULL_ANALYSIS_PROMPT = `MARKENRECHERCHE-ANALYSE
 
-NEUE MARKE: {keyword}
-Zielländer: {countries} | Zielklassen: {classes}
+=== NEUE MARKE (Anmeldevorhaben) ===
+Name: {keyword}
+Zielländer: {countries}
+Zielklassen: {classes}
 
-ÄLTERE MARKE (potentieller Konflikt):
-- Name: {conflictName} | Status: {status} | Amt: {office}
-- Klassen: {conflictClasses} | Namensähnlichkeit: {accuracy}%
-- Inhaber: {owner}
-- Waren/Dienstleistungen: {goodsServices}
+=== SUCHERGEBNISSE ({count} relevante Treffer) ===
+{searchResults}
 
-PRÜFE SYSTEMATISCH:
-1. ZEICHENÄHNLICHKEIT:
-   - Visuell: Schriftbild, Länge, Buchstabenfolge
-   - Phonetisch: Aussprache, Silbenstruktur, Betonung
-   - Begrifflich: Bedeutung, Assoziationen
-   
-2. WAREN-/DL-ÄHNLICHKEIT:
-   - Gleiche Klasse = nicht automatisch gleiche Waren
-   - Prüfe: Verwendungszweck, Vertriebswege, Zielgruppe
-   
-3. KENNZEICHNUNGSKRAFT:
-   - Ist die ältere Marke beschreibend (schwach) oder fantasievoll (stark)?
-   - Bekannte Marken haben erweiterten Schutzumfang
+=== DEINE ANALYSE ===
 
-4. GESAMTABWÄGUNG:
-   - Wechselwirkung der Faktoren berücksichtigen
+Analysiere JEDEN Treffer:
 
-Antworte als JSON:
-{"riskScore": number (0-100), "riskLevel": "low"|"medium"|"high", "reasoning": "Kurze juristische Begründung mit Bezug auf die Prüfkriterien"}`;
+1. ZEICHENÄHNLICHKEIT (SELBST bewerten, NICHT den accuracy-Wert nutzen!)
+   - Visuell: Buchstabenfolge, Länge, Schriftbild
+   - Phonetisch: Aussprache in Deutsch und Englisch
+   - Begrifflich: Hat der Name eine Bedeutung?
 
-const SUMMARY_PROMPT = `Erstelle eine professionelle Zusammenfassung der Markenrecherche mit strategischer Handlungsempfehlung:
+2. KLASSENÜBERSCHNEIDUNG
+   - Gleiche Nizza-Klassen = höheres Risiko
+   - Hinweis: Konkrete Waren/DL sind nicht bekannt, nur Klassennummern
 
-NEUE MARKE: {keyword}
-Zielländer: {countries} | Zielklassen: {classes}
-LIVE-Treffer (nach Filter): {totalLive} | Detailliert analysiert: {relevantCount}
+3. TERRITORIALE ÜBERSCHNEIDUNG
+   - Gleiche Schutzländer = Kollision möglich
+   - WO-Marke mit Schutz in Zielland = relevant
 
-ANALYSIERTE KONFLIKTE:
-{topConflicts}
+4. KENNZEICHNUNGSKRAFT
+   - Beschreibend/generisch = schwacher Schutz
+   - Fantasiewort = starker Schutz
 
-ERSTELLE EINE GESAMTBEWERTUNG:
-1. Gewichte die einzelnen Konflikte nach Schwere
-2. Berücksichtige kumulative Risiken bei mehreren ähnlichen Marken
-3. Beachte geografische Unterschiede (EU vs. nationale Marken)
-
-Antworte als JSON:
+=== AUSGABEFORMAT (JSON) ===
 {
-  "overallRiskScore": number (0-100, gewichteter Durchschnitt der Top-Konflikte),
-  "overallRiskLevel": "low"|"medium"|"high",
-  "decision": "go"|"go_with_changes"|"no_go",
+  "overallRiskScore": number (0-100, gewichteter Durchschnitt),
+  "overallRiskLevel": "low" | "medium" | "high",
+  "decision": "go" | "go_with_changes" | "no_go",
+  
+  "conflicts": [
+    {
+      "name": "Markenname",
+      "register": "WO/EU/DE/...",
+      "riskScore": number (0-100),
+      "riskLevel": "low" | "medium" | "high",
+      "reasoning": "Kurze juristische Begründung (2-3 Sätze)",
+      "similarity": {
+        "visual": "hoch" | "mittel" | "gering",
+        "phonetic": "hoch" | "mittel" | "gering",
+        "conceptual": "hoch" | "mittel" | "gering" | "keine"
+      }
+    }
+  ],
+  
   "executiveSummary": "2-3 Sätze Kernaussage für Entscheider",
   "recommendation": "Konkrete Handlungsempfehlung",
-  "riskMitigation": ["Maßnahme 1 zur Risikominderung", "Maßnahme 2", ...],
-  "alternatives": ["Alternative Schreibweise 1", "Alternative 2", ...] (nur bei hohem Risiko),
-  "criticalConflicts": ["Name der kritischsten Marke(n)"] (nur bei Risiko > 50)
+  "riskMitigation": ["Maßnahme 1", "Maßnahme 2"] (optional),
+  "alternatives": ["Alternative 1", "Alternative 2"] (nur bei hohem Risiko)
 }`;
+
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -268,25 +284,57 @@ export async function POST(request: NextRequest) {
         const liveCount = allResults.filter((r: TMSearchResult) => r.status === "LIVE").length;
         const deadCount = allResults.filter((r: TMSearchResult) => r.status === "DEAD").length;
         
-        // Top 20 Treffer mit mehr Details für die Anzeige
-        const topResults = allResults.slice(0, 20).map((r: TMSearchResult) => ({
+        // ALLE Treffer ungefiltert für Admin-Ansicht (mit allen API-Feldern)
+        const allResultsMapped = allResults.map((r: TMSearchResult) => ({
+          mid: r.mid,
           name: r.verbal,
+          image: r.img,
           status: r.status,
           accuracy: r.accuracy,
-          register: r.submition, // Register/Amt (WO, EU, US, DE, etc.)
+          register: r.submition,
           countries: r.protection || [],
-          classes: r.class || []
+          classes: r.class || [],
+          applicationNumber: r.app,
+          registrationNumber: r.reg,
+          dateApplied: r.date?.applied,
+          dateGranted: r.date?.granted,
+          dateExpiration: r.date?.expiration
         }));
+        
+        // Top 20 GEFILTERT nach Suchkriterien (Länder, Klassen, nur LIVE)
+        // Response enthält Original-Daten von TMSearch API, Filterung nur für Auswahl
+        const filteredForDisplay = filterResults(allResults, countries, classes)
+          .filter((r: TMSearchResult) => r.status === "LIVE")
+          .slice(0, 20)
+          .map((r: TMSearchResult) => ({
+            mid: r.mid,
+            name: r.verbal,
+            image: r.img,
+            status: r.status,
+            accuracy: r.accuracy,
+            register: r.submition,
+            countries: r.protection || [], // Original-Länder aus API
+            classes: r.class || [],
+            applicationNumber: r.app,
+            registrationNumber: r.reg,
+            dateApplied: r.date?.applied,
+            dateGranted: r.date?.granted,
+            dateExpiration: r.date?.expiration
+          }));
+        
+        const topResults = filteredForDisplay;
         
         sendStep({ 
           id: "search", 
           name: "TMSearch API", 
           status: "done", 
+          payload: { keyword, searchedCountries: countries }, // Gesuchte Länder für UI-Filterung
           result: { 
             total: allResults.length,
             liveCount,
             deadCount,
-            topResults
+            topResults,
+            allResults: allResultsMapped // ALLE Treffer ungefiltert
           }, 
           endTime: Date.now() 
         });
@@ -318,73 +366,143 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        sendStep({ id: "details", name: `Details laden (${topN})`, status: "done", result: { loaded: topConflicts.length }, endTime: Date.now() });
+        sendStep({ 
+          id: "details", 
+          name: `Details laden (${topN})`, 
+          status: "done", 
+          result: { 
+            loaded: topConflicts.length,
+            details: topConflicts.map(c => ({
+              name: c.verbal,
+              mid: c.mid,
+              status: c.status,
+              register: c.submition,
+              registrationNumber: c.reg,
+              applicationNumber: c.app,
+              owner: c.owner || null,
+              attorney: c.attorney || null,
+              goodsServices: c.goodsServices || [],
+              classes: c.class || [],
+              countries: c.protection || [],
+              dates: {
+                applied: c.date?.applied,
+                granted: c.date?.granted,
+                expiration: c.date?.expiration,
+                renewal: c.date?.renewal
+              }
+            }))
+          }, 
+          endTime: Date.now() 
+        });
 
-        // STEP 4: AI Analysis per Conflict
+        // STEP 4: AI Analysis - EIN Claude-Call für ALLE Konflikte
         sendStep({ id: "ai-analysis", name: `AI Analyse (${topConflicts.length})`, status: "running", payload: { count: topConflicts.length }, startTime: Date.now() });
 
-        for (const conflict of topConflicts) {
-          const conflictPrompt = CONFLICT_ANALYSIS_PROMPT
-            .replace("{keyword}", keyword)
-            .replace("{countries}", countries.join(", ") || "–")
-            .replace("{classes}", classes.join(", ") || "–")
-            .replace("{conflictName}", conflict.verbal || "–")
-            .replace("{status}", conflict.status || "–")
-            .replace("{office}", conflict.submition || "–")
-            .replace("{conflictClasses}", (conflict.class || []).join(", ") || "–")
-            .replace("{accuracy}", String(conflict.accuracy || "–"))
-            .replace("{owner}", conflict.owner?.name || "–")
-            .replace("{goodsServices}", (conflict.goodsServices || []).slice(0, 3).join("; ") || "–");
+        // Bereite Suchergebnisse für Claude vor
+        const searchClasses = classes.map((c: number | string) => String(c).padStart(2, "0"));
+        const searchResultsForAI = topConflicts.map(conflict => {
+          const conflictCountries = conflict.protection || [];
+          const conflictClasses = (conflict.class || []).map(String);
+          
+          return {
+            name: conflict.verbal,
+            register: conflict.submition,
+            status: conflict.status,
+            countries: conflictCountries,
+            classes: conflictClasses,
+            registrationNumber: conflict.reg,
+            applicationNumber: conflict.app,
+            dateApplied: conflict.date?.applied,
+            dateGranted: conflict.date?.granted,
+            overlap: {
+              commonCountries: countries.filter((c: string) => 
+                conflictCountries.map((cc: string) => cc.toUpperCase()).includes(c.toUpperCase())
+              ),
+              commonClasses: searchClasses.filter((c: string) => conflictClasses.includes(c))
+            }
+          };
+        });
 
-          try {
-            const responseText = await callClaude(RISK_ANALYSIS_SYSTEM_PROMPT, conflictPrompt, 300);
-            const parsed = JSON.parse(responseText);
-            conflict.riskScore = parsed.riskScore || 0;
-            conflict.riskLevel = parsed.riskLevel || "low";
-            conflict.reasoning = parsed.reasoning || "";
-          } catch {
+        // Ein einziger Claude-Call
+        const analysisPrompt = FULL_ANALYSIS_PROMPT
+          .replace("{keyword}", keyword)
+          .replace("{countries}", countries.join(", ") || "–")
+          .replace("{classes}", searchClasses.join(", ") || "–")
+          .replace("{count}", String(topConflicts.length))
+          .replace("{searchResults}", JSON.stringify(searchResultsForAI, null, 2));
+
+        let analysisResult = {
+          overallRiskScore: 0,
+          overallRiskLevel: "low" as "low" | "medium" | "high",
+          decision: "go" as "go" | "go_with_changes" | "no_go",
+          conflicts: [] as { name: string; register: string; riskScore: number; riskLevel: string; reasoning: string; similarity?: { visual: string; phonetic: string; conceptual: string } }[],
+          executiveSummary: "",
+          recommendation: "",
+          riskMitigation: [] as string[],
+          alternatives: [] as string[]
+        };
+
+        try {
+          const responseText = await callClaude(RISK_ANALYSIS_SYSTEM_PROMPT, analysisPrompt, 2000);
+          const parsed = JSON.parse(responseText);
+          analysisResult = { ...analysisResult, ...parsed };
+          
+          // Übertrage Ergebnisse auf topConflicts für spätere Verwendung
+          for (const conflict of topConflicts) {
+            const match = analysisResult.conflicts.find(c => c.name === conflict.verbal);
+            if (match) {
+              conflict.riskScore = match.riskScore || 0;
+              conflict.riskLevel = (match.riskLevel as "low" | "medium" | "high") || "low";
+              conflict.reasoning = match.reasoning || "";
+            } else {
+              const acc = Number(conflict.accuracy || 0);
+              conflict.riskScore = acc >= 95 ? 75 : acc >= 85 ? 60 : acc >= 70 ? 45 : 30;
+              conflict.riskLevel = conflict.riskScore >= 70 ? "high" : conflict.riskScore >= 40 ? "medium" : "low";
+              conflict.reasoning = `${acc}% Namensähnlichkeit.`;
+            }
+          }
+        } catch {
+          // Fallback: Lokale Berechnung
+          for (const conflict of topConflicts) {
             const acc = Number(conflict.accuracy || 0);
             conflict.riskScore = acc >= 95 ? 75 : acc >= 85 ? 60 : acc >= 70 ? 45 : 30;
             conflict.riskLevel = conflict.riskScore >= 70 ? "high" : conflict.riskScore >= 40 ? "medium" : "low";
             conflict.reasoning = `${acc}% Namensähnlichkeit.`;
           }
-        }
-
-        sendStep({ id: "ai-analysis", name: `AI Analyse (${topConflicts.length})`, status: "done", result: { analyzed: topConflicts.length }, endTime: Date.now() });
-
-        // STEP 5: Summary
-        sendStep({ id: "summary", name: "Zusammenfassung", status: "running", startTime: Date.now(), payload: { conflictsAnalyzed: topConflicts.length, keyword, countries, classes } });
-
-        const topConflictsSummary = topConflicts.slice(0, 5).map(c => ({
-          name: c.verbal, office: c.submition, classes: c.class, riskScore: c.riskScore, reasoning: c.reasoning,
-        }));
-
-        const summaryPrompt = SUMMARY_PROMPT
-          .replace("{keyword}", keyword)
-          .replace("{countries}", countries.join(", ") || "–")
-          .replace("{classes}", classes.join(", ") || "–")
-          .replace("{totalLive}", String(filteredResults.length))
-          .replace("{relevantCount}", String(topConflicts.length))
-          .replace("{topConflicts}", JSON.stringify(topConflictsSummary, null, 2));
-
-        let summary = {
-          overallRiskScore: 0,
-          overallRiskLevel: "low" as "low" | "medium" | "high",
-          decision: "go" as "go" | "go_with_changes" | "no_go",
-          executiveSummary: "",
-          recommendation: "",
-        };
-
-        try {
-          const summaryText = await callClaude(RISK_ANALYSIS_SYSTEM_PROMPT, summaryPrompt, 800);
-          summary = { ...summary, ...JSON.parse(summaryText) };
-        } catch {
           const maxRisk = Math.max(...topConflicts.map(c => c.riskScore || 0), 0);
-          summary.overallRiskScore = maxRisk;
-          summary.overallRiskLevel = maxRisk >= 80 ? "high" : maxRisk >= 50 ? "medium" : "low";
-          summary.decision = maxRisk >= 80 ? "no_go" : maxRisk >= 50 ? "go_with_changes" : "go";
-          summary.executiveSummary = `${filteredResults.length} relevante Marken gefunden. Höchstes Risiko: ${maxRisk}%.`;
+          analysisResult.overallRiskScore = maxRisk;
+          analysisResult.overallRiskLevel = maxRisk >= 80 ? "high" : maxRisk >= 50 ? "medium" : "low";
+          analysisResult.decision = maxRisk >= 80 ? "no_go" : maxRisk >= 50 ? "go_with_changes" : "go";
+          analysisResult.executiveSummary = `${filteredResults.length} relevante Marken gefunden. Höchstes Risiko: ${maxRisk}%.`;
         }
+
+        sendStep({ 
+          id: "ai-analysis", 
+          name: `AI Analyse (${topConflicts.length})`, 
+          status: "done", 
+          result: { 
+            analyzed: topConflicts.length,
+            input: { newTrademark: { name: keyword, countries, classes: searchClasses }, searchResults: searchResultsForAI },
+            output: analysisResult
+          }, 
+          endTime: Date.now() 
+        });
+
+        // STEP 5: Summary (visuell, Daten kommen aus Schritt 4)
+        sendStep({ id: "summary", name: "Zusammenfassung", status: "running", startTime: Date.now() });
+
+        // Kurze Pause für visuellen Effekt
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        const summary = {
+          overallRiskScore: analysisResult.overallRiskScore,
+          overallRiskLevel: analysisResult.overallRiskLevel,
+          decision: analysisResult.decision,
+          executiveSummary: analysisResult.executiveSummary,
+          recommendation: analysisResult.recommendation,
+          riskMitigation: analysisResult.riskMitigation,
+          alternatives: analysisResult.alternatives
+        };
 
         sendStep({ id: "summary", name: "Zusammenfassung", status: "done", result: summary, endTime: Date.now() });
 

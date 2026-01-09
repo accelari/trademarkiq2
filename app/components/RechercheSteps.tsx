@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Loader2, AlertCircle, Circle, X, Search, Filter, FileText, Brain, BarChart3, ArrowRight, Database, Sparkles, ChevronDown, ChevronRight } from "lucide-react";
+import { Check, Loader2, AlertCircle, Circle, X, Search, Filter, FileText, Brain, BarChart3, ArrowRight, Database, Sparkles, ChevronDown, ChevronRight, Copy } from "lucide-react";
 
 type StepStatus = "pending" | "running" | "done" | "error";
 
@@ -123,8 +123,31 @@ function ResultSummary({ stepId, result, payload }: { stepId: string; result: un
       register?: string;
       countries?: string[];
       classes?: string[];
+      registrationNumber?: string;
     }> | undefined;
     const keyword = p?.keyword as string | undefined;
+    const searchedCountries = p?.searchedCountries as string[] | undefined;
+    const searchedCountriesUpper = searchedCountries?.map(c => c.toUpperCase()) || [];
+    
+    // Hilfsfunktion: Zeige nur gesuchte Länder in der UI
+    const getDisplayCountries = (countries: string[] | undefined, register: string | undefined) => {
+      if (!countries || countries.length === 0) return register ? [register] : [];
+      if (searchedCountriesUpper.length === 0) return countries.slice(0, 3);
+      
+      const registerUpper = (register || "").toUpperCase();
+      
+      // 1. Wenn Register direkt ein gesuchtes Land ist
+      if (searchedCountriesUpper.includes(registerUpper)) {
+        return [registerUpper];
+      }
+      
+      // 2. Filtere auf gesuchte Länder
+      const filtered = countries.filter(c => searchedCountriesUpper.includes(c.toUpperCase()));
+      if (filtered.length > 0) return filtered.slice(0, 3);
+      
+      // 3. Fallback: Register anzeigen
+      return [registerUpper];
+    };
     
     // Nur die ersten 10 für die Tabelle, einzigartige Namen
     const displayResults = topResults?.slice(0, 10) || [];
@@ -165,16 +188,20 @@ function ResultSummary({ stepId, result, payload }: { stepId: string; result: un
                 <thead className="bg-gray-50 text-gray-600">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">Name</th>
+                    <th className="px-3 py-2 text-left font-medium">Reg-Nr</th>
                     <th className="px-3 py-2 text-center font-medium">Ähnlichkeit</th>
                     <th className="px-3 py-2 text-center font-medium">Register</th>
-                    <th className="px-3 py-2 text-center font-medium">Status</th>
                     <th className="px-3 py-2 text-left font-medium">Länder</th>
+                    <th className="px-3 py-2 text-center font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {displayResults.map((item, i) => (
                     <tr key={i} className="hover:bg-gray-50">
                       <td className="px-3 py-2 font-medium text-gray-900">{item.name}</td>
+                      <td className="px-3 py-2 text-gray-600 text-xs truncate max-w-[80px]">
+                        {item.registrationNumber || "-"}
+                      </td>
                       <td className="px-3 py-2 text-center">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
                           Number(item.accuracy || 0) >= 95 ? "bg-red-100 text-red-700" :
@@ -189,15 +216,18 @@ function ResultSummary({ stepId, result, payload }: { stepId: string; result: un
                           {item.register || "?"}
                         </span>
                       </td>
+                      <td className="px-3 py-2 text-gray-600 truncate max-w-[100px]">
+                        {(() => {
+                          const display = getDisplayCountries(item.countries, item.register);
+                          return display.join(", ") + (display.length < (item.countries?.length || 0) ? "..." : "");
+                        })()}
+                      </td>
                       <td className="px-3 py-2 text-center">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
                           item.status === "LIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
                         }`}>
                           {item.status}
                         </span>
-                      </td>
-                      <td className="px-3 py-2 text-gray-600 truncate max-w-[100px]">
-                        {item.countries?.slice(0, 3).join(", ")}{(item.countries?.length || 0) > 3 ? "..." : ""}
                       </td>
                     </tr>
                   ))}
@@ -457,7 +487,20 @@ function StepDetailModal({ step, onClose }: { step: RechercheStep; onClose: () =
               <div className="mt-3 space-y-3">
                 {step.payload != null && (
                   <div>
-                    <div className="text-xs font-medium text-gray-500 mb-1">📤 Request</div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-xs font-medium text-gray-500">📤 Request</div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(JSON.stringify(step.payload, null, 2));
+                        }}
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
+                        title="In Zwischenablage kopieren"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Kopieren
+                      </button>
+                    </div>
                     <pre className="text-xs bg-gray-900 text-green-400 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all max-h-40">
                       {JSON.stringify(step.payload, null, 2)}
                     </pre>
@@ -474,7 +517,20 @@ function StepDetailModal({ step, onClose }: { step: RechercheStep; onClose: () =
                 )}
                 {step.result != null && (
                   <div>
-                    <div className="text-xs font-medium text-gray-500 mb-1">📥 Response</div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-xs font-medium text-gray-500">📥 Response</div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(JSON.stringify(step.result, null, 2));
+                        }}
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
+                        title="In Zwischenablage kopieren"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Kopieren
+                      </button>
+                    </div>
                     <pre className="text-xs bg-gray-900 text-green-400 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all max-h-40">
                       {JSON.stringify(step.result, null, 2)}
                     </pre>
