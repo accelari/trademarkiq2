@@ -111,127 +111,71 @@ export function ConflictDetailModal({ conflict, onClose }: ConflictDetailModalPr
           </div>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1 space-y-5">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
-                <Globe className="w-3.5 h-3.5" />
-                Register (Amt)
-              </div>
-              <p className="font-semibold text-gray-900">{conflict.register || "-"}</p>
+        <div className="p-4 overflow-y-auto flex-1 space-y-3">
+          <div className={`grid gap-2 ${conflict.protection && conflict.protection.length > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+            <div className="p-2 bg-gray-50 rounded-lg">
+              <div className="text-gray-500 text-xs">Register</div>
+              <p className="font-semibold text-gray-900 text-sm">{conflict.register || "-"}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <div className="text-gray-500 text-xs mb-1">Status</div>
-              <span className={`inline-flex px-2 py-1 rounded text-sm font-medium ${conflict.status === "active" ? "bg-green-100 text-green-700" : conflict.status === "expired" ? "bg-gray-200 text-gray-600" : "bg-gray-200 text-gray-600"}`}>
-                {conflict.status === "active" ? "Aktiv" : conflict.status === "expired" ? "Abgelaufen" : "Unbekannt"}
+            <div className="p-2 bg-gray-50 rounded-lg">
+              <div className="text-gray-500 text-xs">Status</div>
+              <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${conflict.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}`}>
+                {conflict.status === "active" ? "Aktiv" : "Inaktiv"}
               </span>
             </div>
-          </div>
-
-          {conflict.protection && conflict.protection.length > 0 && (
-            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-              <div className="flex items-center gap-2 text-blue-600 text-xs mb-2">
-                <Globe className="w-3.5 h-3.5" />
-                Betroffene Länder/Regionen
+            {conflict.protection && conflict.protection.length > 0 && (
+              <div className="p-2 bg-gray-50 rounded-lg">
+                <div className="text-gray-500 text-xs">Länder</div>
+                <p className="font-semibold text-gray-900 text-sm">
+                  {conflict.protection.join(", ")}
+                </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {conflict.protection.map((country) => (
-                  <span key={country} className="px-2.5 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-lg">
-                    {country}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <div className="text-gray-500 text-xs mb-1">Anmeldenummer</div>
-              <p className="font-semibold text-gray-900">{conflict.applicationNumber || "-"}</p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <div className="text-gray-500 text-xs mb-1">Anmeldedatum</div>
-              <p className="font-semibold text-gray-900">{formatGermanDate(conflict.applicationDate)}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <div className="text-gray-500 text-xs mb-1">Registrierungsnummer</div>
-              <p className="font-semibold text-gray-900">{conflict.registrationNumber || "-"}</p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <div className="text-gray-500 text-xs mb-1">Registrierungsdatum</div>
-              <p className="font-semibold text-gray-900">{formatGermanDate(conflict.registrationDate)}</p>
-            </div>
-          </div>
-
-          {conflict.accuracy !== undefined && (
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
-                <Percent className="w-3.5 h-3.5" />
-                Ähnlichkeit
-              </div>
-              <p className={`font-bold ${conflict.accuracy >= 90 ? 'text-red-600' : conflict.accuracy >= 80 ? 'text-orange-600' : 'text-green-600'}`}>
-                {conflict.accuracy}%
+            )}
+            <div className="p-2 bg-gray-50 rounded-lg">
+              <div className="text-gray-500 text-xs">Ähnlichkeit</div>
+              <p className={`font-bold text-sm ${conflict.accuracy && conflict.accuracy >= 90 ? 'text-red-600' : conflict.accuracy && conflict.accuracy >= 80 ? 'text-orange-600' : 'text-green-600'}`}>
+                {conflict.accuracy !== undefined ? `${conflict.accuracy}%` : "-"}
               </p>
             </div>
-          )}
+          </div>
 
-          {conflict.holder && (
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
-                <Building2 className="w-3.5 h-3.5" />
-                Inhaber
-              </div>
-              <p className="font-semibold text-gray-900">{conflict.holder}</p>
+          <div className="grid grid-cols-4 gap-2">
+            <div className="p-2 bg-gray-50 rounded-lg">
+              <div className="text-gray-500 text-xs">Anmeldenr.</div>
+              <p className="font-semibold text-gray-900 text-sm">{conflict.applicationNumber || "-"}</p>
             </div>
-          )}
+            <div className="p-2 bg-gray-50 rounded-lg">
+              <div className="text-gray-500 text-xs">Anmeldedatum</div>
+              <p className="font-semibold text-gray-900 text-sm">{formatGermanDate(conflict.applicationDate)}</p>
+            </div>
+            <div className="p-2 bg-gray-50 rounded-lg">
+              <div className="text-gray-500 text-xs">Reg.-Nr.</div>
+              <p className="font-semibold text-gray-900 text-sm">{conflict.registrationNumber || "-"}</p>
+            </div>
+            <div className="p-2 bg-gray-50 rounded-lg">
+              <div className="text-gray-500 text-xs">Reg.-Datum</div>
+              <p className="font-semibold text-gray-900 text-sm">{formatGermanDate(conflict.registrationDate)}</p>
+            </div>
+          </div>
 
           {conflict.classes && conflict.classes.length > 0 && (
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <Tag className="w-4 h-4 text-teal-600" />
-                Nizza-Klassen
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {conflict.classes.map((cls) => (
-                  <span key={cls} className="px-3 py-1.5 bg-teal-50 text-teal-700 text-sm font-medium rounded-lg">
-                    Klasse {cls}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {conflict.goodsServices && conflict.goodsServices.length > 0 && (
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <Tag className="w-4 h-4 text-purple-600" />
-                Waren/Dienstleistungen
-              </h3>
-              <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 max-h-32 overflow-y-auto">
-                <ul className="text-sm text-gray-700 space-y-1">
-                  {conflict.goodsServices.slice(0, 10).map((gs, idx) => (
-                    <li key={idx} className="leading-relaxed">• {gs}</li>
-                  ))}
-                  {conflict.goodsServices.length > 10 && (
-                    <li className="text-purple-600 font-medium">... und {conflict.goodsServices.length - 10} weitere</li>
-                  )}
-                </ul>
-              </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-gray-500 text-xs">Klassen:</span>
+              {conflict.classes.map((cls) => (
+                <span key={cls} className="px-2 py-0.5 bg-teal-50 text-teal-700 text-xs font-medium rounded">
+                  {cls}
+                </span>
+              ))}
             </div>
           )}
 
           {conflict.reasoning && (
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <AlertTriangle className={`w-4 h-4 ${styles.icon}`} />
+            <div className={`p-3 rounded-lg ${styles.bg} border ${styles.border}`}>
+              <div className="flex items-center gap-2 text-xs font-medium mb-1">
+                <AlertTriangle className={`w-3.5 h-3.5 ${styles.icon}`} />
                 Begründung
-              </h3>
-              <div className={`p-4 rounded-xl ${styles.bg} border ${styles.border}`}>
-                <p className="text-gray-700 leading-relaxed">{conflict.reasoning}</p>
               </div>
+              <p className="text-sm text-gray-700 leading-relaxed">{conflict.reasoning}</p>
             </div>
           )}
         </div>

@@ -1,16 +1,12 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
+import { getRelevantCountries, getRegisterCountries } from "@/lib/country-mapping";
 
 const TMSEARCH_SEARCH_URL = "https://tmsearch.ai/api/search/";
-const TMSEARCH_INFO_URL = "https://tmsearch.ai/api/info/";
 const TEST_API_KEY = "TESTAPIKEY";
 
-const EU_COUNTRIES = [
-  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
-  "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
-  "PL", "PT", "RO", "SK", "SI", "ES", "SE"
-];
+const EU_COUNTRIES = getRegisterCountries("EU");
 
 interface TMSearchResult {
   mid?: string | number;
@@ -23,6 +19,12 @@ interface TMSearchResult {
   app?: string;
   reg?: string;
   img?: string;
+  // API liefert flache Felder
+  dateApplied?: string;
+  dateGranted?: string;
+  dateExpiration?: string;
+  dateRenewal?: string;
+  // Für Kompatibilität
   date?: { applied?: string; granted?: string; expiration?: string; renewal?: string };
 }
 
@@ -33,6 +35,7 @@ interface ConflictWithDetails extends TMSearchResult {
   riskScore?: number;
   riskLevel?: "low" | "medium" | "high";
   reasoning?: string;
+  relevantCountries?: string[];
 }
 
 // Step-Typen für das Frontend
@@ -62,6 +65,7 @@ async function callClaude(systemPrompt: string, userPrompt: string, maxTokens = 
   const response = await anthropic.messages.create({
     model: "claude-opus-4-20250514",
     max_tokens: maxTokens,
+    temperature: 0, // Deterministisch für konsistente Risikobewertungen
     system: systemPrompt + "\n\nAntworte IMMER als valides JSON ohne Markdown-Formatierung.",
     messages: [{ role: "user", content: userPrompt }],
   });
@@ -100,43 +104,6 @@ function filterResults(results: TMSearchResult[], countries: string[], classes: 
   return filtered;
 }
 
-async function fetchTrademarkInfo(mid: number | string, apiKey: string): Promise<ConflictWithDetails | null> {
-  try {
-    const url = new URL(TMSEARCH_INFO_URL);
-    url.searchParams.set("mid", String(mid));
-    url.searchParams.set("api_key", apiKey);
-
-    const res = await fetch(url.toString(), {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    });
-
-    if (!res.ok) return null;
-    const data = await res.json().catch(() => null);
-    if (!data) return null;
-
-    const goodsServices: string[] = [];
-    if (data.class && Array.isArray(data.class)) {
-      data.class.forEach((c: { number?: number; description?: string }) => {
-        if (c.description) goodsServices.push(`Klasse ${c.number}: ${c.description}`);
-      });
-    }
-
-    return { 
-      ...data, 
-      owner: data.owner, 
-      attorney: data.attorney,
-      goodsServices,
-      date: {
-        ...data.date,
-        renewal: data.date?.renewal
-      }
-    };
-  } catch {
-    return null;
-  }
-}
 
 const RISK_ANALYSIS_SYSTEM_PROMPT = `Du bist ein erfahrener Markenrechtler mit 40 Jahren Erfahrung in der internationalen Kollisionsanalyse.
 
@@ -176,7 +143,9 @@ Zielklassen: {classes}
 
 === DEINE ANALYSE ===
 
-Analysiere JEDEN Treffer:
+WICHTIG: Analysiere die Konflikte PRO ZIELLAND separat!
+
+Für JEDEN Treffer bewerte:
 
 1. ZEICHENÄHNLICHKEIT (SELBST bewerten, NICHT den accuracy-Wert nutzen!)
    - Visuell: Buchstabenfolge, Länge, Schriftbild
@@ -185,11 +154,10 @@ Analysiere JEDEN Treffer:
 
 2. KLASSENÜBERSCHNEIDUNG
    - Gleiche Nizza-Klassen = höheres Risiko
-   - Hinweis: Konkrete Waren/DL sind nicht bekannt, nur Klassennummern
 
 3. TERRITORIALE ÜBERSCHNEIDUNG
-   - Gleiche Schutzländer = Kollision möglich
-   - WO-Marke mit Schutz in Zielland = relevant
+   - Ordne jeden Konflikt dem relevanten Zielland zu
+   - WO-Marke mit Schutz in Zielland = relevant für dieses Land
 
 4. KENNZEICHNUNGSKRAFT
    - Beschreibend/generisch = schwacher Schutz
@@ -197,14 +165,24 @@ Analysiere JEDEN Treffer:
 
 === AUSGABEFORMAT (JSON) ===
 {
-  "overallRiskScore": number (0-100, gewichteter Durchschnitt),
+  "overallRiskScore": number (0-100, gewichteter Durchschnitt aller Länder),
   "overallRiskLevel": "low" | "medium" | "high",
   "decision": "go" | "go_with_changes" | "no_go",
+  
+  "byCountry": {
+    "LÄNDERCODE": {
+      "riskScore": number (0-100),
+      "riskLevel": "low" | "medium" | "high",
+      "conflictCount": number,
+      "recommendation": "Kurze Empfehlung für dieses Land"
+    }
+  },
   
   "conflicts": [
     {
       "name": "Markenname",
       "register": "WO/EU/DE/...",
+      "relevantCountries": ["EG", "DE"],
       "riskScore": number (0-100),
       "riskLevel": "low" | "medium" | "high",
       "reasoning": "Kurze juristische Begründung (2-3 Sätze)",
@@ -296,9 +274,9 @@ export async function POST(request: NextRequest) {
           classes: r.class || [],
           applicationNumber: r.app,
           registrationNumber: r.reg,
-          dateApplied: r.date?.applied,
-          dateGranted: r.date?.granted,
-          dateExpiration: r.date?.expiration
+          dateApplied: r.dateApplied || r.date?.applied,
+          dateGranted: r.dateGranted || r.date?.granted,
+          dateExpiration: r.dateExpiration || r.date?.expiration
         }));
         
         // Top 20 GEFILTERT nach Suchkriterien (Länder, Klassen, nur LIVE)
@@ -351,24 +329,13 @@ export async function POST(request: NextRequest) {
 
         sendStep({ id: "filter", name: "Filter anwenden", status: "done", result: { before: allResults.length, after: filteredResults.length }, endTime: Date.now() });
 
-        // STEP 3: Fetch Details
+        // STEP 3: Top-Konflikte vorbereiten (Daten aus Schritt 1 verwenden)
         const topN = Math.min(fetchDetailsTopN, filteredResults.length);
-        sendStep({ id: "details", name: `Details laden (${topN})`, status: "running", payload: { count: topN }, startTime: Date.now() });
-
-        const topConflicts: ConflictWithDetails[] = [];
-        for (let i = 0; i < topN; i++) {
-          const result = filteredResults[i];
-          if (result.mid) {
-            const details = await fetchTrademarkInfo(result.mid, apiKey);
-            topConflicts.push(details ? { ...result, ...details } : result);
-          } else {
-            topConflicts.push(result);
-          }
-        }
-
+        const topConflicts: ConflictWithDetails[] = filteredResults.slice(0, topN);
+        
         sendStep({ 
           id: "details", 
-          name: `Details laden (${topN})`, 
+          name: `Top ${topN} Konflikte`, 
           status: "done", 
           result: { 
             loaded: topConflicts.length,
@@ -379,16 +346,13 @@ export async function POST(request: NextRequest) {
               register: c.submition,
               registrationNumber: c.reg,
               applicationNumber: c.app,
-              owner: c.owner || null,
-              attorney: c.attorney || null,
-              goodsServices: c.goodsServices || [],
               classes: c.class || [],
               countries: c.protection || [],
               dates: {
-                applied: c.date?.applied,
-                granted: c.date?.granted,
-                expiration: c.date?.expiration,
-                renewal: c.date?.renewal
+                applied: c.dateApplied || c.date?.applied,
+                granted: c.dateGranted || c.date?.granted,
+                expiration: c.dateExpiration || c.date?.expiration,
+                renewal: c.dateRenewal || c.date?.renewal
               }
             }))
           }, 
@@ -412,8 +376,8 @@ export async function POST(request: NextRequest) {
             classes: conflictClasses,
             registrationNumber: conflict.reg,
             applicationNumber: conflict.app,
-            dateApplied: conflict.date?.applied,
-            dateGranted: conflict.date?.granted,
+            dateApplied: conflict.dateApplied || conflict.date?.applied,
+            dateGranted: conflict.dateGranted || conflict.date?.granted,
             overlap: {
               commonCountries: countries.filter((c: string) => 
                 conflictCountries.map((cc: string) => cc.toUpperCase()).includes(c.toUpperCase())
@@ -435,7 +399,8 @@ export async function POST(request: NextRequest) {
           overallRiskScore: 0,
           overallRiskLevel: "low" as "low" | "medium" | "high",
           decision: "go" as "go" | "go_with_changes" | "no_go",
-          conflicts: [] as { name: string; register: string; riskScore: number; riskLevel: string; reasoning: string; similarity?: { visual: string; phonetic: string; conceptual: string } }[],
+          byCountry: {} as Record<string, { riskScore: number; riskLevel: "low" | "medium" | "high"; conflictCount: number; recommendation: string }>,
+          conflicts: [] as { name: string; register: string; relevantCountries?: string[]; riskScore: number; riskLevel: string; reasoning: string; similarity?: { visual: string; phonetic: string; conceptual: string } }[],
           executiveSummary: "",
           recommendation: "",
           riskMitigation: [] as string[],
@@ -454,12 +419,43 @@ export async function POST(request: NextRequest) {
               conflict.riskScore = match.riskScore || 0;
               conflict.riskLevel = (match.riskLevel as "low" | "medium" | "high") || "low";
               conflict.reasoning = match.reasoning || "";
+              conflict.relevantCountries = match.relevantCountries || [];
             } else {
               const acc = Number(conflict.accuracy || 0);
               conflict.riskScore = acc >= 95 ? 75 : acc >= 85 ? 60 : acc >= 70 ? 45 : 30;
               conflict.riskLevel = conflict.riskScore >= 70 ? "high" : conflict.riskScore >= 40 ? "medium" : "low";
               conflict.reasoning = `${acc}% Namensähnlichkeit.`;
             }
+            
+            // IMMER relevantCountries neu berechnen mit korrekter Logik
+            conflict.relevantCountries = getRelevantCountries(
+              conflict.submition || "",
+              conflict.protection || [],
+              countries
+            );
+          }
+          
+          // byCountry IMMER neu berechnen für konsistente riskLevels
+          analysisResult.byCountry = {};
+          for (const country of countries) {
+            const countryConflicts = topConflicts.filter(c => 
+              (c.relevantCountries || []).includes(country)
+            );
+            const maxRisk = countryConflicts.length > 0 
+              ? Math.max(...countryConflicts.map(c => c.riskScore || 0))
+              : 0;
+            analysisResult.byCountry[country] = {
+              riskScore: maxRisk,
+              riskLevel: maxRisk >= 70 ? "high" : maxRisk >= 40 ? "medium" : "low",
+              conflictCount: countryConflicts.length,
+              recommendation: countryConflicts.length === 0 
+                ? "Keine Konflikte gefunden" 
+                : maxRisk >= 70 
+                  ? "Anmeldung nicht empfohlen" 
+                  : maxRisk >= 40 
+                    ? "Anmeldung mit Vorsicht möglich" 
+                    : "Anmeldung empfohlen"
+            };
           }
         } catch {
           // Fallback: Lokale Berechnung
@@ -468,12 +464,41 @@ export async function POST(request: NextRequest) {
             conflict.riskScore = acc >= 95 ? 75 : acc >= 85 ? 60 : acc >= 70 ? 45 : 30;
             conflict.riskLevel = conflict.riskScore >= 70 ? "high" : conflict.riskScore >= 40 ? "medium" : "low";
             conflict.reasoning = `${acc}% Namensähnlichkeit.`;
+            // relevantCountries mit korrekter Logik berechnen
+            conflict.relevantCountries = getRelevantCountries(
+              conflict.submition || "",
+              conflict.protection || [],
+              countries
+            );
           }
           const maxRisk = Math.max(...topConflicts.map(c => c.riskScore || 0), 0);
           analysisResult.overallRiskScore = maxRisk;
           analysisResult.overallRiskLevel = maxRisk >= 80 ? "high" : maxRisk >= 50 ? "medium" : "low";
           analysisResult.decision = maxRisk >= 80 ? "no_go" : maxRisk >= 50 ? "go_with_changes" : "go";
           analysisResult.executiveSummary = `${filteredResults.length} relevante Marken gefunden. Höchstes Risiko: ${maxRisk}%.`;
+          
+          // Fallback: byCountry berechnen
+          analysisResult.byCountry = {};
+          for (const country of countries) {
+            const countryConflicts = topConflicts.filter(c => 
+              (c.relevantCountries || []).includes(country)
+            );
+            const countryMaxRisk = countryConflicts.length > 0 
+              ? Math.max(...countryConflicts.map(c => c.riskScore || 0))
+              : 0;
+            analysisResult.byCountry[country] = {
+              riskScore: countryMaxRisk,
+              riskLevel: countryMaxRisk >= 70 ? "high" : countryMaxRisk >= 40 ? "medium" : "low",
+              conflictCount: countryConflicts.length,
+              recommendation: countryConflicts.length === 0 
+                ? "Keine Konflikte gefunden" 
+                : countryMaxRisk >= 70 
+                  ? "Anmeldung nicht empfohlen" 
+                  : countryMaxRisk >= 40 
+                    ? "Anmeldung mit Vorsicht möglich" 
+                    : "Anmeldung empfohlen"
+            };
+          }
         }
 
         sendStep({ 
@@ -498,6 +523,7 @@ export async function POST(request: NextRequest) {
           overallRiskScore: analysisResult.overallRiskScore,
           overallRiskLevel: analysisResult.overallRiskLevel,
           decision: analysisResult.decision,
+          byCountry: analysisResult.byCountry,
           executiveSummary: analysisResult.executiveSummary,
           recommendation: analysisResult.recommendation,
           riskMitigation: analysisResult.riskMitigation,
@@ -517,7 +543,8 @@ export async function POST(request: NextRequest) {
             name: c.verbal, 
             status: c.status, 
             office: c.submition,
-            protection: c.protection, // Schutzländer (z.B. ["US", "EU"] bei WO-Marke)
+            protection: c.protection,
+            relevantCountries: c.relevantCountries || [],
             classes: c.class, 
             accuracy: c.accuracy, 
             owner: c.owner,

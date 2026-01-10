@@ -489,6 +489,7 @@ export default function CasePage() {
 
   const [openAccordion, setOpenAccordion] = useState<string | null>("beratung");
   const [selectedConflict, setSelectedConflict] = useState<ConflictMark | null>(null);
+  const [selectedCountryFilter, setSelectedCountryFilter] = useState<string | null>(null);
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
   const [showAllConflicts, setShowAllConflicts] = useState(false);
   const [isApplyingAlternative, setIsApplyingAlternative] = useState(false);
@@ -510,6 +511,16 @@ export default function CasePage() {
   const [tmsearchDebugPayload, setTMSearchDebugPayload] = useState<unknown>(null);
   const [tmsearchDebugTab, setTMSearchDebugTab] = useState<"request" | "response" | "filter" | "analysis" | "raw">("request");
   
+  // Helper: Relevante Länder berechnen (nur überlappende, nicht wenn Register = Land)
+  const getRelevantCountries = (protection: string[] | undefined, register: string | undefined, searchCountries: string[] | undefined): string[] => {
+    if (!protection || protection.length === 0 || !searchCountries || searchCountries.length === 0) return [];
+    // Überlappende Länder finden
+    const overlap = protection.filter(p => searchCountries.includes(p));
+    // Wenn Register = eines der überlappenden Länder → weglassen (redundant)
+    if (register && overlap.length === 1 && overlap[0] === register.toUpperCase()) return [];
+    return overlap;
+  };
+
   // Recherche Flip View + Historie
   const [showRechercheAnalysis, setShowRechercheAnalysis] = useState(false);
   const [rechercheHistory, setRechercheHistory] = useState<RechercheHistoryItem[]>([]);
@@ -4303,29 +4314,38 @@ Soll ich die Recherche starten?`
                   
                   logEvent("recherche_complete", `Recherche abgeschlossen: ${json.analysis.overallRiskScore}% Risiko`, `${json.conflicts?.length || 0} Konflikte gefunden`);
                   
-                  // KI-Berater: Analyse-Zusammenfassung mit Streaming anzeigen
-                  const riskEmoji = json.analysis.overallRiskScore >= 80 ? "🔴" : json.analysis.overallRiskScore >= 50 ? "🟡" : "🟢";
-                  const decisionText = json.analysis.decision === "go" ? "**Anmeldung empfohlen**" 
-                    : json.analysis.decision === "go_with_changes" ? "**Anmeldung mit Anpassungen möglich**" 
-                    : "**Anmeldung nicht empfohlen**";
+                  // KI-Berater: Echte AI-Analyse mit allen Daten
+                  const byCountry = json.analysis.byCountry || {};
+                  const highRisk = Object.entries(byCountry).filter(([_, d]) => (d as { riskLevel: string }).riskLevel === "high").map(([c, d]) => `${c} (${(d as { riskScore: number }).riskScore}%)`);
+                  const mediumRisk = Object.entries(byCountry).filter(([_, d]) => (d as { riskLevel: string }).riskLevel === "medium").map(([c, d]) => `${c} (${(d as { riskScore: number }).riskScore}%)`);
+                  const lowRisk = Object.entries(byCountry).filter(([_, d]) => (d as { riskLevel: string }).riskLevel === "low").map(([c]) => c);
                   
-                  const topConflictNames = json.conflicts?.slice(0, 3).map((c: { name: string }) => c.name).join(", ") || "";
+                  const conflictDetails = json.conflicts?.slice(0, 5).map((c: { name: string; office: string; accuracy: number; reasoning?: string; relevantCountries?: string[] }) => 
+                    `- "${c.name}" (${c.office}, ${c.accuracy}% Ähnlichkeit${c.relevantCountries?.length ? `, betrifft: ${c.relevantCountries.join(", ")}` : ""})`
+                  ).join("\n") || "Keine";
                   
-                  const analyseMessage = `${riskEmoji} **Recherche für "${json.query.keyword}" abgeschlossen**
+                  const analysePrompt = `[SYSTEM: RECHERCHE-ERGEBNISSE - Erkläre diese dem Kunden wie ein erfahrener Anwalt, aber in deinem freundlichen Klaus-Stil. Per Du, kurze Sätze, verständlich. Erkläre was die Konflikte bedeuten und was der Kunde tun sollte.]
 
-**Risiko:** ${json.analysis.overallRiskScore}% (${json.analysis.overallRiskLevel === "high" ? "Hoch" : json.analysis.overallRiskLevel === "medium" ? "Mittel" : "Niedrig"})
-**Empfehlung:** ${decisionText}
+Die Recherche für "${json.query.keyword}" ist abgeschlossen.
 
-${json.analysis.executiveSummary || ""}
+GESAMTRISIKO: ${json.analysis.overallRiskScore}% (${json.analysis.overallRiskLevel === "high" ? "Hoch" : json.analysis.overallRiskLevel === "medium" ? "Mittel" : "Niedrig"})
 
-${json.conflicts?.length > 0 ? `**Top-Konflikte:** ${topConflictNames}` : "Keine kritischen Konflikte gefunden."}
+LÄNDER MIT HOHEM RISIKO (nicht anmelden): ${highRisk.length > 0 ? highRisk.join(", ") : "Keine"}
+LÄNDER MIT MITTLEREM RISIKO (Vorsicht): ${mediumRisk.length > 0 ? mediumRisk.join(", ") : "Keine"}
+LÄNDER OHNE RISIKO (empfohlen): ${lowRisk.length > 0 ? lowRisk.join(", ") : "Keine"}
 
-${json.analysis.recommendation || ""}
+TOP-KONFLIKTE:
+${conflictDetails}
 
-*Klicke auf einen Konflikt rechts für Details oder frag mich!*`;
+Erkläre dem Kunden fachlich aber verständlich:
+1. Wo sind die Risiken und warum?
+2. Was bedeuten die Konflikte konkret für die Anmeldung?
+3. Was sollte der Kunde tun? (konkreter Vorschlag)
 
-                  // Streaming im KI-Berater
-                  rechercheVoiceRef.current?.simulateStreaming(analyseMessage);
+Halte dich kurz (ca. 5-8 Sätze), aber erkläre die wichtigsten Punkte.`;
+
+                  // Echter AI-Call für fachliche Erklärung
+                  rechercheVoiceRef.current?.sendQuestion(analysePrompt);
                   
                   // DEBUG: Logging für Recherche-Speicherung
                   console.log("[RECHERCHE-SAVE] Checking caseId:", caseId);
@@ -4485,53 +4505,204 @@ ${json.analysis.recommendation || ""}
                   <div><span className="text-gray-500 font-medium">Klassen:</span> <span className="font-semibold text-gray-900">{query.classes?.join(", ") || "-"}</span></div>
                   <div><span className="text-gray-500 font-medium">Länder:</span> <span className="font-semibold text-gray-900">{query.countries?.join(", ") || "-"}</span></div>
                 </div>
-                <div className={`p-4 rounded-lg border mb-4 ${analysis.decision === "no_go" ? "bg-red-50 border-red-200" : analysis.decision === "go_with_changes" ? "bg-orange-50 border-orange-200" : "bg-teal-50 border-teal-200"}`}>
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${analysis.decision === "no_go" ? "bg-red-100 text-red-700 border-red-300" : analysis.decision === "go_with_changes" ? "bg-orange-100 text-orange-700 border-orange-300" : "bg-teal-100 text-teal-700 border-teal-300"}`}>
-                    {analysis.decision === "no_go" ? "NO-GO" : analysis.decision === "go_with_changes" ? "GO MIT ANPASSUNG" : "GO"}
-                  </span>
-                  <div className={`text-base font-semibold mt-2 ${analysis.decision === "no_go" ? "text-red-900" : analysis.decision === "go_with_changes" ? "text-orange-900" : "text-teal-900"}`}>
-                    {analysis.decision === "no_go" ? "Aktuell nicht empfohlen" : analysis.decision === "go_with_changes" ? "Mit Anpassungen empfohlen" : "Anmeldung wahrscheinlich sinnvoll"}
-                  </div>
-                </div>
-                <div className="flex items-center gap-6">
-                  <AnimatedRiskScore score={analysis.overallRiskScore} risk={analysis.overallRiskLevel} size="large" />
-                  <div className="flex-1">
-                    <div className="text-sm text-gray-500 mb-1">Konflikte</div>
-                    <div className="text-3xl font-bold text-gray-900">{conflicts.length}</div>
-                    <p className="text-sm text-gray-600 mt-2 line-clamp-3">{analysis.executiveSummary}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
-              <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center"><AlertCircle className="w-5 h-5 text-white" /></div>
-                  <div className="min-w-0"><div className="font-semibold text-sm truncate">Top Konflikte</div><div className="text-xs text-white/85 truncate">{conflicts.length} Treffer</div></div>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0 p-4 overflow-y-auto custom-scrollbar">
-                <div className="space-y-3">
-                  {conflicts.slice(0, 8).map((c, idx) => (
-                    <div key={`${c.id}-${idx}`} className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-shadow ${c.riskLevel === "high" ? "bg-red-50 border-red-200" : c.riskLevel === "medium" ? "bg-orange-50 border-orange-200" : "bg-gray-50 border-gray-200"}`}
-                      onClick={() => setSelectedConflict({ id: String(c.id || idx), name: c.name, register: c.office, applicationNumber: c.applicationNumber, registrationNumber: c.registrationNumber, status: c.status === "LIVE" ? "active" : "expired", classes: c.classes.map(Number), accuracy: c.accuracy || c.riskScore, applicationDate: c.dates?.applied || null, registrationDate: c.dates?.granted || null, holder: c.owner?.name, isFamousMark: false, reasoning: c.reasoning, riskLevel: c.riskLevel })}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium text-gray-900 truncate">{c.name}</div>
-                          <div className="text-xs text-gray-500 mt-0.5">{c.office} · Kl. {c.classes.join(", ")}</div>
+                {(() => {
+                  const highRiskCountries = analysis.byCountry 
+                    ? Object.entries(analysis.byCountry)
+                        .filter(([_, data]) => data.riskLevel === "high")
+                        .map(([country]) => country)
+                    : [];
+                  const mediumRiskCountries = analysis.byCountry 
+                    ? Object.entries(analysis.byCountry)
+                        .filter(([_, data]) => data.riskLevel === "medium")
+                        .map(([country]) => country)
+                    : [];
+                  const lowRiskCountries = analysis.byCountry 
+                    ? Object.entries(analysis.byCountry)
+                        .filter(([_, data]) => data.riskLevel === "low")
+                        .map(([country]) => country)
+                    : [];
+                  
+                  const hasRisks = highRiskCountries.length > 0 || mediumRiskCountries.length > 0;
+                  
+                  return (
+                    <div className={`px-4 py-3 rounded-lg border mb-3 space-y-2 ${hasRisks ? "bg-gray-50 border-gray-200" : "bg-teal-50 border-teal-200"}`}>
+                      {highRiskCountries.length > 0 && (
+                        <div className="flex items-center gap-3 text-red-700">
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700 border border-red-200">
+                            ⚠️ Hohes Risiko
+                          </span>
+                          <span className="font-semibold">{highRiskCountries.join(", ")}</span>
                         </div>
-                        <div className={`text-xs font-bold px-2 py-1 rounded ${c.riskLevel === "high" ? "bg-red-100 text-red-700" : c.riskLevel === "medium" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-600"}`}>{c.riskScore}%</div>
-                      </div>
-                      {c.reasoning && <div className="text-xs text-gray-600 mt-2 line-clamp-2">{c.reasoning}</div>}
+                      )}
+                      {mediumRiskCountries.length > 0 && (
+                        <div className="flex items-center gap-3 text-orange-700">
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700 border border-orange-200">
+                            ⚡ Mittleres Risiko
+                          </span>
+                          <span className="font-semibold">{mediumRiskCountries.join(", ")}</span>
+                        </div>
+                      )}
+                      {!hasRisks && (
+                        <div className="flex items-center gap-3 text-teal-700">
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-teal-100 text-teal-700 border border-teal-200">
+                            ✅ Niedriges Risiko
+                          </span>
+                          <span className="font-semibold">Anmeldung empfohlen</span>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                  {conflicts.length === 0 && <div className="text-center py-8 text-gray-500"><Check className="w-8 h-8 mx-auto mb-2 text-teal-500" /><p className="text-sm">Keine kritischen Konflikte</p></div>}
-                </div>
+                  );
+                })()}
+                {/* Filter-Button oben - immer sichtbar wenn aktiv */}
+                {selectedCountryFilter && (
+                  <button
+                    onClick={() => setSelectedCountryFilter(null)}
+                    className="w-full text-center text-xs text-blue-600 hover:text-blue-800 font-medium py-2 mb-3 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors bg-blue-50/50"
+                  >
+                    ✕ Filter aktiv: {selectedCountryFilter} – Klicken zum Aufheben
+                  </button>
+                )}
+                {/* Länder-Karten - klickbar für Filter */}
+                {analysis.byCountry && Object.keys(analysis.byCountry).length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {Object.entries(analysis.byCountry)
+                        .sort(([countryA, a], [countryB, b]) => {
+                          const getRiskOrder = (level: string) => level === "high" ? 0 : level === "medium" ? 1 : 2;
+                          const aRisk = getRiskOrder(a.riskLevel);
+                          const bRisk = getRiskOrder(b.riskLevel);
+                          if (aRisk !== bRisk) return aRisk - bRisk;
+                          return countryA.localeCompare(countryB);
+                        })
+                        .map(([country, data]) => {
+                        const isSelected = selectedCountryFilter === country;
+                        return (
+                          <div 
+                            key={country}
+                            onClick={() => setSelectedCountryFilter(isSelected ? null : country)}
+                            className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                              isSelected 
+                                ? "ring-2 ring-blue-500 border-blue-400 shadow-md" 
+                                : data.riskLevel === "high" ? "bg-red-50 border-red-200 hover:border-red-400" :
+                                  data.riskLevel === "medium" ? "bg-orange-50 border-orange-200 hover:border-orange-400" :
+                                  "bg-teal-50 border-teal-200 hover:border-teal-400"
+                            } ${
+                              !isSelected && (
+                                data.riskLevel === "high" ? "bg-red-50" :
+                                data.riskLevel === "medium" ? "bg-orange-50" :
+                                "bg-teal-50"
+                              )
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-bold text-gray-900">{country}</span>
+                              <span className={`text-lg font-bold ${
+                                data.riskLevel === "high" ? "text-red-600" :
+                                data.riskLevel === "medium" ? "text-orange-600" :
+                                "text-teal-600"
+                              }`}>{data.riskScore}%</span>
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              {data.conflictCount} {data.conflictCount === 1 ? "Konflikt" : "Konflikte"}
+                            </div>
+                            <div className={`text-xs mt-1 ${
+                              data.riskLevel === "high" ? "text-red-700" :
+                              data.riskLevel === "medium" ? "text-orange-700" :
+                              "text-teal-700"
+                            }`}>
+                              {data.riskLevel === "high" ? "⚠️ Hohes Risiko" :
+                               data.riskLevel === "medium" ? "⚡ Mittleres Risiko" :
+                               "✅ Niedriges Risiko"}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="border-t border-gray-200 pt-3">
+                      <p className="text-sm text-gray-600 line-clamp-3">{analysis.executiveSummary}</p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-6">
+                    <AnimatedRiskScore score={analysis.overallRiskScore} risk={analysis.overallRiskLevel} size="large" />
+                    <div className="flex-1">
+                      <div className="text-sm text-gray-500 mb-1">Konflikte</div>
+                      <div className="text-3xl font-bold text-gray-900">{conflicts.length}</div>
+                      <p className="text-sm text-gray-600 mt-2 line-clamp-3">{analysis.executiveSummary}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
+          {(() => {
+            const filteredConflicts = selectedCountryFilter 
+              ? conflicts.filter(c => c.relevantCountries?.includes(selectedCountryFilter))
+              : conflicts;
+            const displayCount = filteredConflicts.length;
+            
+            return (
+              <div className="lg:col-span-1">
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden lg:h-[560px] flex flex-col">
+                  <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center"><AlertCircle className="w-5 h-5 text-white" /></div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm truncate">
+                          {selectedCountryFilter ? `Konflikte für ${selectedCountryFilter}` : "Top Konflikte"}
+                        </div>
+                        <div className="text-xs text-white/85 truncate">
+                          {displayCount} {displayCount === 1 ? "Treffer" : "Treffer"}
+                          {selectedCountryFilter && ` (gefiltert)`}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-h-0 p-4 overflow-y-auto custom-scrollbar">
+                    <div className="space-y-3">
+                      {filteredConflicts.slice(0, 8).map((c, idx) => (
+                        <div key={`${c.id}-${idx}`} className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-all ${c.riskLevel === "high" ? "bg-red-50 border-red-200 hover:border-red-300" : c.riskLevel === "medium" ? "bg-orange-50 border-orange-200 hover:border-orange-300" : "bg-gray-50 border-gray-200 hover:border-gray-300"}`}
+                          onClick={() => setSelectedConflict({ id: String(c.id || idx), name: c.name, register: c.office, protection: c.relevantCountries || [], applicationNumber: c.applicationNumber, registrationNumber: c.registrationNumber, status: c.status === "LIVE" ? "active" : "expired", classes: c.classes.map(Number), accuracy: c.accuracy || c.riskScore, applicationDate: c.dates?.applied || null, registrationDate: c.dates?.granted || null, holder: c.owner?.name, isFamousMark: false, reasoning: c.reasoning, riskLevel: c.riskLevel })}>
+                          {/* Zeile 1: Name + Score */}
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${c.riskLevel === "high" ? "bg-red-500" : c.riskLevel === "medium" ? "bg-orange-500" : "bg-gray-400"}`} />
+                              <div className="font-semibold text-gray-900 truncate">{c.name}</div>
+                            </div>
+                            <div className={`text-sm font-bold px-2 py-0.5 rounded ${c.riskLevel === "high" ? "bg-red-100 text-red-700" : c.riskLevel === "medium" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-600"}`}>{c.accuracy || c.riskScore}%</div>
+                          </div>
+                          {/* Zeile 2: Register | Länder | Status */}
+                          <div className="flex items-center gap-3 text-xs mb-1">
+                            <span className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded font-medium">{c.office}</span>
+                            {c.relevantCountries && c.relevantCountries.length > 0 && !selectedCountryFilter && (
+                              <span className="text-blue-600 font-medium">{c.relevantCountries.join(", ")}</span>
+                            )}
+                            <span className={`px-1.5 py-0.5 rounded text-xs ${c.status === "LIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{c.status === "LIVE" ? "Aktiv" : "Inaktiv"}</span>
+                          </div>
+                          {/* Zeile 3: Klassen */}
+                          <div className="text-xs text-gray-500 mb-1.5">
+                            <span className="font-medium">Kl.</span> {c.classes.join(", ")}
+                          </div>
+                          {/* Zeile 4: Begründung */}
+                          {c.reasoning && <div className="text-xs text-gray-600 line-clamp-2 pt-1.5 border-t border-gray-200/50">{c.reasoning}</div>}
+                        </div>
+                      ))}
+                      {filteredConflicts.length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                          <Check className="w-8 h-8 mx-auto mb-2 text-teal-500" />
+                          <p className="text-sm">
+                            {selectedCountryFilter 
+                              ? `Keine Konflikte für ${selectedCountryFilter}` 
+                              : "Keine kritischen Konflikte"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       );
     }
@@ -5959,16 +6130,16 @@ Antworte kurz und prägnant. Per DU.
                     {conflicts.slice(0, 10).map((c, idx) => (
                       <div
                         key={c.id || idx}
-                        className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-shadow ${
-                          c.riskLevel === "high" ? "bg-red-50 border-red-200" :
-                          c.riskLevel === "medium" ? "bg-orange-50 border-orange-200" :
-                          "bg-gray-50 border-gray-200"
+                        className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-all ${
+                          c.riskLevel === "high" ? "bg-red-50 border-red-200 hover:border-red-300" :
+                          c.riskLevel === "medium" ? "bg-orange-50 border-orange-200 hover:border-orange-300" :
+                          "bg-gray-50 border-gray-200 hover:border-gray-300"
                         }`}
                         onClick={() => setSelectedConflict({
                           id: String(c.id),
                           name: c.name,
                           register: c.office,
-                          protection: c.protection, // Schutzländer
+                          protection: c.protection,
                           applicationNumber: c.applicationNumber,
                           registrationNumber: c.registrationNumber,
                           status: c.status === "LIVE" ? "active" : "expired",
@@ -5984,23 +6155,25 @@ Antworte kurz und prägnant. Per DU.
                           image: c.image,
                         })}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium text-gray-900 truncate">{c.name}</div>
-                            <div className="text-xs text-gray-500 mt-0.5">
-                              {c.office} · Kl. {c.classes.join(", ")}
-                            </div>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${c.riskLevel === "high" ? "bg-red-500" : c.riskLevel === "medium" ? "bg-orange-500" : "bg-gray-400"}`} />
+                            <div className="font-semibold text-gray-900 truncate">{c.name}</div>
                           </div>
-                          <div className={`text-xs font-bold px-2 py-1 rounded ${
-                            c.riskLevel === "high" ? "bg-red-100 text-red-700" :
-                            c.riskLevel === "medium" ? "bg-orange-100 text-orange-700" :
-                            "bg-gray-100 text-gray-600"
-                          }`}>
-                            {c.riskScore}%
-                          </div>
+                          <div className={`text-sm font-bold px-2 py-0.5 rounded ${c.riskLevel === "high" ? "bg-red-100 text-red-700" : c.riskLevel === "medium" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-600"}`}>{c.accuracy || c.riskScore}%</div>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs mb-1">
+                          <span className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded font-medium">{c.office}</span>
+                          {c.relevantCountries && c.relevantCountries.length > 0 && (
+                            <span className="text-blue-600 font-medium">{c.relevantCountries.join(", ")}</span>
+                          )}
+                          <span className={`px-1.5 py-0.5 rounded text-xs ${c.status === "LIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{c.status === "LIVE" ? "Aktiv" : "Inaktiv"}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mb-1.5">
+                          <span className="font-medium">Kl.</span> {c.classes.join(", ")}
                         </div>
                         {c.reasoning && (
-                          <div className="text-xs text-gray-600 mt-2 line-clamp-2">{c.reasoning}</div>
+                          <div className="text-xs text-gray-600 line-clamp-2 pt-1.5 border-t border-gray-200/50">{c.reasoning}</div>
                         )}
                       </div>
                     ))}
