@@ -22,6 +22,20 @@
       "when": 1767624049598,
       "tag": "0002_thin_smiling_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1768206992640,
+      "tag": "0003_organic_ghost_rider",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1768316961397,
+      "tag": "0004_rainy_catseye",
+      "breakpoints": true
     }
   ]
 }
