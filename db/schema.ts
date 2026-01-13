@@ -256,6 +256,34 @@ export const rechercheHistoryRelations = relations(rechercheHistory, ({ one }) =
   user: one(users, { fields: [rechercheHistory.userId], references: [users.id] }),
 }));
 
+// Chat-Logs für Berater-Monitor (Token-Tracking)
+export const chatLogs = pgTable("chat_logs", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  caseId: varchar("case_id", { length: 255 }).references(() => trademarkCases.id, { onDelete: "set null" }),
+  sessionId: varchar("session_id", { length: 255 }), // Gruppierung von Nachrichten
+  role: varchar("role", { length: 20 }).notNull(), // "user" | "assistant" | "system"
+  content: text("content").notNull(),
+  inputTokens: integer("input_tokens").default(0),
+  outputTokens: integer("output_tokens").default(0),
+  totalTokens: integer("total_tokens").default(0),
+  costEur: text("cost_eur"), // Kosten in Euro (als String für Präzision)
+  credits: integer("credits").default(0),
+  model: varchar("model", { length: 100 }), // z.B. "claude-sonnet-4-20250514"
+  durationMs: integer("duration_ms"), // Antwortzeit in Millisekunden
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("chat_logs_user_idx").on(table.userId),
+  caseIdx: index("chat_logs_case_idx").on(table.caseId),
+  sessionIdx: index("chat_logs_session_idx").on(table.sessionId),
+  createdAtIdx: index("chat_logs_created_at_idx").on(table.createdAt),
+}));
+
+export const chatLogsRelations = relations(chatLogs, ({ one }) => ({
+  user: one(users, { fields: [chatLogs.userId], references: [users.id] }),
+  case: one(trademarkCases, { fields: [chatLogs.caseId], references: [trademarkCases.id] }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Consultation = typeof consultations.$inferSelect;
@@ -272,3 +300,5 @@ export type CaseAnalysis = typeof caseAnalyses.$inferSelect;
 export type NewCaseAnalysis = typeof caseAnalyses.$inferInsert;
 export type RechercheHistory = typeof rechercheHistory.$inferSelect;
 export type NewRechercheHistory = typeof rechercheHistory.$inferInsert;
+export type ChatLog = typeof chatLogs.$inferSelect;
+export type NewChatLog = typeof chatLogs.$inferInsert;

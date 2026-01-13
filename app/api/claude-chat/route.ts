@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
+import { logChatMessage, generateSessionId } from "@/lib/chat-logger";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -504,8 +506,15 @@ Bei weiteren Datenschutz-Fragen → auf Datenschutzerklärung/Impressum verweise
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth für Logging
+    const session = await auth();
+    const userId = session?.user?.id;
+
     const body = await request.json();
-    const { messages: rawMessages, message, previousMessages, systemPromptAddition, previousSummary, image } = body;
+    const { messages: rawMessages, message, previousMessages, systemPromptAddition, previousSummary, image, caseId, chatSessionId } = body;
+    
+    // Session-ID für Gruppierung (vom Client oder neu generieren)
+    const sessionId = chatSessionId || generateSessionId();
 
     // Support both formats: messages array OR message + previousMessages
     let messages = rawMessages;
@@ -556,11 +565,29 @@ export async function POST(request: NextRequest) {
       };
     });
 
+    // User-Nachricht loggen (letzte Nachricht im Array)
+    const lastUserMessage = messages.filter((m: { role: string }) => m.role === "user").pop();
+    if (userId && lastUserMessage) {
+      await logChatMessage({
+        userId,
+        caseId,
+        sessionId,
+        role: "user",
+        content: typeof lastUserMessage.content === "string" ? lastUserMessage.content : "[Bild + Text]",
+      });
+    }
+
     // Create streaming response
     const encoder = new TextEncoder();
+    const startTime = Date.now();
+    
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          let fullResponse = "";
+          let inputTokens = 0;
+          let outputTokens = 0;
+
           const response = await anthropic.messages.create({
             model: "claude-opus-4-20250514",
             max_tokens: 1500,
@@ -572,11 +599,42 @@ export async function POST(request: NextRequest) {
           for await (const event of response) {
             if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
               const text = event.delta.text;
+              fullResponse += text;
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text", text })}\n\n`));
             }
             
+            // Token-Usage erfassen
+            if (event.type === "message_delta" && event.usage) {
+              outputTokens = event.usage.output_tokens;
+            }
+            
+            if (event.type === "message_start" && event.message.usage) {
+              inputTokens = event.message.usage.input_tokens;
+            }
+            
             if (event.type === "message_stop") {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
+              const durationMs = Date.now() - startTime;
+              
+              // Assistant-Antwort loggen
+              if (userId) {
+                await logChatMessage({
+                  userId,
+                  caseId,
+                  sessionId,
+                  role: "assistant",
+                  content: fullResponse,
+                  inputTokens,
+                  outputTokens,
+                  model: "claude-opus-4-20250514",
+                  durationMs,
+                });
+              }
+              
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+                type: "done", 
+                sessionId,
+                usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens }
+              })}\n\n`));
             }
           }
           

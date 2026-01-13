@@ -9,6 +9,7 @@ import {
   X,
   LogOut,
   ChevronRight,
+  ChevronDown,
   Loader2,
   FolderOpen,
   LayoutDashboard,
@@ -19,8 +20,20 @@ import {
   FileText,
   MessageCircle,
   Eye,
-  Calendar
+  Calendar,
+  User,
+  CreditCard,
+  Settings,
+  Trash2
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useEffect } from "react";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import { UnsavedDataProvider, useUnsavedData } from "@/app/contexts/UnsavedDataContext";
@@ -71,6 +84,8 @@ function Sidebar({
   const [showNewCaseModal, setShowNewCaseModal] = useState(false);
   const [pendingHash, setPendingHash] = useState<string | null>(null);
   const [createCaseError, setCreateCaseError] = useState<string | null>(null);
+  const [showDeleteProfileModal, setShowDeleteProfileModal] = useState(false);
+  const [isDeletingProfile, setIsDeletingProfile] = useState(false);
 
   const openNewCaseModal = (hash: string) => {
     setPendingHash(hash);
@@ -270,35 +285,94 @@ function Sidebar({
           </Link>
         </nav>
 
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-              {session.user?.image ? (
-                <img 
-                  src={session.user.image} 
-                  alt={userName}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-              ) : (
-                <span className="text-primary font-medium text-sm">{userInitials}</span>
-              )}
+        {/* Credit-Anzeige */}
+        <div className="px-4 py-3 border-t border-gray-200">
+          <div className="bg-gray-50 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-gray-600">Credits</span>
+              <span className="text-xs text-gray-500">33 / 50</span>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{userName}</p>
-              <p className="text-xs text-gray-500 truncate">{userEmail}</p>
+            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-primary rounded-full" style={{ width: '66%' }} />
             </div>
+            <p className="text-xs text-gray-400 mt-1">Free Plan</p>
           </div>
-          <button 
-            onClick={async () => {
-              await signOut({ redirect: false });
-              router.push("/");
-              router.refresh();
-            }}
-            className="flex items-center gap-2 w-full px-4 py-2 mt-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            Abmelden
-          </button>
+        </div>
+
+        <div className="p-4 border-t border-gray-200">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-3 px-4 py-3 w-full hover:bg-gray-100 rounded-lg transition-colors">
+                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                  {session.user?.image ? (
+                    <img 
+                      src={session.user.image} 
+                      alt={userName}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-primary font-medium text-sm">{userInitials}</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-medium text-gray-900 truncate">{userName}</p>
+                  <p className="text-xs text-gray-500 truncate">{userEmail}</p>
+                </div>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+            </DropdownMenuTrigger>
+            
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Mein Konto</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuItem 
+                onClick={() => router.push('/dashboard/profile')}
+                className="cursor-pointer"
+              >
+                <User className="mr-2 h-4 w-4" />
+                Profil
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem 
+                onClick={() => router.push('/dashboard/subscription')}
+                className="cursor-pointer"
+              >
+                <CreditCard className="mr-2 h-4 w-4" />
+                Subscription verwalten
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem 
+                onClick={() => router.push('/dashboard/settings')}
+                className="cursor-pointer"
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                Einstellungen
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuItem 
+                onClick={() => setShowDeleteProfileModal(true)}
+                className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Profil löschen
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem 
+                onClick={async () => {
+                  await signOut({ redirect: false });
+                  router.push("/");
+                  router.refresh();
+                }}
+                className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Abmelden
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -348,6 +422,70 @@ function Sidebar({
               <button
                 onClick={cancelNewCaseModal}
                 disabled={isCreatingCase}
+                className="w-full px-4 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Profile Modal */}
+      {showDeleteProfileModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4"
+          onClick={() => setShowDeleteProfileModal(false)}
+        >
+          <div 
+            className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Profil unwiderruflich löschen?
+              </h3>
+              <p className="text-sm text-gray-600">
+                Alle Ihre Daten, Markenfälle und Recherchen werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={async () => {
+                  setIsDeletingProfile(true);
+                  try {
+                    const res = await fetch("/api/user/delete", { method: "DELETE" });
+                    if (res.ok) {
+                      await signOut({ callbackUrl: "/" });
+                    } else {
+                      alert("Fehler beim Löschen. Bitte erneut versuchen.");
+                    }
+                  } catch (err) {
+                    console.error("Delete profile error:", err);
+                    alert("Fehler beim Löschen. Bitte erneut versuchen.");
+                  } finally {
+                    setIsDeletingProfile(false);
+                  }
+                }}
+                disabled={isDeletingProfile}
+                className="w-full px-4 py-2.5 text-white bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isDeletingProfile ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Lösche...
+                  </>
+                ) : (
+                  "Ja, Profil löschen"
+                )}
+              </button>
+              <button
+                onClick={() => setShowDeleteProfileModal(false)}
+                disabled={isDeletingProfile}
                 className="w-full px-4 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50"
               >
                 Abbrechen
