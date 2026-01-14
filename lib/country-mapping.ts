@@ -74,13 +74,24 @@ export function getRelevantCountries(
   
   // 3. Protection-Länder die gesucht werden (immer prüfen)
   for (const c of protectionUpper) {
+    // Direkter Match: Protection-Land ist in gesuchten Ländern
     if (searchedUpper.includes(c)) {
       relevant.add(c);
     }
+    
+    // Regionaler Code in Protection (z.B. BX, OA, EU):
+    // Wenn Protection "BX" enthält und User "BE" sucht → BE ist relevant
+    if (REGIONAL_REGISTERS[c]) {
+      for (const regionCountry of REGIONAL_REGISTERS[c]) {
+        if (searchedUpper.includes(regionCountry)) {
+          relevant.add(regionCountry);
+        }
+      }
+    }
   }
   
-  // 4. Bei WIPO (WO): Nur die designierten Länder aus protection sind relevant
-  //    (bereits durch Schritt 3 abgedeckt)
+  // 4. Bei WIPO (WO): Die designierten Länder aus protection sind relevant
+  //    Regionale Codes werden jetzt auch korrekt expandiert (Schritt 3)
   
   return Array.from(relevant);
 }
