@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { logApiUsage } from "@/lib/api-logger";
+import { 
+  BENELUX_COUNTRIES, 
+  OAPI_COUNTRIES, 
+  getWIPODesignation 
+} from "@/lib/tmsearch/types";
 
 const TMSEARCH_SEARCH_URL = "https://tmsearch.ai/api/search/";
 const TEST_API_KEY = "TESTAPIKEY";
@@ -10,6 +15,34 @@ const EU_COUNTRIES = [
   "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
   "PL", "PT", "RO", "SK", "SI", "ES", "SE"
 ];
+
+// Erweitert die ausgewählten Länder um regionale WIPO-Codes
+// z.B. BE → BX (Benelux), CM → OA (OAPI)
+function expandCountriesWithRegionalCodes(countries: string[]): string[] {
+  const expanded = new Set(countries.map(c => c.toUpperCase()));
+  
+  for (const country of countries) {
+    const code = country.toUpperCase();
+    
+    // Füge regionalen WIPO-Code hinzu (BE → BX, CM → OA)
+    const wipoDesignation = getWIPODesignation(code);
+    if (wipoDesignation !== code) {
+      expanded.add(wipoDesignation);
+    }
+    
+    // Umgekehrt: Wenn BX gewählt, füge BE, NL, LU hinzu
+    if (code === "BX") {
+      BENELUX_COUNTRIES.forEach(c => expanded.add(c));
+    }
+    
+    // Umgekehrt: Wenn OA gewählt, füge alle OAPI-Länder hinzu
+    if (code === "OA") {
+      OAPI_COUNTRIES.forEach(c => expanded.add(c));
+    }
+  }
+  
+  return Array.from(expanded);
+}
 
 interface TMSearchResult {
   mid?: string | number;
@@ -45,8 +78,11 @@ function filterResults(
   const originalCount = results.length;
 
   // Filter by countries/offices (including WIPO designations and EUIPO for EU countries)
+  // Erweitere die Länder um regionale Codes (BE → BX, CM → OA, etc.)
   if (filters.countries && filters.countries.length > 0) {
-    const selectedCountries = filters.countries.map(c => c.toUpperCase());
+    const originalCountries = filters.countries.map(c => c.toUpperCase());
+    // Erweitere um regionale WIPO-Codes (BE → BX, CM → OA)
+    const selectedCountries = expandCountriesWithRegionalCodes(originalCountries);
     const hasEuCountry = selectedCountries.some(c => EU_COUNTRIES.includes(c));
     const includeEuipo = hasEuCountry && !selectedCountries.includes("EU");
 
@@ -54,13 +90,13 @@ function filterResults(
       const office = (r.submition || "").toUpperCase();
       const protection = (r.protection || []).map(p => String(p).toUpperCase());
 
-      // Direct office match
+      // Direct office match (inkl. regionale Codes wie BX, OA)
       if (selectedCountries.includes(office)) return true;
 
       // EUIPO marks apply to all EU member countries
       if (includeEuipo && office === "EU") return true;
 
-      // Protection array match (for direct country marks)
+      // Protection array match (inkl. regionale Codes wie BX, OA)
       if (protection.some(p => selectedCountries.includes(p))) return true;
 
       // WIPO marks with matching designation
