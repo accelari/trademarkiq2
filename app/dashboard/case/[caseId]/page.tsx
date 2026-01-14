@@ -7252,6 +7252,15 @@ Antworte kurz und prägnant. Per DU.
                     <FileText className="w-4 h-4" />
                     Gutachten erstellen
                   </button>
+                  
+                  {/* Weiter zur Anmeldung Button */}
+                  <button
+                    onClick={() => handleToggleAccordion("anmeldung")}
+                    className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0D9488] text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                    Weiter zur Anmeldung
+                  </button>
                 </div>
               </div>
             </div>
