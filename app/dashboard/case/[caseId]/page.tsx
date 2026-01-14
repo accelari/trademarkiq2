@@ -2016,8 +2016,10 @@ Soll ich die Recherche starten?`
       if (missing.length === 0 && !hasNotifiedCompleteRef.current) {
         hasNotifiedCompleteRef.current = true; // Verhindert mehrfache Nachrichten
         
+        const currentName = manualNameInput || rechercheForm.trademarkName || "";
+        const needsLogo = trademarkType === "bildmarke" || trademarkType === "wort-bildmarke";
+        
         if (openAccordion === "markenname") {
-          const needsLogo = trademarkType === "bildmarke" || trademarkType === "wort-bildmarke";
           targetRef.current?.sendQuestion(
             `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. ${needsLogo ? "Logo ist bereit!" : ""} Frag ob der Benutzer zur Recherche weitergehen möchte.]`
           );
@@ -2026,9 +2028,14 @@ Soll ich die Recherche starten?`
             `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. Alles bereit für die Recherche! Bestätige kurz.]`
           );
         } else {
-          // Beratung-Akkordeon
+          // Beratung-Akkordeon - WICHTIG: Web-Suche + korrekte Navigation
           targetRef.current?.sendQuestion(
-            `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. Bestätige kurz und frag ob der Benutzer zur Recherche weitergehen möchte.]`
+            `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. 
+WICHTIG - Befolge diese Schritte:
+1) Führe ZUERST eine Web-Suche durch um den Markennamen zu prüfen: [WEB_SUCHE:${currentName} trademark brand company]
+2) Warne bei Konflikten und erkläre was du gefunden hast
+3) ${needsLogo ? 'Bei Bildmarke/Wort-Bildmarke: Frag "Möchtest du jetzt dein Logo erstellen?" - bei JA dann [GOTO:markenname]' : 'Bei Wortmarke: Frag "Sollen wir zur Recherche gehen?" - bei JA dann [GOTO:recherche]'}
+4) Warte auf User-Antwort bevor du navigierst!]`
           );
         }
       }
@@ -4405,20 +4412,26 @@ Soll ich die Recherche starten?`
 
             </div>
             
-            {/* Weiter-Button - außerhalb des scrollbaren Bereichs */}
+            {/* Weiter-Button - triggert Chat für Internet-Check + Navigation */}
             <div className="p-4 border-t border-gray-100">
               <button
                 type="button"
                 onClick={() => {
-                  const targetAccordion = (trademarkType === "bildmarke" || trademarkType === "wort-bildmarke") 
-                    ? "markenname" 
-                    : "recherche";
-                  setOpenAccordion(targetAccordion);
-                  window.location.hash = `#${targetAccordion}`;
-                  setTimeout(() => {
-                    const el = document.getElementById(`accordion-${targetAccordion}`);
-                    el?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }, 100);
+                  const currentName = manualNameInput || rechercheForm.trademarkName || "";
+                  const needsLogo = trademarkType === "bildmarke" || trademarkType === "wort-bildmarke";
+                  const classes = rechercheForm.niceClasses.join(", ") || "keine";
+                  const countries = rechercheForm.countries.join(", ") || "keine";
+                  const typeLabel = trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : trademarkType === "wort-bildmarke" ? "Wort-/Bildmarke" : "nicht gewählt";
+                  
+                  // Chat triggern für Internet-Check + Navigation
+                  voiceAssistantRef.current?.sendQuestion(
+                    `[SYSTEM: User hat auf 'Weiter' geklickt. Aktueller Stand: Marke "${currentName}", Art: ${typeLabel}, Klassen: ${classes}, Länder: ${countries}.
+WICHTIG - Befolge diese Schritte:
+1) Führe eine Web-Suche durch um den Markennamen zu prüfen: [WEB_SUCHE:${currentName} trademark brand company]
+2) Warne bei Konflikten und erkläre was du gefunden hast
+3) ${needsLogo ? 'Bei Bildmarke/Wort-Bildmarke: Frag "Möchtest du jetzt dein Logo erstellen?" - bei JA dann [GOTO:markenname]' : 'Bei Wortmarke: Frag "Sollen wir zur Recherche gehen?" - bei JA dann [GOTO:recherche]'}
+4) Warte auf User-Antwort bevor du navigierst!]`
+                  );
                 }}
                 className="w-full px-4 py-3 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors flex items-center justify-center gap-2"
               >
