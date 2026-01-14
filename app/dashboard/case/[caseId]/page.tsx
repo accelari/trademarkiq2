@@ -1548,6 +1548,42 @@ export default function CasePage() {
     }
   }, [sessionMessages, trademarkType]);
 
+  // Auto-Start Recherche: Wenn durch Chat [RECHERCHE_STARTEN] getriggert
+  // WICHTIG: Muss in useEffect sein, nicht in render-Funktion!
+  const autoStartRechercheTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (autoStartRecherche && openAccordion === "recherche" && !autoStartRechercheTriggeredRef.current) {
+      autoStartRechercheTriggeredRef.current = true;
+      
+      // Validierung: Prüfe ob alle Felder ausgefüllt sind
+      const keyword = (rechercheForm.trademarkName || "").trim();
+      const countries = rechercheForm.countries || [];
+      const classes = (rechercheForm.niceClasses || []).filter((n: number) => Number.isFinite(n));
+      
+      if (!keyword || countries.length === 0 || classes.length === 0) {
+        console.warn("[RECHERCHE_STARTEN] Abgebrochen - Felder nicht vollständig:", { keyword, countries, classes });
+        setAutoStartRecherche(false);
+        autoStartRechercheTriggeredRef.current = false;
+        return;
+      }
+      
+      console.log("[RECHERCHE_STARTEN] Auto-Start Recherche für:", keyword);
+      
+      // Kurze Verzögerung damit UI sich aktualisieren kann
+      setTimeout(() => {
+        // Simuliere Klick auf "Recherche starten" Button
+        const startButton = document.querySelector('[data-recherche-start-button]') as HTMLButtonElement;
+        if (startButton && !startButton.disabled) {
+          startButton.click();
+        } else {
+          console.warn("[RECHERCHE_STARTEN] Button nicht gefunden oder disabled");
+        }
+        setAutoStartRecherche(false);
+        autoStartRechercheTriggeredRef.current = false;
+      }, 500);
+    }
+  }, [autoStartRecherche, openAccordion, rechercheForm.trademarkName, rechercheForm.countries, rechercheForm.niceClasses]);
+
   // Daten-Extraktion erfolgt jetzt NUR über Chat-Trigger [MARKE:...], [KLASSEN:...], etc.
   // Zusammenfassungs-Extraktion entfernt - konsistent mit Markenname und Recherche
 
@@ -4939,10 +4975,8 @@ Halte dich kurz (ca. 5-8 Sätze), aber erkläre die wichtigsten Punkte.`;
       }
     };
 
-    // Auto-Start: Wenn durch Chat getriggert, Live-Analyse starten
-    if (autoStartRecherche && !isRunningLiveAnalysis) {
-      startLiveAnalysis();
-    }
+    // Auto-Start wurde in useEffect verschoben (Zeile ~1551)
+    // Der Check hier wurde entfernt, da Side-Effects in render-Funktionen ein React Anti-Pattern sind
 
     const baseNiceClasses = Array.from(
       new Set((rechercheForm.niceClasses || []).filter((n) => Number.isFinite(n)).map((n) => Math.max(1, Math.min(45, Math.floor(n)))))
@@ -5595,6 +5629,7 @@ SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfra
             ) : (
               <button
                 type="button"
+                data-recherche-start-button
                 onClick={() => void startLiveAnalysis()}
                 disabled={isSavingRechercheForm || isStartingRecherche}
                 className="w-full py-2.5 px-4 s-gradient-button text-sm font-medium rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
