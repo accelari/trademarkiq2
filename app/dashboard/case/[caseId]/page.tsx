@@ -5399,14 +5399,17 @@ UNTERSCHIED WICHTIG:
 ═══════════════════════════════════════════════════════════
 
 WEITERE RECHERCHE (nach Ergebnis):
-Wenn der Kunde eine weitere/neue Recherche machen will (sagt "weitere recherche", "nochmal", "anderen namen", "neuen namen"):
-1. Sage kurz was du tust
-2. IMMER am Ende den Trigger setzen: [WEITERE_RECHERCHE]
-3. Das Formular wird zurückgesetzt und der Kunde kann einen neuen Namen eingeben
+⚠️ WICHTIG: Wenn der Kunde "weitere recherche", "nochmal", "anderen namen", "neuen namen" sagt:
+1. SOFORT den Trigger setzen: [WEITERE_RECHERCHE]
+2. Dann nach dem neuen Namen fragen
+3. OHNE Trigger funktioniert das Formular-Reset NICHT!
+
+❌ FALSCH: "Für welchen Namen soll ich recherchieren?" (ohne Trigger - Formular bleibt!)
+✅ RICHTIG: "Klar! Welchen Namen möchtest du prüfen? [WEITERE_RECHERCHE]" (Formular wird zurückgesetzt!)
 
 BEISPIEL:
-User: "Ich möchte einen anderen Namen recherchieren"
-Du: "Klar! Ich setze das Formular zurück für eine neue Recherche. Welchen Namen möchtest du prüfen? [WEITERE_RECHERCHE]"
+User: "weitere recherche"
+Du: "Alles klar! Ich setze das Formular zurück. Welchen Namen möchtest du recherchieren? [WEITERE_RECHERCHE]"
 
 ═══════════════════════════════════════════════════════════
 
