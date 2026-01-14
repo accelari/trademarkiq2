@@ -304,9 +304,27 @@ export default function CreditsPage() {
               )}
               <div className="text-center">
                 <p className="text-2xl font-bold text-gray-900">{pkg.credits}</p>
-                <p className="text-sm text-gray-500 mb-3">Credits</p>
-                <p className="text-xl font-semibold text-primary mb-4">
+                <p className="text-sm text-gray-500 mb-2">Credits</p>
+                {/* Rabatt-Anzeige */}
+                {pkg.credits === 900 && (
+                  <p className="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full inline-block mb-2">
+                    3% Rabatt
+                  </p>
+                )}
+                {pkg.credits === 1900 && (
+                  <p className="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full inline-block mb-2">
+                    7% Rabatt
+                  </p>
+                )}
+                {pkg.credits === 350 && (
+                  <p className="text-xs text-gray-400 mb-2">Einstiegspaket</p>
+                )}
+                <p className="text-xl font-semibold text-primary mb-1">
                   {pkg.priceEur.toFixed(2)} EUR
+                </p>
+                {/* Preis pro Credit */}
+                <p className="text-xs text-gray-400 mb-3">
+                  {(pkg.priceEur / pkg.credits * 100).toFixed(1)} Cent/Credit
                 </p>
                 <a
                   href={pkg.stripeLink || "#"}
