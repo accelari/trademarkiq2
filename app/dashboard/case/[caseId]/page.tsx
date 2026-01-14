@@ -1913,8 +1913,11 @@ Soll ich die Recherche starten?`
     }
   }, [sessionMessages, manualNameInput, rechercheForm.niceClasses, rechercheForm.countries, trademarkType, isTrademarkTypeConfirmed, openAccordion]);
 
-  // Erkennung manueller Änderungen - KI reagiert mit Verzögerung (nur bei ECHTEN manuellen Änderungen)
+  // Erkennung manueller Änderungen - HYBRID-ANSATZ: Still protokollieren, nur bei "alles komplett" Chat-Nachricht
+  // Einzelne Änderungen werden still protokolliert (kein Chat)
+  // Nur wenn ALLE Felder komplett sind, sendet der Chat EINMAL eine Bestätigung
   const lastAccordionRef = useRef<string | null>(null);
+  const hasNotifiedCompleteRef = useRef<boolean>(false); // Verhindert mehrfache "Alles komplett" Nachrichten
   useEffect(() => {
     // Nicht wenn keine Session aktiv oder wenn Änderung durch KI-Trigger kam
     if (sessionMessages.length === 0) return;
@@ -1922,9 +1925,10 @@ Soll ich die Recherche starten?`
     // Nur in Beratung, Markenname oder Recherche aktiv
     if (openAccordion !== "beratung" && openAccordion !== "markenname" && openAccordion !== "recherche") return;
     
-    // Akkordeon-Wechsel erkennen und überspringen (keine Benachrichtigung bei Wechsel)
+    // Akkordeon-Wechsel erkennen - Reset des "komplett" Flags
     if (lastAccordionRef.current !== openAccordion) {
       lastAccordionRef.current = openAccordion;
+      hasNotifiedCompleteRef.current = false; // Reset bei Akkordeon-Wechsel
       // Aktuellen Zustand speichern ohne Benachrichtigung
       lastNotifiedStateRef.current = JSON.stringify({
         name: openAccordion === "recherche" ? rechercheForm.trademarkName : manualNameInput,
@@ -1954,15 +1958,18 @@ Soll ich die Recherche starten?`
       return;
     }
     
-    // Wenn sich nichts geändert hat oder gleicher Zustand wie letzte Benachrichtigung, abbrechen
+    // Wenn sich nichts geändert hat, abbrechen
     if (currentState === lastNotifiedStateRef.current) return;
+    
+    // Zustand still aktualisieren (protokollieren ohne Chat-Nachricht)
+    lastNotifiedStateRef.current = currentState;
     
     // Vorherigen Timeout löschen (Debounce)
     if (manualChangeTimeoutRef.current) {
       clearTimeout(manualChangeTimeoutRef.current);
     }
     
-    // Neuen Timeout setzen - KI reagiert erst nach 3 Sekunden Inaktivität
+    // Neuen Timeout setzen - Prüfe ob ALLES komplett ist (10 Sekunden warten)
     manualChangeTimeoutRef.current = setTimeout(() => {
       // Wähle die richtige Ref je nach Akkordeon
       const targetRef = openAccordion === "recherche" 
@@ -2005,40 +2012,28 @@ Soll ich die Recherche starten?`
         }
       }
       
-      // Nachricht an KI - immer wenn sich etwas geändert hat
-      lastNotifiedStateRef.current = currentState;
-      
-      if (openAccordion === "markenname") {
-        // Im Markenname-Akkordeon
-        if (present.length > 0) {
+      // HYBRID-ANSATZ: Nur Chat-Nachricht wenn ALLES komplett ist UND noch nicht benachrichtigt wurde
+      if (missing.length === 0 && !hasNotifiedCompleteRef.current) {
+        hasNotifiedCompleteRef.current = true; // Verhindert mehrfache Nachrichten
+        
+        if (openAccordion === "markenname") {
           const needsLogo = trademarkType === "bildmarke" || trademarkType === "wort-bildmarke";
-          const nextStep = missing.length === 0 
-            ? (needsLogo ? "Logo ist bereit! Weiter zur Recherche?" : "Alles bereit für die Recherche!")
-            : `Noch offen: ${missing.join(", ")}.`;
           targetRef.current?.sendQuestion(
-            `[SYSTEM: Formular aktualisiert: ${present.join(", ")}. ${nextStep} Bestätige kurz.]`
+            `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. ${needsLogo ? "Logo ist bereit!" : ""} Frag ob der Benutzer zur Recherche weitergehen möchte.]`
           );
-        }
-      } else if (openAccordion === "recherche") {
-        // Im Recherche-Akkordeon
-        if (present.length > 0) {
+        } else if (openAccordion === "recherche") {
           targetRef.current?.sendQuestion(
-            `[SYSTEM: Formular aktualisiert: ${present.join(", ")}. ${missing.length > 0 ? `Noch offen: ${missing.join(", ")}.` : "Alles bereit für die Recherche!"} Bestätige kurz.]`
+            `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. Alles bereit für die Recherche! Bestätige kurz.]`
           );
-        }
-      } else {
-        // Im Beratung-Akkordeon: Original-Logik
-        if (missing.length === 0) {
+        } else {
+          // Beratung-Akkordeon
           targetRef.current?.sendQuestion(
             `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. Bestätige kurz und frag ob der Benutzer zur Recherche weitergehen möchte.]`
           );
-        } else {
-          targetRef.current?.sendQuestion(
-            `[SYSTEM: Aktueller Stand: ${present.length > 0 ? present.join(", ") : "noch nichts eingetragen"}. Noch offen: ${missing.join(", ")}. Bestätige kurz was eingetragen wurde und frag nach dem nächsten fehlenden Punkt.]`
-          );
         }
       }
-    }, 3000); // 3 Sekunden warten
+      // Bei unvollständigen Daten: KEINE Chat-Nachricht (stilles Protokollieren)
+    }, 10000); // 10 Sekunden warten (länger für weniger Unterbrechungen)
     
     return () => {
       if (manualChangeTimeoutRef.current) {
