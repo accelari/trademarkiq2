@@ -2137,6 +2137,25 @@ WICHTIG - Befolge diese Schritte:
       // und initialisiert die Schritte korrekt
       setAutoStartRecherche(true);
     }
+    
+    // [WEITERE_RECHERCHE] - Neue Recherche starten (Formular zurücksetzen)
+    if (content.includes("[WEITERE_RECHERCHE]")) {
+      hasAction = true;
+      // Navigiere zum Recherche-Akkordeon
+      setOpenAccordion("recherche");
+      // Formular zurücksetzen (nur Markenname leeren, Rest beibehalten)
+      setRechercheForm(prev => ({
+        ...prev,
+        trademarkName: "", // Nur Markenname leeren
+      }));
+      setManualNameInput("");
+      // Analyse-Ansicht ausblenden, Formular zeigen
+      setShowRechercheAnalysis(false);
+      setActiveRechercheId(null);
+      setRechercheFormValidationAttempted(false);
+      setLiveAnalysisError(null);
+      console.log("[WEITERE_RECHERCHE] Formular zurückgesetzt für neue Recherche");
+    }
 
     // [WEB_SUCHE:query] - Web-Suche über Tavily ausführen
     const webSearchMatch = content.match(/\[WEB_SUCHE:([^\]]+)\]/);
@@ -5318,6 +5337,7 @@ TRIGGER-SYSTEM (IMMER VERWENDEN!):
 - Klassen ändern: [KLASSEN:01,02,09]
 - Länder ändern: [LAENDER:DE,EU,US]
 - Recherche starten: [RECHERCHE_STARTEN]
+- Weitere/Neue Recherche: [WEITERE_RECHERCHE]
 - Web-Suche: [WEB_SUCHE:deine Suchanfrage]
 
 ═══════════════════════════════════════════════════════════
@@ -5374,7 +5394,20 @@ Du: "Ich starte die Recherche für '${rechercheForm.trademarkName}' in ${recherc
 ═══════════════════════════════════════════════════════════
 UNTERSCHIED WICHTIG:
 - [RECHERCHE_STARTEN] → Sucht Konflikte in Markendatenbanken
+- [WEITERE_RECHERCHE] → Setzt Formular zurück für neue Recherche (nach Ergebnis)
 - [WEB_SUCHE:...] → Sucht Infos im Internet (Anforderungen, Gebühren, etc.)
+═══════════════════════════════════════════════════════════
+
+WEITERE RECHERCHE (nach Ergebnis):
+Wenn der Kunde eine weitere/neue Recherche machen will (sagt "weitere recherche", "nochmal", "anderen namen", "neuen namen"):
+1. Sage kurz was du tust
+2. IMMER am Ende den Trigger setzen: [WEITERE_RECHERCHE]
+3. Das Formular wird zurückgesetzt und der Kunde kann einen neuen Namen eingeben
+
+BEISPIEL:
+User: "Ich möchte einen anderen Namen recherchieren"
+Du: "Klar! Ich setze das Formular zurück für eine neue Recherche. Welchen Namen möchtest du prüfen? [WEITERE_RECHERCHE]"
+
 ═══════════════════════════════════════════════════════════
 
 NAVIGATION-TRIGGER (um zu anderem Bereich zu wechseln):
