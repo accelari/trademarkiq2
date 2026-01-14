@@ -123,6 +123,285 @@ export const REGION_MAPPINGS: Record<string, string[]> = {
   EMEA: ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "AE", "SA", "ZA", "EG", "IL"],
 };
 
+// TMSearch.ai verfügbare nationale Register (basierend auf tmsearch.ai/database)
+// Diese Länder haben ein direktes nationales Register bei TMSearch.ai
+export const TMSEARCH_AVAILABLE_REGISTERS: Record<string, boolean> = {
+  // Internationale Register (immer verfügbar)
+  "WO": true,   // WIPO
+  "EU": true,   // EUIPO
+  
+  // Nationale Register bei TMSearch.ai verfügbar
+  "US": true,   // USPTO - United States
+  "IN": true,   // India
+  "GB": true,   // UKIPO - United Kingdom
+  "AR": true,   // Argentina
+  "MX": true,   // Mexico
+  "TW": true,   // Taiwan
+  "ES": true,   // OEPM - Spain
+  "TR": true,   // TÜRKPATENT - Turkey
+  "AU": true,   // IP Australia
+  "CA": true,   // CIPO - Canada
+  "RU": true,   // ROSPATENT - Russia
+  "IT": true,   // UIBM - Italy
+  "CH": true,   // IGE - Switzerland
+  "HK": true,   // Hong Kong
+  "UA": true,   // Ukraine
+  "SA": true,   // Saudi Arabia
+  "NO": true,   // Norway
+  "AE": true,   // UAE
+  "IL": true,   // Israel
+  "MA": true,   // Morocco
+  "EG": true,   // Egypt
+  "GE": true,   // Georgia
+  "EE": true,   // Estonia
+  "KZ": true,   // Kazakhstan
+  "LT": true,   // Lithuania
+  "KE": true,   // Kenya
+  "OM": true,   // Oman
+  "BY": true,   // Belarus
+  "LV": true,   // Latvia
+  "BH": true,   // Bahrain
+  "AM": true,   // Armenia
+  "UZ": true,   // Uzbekistan
+  "MD": true,   // Moldova
+  "AZ": true,   // Azerbaijan
+  "KG": true,   // Kyrgyzstan
+  "BW": true,   // Botswana
+  
+  // Wichtige Länder OHNE direktes nationales Register bei TMSearch.ai
+  "DE": false,  // DPMA - Deutschland (nur über EUIPO/WIPO)
+  "FR": false,  // INPI - Frankreich (nur über EUIPO/WIPO)
+  "AT": false,  // ÖPA - Österreich (nur über EUIPO/WIPO)
+  "NL": false,  // BOIP - Niederlande/Benelux (nur über EUIPO/WIPO)
+  "BE": false,  // BOIP - Belgien/Benelux (nur über EUIPO/WIPO)
+  "LU": false,  // BOIP - Luxemburg/Benelux (nur über EUIPO/WIPO)
+  "PL": false,  // Polen (nur über EUIPO/WIPO)
+  "PT": false,  // Portugal (nur über EUIPO/WIPO)
+  "SE": false,  // Schweden (nur über EUIPO/WIPO)
+  "DK": false,  // Dänemark (nur über EUIPO/WIPO)
+  "FI": false,  // Finnland (nur über EUIPO/WIPO)
+  "IE": false,  // Irland (nur über EUIPO/WIPO)
+  "GR": false,  // Griechenland (nur über EUIPO/WIPO)
+  "CZ": false,  // Tschechien (nur über EUIPO/WIPO)
+  "HU": false,  // Ungarn (nur über EUIPO/WIPO)
+  "RO": false,  // Rumänien (nur über EUIPO/WIPO)
+  "BG": false,  // Bulgarien (nur über EUIPO/WIPO)
+  "HR": false,  // Kroatien (nur über EUIPO/WIPO)
+  "SK": false,  // Slowakei (nur über EUIPO/WIPO)
+  "SI": false,  // Slowenien (nur über EUIPO/WIPO)
+  "CY": false,  // Zypern (nur über EUIPO/WIPO)
+  "MT": false,  // Malta (nur über EUIPO/WIPO)
+  "CN": false,  // China (nur über WIPO)
+  "JP": false,  // Japan (nur über WIPO)
+  "KR": false,  // Südkorea (nur über WIPO)
+  "BR": false,  // Brasilien (nur über WIPO)
+};
+
+// Links zu offiziellen nationalen Markenregistern für Selbstrecherche
+export const NATIONAL_REGISTER_URLS: Record<string, { name: string; url: string; searchUrl?: string }> = {
+  "DE": { 
+    name: "DPMA (Deutsches Patent- und Markenamt)", 
+    url: "https://www.dpma.de",
+    searchUrl: "https://register.dpma.de/DPMAregister/marke/einsteiger"
+  },
+  "FR": { 
+    name: "INPI (Institut National de la Propriété Industrielle)", 
+    url: "https://www.inpi.fr",
+    searchUrl: "https://data.inpi.fr/recherche_avancee/marques"
+  },
+  "AT": { 
+    name: "Österreichisches Patentamt", 
+    url: "https://www.patentamt.at",
+    searchUrl: "https://see-ip.patentamt.at/"
+  },
+  "NL": { 
+    name: "BOIP (Benelux Office for Intellectual Property)", 
+    url: "https://www.boip.int",
+    searchUrl: "https://www.boip.int/en/trademarks-register"
+  },
+  "BE": { 
+    name: "BOIP (Benelux Office for Intellectual Property)", 
+    url: "https://www.boip.int",
+    searchUrl: "https://www.boip.int/en/trademarks-register"
+  },
+  "LU": { 
+    name: "BOIP (Benelux Office for Intellectual Property)", 
+    url: "https://www.boip.int",
+    searchUrl: "https://www.boip.int/en/trademarks-register"
+  },
+  "PL": { 
+    name: "Polnisches Patentamt (UPRP)", 
+    url: "https://uprp.gov.pl",
+    searchUrl: "https://ewyszukiwarka.pue.uprp.gov.pl/search/simple-search"
+  },
+  "PT": { 
+    name: "INPI Portugal", 
+    url: "https://inpi.justica.gov.pt",
+    searchUrl: "https://servicosonline.inpi.pt/pesquisas/main/marcas.jsp"
+  },
+  "SE": { 
+    name: "PRV (Patent- och registreringsverket)", 
+    url: "https://www.prv.se",
+    searchUrl: "https://tc.prv.se/spd/search"
+  },
+  "DK": { 
+    name: "Danish Patent and Trademark Office", 
+    url: "https://www.dkpto.dk",
+    searchUrl: "https://onlineweb.dkpto.dk/pvsonline/Varemaerke"
+  },
+  "FI": { 
+    name: "PRH (Finnish Patent and Registration Office)", 
+    url: "https://www.prh.fi",
+    searchUrl: "https://tavaramerkkitietokanta.prh.fi/"
+  },
+  "IE": { 
+    name: "IPOI (Intellectual Property Office of Ireland)", 
+    url: "https://www.ipoi.gov.ie",
+    searchUrl: "https://eregister.ipoi.gov.ie/query/TMSearch.aspx"
+  },
+  "GR": { 
+    name: "Griechisches Markenamt", 
+    url: "https://www.ggb.gr",
+    searchUrl: "https://www.tmdn.org/tmview/"
+  },
+  "CZ": { 
+    name: "Tschechisches Patentamt (ÚPV)", 
+    url: "https://www.upv.cz",
+    searchUrl: "https://isdv.upv.cz/webapp/!resdb.oza.frm"
+  },
+  "HU": { 
+    name: "Ungarisches Patentamt (SZTNH)", 
+    url: "https://www.sztnh.gov.hu",
+    searchUrl: "https://www.sztnh.gov.hu/en/searches"
+  },
+  "CN": { 
+    name: "CNIPA (China National Intellectual Property Administration)", 
+    url: "https://www.cnipa.gov.cn",
+    searchUrl: "https://wcjs.sbj.cnipa.gov.cn/"
+  },
+  "JP": { 
+    name: "JPO (Japan Patent Office)", 
+    url: "https://www.jpo.go.jp",
+    searchUrl: "https://www.j-platpat.inpit.go.jp/"
+  },
+  "KR": { 
+    name: "KIPO (Korean Intellectual Property Office)", 
+    url: "https://www.kipo.go.kr",
+    searchUrl: "http://engdtj.kipris.or.kr/engdtj/grrt1000a.do"
+  },
+  "BR": { 
+    name: "INPI Brasil", 
+    url: "https://www.gov.br/inpi",
+    searchUrl: "https://busca.inpi.gov.br/pePI/jsp/marcas/Pesquisa_classe_702.jsp"
+  },
+};
+
+// Interface für Suchbericht
+export interface SearchCoverageReport {
+  // Länder die der User ausgewählt hat
+  selectedCountries: string[];
+  
+  // Register die tatsächlich durchsucht wurden
+  searchedRegisters: {
+    code: string;
+    name: string;
+    type: "national" | "euipo" | "wipo";
+  }[];
+  
+  // Länder ohne direktes nationales Register (nur EUIPO/WIPO durchsucht)
+  countriesWithoutNationalRegister: {
+    countryCode: string;
+    countryName: string;
+    nationalRegisterName: string;
+    searchUrl?: string;
+    searchedVia: ("EUIPO" | "WIPO")[];
+  }[];
+  
+  // Ob Kollisionen gefunden wurden (pro Land)
+  conflictsFoundPerCountry: Record<string, number>;
+  
+  // Warnung anzeigen? (nur wenn keine Kollisionen UND fehlendes nationales Register)
+  showWarning: boolean;
+  
+  // Länder für die eine Warnung angezeigt werden soll
+  countriesNeedingManualSearch: {
+    countryCode: string;
+    countryName: string;
+    nationalRegisterName: string;
+    searchUrl?: string;
+  }[];
+}
+
+// Hilfsfunktion: Prüfen ob ein Land ein direktes nationales Register bei TMSearch hat
+export function hasNationalRegister(countryCode: string): boolean {
+  const code = countryCode.toUpperCase();
+  return TMSEARCH_AVAILABLE_REGISTERS[code] === true;
+}
+
+// Hilfsfunktion: Suchbericht für ausgewählte Länder erstellen
+export function createSearchCoverageReport(
+  selectedCountries: string[],
+  conflictsPerCountry: Record<string, number>
+): SearchCoverageReport {
+  const searchedRegisters: SearchCoverageReport["searchedRegisters"] = [];
+  const countriesWithoutNationalRegister: SearchCoverageReport["countriesWithoutNationalRegister"] = [];
+  const countriesNeedingManualSearch: SearchCoverageReport["countriesNeedingManualSearch"] = [];
+  
+  // EUIPO und WIPO sind immer durchsucht
+  searchedRegisters.push({ code: "EU", name: "EUIPO", type: "euipo" });
+  searchedRegisters.push({ code: "WO", name: "WIPO", type: "wipo" });
+  
+  for (const country of selectedCountries) {
+    const code = country.toUpperCase();
+    const countryName = OFFICE_NAMES[code] || code;
+    const hasNational = hasNationalRegister(code);
+    const conflictsFound = conflictsPerCountry[code] || 0;
+    
+    if (hasNational) {
+      // Nationales Register verfügbar
+      searchedRegisters.push({ 
+        code, 
+        name: countryName, 
+        type: "national" 
+      });
+    } else {
+      // Kein nationales Register - nur EUIPO/WIPO
+      const searchedVia: ("EUIPO" | "WIPO")[] = [];
+      if (EU_COUNTRIES.includes(code)) searchedVia.push("EUIPO");
+      if (WIPO_MEMBERS.includes(code)) searchedVia.push("WIPO");
+      
+      const registerInfo = NATIONAL_REGISTER_URLS[code];
+      
+      countriesWithoutNationalRegister.push({
+        countryCode: code,
+        countryName,
+        nationalRegisterName: registerInfo?.name || `${countryName} Markenamt`,
+        searchUrl: registerInfo?.searchUrl,
+        searchedVia,
+      });
+      
+      // Warnung nur wenn KEINE Kollisionen für dieses Land gefunden wurden
+      if (conflictsFound === 0) {
+        countriesNeedingManualSearch.push({
+          countryCode: code,
+          countryName,
+          nationalRegisterName: registerInfo?.name || `${countryName} Markenamt`,
+          searchUrl: registerInfo?.searchUrl,
+        });
+      }
+    }
+  }
+  
+  return {
+    selectedCountries,
+    searchedRegisters,
+    countriesWithoutNationalRegister,
+    conflictsFoundPerCountry: conflictsPerCountry,
+    showWarning: countriesNeedingManualSearch.length > 0,
+    countriesNeedingManualSearch,
+  };
+}
+
 export interface SearchOfficeStrategy {
   country: string;
   countryName: string;

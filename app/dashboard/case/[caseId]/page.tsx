@@ -39,6 +39,7 @@ import {
   Image as ImageIcon,
   Download,
   Trash2,
+  ExternalLink,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { RechercheHistoryBanner, RechercheHistoryItem } from "@/app/components/RechercheHistoryBanner";
@@ -546,6 +547,27 @@ export default function CasePage() {
       riskAssessment: string;
       recommendation: string;
       topConflicts: Array<{ name: string; office: string; classes: number[]; riskScore: number; reasoning: string }>;
+      byCountry?: Record<string, { riskScore: number; riskLevel: "low" | "medium" | "high"; conflictCount: number; recommendation: string }>;
+    };
+    // SearchCoverageReport - zeigt welche Register durchsucht wurden und welche nicht
+    searchCoverage?: {
+      selectedCountries: string[];
+      searchedRegisters: Array<{ code: string; name: string; type: "national" | "euipo" | "wipo" }>;
+      countriesWithoutNationalRegister: Array<{
+        countryCode: string;
+        countryName: string;
+        nationalRegisterName: string;
+        searchUrl?: string;
+        searchedVia: ("EUIPO" | "WIPO")[];
+      }>;
+      conflictsFoundPerCountry: Record<string, number>;
+      showWarning: boolean;
+      countriesNeedingManualSearch: Array<{
+        countryCode: string;
+        countryName: string;
+        nationalRegisterName: string;
+        searchUrl?: string;
+      }>;
     };
     conflicts: Array<{
       id: string | number;
@@ -561,9 +583,11 @@ export default function CasePage() {
       owner: { name?: string; country?: string };
       goodsServices: string[];
       imageUrl: string | null;
+      image?: string | null;
       riskScore: number;
       riskLevel: "low" | "medium" | "high";
       reasoning: string;
+      relevantCountries?: string[];
     }>;
   } | null>(null);
   
@@ -6175,6 +6199,47 @@ SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfra
             </button>
           </div>
 
+          {/* Warnung: Nationale Register nicht durchsucht (nur wenn keine Kollisionen gefunden) */}
+          {liveAnalysisResult.searchCoverage?.showWarning && liveAnalysisResult.searchCoverage.countriesNeedingManualSearch.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-5 h-5 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-amber-800 mb-1">Hinweis zur Recherche-Abdeckung</div>
+                  <p className="text-sm text-amber-700 mb-3">
+                    Für folgende Länder haben wir keine Kollisionen in EUIPO/WIPO gefunden. Das nationale Markenregister ist über unsere Schnittstelle nicht verfügbar. Es könnten noch nationale Marken existieren.
+                  </p>
+                  <div className="space-y-2">
+                    {liveAnalysisResult.searchCoverage.countriesNeedingManualSearch.map(country => (
+                      <div key={country.countryCode} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-100">
+                        <div>
+                          <span className="font-medium text-gray-800">{country.countryName}</span>
+                          <span className="text-sm text-gray-500 ml-2">({country.nationalRegisterName})</span>
+                        </div>
+                        {country.searchUrl && (
+                          <a
+                            href={country.searchUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            Selbst recherchieren
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-amber-600 mt-3">
+                    Durchsuchte Register: {liveAnalysisResult.searchCoverage.searchedRegisters.map(r => r.name).join(", ")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Three Widget Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Widget 1: KI-Berater */}
@@ -6300,7 +6365,7 @@ Antworte kurz und prägnant. Per DU.
                           reasoning: c.reasoning,
                           riskLevel: c.riskLevel,
                           goodsServices: c.goodsServices,
-                          image: c.image,
+                          image: c.image ?? undefined,
                         })}
                       >
                         <div className="flex items-center justify-between gap-2 mb-1.5">

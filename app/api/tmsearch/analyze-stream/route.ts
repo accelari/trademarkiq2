@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import { getRelevantCountries, getRegisterCountries } from "@/lib/country-mapping";
 import { logApiUsage } from "@/lib/api-logger";
+import { createSearchCoverageReport, SearchCoverageReport } from "@/lib/tmsearch/types";
 
 const TMSEARCH_SEARCH_URL = "https://tmsearch.ai/api/search/";
 const TEST_API_KEY = "TESTAPIKEY";
@@ -546,12 +547,46 @@ export async function POST(request: NextRequest) {
 
         sendStep({ id: "summary", name: "Zusammenfassung", status: "done", result: summary, endTime: Date.now() });
 
+        // Konflikte pro Land zählen für SearchCoverageReport
+        const conflictsPerCountry: Record<string, number> = {};
+        for (const country of countries) {
+          const countryCode = country.toUpperCase();
+          // Zähle Konflikte die für dieses Land relevant sind
+          const countryConflictCount = topConflicts.filter(c => {
+            const relevantCountries = c.relevantCountries || [];
+            const protection = c.protection || [];
+            const office = (c.submition || "").toUpperCase();
+            
+            // Direkte Übereinstimmung
+            if (relevantCountries.includes(countryCode)) return true;
+            if (protection.map(p => p.toUpperCase()).includes(countryCode)) return true;
+            if (office === countryCode) return true;
+            
+            // EUIPO gilt für alle EU-Länder
+            if (office === "EU" && EU_COUNTRIES.includes(countryCode)) return true;
+            
+            // WIPO mit Designation
+            if (office === "WO") {
+              if (protection.map(p => p.toUpperCase()).includes(countryCode)) return true;
+              if (protection.includes("EU") && EU_COUNTRIES.includes(countryCode)) return true;
+            }
+            
+            return false;
+          }).length;
+          
+          conflictsPerCountry[countryCode] = countryConflictCount;
+        }
+        
+        // SearchCoverageReport erstellen
+        const searchCoverageReport = createSearchCoverageReport(countries, conflictsPerCountry);
+
         // Final Result
         sendResult({
           success: true,
           query: { keyword, countries, classes, effectiveClasses, trademarkType },
           stats: { totalRaw: allResults.length, totalFiltered: filteredResults.length, analyzedCount: topConflicts.length },
           analysis: summary,
+          searchCoverage: searchCoverageReport,
           conflicts: topConflicts.map(c => ({
             id: c.mid, 
             name: c.verbal, 
