@@ -1918,6 +1918,8 @@ Soll ich die Recherche starten?`
   // Nur wenn ALLE Felder komplett sind, sendet der Chat EINMAL eine Bestätigung
   const lastAccordionRef = useRef<string | null>(null);
   const hasNotifiedCompleteRef = useRef<boolean>(false); // Verhindert mehrfache "Alles komplett" Nachrichten
+  const hasTriggeredWebCheckRef = useRef<boolean>(false); // Verhindert mehrfache "Weiter"-Button Klicks
+  const lastWebCheckStateRef = useRef<string>(""); // Speichert den Zustand beim letzten Web-Check
   useEffect(() => {
     // Nicht wenn keine Session aktiv oder wenn Änderung durch KI-Trigger kam
     if (sessionMessages.length === 0) return;
@@ -4422,6 +4424,25 @@ WICHTIG - Befolge diese Schritte:
                   const classes = rechercheForm.niceClasses.join(", ") || "keine";
                   const countries = rechercheForm.countries.join(", ") || "keine";
                   const typeLabel = trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : trademarkType === "wort-bildmarke" ? "Wort-/Bildmarke" : "nicht gewählt";
+                  
+                  // Aktueller Zustand für Vergleich
+                  const currentState = JSON.stringify({ name: currentName, classes, countries, type: trademarkType });
+                  
+                  // Wenn Web-Check bereits für diesen Zustand gemacht wurde → direkt navigieren
+                  if (hasTriggeredWebCheckRef.current && lastWebCheckStateRef.current === currentState) {
+                    const targetAccordion = needsLogo ? "markenname" : "recherche";
+                    setOpenAccordion(targetAccordion);
+                    window.location.hash = `#${targetAccordion}`;
+                    setTimeout(() => {
+                      const el = document.getElementById(`accordion-${targetAccordion}`);
+                      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }, 100);
+                    return;
+                  }
+                  
+                  // Ersten Klick: Web-Check triggern und Zustand speichern
+                  hasTriggeredWebCheckRef.current = true;
+                  lastWebCheckStateRef.current = currentState;
                   
                   // Chat triggern für Internet-Check + Navigation
                   voiceAssistantRef.current?.sendQuestion(
