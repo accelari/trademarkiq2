@@ -37,6 +37,7 @@ import {
 import { useEffect } from "react";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import { UnsavedDataProvider, useUnsavedData } from "@/app/contexts/UnsavedDataContext";
+import { CreditDisplay } from "@/components/CreditDisplay";
 
 const baseNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -287,16 +288,9 @@ function Sidebar({
 
         {/* Credit-Anzeige */}
         <div className="px-4 py-3 border-t border-gray-200">
-          <div className="bg-gray-50 rounded-lg p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-gray-600">Credits</span>
-              <span className="text-xs text-gray-500">33 / 50</span>
-            </div>
-            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full bg-primary rounded-full" style={{ width: '66%' }} />
-            </div>
-            <p className="text-xs text-gray-400 mt-1">Free Plan</p>
-          </div>
+          <Link href="/dashboard/credits" className="block">
+            <CreditDisplay className="w-full" />
+          </Link>
         </div>
 
         <div className="p-4 border-t border-gray-200">
