@@ -454,6 +454,93 @@ export const caseLogosRelations = relations(caseLogos, ({ one }) => ({
   user: one(users, { fields: [caseLogos.userId], references: [users.id] }),
 }));
 
+// Anmelder-Daten - Gespeicherte Anmelderdaten pro User (wiederverwendbar)
+export const applicantProfiles = pgTable("applicant_profiles", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Anmelder-Typ
+  applicantType: varchar("applicant_type", { length: 20 }).notNull(), // "privat" | "firma"
+  
+  // Basis-Daten
+  name: varchar("name", { length: 255 }).notNull(), // Vollständiger Name oder Firmenname
+  street: varchar("street", { length: 255 }).notNull(),
+  zip: varchar("zip", { length: 20 }).notNull(),
+  city: varchar("city", { length: 100 }).notNull(),
+  country: varchar("country", { length: 5 }).notNull(), // ISO-Code (DE, AT, CH, etc.)
+  
+  // Kontakt
+  email: varchar("email", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
+  
+  // Firma-spezifisch
+  legalForm: varchar("legal_form", { length: 50 }), // GmbH, UG, AG, etc.
+  registrationNumber: varchar("registration_number", { length: 100 }), // Handelsregisternummer
+  
+  // Status
+  isDefault: boolean("is_default").default(false), // Standard-Profil für neue Anmeldungen
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("applicant_profiles_user_idx").on(table.userId),
+}));
+
+export const applicantProfilesRelations = relations(applicantProfiles, ({ one }) => ({
+  user: one(users, { fields: [applicantProfiles.userId], references: [users.id] }),
+}));
+
+// Anmeldung-Aufträge - Aufträge für Vertreter-Anmeldungen
+export const registrationOrders = pgTable("registration_orders", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id", { length: 255 }).notNull().references(() => trademarkCases.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Marken-Daten
+  trademarkName: varchar("trademark_name", { length: 255 }).notNull(),
+  trademarkType: varchar("trademark_type", { length: 50 }).notNull(),
+  niceClasses: jsonb("nice_classes").$type<number[]>().default([]),
+  countries: jsonb("countries").$type<string[]>().default([]),
+  
+  // Anmelder-Daten (Snapshot zum Zeitpunkt der Bestellung)
+  applicantData: jsonb("applicant_data").$type<{
+    type: string;
+    name: string;
+    street: string;
+    zip: string;
+    city: string;
+    country: string;
+    email: string;
+    phone?: string;
+    legalForm?: string;
+  }>().notNull(),
+  
+  // Kosten
+  officeFees: decimal("office_fees", { precision: 10, scale: 2 }).notNull(), // Amtsgebühren
+  serviceFee: decimal("service_fee", { precision: 10, scale: 2 }).notNull(), // Vertreterkosten
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }).notNull(),
+  
+  // Status
+  status: varchar("status", { length: 50 }).default("pending"), // pending, confirmed, in_progress, completed, cancelled
+  emailSent: boolean("email_sent").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+  
+  // Notizen
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  caseIdx: index("registration_orders_case_idx").on(table.caseId),
+  userIdx: index("registration_orders_user_idx").on(table.userId),
+  statusIdx: index("registration_orders_status_idx").on(table.status),
+}));
+
+export const registrationOrdersRelations = relations(registrationOrders, ({ one }) => ({
+  case: one(trademarkCases, { fields: [registrationOrders.caseId], references: [trademarkCases.id] }),
+  user: one(users, { fields: [registrationOrders.userId], references: [users.id] }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Consultation = typeof consultations.$inferSelect;
@@ -482,3 +569,7 @@ export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type NewCreditTransaction = typeof creditTransactions.$inferInsert;
 export type CaseLogo = typeof caseLogos.$inferSelect;
 export type NewCaseLogo = typeof caseLogos.$inferInsert;
+export type ApplicantProfile = typeof applicantProfiles.$inferSelect;
+export type NewApplicantProfile = typeof applicantProfiles.$inferInsert;
+export type RegistrationOrder = typeof registrationOrders.$inferSelect;
+export type NewRegistrationOrder = typeof registrationOrders.$inferInsert;

@@ -40,6 +40,8 @@ import {
   Download,
   Trash2,
   ExternalLink,
+  User,
+  CreditCard,
 } from "lucide-react";
 import { AnimatedRiskScore } from "@/app/components/cases/AnimatedRiskScore";
 import { RechercheHistoryBanner, RechercheHistoryItem } from "@/app/components/RechercheHistoryBanner";
@@ -54,6 +56,7 @@ import Tooltip, {
   ConflictsTooltip, 
 } from "@/app/components/ui/tooltip";
 import { getBeratungPrompt, getRecherchePrompt, getMarkennamePrompt, getAnmeldungPrompt } from "@/lib/prompts";
+import { getAnmeldungRules } from "@/lib/prompts/anmeldung";
 import { RechercheSteps, RechercheStep } from "@/app/components/RechercheSteps";
 import { ReportGenerator } from "@/app/components/ReportGenerator";
 
@@ -1425,14 +1428,42 @@ export default function CasePage() {
     }).catch(err => console.warn("Failed to save event to DB:", err));
   }, [caseId]);
   
-  const [anmeldungStrategy, setAnmeldungStrategy] = useState<{
-    route: string;
-    steps: { country: string; office: string; selfRegister: boolean; cost: number; icon: string }[];
-    totalCost: number;
-    hints: string[];
-  } | null>(null);
-  const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
-  const lastStrategyMessageCountRef = useRef(0);
+    const [anmeldungStrategy, setAnmeldungStrategy] = useState<{
+      route: string;
+      steps: { country: string; office: string; selfRegister: boolean; cost: number; icon: string }[];
+      totalCost: number;
+      hints: string[];
+    } | null>(null);
+    const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
+    const lastStrategyMessageCountRef = useRef(0);
+
+    // Anmelder-Daten State (für Widget 2)
+    const [applicantData, setApplicantData] = useState({
+      type: "" as "" | "privat" | "firma",
+      name: "",
+      street: "",
+      zip: "",
+      city: "",
+      country: "DE",
+      email: "",
+      phone: "",
+      legalForm: "",
+    });
+    const [isLoadingApplicantProfile, setIsLoadingApplicantProfile] = useState(false);
+    const [isSavingApplicantProfile, setIsSavingApplicantProfile] = useState(false);
+    const [savedApplicantProfileId, setSavedApplicantProfileId] = useState<string | null>(null);
+
+    // Kosten-Berechnung State (für Widget 3)
+    const [calculatedCosts, setCalculatedCosts] = useState<{
+      breakdown: Array<{ country: string; officeFee: number; serviceFee: number; currency: string }>;
+      totalOfficeFees: number;
+      totalServiceFees: number;
+      totalCost: number;
+    } | null>(null);
+    const [isCalculatingCosts, setIsCalculatingCosts] = useState(false);
+    const [registrationMode, setRegistrationMode] = useState<"self" | "representative">("self");
+    const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+    const [orderSubmitted, setOrderSubmitted] = useState(false);
 
   // Generiere Strategie aus Anmeldungs-Nachrichten
   const generateAnmeldungStrategy = useCallback(async () => {
@@ -3700,15 +3731,232 @@ WICHTIG - Befolge diese Schritte:
       const result = await response.json();
       const analysisPrompt = result.content || result.message?.content || "";
       setLogoPrompt(analysisPrompt);
-    } catch (e) {
-      console.error("Failed to analyze reference image:", e);
-      setLogoGenerationError("Referenzbild-Analyse fehlgeschlagen");
-    } finally {
-      setIsAnalyzingReference(false);
-    }
-  }, [trademarkType, manualNameInput]);
+      } catch (e) {
+        console.error("Failed to analyze reference image:", e);
+        setLogoGenerationError("Referenzbild-Analyse fehlgeschlagen");
+      } finally {
+        setIsAnalyzingReference(false);
+      }
+    }, [trademarkType, manualNameInput]);
 
-  const applyTrademarkName = useCallback(
+    // Anmeldung: Anmelder-Profil laden
+    const loadApplicantProfile = useCallback(async () => {
+      try {
+        setIsLoadingApplicantProfile(true);
+        const res = await fetch("/api/anmeldung/applicant-profile");
+        if (res.ok) {
+          const { defaultProfile } = await res.json();
+          if (defaultProfile) {
+            setApplicantData({
+              type: defaultProfile.applicantType || "",
+              name: defaultProfile.name || "",
+              street: defaultProfile.street || "",
+              zip: defaultProfile.zip || "",
+              city: defaultProfile.city || "",
+              country: defaultProfile.country || "DE",
+              email: defaultProfile.email || "",
+              phone: defaultProfile.phone || "",
+              legalForm: defaultProfile.legalForm || "",
+            });
+            setSavedApplicantProfileId(defaultProfile.id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load applicant profile:", err);
+      } finally {
+        setIsLoadingApplicantProfile(false);
+      }
+    }, []);
+
+    // Anmeldung: Anmelder-Profil speichern
+    const saveApplicantProfile = useCallback(async () => {
+      if (!applicantData.type || !applicantData.name || !applicantData.email) {
+        return false;
+      }
+      try {
+        setIsSavingApplicantProfile(true);
+        const method = savedApplicantProfileId ? "PATCH" : "POST";
+        const body = savedApplicantProfileId
+          ? { profileId: savedApplicantProfileId, ...applicantData, applicantType: applicantData.type, isDefault: true }
+          : { ...applicantData, applicantType: applicantData.type, isDefault: true };
+      
+        const res = await fetch("/api/anmeldung/applicant-profile", {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      
+        if (res.ok) {
+          const { profile } = await res.json();
+          setSavedApplicantProfileId(profile.id);
+          return true;
+        }
+      } catch (err) {
+        console.error("Failed to save applicant profile:", err);
+      } finally {
+        setIsSavingApplicantProfile(false);
+      }
+      return false;
+    }, [applicantData, savedApplicantProfileId]);
+
+    // Anmeldung: Kosten berechnen
+    const calculateRegistrationCosts = useCallback(async (viaRepresentative: boolean) => {
+      const countries = rechercheForm.countries || [];
+      const numClasses = (rechercheForm.niceClasses || []).length || 1;
+    
+      if (countries.length === 0) {
+        setCalculatedCosts(null);
+        return;
+      }
+    
+      try {
+        setIsCalculatingCosts(true);
+        const res = await fetch(
+          `/api/anmeldung/registration-order?countries=${countries.join(",")}&classes=${numClasses}&viaRepresentative=${viaRepresentative}`
+        );
+      
+        if (res.ok) {
+          const { costs } = await res.json();
+          setCalculatedCosts(costs);
+        }
+      } catch (err) {
+        console.error("Failed to calculate costs:", err);
+      } finally {
+        setIsCalculatingCosts(false);
+      }
+    }, [rechercheForm.countries, rechercheForm.niceClasses]);
+
+    // Anmeldung: Vertreter-Auftrag absenden
+    const submitRepresentativeOrder = useCallback(async () => {
+      if (!caseId || !applicantData.name || !applicantData.email) {
+        return false;
+      }
+    
+      try {
+        setIsSubmittingOrder(true);
+        const res = await fetch("/api/anmeldung/registration-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            caseId,
+            trademarkName: data?.case?.trademarkName || manualNameInput || "",
+            trademarkType: trademarkType || "wortmarke",
+            niceClasses: rechercheForm.niceClasses || [],
+            countries: rechercheForm.countries || [],
+            applicantData: {
+              type: applicantData.type,
+              name: applicantData.name,
+              street: applicantData.street,
+              zip: applicantData.zip,
+              city: applicantData.city,
+              country: applicantData.country,
+              email: applicantData.email,
+              phone: applicantData.phone || undefined,
+              legalForm: applicantData.legalForm || undefined,
+            },
+          }),
+        });
+      
+        if (res.ok) {
+          setOrderSubmitted(true);
+          return true;
+        }
+      } catch (err) {
+        console.error("Failed to submit order:", err);
+      } finally {
+        setIsSubmittingOrder(false);
+      }
+      return false;
+    }, [caseId, applicantData, data?.case?.trademarkName, manualNameInput, trademarkType, rechercheForm.niceClasses, rechercheForm.countries]);
+
+    // Anmeldung: Prüfen ob Selbstanmeldung möglich ist
+    const checkSelfRegisterAllowed = useCallback(() => {
+      const countries = rechercheForm.countries || [];
+      if (countries.length === 0) return true;
+    
+      // Prüfe ob alle Länder Selbstanmeldung erlauben
+      return countries.every((c) => SELF_REGISTER_ALLOWED[c] === true);
+    }, [rechercheForm.countries]);
+
+    // Anmeldung: Trigger aus KI-Nachrichten verarbeiten
+    const processAnmeldungTriggers = useCallback((content: string) => {
+      // [ANMELDER_TYP:privat] oder [ANMELDER_TYP:firma]
+      const typMatch = content.match(/\[ANMELDER_TYP:(privat|firma)\]/i);
+      if (typMatch) {
+        setApplicantData(prev => ({ ...prev, type: typMatch[1].toLowerCase() as "privat" | "firma" }));
+      }
+    
+      // [ANMELDER_NAME:...]
+      const nameMatch = content.match(/\[ANMELDER_NAME:([^\]]+)\]/i);
+      if (nameMatch) {
+        setApplicantData(prev => ({ ...prev, name: nameMatch[1].trim() }));
+      }
+    
+      // [ANMELDER_STRASSE:...]
+      const streetMatch = content.match(/\[ANMELDER_STRASSE:([^\]]+)\]/i);
+      if (streetMatch) {
+        setApplicantData(prev => ({ ...prev, street: streetMatch[1].trim() }));
+      }
+    
+      // [ANMELDER_PLZ:...]
+      const zipMatch = content.match(/\[ANMELDER_PLZ:([^\]]+)\]/i);
+      if (zipMatch) {
+        setApplicantData(prev => ({ ...prev, zip: zipMatch[1].trim() }));
+      }
+    
+      // [ANMELDER_ORT:...]
+      const cityMatch = content.match(/\[ANMELDER_ORT:([^\]]+)\]/i);
+      if (cityMatch) {
+        setApplicantData(prev => ({ ...prev, city: cityMatch[1].trim() }));
+      }
+    
+      // [ANMELDER_LAND:...]
+      const countryMatch = content.match(/\[ANMELDER_LAND:([^\]]+)\]/i);
+      if (countryMatch) {
+        setApplicantData(prev => ({ ...prev, country: countryMatch[1].trim().toUpperCase() }));
+      }
+    
+      // [ANMELDER_EMAIL:...]
+      const emailMatch = content.match(/\[ANMELDER_EMAIL:([^\]]+)\]/i);
+      if (emailMatch) {
+        setApplicantData(prev => ({ ...prev, email: emailMatch[1].trim() }));
+      }
+    
+      // [ANMELDER_TELEFON:...]
+      const phoneMatch = content.match(/\[ANMELDER_TELEFON:([^\]]+)\]/i);
+      if (phoneMatch) {
+        setApplicantData(prev => ({ ...prev, phone: phoneMatch[1].trim() }));
+      }
+    
+      // [ANMELDER_RECHTSFORM:...]
+      const legalFormMatch = content.match(/\[ANMELDER_RECHTSFORM:([^\]]+)\]/i);
+      if (legalFormMatch) {
+        setApplicantData(prev => ({ ...prev, legalForm: legalFormMatch[1].trim() }));
+      }
+    
+      // [KOSTEN_BERECHNEN]
+      if (content.includes("[KOSTEN_BERECHNEN]")) {
+        calculateRegistrationCosts(registrationMode === "representative");
+      }
+    }, [calculateRegistrationCosts, registrationMode]);
+
+    // Anmeldung: Trigger-Verarbeitung bei neuen Nachrichten
+    useEffect(() => {
+      if (anmeldungMessages.length === 0) return;
+      const lastMsg = anmeldungMessages[anmeldungMessages.length - 1];
+      if (lastMsg?.role === "assistant" && lastMsg.content) {
+        processAnmeldungTriggers(lastMsg.content);
+      }
+    }, [anmeldungMessages, processAnmeldungTriggers]);
+
+    // Anmeldung: Profil laden wenn Akkordeon geöffnet wird
+    useEffect(() => {
+      if (openAccordion === "anmeldung" && !savedApplicantProfileId && !isLoadingApplicantProfile) {
+        loadApplicantProfile();
+      }
+    }, [openAccordion, savedApplicantProfileId, isLoadingApplicantProfile, loadApplicantProfile]);
+
+    const applyTrademarkName = useCallback(
     async (name: string, qc?: { riskLevel?: string; riskScore?: number; conflicts?: number; criticalCount?: number }) => {
       setNameGenError(null);
       try {
@@ -7450,51 +7698,75 @@ Antworte kurz und prägnant. Per DU.
   const renderAnmeldungContent = () => {
     const s = getStepStatus("anmeldung");
     const isBusy = isUpdatingStep === "anmeldung";
+    const selfRegisterAllowed = checkSelfRegisterAllowed();
 
-    // Schnellfragen für Anmeldung
-    const anmeldungQuickQuestions = [
-      { category: "EUIPO (EU-MARKE)", questions: [
-        "Was ist eine EU-Marke?",
-        "Kann ich beim EUIPO selbst anmelden?",
-        "Was kostet eine EU-Marke?",
-        "Welche Länder deckt die EU-Marke ab?",
-      ]},
-      { category: "WIPO / MADRID", questions: [
-        "Was ist das Madrid-System?",
-        "Wann lohnt sich eine WIPO-Anmeldung?",
-        "Brauche ich eine Basismarke?",
-        "Welche Länder sind Mitglied?",
-      ]},
-      { category: "BENELUX (BOIP)", questions: [
-        "Was ist die Benelux-Marke?",
-        "Deckt sie BE, NL, LU ab?",
-        "Kann ich dort selbst anmelden?",
-      ]},
-      { category: "VERTRETER", questions: [
-        "Wann brauche ich einen Vertreter?",
-        "Was kostet ein Vertreter?",
-        "Kann ich trotzdem selbst anmelden?",
-      ]},
-      { category: "KOSTEN", questions: [
-        "Was kostet die Anmeldung insgesamt?",
-        "Welche Gebühren gibt es?",
-        "Wie berechnen sich Klassengebühren?",
-      ]},
-      { category: "MÄNGELBESCHEIDE", questions: [
-        "Was ist ein Mängelbescheid?",
-        "Wie vermeide ich Mängelbescheide?",
-        "Was passiert bei Ablehnung?",
-      ]},
-    ];
-
-    // Kontext für KI-Anmeldungsberater
+    // Kontext für KI-Anmeldungsberater (mit erweiterten Anmelder-Daten)
     const anmeldungContext = {
       trademarkName: data?.case?.trademarkName || manualNameInput || "",
       trademarkType: trademarkType,
       niceClasses: rechercheForm.niceClasses || [],
-      selectedCountries: rechercheForm.countries || [],
-      hasConflicts: false, // TODO: aus Recherche-Ergebnissen
+      countries: rechercheForm.countries || [],
+      applicantType: applicantData.type,
+      applicantName: applicantData.name,
+      applicantStreet: applicantData.street,
+      applicantZip: applicantData.zip,
+      applicantCity: applicantData.city,
+      applicantCountry: applicantData.country,
+      applicantEmail: applicantData.email,
+      applicantPhone: applicantData.phone,
+      applicantLegalForm: applicantData.legalForm,
+      selfRegisterAllowed,
+      hasAllData: !!(applicantData.type && applicantData.name && applicantData.street && applicantData.zip && applicantData.city && applicantData.email),
     };
+
+    // Ländernamen für Anzeige
+    const countryNames: Record<string, string> = {
+      DE: "Deutschland (DPMA)",
+      EU: "EU (EUIPO)",
+      CH: "Schweiz (IGE)",
+      GB: "UK (UKIPO)",
+      US: "USA (USPTO)",
+      WO: "International (WIPO)",
+      BX: "Benelux (BOIP)",
+      AT: "Österreich",
+      FR: "Frankreich",
+      IT: "Italien",
+      ES: "Spanien",
+      NL: "Niederlande",
+      BE: "Belgien",
+      PL: "Polen",
+    };
+
+    // Prüfen ob alle Pflichtfelder ausgefüllt sind
+    const isApplicantDataComplete = !!(
+      applicantData.type &&
+      applicantData.name &&
+      applicantData.street &&
+      applicantData.zip &&
+      applicantData.city &&
+      applicantData.country &&
+      applicantData.email
+    );
+
+    // Auftrag erfolgreich gesendet
+    if (orderSubmitted) {
+      return (
+        <div className="space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+              <Check className="w-8 h-8 text-green-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-green-800 mb-2">Auftrag erfolgreich gesendet!</h3>
+            <p className="text-green-700 mb-4">
+              Wir haben deinen Anmeldungsauftrag erhalten und melden uns innerhalb von 24 Stunden bei dir.
+            </p>
+            <p className="text-sm text-green-600">
+              Eine Bestätigung wurde an <strong>{applicantData.email}</strong> gesendet.
+            </p>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-4">
@@ -7508,161 +7780,390 @@ Antworte kurz und prägnant. Per DU.
             onMessageSent={(msg) => setAnmeldungMessages((prev) => [...prev, msg])}
             previousMessages={anmeldungMessages}
             title="KI-Anmeldungsberater"
-            subtitle="Sprachgesteuerte Anmeldeberatung"
-            systemPromptAddition={`
-Du bist ein freundlicher KI-Anmeldungsberater für Markenanmeldungen. Sprich den Kunden per DU an.
-
-KONTEXT DES KUNDEN:
-- Markenname: ${anmeldungContext.trademarkName || "noch nicht festgelegt"}
-- Markentyp: ${anmeldungContext.trademarkType === "wortmarke" ? "Wortmarke" : anmeldungContext.trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke"}
-- Nizza-Klassen: ${anmeldungContext.niceClasses.length > 0 ? anmeldungContext.niceClasses.join(", ") : "noch nicht festgelegt"}
-- Gewünschte Länder: ${anmeldungContext.selectedCountries.length > 0 ? anmeldungContext.selectedCountries.join(", ") : "noch nicht festgelegt"}
-
-DEINE AUFGABEN:
-1. Berate den Kunden zur optimalen Anmeldestrategie
-2. Erkläre die Unterschiede zwischen nationaler Anmeldung, EUIPO (EU-Marke), WIPO Madrid (internationale Registrierung), Benelux (BOIP)
-3. Informiere über Vertreter-Pflicht: 
-   - Selbstanmeldung möglich bei: EUIPO, WIPO, Schweiz, UK, Australien, Kanada, Norwegen, EU-Länder (für EU-Bürger)
-   - Vertreter erforderlich bei: USA (für Ausländer), China, Russland, Indien, und viele andere
-4. Berechne ungefähre Kosten und empfehle die günstigste Route
-5. Warne vor Mängelbescheiden und erkläre, wie man sie vermeidet (präzise Klassifizierung)
-
-WICHTIGE REGELN:
-- Bei mehreren Ländern: Prüfe ob WIPO Madrid sinnvoller ist als einzelne nationale Anmeldungen
-- WIPO braucht eine Basismarke (z.B. DE oder EU)
-- Erkläre immer die Vor- und Nachteile jeder Option
-- Gib konkrete Kostenbeispiele
-`}
+            subtitle="Hilft bei Anmelder-Daten & Kosten"
+            systemPromptAddition={getAnmeldungRules(anmeldungContext)}
           />
 
-          {/* Widget 2: Schnellfragen */}
+          {/* Widget 2: Anmelder-Daten */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
-                  <Zap className="w-5 h-5 text-white" />
+                  <User className="w-5 h-5 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <div className="font-semibold text-sm truncate">Schnellfragen</div>
-                  <div className="text-xs text-white/85 truncate">Häufige Fragen sofort beantwortet</div>
+                  <div className="font-semibold text-sm truncate">Anmelder-Daten</div>
+                  <div className="text-xs text-white/85 truncate">Wer meldet die Marke an?</div>
                 </div>
               </div>
+              {savedApplicantProfileId && (
+                <span className="text-xs bg-white/20 px-2 py-1 rounded text-white">Gespeichert</span>
+              )}
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[400px]">
-              {anmeldungQuickQuestions.map((cat) => (
-                <div key={cat.category}>
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    {cat.category}
-                  </div>
-                  <div className="space-y-1">
-                    {cat.questions.map((q) => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => anmeldungVoiceRef.current?.sendQuestion(q)}
-                        className="w-full text-left px-3 py-2 text-sm text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Widget 3: Anmeldestrategie */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
-                  <BarChart3 className="w-5 h-5 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-sm truncate">Anmeldestrategie</div>
-                  <div className="text-xs text-white/85 truncate">Automatisch aus dem Gespräch erstellt</div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex-1 p-4 space-y-4 overflow-y-auto max-h-[400px]">
-              {/* Placeholder, Lade-Indikator oder Strategie */}
-              {isGeneratingStrategy ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="w-16 h-16 rounded-full bg-teal-100 flex items-center justify-center mb-4 animate-pulse">
-                    <BarChart3 className="w-8 h-8 text-teal-600" />
-                  </div>
-                  <p className="text-sm text-teal-600 font-medium">
-                    Strategie wird generiert...
-                  </p>
-                </div>
-              ) : !anmeldungStrategy ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                    <FileText className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <p className="text-sm text-gray-500 max-w-[200px]">
-                    Starte ein Gespräch. Die Zusammenfassung wird automatisch erstellt.
-                  </p>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[450px]">
+              {isLoadingApplicantProfile ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full" />
                 </div>
               ) : (
                 <>
-                  <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
-                    <div className="text-xs font-semibold text-teal-800 mb-2">EMPFOHLENE ROUTE</div>
-                    <div className="text-sm font-medium text-teal-900">{anmeldungStrategy.route}</div>
+                  {/* Anmeldertyp */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Anmeldertyp *</label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setApplicantData(prev => ({ ...prev, type: "privat" }))}
+                        className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                          applicantData.type === "privat"
+                            ? "bg-teal-50 border-teal-500 text-teal-700"
+                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        Privatperson
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setApplicantData(prev => ({ ...prev, type: "firma" }))}
+                        className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                          applicantData.type === "firma"
+                            ? "bg-teal-50 border-teal-500 text-teal-700"
+                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        Firma
+                      </button>
+                    </div>
                   </div>
 
+                  {/* Name / Firmenname */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      {applicantData.type === "firma" ? "Firmenname *" : "Vollständiger Name *"}
+                    </label>
+                    <input
+                      type="text"
+                      value={applicantData.name}
+                      onChange={(e) => setApplicantData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder={applicantData.type === "firma" ? "Musterfirma GmbH" : "Max Mustermann"}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </div>
+
+                  {/* Rechtsform (nur bei Firma) */}
+                  {applicantData.type === "firma" && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Rechtsform</label>
+                      <select
+                        value={applicantData.legalForm}
+                        onChange={(e) => setApplicantData(prev => ({ ...prev, legalForm: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      >
+                        <option value="">Bitte wählen...</option>
+                        <option value="GmbH">GmbH</option>
+                        <option value="UG">UG (haftungsbeschränkt)</option>
+                        <option value="AG">AG</option>
+                        <option value="GbR">GbR</option>
+                        <option value="OHG">OHG</option>
+                        <option value="KG">KG</option>
+                        <option value="e.K.">e.K.</option>
+                        <option value="Einzelunternehmen">Einzelunternehmen</option>
+                        <option value="Sonstige">Sonstige</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Adresse */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Straße & Hausnummer *</label>
+                    <input
+                      type="text"
+                      value={applicantData.street}
+                      onChange={(e) => setApplicantData(prev => ({ ...prev, street: e.target.value }))}
+                      placeholder="Musterstraße 123"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">PLZ *</label>
+                      <input
+                        type="text"
+                        value={applicantData.zip}
+                        onChange={(e) => setApplicantData(prev => ({ ...prev, zip: e.target.value }))}
+                        placeholder="12345"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Ort *</label>
+                      <input
+                        type="text"
+                        value={applicantData.city}
+                        onChange={(e) => setApplicantData(prev => ({ ...prev, city: e.target.value }))}
+                        placeholder="Berlin"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Land *</label>
+                    <select
+                      value={applicantData.country}
+                      onChange={(e) => setApplicantData(prev => ({ ...prev, country: e.target.value }))}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    >
+                      <option value="DE">Deutschland</option>
+                      <option value="AT">Österreich</option>
+                      <option value="CH">Schweiz</option>
+                      <option value="NL">Niederlande</option>
+                      <option value="BE">Belgien</option>
+                      <option value="FR">Frankreich</option>
+                      <option value="IT">Italien</option>
+                      <option value="ES">Spanien</option>
+                      <option value="PL">Polen</option>
+                      <option value="GB">Vereinigtes Königreich</option>
+                    </select>
+                  </div>
+
+                  {/* Kontakt */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">E-Mail *</label>
+                    <input
+                      type="email"
+                      value={applicantData.email}
+                      onChange={(e) => setApplicantData(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="max@example.com"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Telefon (optional)</label>
+                    <input
+                      type="tel"
+                      value={applicantData.phone}
+                      onChange={(e) => setApplicantData(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="+49 123 456789"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </div>
+
+                  {/* Speichern Button */}
+                  <button
+                    type="button"
+                    onClick={saveApplicantProfile}
+                    disabled={isSavingApplicantProfile || !isApplicantDataComplete}
+                    className={`w-full px-4 py-2 text-sm rounded-lg transition-colors ${
+                      isApplicantDataComplete
+                        ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : "bg-gray-50 text-gray-400 cursor-not-allowed"
+                    }`}
+                  >
+                    {isSavingApplicantProfile ? "Speichere..." : savedApplicantProfileId ? "Daten aktualisieren" : "Daten speichern"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Widget 3: Kosten & Anmeldung */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 s-gradient-header">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">Kosten & Anmeldung</div>
+                  <div className="text-xs text-white/85 truncate">Gebühren und Anmeldung starten</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex-1 p-4 space-y-4 overflow-y-auto max-h-[450px]">
+              {/* Marken-Zusammenfassung */}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">DEINE MARKE</div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Name:</span>
+                    <span className="font-medium">{anmeldungContext.trademarkName || "—"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Klassen:</span>
+                    <span className="font-medium">{anmeldungContext.niceClasses.length > 0 ? anmeldungContext.niceClasses.join(", ") : "—"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Länder:</span>
+                    <span className="font-medium">{anmeldungContext.countries.length > 0 ? anmeldungContext.countries.join(", ") : "—"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selbstanmeldung Info */}
+              {anmeldungContext.countries.length > 0 && (
+                <div className={`rounded-lg p-3 ${selfRegisterAllowed ? "bg-green-50 border border-green-200" : "bg-amber-50 border border-amber-200"}`}>
+                  <div className="flex items-start gap-2">
+                    {selfRegisterAllowed ? (
+                      <>
+                        <Check className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+                        <div className="text-xs text-green-700">
+                          <strong>Selbstanmeldung möglich!</strong> Du kannst bei den gewählten Ämtern als EU-Bürger selbst anmelden.
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="text-xs text-amber-700">
+                          <strong>Vertreter erforderlich!</strong> Für einige der gewählten Länder brauchst du einen lokalen Vertreter.
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Kosten berechnen Button */}
+              {anmeldungContext.countries.length > 0 && !calculatedCosts && (
+                <button
+                  type="button"
+                  onClick={() => calculateRegistrationCosts(registrationMode === "representative")}
+                  disabled={isCalculatingCosts}
+                  className="w-full px-4 py-3 bg-teal-50 text-teal-700 border border-teal-200 rounded-lg text-sm font-medium hover:bg-teal-100 transition-colors"
+                >
+                  {isCalculatingCosts ? "Berechne..." : "Kosten berechnen"}
+                </button>
+              )}
+
+              {/* Kostenübersicht */}
+              {calculatedCosts && (
+                <>
                   <div className="space-y-2">
-                    {anmeldungStrategy.steps.map((step, idx) => (
-                      <div key={idx} className="bg-gray-50 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span>{step.icon}</span>
-                          <span className="text-sm font-medium">Schritt {idx + 1}: {step.country}</span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {step.office} • {step.selfRegister ? "Selbstanmeldung" : "Vertreter"} • {step.cost} €
-                        </div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">KOSTENÜBERSICHT</div>
+                    {calculatedCosts.breakdown.map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-sm py-1 border-b border-gray-100">
+                        <span className="text-gray-600">{countryNames[item.country] || item.country}</span>
+                        <span className="font-medium">{item.officeFee} {item.currency}</span>
                       </div>
                     ))}
+                    <div className="flex justify-between text-sm py-1 border-b border-gray-100">
+                      <span className="text-gray-600">Amtsgebühren gesamt</span>
+                      <span className="font-medium">{calculatedCosts.totalOfficeFees} EUR</span>
+                    </div>
+                    {registrationMode === "representative" && (
+                      <div className="flex justify-between text-sm py-1 border-b border-gray-100">
+                        <span className="text-gray-600">Servicegebühr (Vertreter)</span>
+                        <span className="font-medium">{calculatedCosts.totalServiceFees} EUR</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-teal-100 border border-teal-300 rounded-lg p-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-semibold text-teal-800">Geschätzte Gesamtkosten</span>
-                      <span className="text-lg font-bold text-teal-900">~{anmeldungStrategy.totalCost} €</span>
+                      <span className="text-sm font-semibold text-teal-800">Gesamtkosten</span>
+                      <span className="text-lg font-bold text-teal-900">{calculatedCosts.totalCost} EUR</span>
                     </div>
                   </div>
 
-                  {anmeldungStrategy.hints.length > 0 && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                        <div className="text-xs text-amber-700 space-y-1">
-                          {anmeldungStrategy.hints.map((hint, idx) => (
-                            <div key={idx}><strong>Hinweis:</strong> {hint}</div>
-                          ))}
+                  {/* Anmeldung Modus Auswahl */}
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">WIE MÖCHTEST DU ANMELDEN?</div>
+                    
+                    {selfRegisterAllowed && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRegistrationMode("self");
+                          calculateRegistrationCosts(false);
+                        }}
+                        className={`w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors text-left ${
+                          registrationMode === "self"
+                            ? "bg-green-100 border-2 border-green-500 text-green-800"
+                            : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-4 h-4 rounded-full border-2 ${registrationMode === "self" ? "border-green-500 bg-green-500" : "border-gray-400"}`}>
+                            {registrationMode === "self" && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                          <div>
+                            <div className="font-semibold">Selbst anmelden</div>
+                            <div className="text-xs text-gray-500">Du reichst die Anmeldung selbst beim Amt ein</div>
+                          </div>
+                        </div>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRegistrationMode("representative");
+                        calculateRegistrationCosts(true);
+                      }}
+                      className={`w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors text-left ${
+                        registrationMode === "representative"
+                          ? "bg-blue-100 border-2 border-blue-500 text-blue-800"
+                          : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded-full border-2 ${registrationMode === "representative" ? "border-blue-500 bg-blue-500" : "border-gray-400"}`}>
+                          {registrationMode === "representative" && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <div>
+                          <div className="font-semibold">Über Vertreter anmelden</div>
+                          <div className="text-xs text-gray-500">Wir übernehmen die Anmeldung für dich</div>
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  <div className="pt-2 space-y-2">
-                    <button
-                      type="button"
-                      className="w-full px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <FileDown className="w-4 h-4" />
-                      Als PDF exportieren
-                    </button>
-                    <button
-                      type="button"
-                      className="w-full px-4 py-3 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
-                    >
-                      Anmeldung starten →
                     </button>
                   </div>
+
+                  {/* Anmeldung starten Buttons */}
+                  <div className="pt-2 space-y-2">
+                    {registrationMode === "self" && selfRegisterAllowed && (
+                      <a
+                        href={anmeldungContext.countries.includes("EU") ? "https://euipo.europa.eu/eSearch/" : anmeldungContext.countries.includes("DE") ? "https://register.dpma.de/DPMAregister/marke/einsteiger" : "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full px-4 py-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Zum Anmeldeformular
+                      </a>
+                    )}
+
+                    {registrationMode === "representative" && (
+                      <button
+                        type="button"
+                        onClick={submitRepresentativeOrder}
+                        disabled={isSubmittingOrder || !isApplicantDataComplete}
+                        className={`w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                          isApplicantDataComplete
+                            ? "bg-blue-600 text-white hover:bg-blue-700"
+                            : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        }`}
+                      >
+                        {isSubmittingOrder ? "Sende Auftrag..." : !isApplicantDataComplete ? "Bitte Anmelder-Daten ausfüllen" : "Auftrag absenden"}
+                      </button>
+                    )}
+                  </div>
                 </>
+              )}
+
+              {/* Placeholder wenn keine Länder gewählt */}
+              {anmeldungContext.countries.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                    <Globe className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-sm text-gray-500 max-w-[200px]">
+                    Wähle zuerst Länder in der Recherche aus, um die Kosten zu berechnen.
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -7680,7 +8181,7 @@ WICHTIGE REGELN:
                   : "px-6 py-3 bg-[#0D9488] text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
               }
             >
-              {isBusy ? "Speichere…" : "Anmeldung abschließen ✓"}
+              {isBusy ? "Speichere…" : "Anmeldung abschließen"}
             </button>
           </div>
         )}
