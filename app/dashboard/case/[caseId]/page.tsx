@@ -604,16 +604,122 @@ export default function CasePage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   
-  // Logo-Galerie: Alle generierten/hochgeladenen Logos
+  // Logo-Galerie: Alle generierten/hochgeladenen Logos (aus Datenbank)
   const [logoGallery, setLogoGallery] = useState<Array<{
     id: string;
     url: string;
     timestamp: Date;
     source: "generated" | "uploaded" | "edited";
     prompt?: string;
+    model?: string;
   }>>([]);
   const [selectedLogoId, setSelectedLogoId] = useState<string | null>(null);
   const [checkedLogoIds, setCheckedLogoIds] = useState<Set<string>>(new Set());
+  const [isDeletingLogos, setIsDeletingLogos] = useState(false);
+
+  // Logo-Galerie aus Datenbank laden
+  useEffect(() => {
+    if (!caseId) return;
+    
+    const loadLogos = async () => {
+      try {
+        const res = await fetch(`/api/case-logos?caseId=${caseId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.logos && Array.isArray(data.logos)) {
+            setLogoGallery(data.logos.map((logo: any) => ({
+              id: logo.id,
+              url: logo.url,
+              timestamp: new Date(logo.createdAt),
+              source: logo.source as "generated" | "uploaded" | "edited",
+              prompt: logo.prompt,
+              model: logo.model,
+            })));
+            // Erstes Logo als ausgewählt setzen wenn vorhanden
+            if (data.logos.length > 0 && !selectedLogoId) {
+              setSelectedLogoId(data.logos[0].id);
+              setTrademarkImageUrl(data.logos[0].url);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[Logo-Galerie] Fehler beim Laden:", err);
+      }
+    };
+    
+    loadLogos();
+  }, [caseId]);
+
+  // Hilfsfunktion: Logo in Datenbank speichern
+  const saveLogoToDatabase = async (logoData: {
+    url: string;
+    source: "generated" | "uploaded" | "edited";
+    prompt?: string;
+    model?: string;
+  }) => {
+    if (!caseId) return null;
+    
+    try {
+      const res = await fetch("/api/case-logos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId,
+          ...logoData,
+        }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        return data.logo;
+      }
+    } catch (err) {
+      console.error("[Logo-Galerie] Fehler beim Speichern:", err);
+    }
+    return null;
+  };
+
+  // Hilfsfunktion: Logos aus Datenbank löschen
+  const deleteLogosFromDatabase = async (logoIds: string[]) => {
+    if (logoIds.length === 0) return false;
+    
+    try {
+      setIsDeletingLogos(true);
+      const res = await fetch(`/api/case-logos?ids=${logoIds.join(",")}`, {
+        method: "DELETE",
+      });
+      
+      if (res.ok) {
+        return true;
+      }
+    } catch (err) {
+      console.error("[Logo-Galerie] Fehler beim Löschen:", err);
+    } finally {
+      setIsDeletingLogos(false);
+    }
+    return false;
+  };
+
+  // Hilfsfunktion: Alle Logos eines Falls löschen
+  const deleteAllLogosFromDatabase = async () => {
+    if (!caseId) return false;
+    
+    try {
+      setIsDeletingLogos(true);
+      const res = await fetch(`/api/case-logos?caseId=${caseId}&all=true`, {
+        method: "DELETE",
+      });
+      
+      if (res.ok) {
+        return true;
+      }
+    } catch (err) {
+      console.error("[Logo-Galerie] Fehler beim Löschen aller Logos:", err);
+    } finally {
+      setIsDeletingLogos(false);
+    }
+    return false;
+  };
 
   // Anmeldung form state
   const [anmeldungTab, setAnmeldungTab] = useState<"amt" | "anmelder" | "vertreter">("amt");
@@ -1746,13 +1852,21 @@ Soll ich die Recherche starten?`
           const logoResult = await logoResponse.json();
           if (logoResult.imageUrl) {
             setTrademarkImageUrl(logoResult.imageUrl);
-            // Zur Logo-Galerie hinzufügen
+            // Logo in Datenbank speichern und zur Galerie hinzufügen
+            const savedLogo = await saveLogoToDatabase({
+              url: logoResult.imageUrl,
+              source: "generated",
+              prompt: customPrompt,
+              model: "ideogram-v2-turbo",
+            });
+            
             const newLogoItem = {
-              id: `logo-${Date.now()}`,
+              id: savedLogo?.id || `logo-${Date.now()}`,
               url: logoResult.imageUrl,
               timestamp: new Date(),
               source: "generated" as const,
-              prompt: customPrompt
+              prompt: customPrompt,
+              model: "ideogram-v2-turbo",
             };
             setLogoGallery(prev => [newLogoItem, ...prev]);
             setSelectedLogoId(newLogoItem.id);
@@ -1805,13 +1919,21 @@ Soll ich die Recherche starten?`
           const editResult = await editResponse.json();
           if (editResult.imageUrl) {
             setTrademarkImageUrl(editResult.imageUrl);
-            // Bearbeitetes Logo zur Galerie hinzufügen
+            // Bearbeitetes Logo in Datenbank speichern und zur Galerie hinzufügen
+            const savedLogo = await saveLogoToDatabase({
+              url: editResult.imageUrl,
+              source: "edited",
+              prompt: editPrompt,
+              model: "flux-kontext-pro",
+            });
+            
             const editedLogoItem = {
-              id: `logo-${Date.now()}`,
+              id: savedLogo?.id || `logo-${Date.now()}`,
               url: editResult.imageUrl,
               timestamp: new Date(),
               source: "edited" as const,
-              prompt: editPrompt
+              prompt: editPrompt,
+              model: "flux-kontext-pro",
             };
             setLogoGallery(prev => [editedLogoItem, ...prev]);
             setSelectedLogoId(editedLogoItem.id);
@@ -5450,27 +5572,41 @@ WORKFLOW:
                             {checkedLogoIds.size}
                           </button>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               if (confirm(`${checkedLogoIds.size} Logo(s) löschen?`)) {
-                                setLogoGallery(prev => prev.filter(l => !checkedLogoIds.has(l.id)));
-                                // Wenn aktuell ausgewähltes Logo gelöscht wird
-                                if (selectedLogoId && checkedLogoIds.has(selectedLogoId)) {
-                                  const remaining = logoGallery.filter(l => !checkedLogoIds.has(l.id));
-                                  if (remaining.length > 0) {
-                                    setSelectedLogoId(remaining[0].id);
-                                    setTrademarkImageUrl(remaining[0].url);
-                                  } else {
-                                    setSelectedLogoId(null);
-                                    setTrademarkImageUrl(null);
+                                const idsToDelete = Array.from(checkedLogoIds);
+                                const success = await deleteLogosFromDatabase(idsToDelete);
+                                
+                                if (success) {
+                                  setLogoGallery(prev => prev.filter(l => !checkedLogoIds.has(l.id)));
+                                  // Wenn aktuell ausgewähltes Logo gelöscht wird
+                                  if (selectedLogoId && checkedLogoIds.has(selectedLogoId)) {
+                                    const remaining = logoGallery.filter(l => !checkedLogoIds.has(l.id));
+                                    if (remaining.length > 0) {
+                                      setSelectedLogoId(remaining[0].id);
+                                      setTrademarkImageUrl(remaining[0].url);
+                                    } else {
+                                      setSelectedLogoId(null);
+                                      setTrademarkImageUrl(null);
+                                    }
                                   }
+                                  setCheckedLogoIds(new Set());
                                 }
-                                setCheckedLogoIds(new Set());
                               }
                             }}
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                            disabled={isDeletingLogos}
+                            className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
+                              isDeletingLogos 
+                                ? "text-gray-400 cursor-not-allowed" 
+                                : "text-red-500 hover:text-red-700 hover:bg-red-50"
+                            }`}
                             title="Ausgewählte löschen"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            {isDeletingLogos ? (
+                              <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3 h-3" />
+                            )}
                             {checkedLogoIds.size}
                           </button>
                         </>

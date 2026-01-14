@@ -420,6 +420,39 @@ export const creditTransactionsRelations = relations(creditTransactions, ({ one 
   apiUsageLog: one(apiUsageLogs, { fields: [creditTransactions.apiUsageLogId], references: [apiUsageLogs.id] }),
 }));
 
+// Case Logos - Gespeicherte Logos pro Markenfall
+export const caseLogos = pgTable("case_logos", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id", { length: 255 }).notNull().references(() => trademarkCases.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Logo-Daten
+  url: text("url").notNull(), // URL zum Bild (von Ideogram/BFL)
+  thumbnailUrl: text("thumbnail_url"), // Optional: Kleinere Version
+  
+  // Metadaten
+  source: varchar("source", { length: 50 }).notNull(), // "generated" | "uploaded" | "edited"
+  prompt: text("prompt"), // Der verwendete Prompt (bei generierten Logos)
+  model: varchar("model", { length: 100 }), // z.B. "V_2_TURBO", "flux-kontext-pro"
+  
+  // Auswahl-Status
+  isSelected: boolean("is_selected").default(false), // Vom User als Favorit markiert
+  
+  // Sortierung
+  sortOrder: integer("sort_order").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  caseIdx: index("case_logos_case_idx").on(table.caseId),
+  userIdx: index("case_logos_user_idx").on(table.userId),
+  createdAtIdx: index("case_logos_created_at_idx").on(table.createdAt),
+}));
+
+export const caseLogosRelations = relations(caseLogos, ({ one }) => ({
+  case: one(trademarkCases, { fields: [caseLogos.caseId], references: [trademarkCases.id] }),
+  user: one(users, { fields: [caseLogos.userId], references: [users.id] }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Consultation = typeof consultations.$inferSelect;
@@ -446,3 +479,5 @@ export type ApiUsageLog = typeof apiUsageLogs.$inferSelect;
 export type NewApiUsageLog = typeof apiUsageLogs.$inferInsert;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type NewCreditTransaction = typeof creditTransactions.$inferInsert;
+export type CaseLogo = typeof caseLogos.$inferSelect;
+export type NewCaseLogo = typeof caseLogos.$inferInsert;
