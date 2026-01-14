@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
+import { logApiUsage } from "@/lib/api-logger";
 
 const TMSEARCH_SEARCH_URL = "https://tmsearch.ai/api/search/";
 const TMSEARCH_INFO_URL = "https://tmsearch.ai/api/info/";
@@ -95,27 +96,39 @@ function extractJSON(text: string): string {
   return text;
 }
 
-// Helper function to call Claude API
+// Token-Tracking für diese Request (wird pro Request zurückgesetzt)
+interface TokenTracker {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+// Helper function to call Claude API with token tracking
 async function callClaude(
   systemPrompt: string,
   userPrompt: string,
-  maxTokens: number = 500
+  maxTokens: number = 500,
+  tracker?: TokenTracker
 ): Promise<string> {
   const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
   });
 
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-20250514",
+    model: "claude-sonnet-4-20250514", // Sonnet statt Opus (5x günstiger)
     max_tokens: maxTokens,
     system: systemPrompt + "\n\nAntworte IMMER als valides JSON ohne Markdown-Formatierung.",
     messages: [{ role: "user", content: userPrompt }],
   });
 
+  // Token-Tracking
+  if (tracker) {
+    tracker.inputTokens += response.usage?.input_tokens || 0;
+    tracker.outputTokens += response.usage?.output_tokens || 0;
+  }
+
   const textBlock = response.content.find(block => block.type === "text");
   const rawText = textBlock?.type === "text" ? textBlock.text : "{}";
   
-  // Extract JSON from response (handles markdown code blocks)
   return extractJSON(rawText);
 }
 
@@ -351,11 +364,15 @@ async function fetchTrademarkInfo(mid: number | string, apiKey: string): Promise
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
     }
+    
+    const userId = session.user.id;
 
     const body: AnalysisRequest = await request.json().catch(() => ({}));
     
@@ -375,6 +392,9 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.TMSEARCH_API_KEY || TEST_API_KEY;
     const isTestMode = !process.env.TMSEARCH_API_KEY;
+    
+    // Token-Tracking für diese Request
+    const tokenTracker: TokenTracker = { inputTokens: 0, outputTokens: 0 };
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: "Anthropic API Key nicht konfiguriert" }, { status: 500 });
@@ -459,7 +479,7 @@ export async function POST(request: NextRequest) {
 
       try {
         console.log(`[Claude] Analyzing conflict: ${conflict.verbal}, goodsServices: ${(conflict.goodsServices || []).length} items`);
-        const responseText = await callClaude(RISK_ANALYSIS_SYSTEM_PROMPT, conflictPrompt, 500);
+        const responseText = await callClaude(RISK_ANALYSIS_SYSTEM_PROMPT, conflictPrompt, 500, tokenTracker);
         console.log(`[Claude] Raw response for ${conflict.verbal}:`, responseText.substring(0, 300));
         const parsed = JSON.parse(responseText);
         console.log(`[Claude] Parsed successfully for ${conflict.verbal}:`, parsed);
@@ -526,7 +546,7 @@ export async function POST(request: NextRequest) {
     };
 
     try {
-      const summaryText = await callClaude(RISK_ANALYSIS_SYSTEM_PROMPT, summaryPrompt, 1500);
+      const summaryText = await callClaude(RISK_ANALYSIS_SYSTEM_PROMPT, summaryPrompt, 1500, tokenTracker);
       summary = { ...summary, ...JSON.parse(summaryText) };
     } catch (err) {
       console.error("Error generating summary:", err);
@@ -543,7 +563,7 @@ export async function POST(request: NextRequest) {
         : "Anmeldung möglich, regelmäßiges Monitoring empfohlen.";
     }
 
-    return NextResponse.json({
+    const responseData = {
       success: true,
       isTestMode,
       // TAB 1: Request - Was wir gesendet haben
@@ -607,7 +627,7 @@ export async function POST(request: NextRequest) {
       // TAB 4: Analyse - Claudes Überlegungen
       debug_analysis: {
         analyzedCount: topConflicts.length,
-        modelUsed: "claude-opus-4-20250514",
+        modelUsed: "claude-sonnet-4-20250514",
         systemPromptSummary: "Markenrechtler mit 40 Jahren Erfahrung, bewertet Kollisionsrisiko 0-100",
         perConflictAnalysis: topConflicts.map(c => ({
           name: c.verbal,
@@ -672,7 +692,49 @@ export async function POST(request: NextRequest) {
         riskLevel: c.riskLevel,
         reasoning: c.reasoning,
       })),
+    };
+    
+    const durationMs = Date.now() - startTime;
+    
+    // API-Nutzung loggen und Credits abziehen
+    // 1. tmsearch API (1 Suche + N Info-Abfragen)
+    await logApiUsage({
+      userId,
+      apiProvider: "tmsearch",
+      apiEndpoint: "/api/tmsearch/analyze",
+      units: 1 + topConflicts.length, // 1 Suche + N Detail-Abfragen
+      unitType: "searches",
+      durationMs,
+      statusCode: 200,
+      metadata: {
+        keyword,
+        totalResults: allResults.length,
+        filteredResults: filteredResults.length,
+        analyzedConflicts: topConflicts.length,
+        isTestMode,
+      },
     });
+    
+    // 2. Claude API (N Konflikt-Analysen + 1 Summary)
+    if (tokenTracker.inputTokens > 0 || tokenTracker.outputTokens > 0) {
+      await logApiUsage({
+        userId,
+        apiProvider: "claude",
+        apiEndpoint: "/api/tmsearch/analyze",
+        model: "claude-sonnet-4-20250514",
+        inputTokens: tokenTracker.inputTokens,
+        outputTokens: tokenTracker.outputTokens,
+        durationMs,
+        statusCode: 200,
+        metadata: {
+          keyword,
+          conflictsAnalyzed: topConflicts.length,
+          summaryGenerated: true,
+        },
+      });
+    }
+    
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error("Error in tmsearch/analyze:", error);
     return NextResponse.json({ error: "Fehler bei der Analyse" }, { status: 500 });

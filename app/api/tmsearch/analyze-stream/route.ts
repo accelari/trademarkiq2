@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import { getRelevantCountries, getRegisterCountries } from "@/lib/country-mapping";
+import { logApiUsage } from "@/lib/api-logger";
 
 const TMSEARCH_SEARCH_URL = "https://tmsearch.ai/api/search/";
 const TEST_API_KEY = "TESTAPIKEY";
@@ -60,15 +61,28 @@ function extractJSON(text: string): string {
   return text;
 }
 
-async function callClaude(systemPrompt: string, userPrompt: string, maxTokens = 500): Promise<string> {
+// Token-Tracking Interface
+interface TokenTracker {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+async function callClaude(systemPrompt: string, userPrompt: string, maxTokens = 500, tracker?: TokenTracker): Promise<string> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-20250514",
+    model: "claude-sonnet-4-20250514", // Sonnet statt Opus (5x günstiger)
     max_tokens: maxTokens,
     temperature: 0, // Deterministisch für konsistente Risikobewertungen
     system: systemPrompt + "\n\nAntworte IMMER als valides JSON ohne Markdown-Formatierung.",
     messages: [{ role: "user", content: userPrompt }],
   });
+  
+  // Token-Tracking
+  if (tracker) {
+    tracker.inputTokens += response.usage?.input_tokens || 0;
+    tracker.outputTokens += response.usage?.output_tokens || 0;
+  }
+  
   const textBlock = response.content.find(block => block.type === "text");
   const rawText = textBlock?.type === "text" ? textBlock.text : "{}";
   return extractJSON(rawText);
