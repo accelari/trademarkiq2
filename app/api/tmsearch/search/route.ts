@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { logApiUsage } from "@/lib/api-logger";
 
 const TMSEARCH_SEARCH_URL = "https://tmsearch.ai/api/search/";
 const TEST_API_KEY = "TESTAPIKEY";
@@ -99,11 +100,15 @@ function filterResults(
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
     }
+    
+    const userId = session.user.id;
 
     const body = await request.json().catch(() => null);
     const keywordRaw = typeof body?.keyword === "string" ? body.keyword : "";
@@ -184,6 +189,25 @@ export async function POST(request: NextRequest) {
       filtered = filterResult.filtered;
       excludedCount = filterResult.excluded;
     }
+
+    const durationMs = Date.now() - startTime;
+    
+    // API-Nutzung loggen und Credits abziehen
+    await logApiUsage({
+      userId,
+      apiProvider: "tmsearch",
+      apiEndpoint: "/api/tmsearch/search",
+      units: 1, // 1 Suche
+      unitType: "searches",
+      durationMs,
+      statusCode: 200,
+      metadata: {
+        keyword,
+        totalResults: total,
+        filteredResults: filtered.length,
+        isTestMode,
+      },
+    });
 
     return NextResponse.json({
       success: true,

@@ -1,4 +1,4 @@
-import { pgTable, varchar, text, timestamp, integer, boolean, jsonb, index, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, timestamp, integer, boolean, jsonb, index, primaryKey, decimal } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
 export const users = pgTable("users", {
@@ -10,6 +10,9 @@ export const users = pgTable("users", {
   emailVerified: timestamp("email_verified"),
   isAdmin: boolean("is_admin").default(false),
   tourCompleted: boolean("tour_completed").default(false),
+  // Credit System
+  credits: decimal("credits", { precision: 10, scale: 2 }).default("0.00").notNull(), // Aktuelles Guthaben
+  creditWarningThreshold: integer("credit_warning_threshold").default(10), // Warnung bei X Credits
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -333,6 +336,90 @@ export const userSessionsRelations = relations(userSessions, ({ one }) => ({
   user: one(users, { fields: [userSessions.userId], references: [users.id] }),
 }));
 
+// API Usage Logs - Zentrale Tabelle für ALLE API-Aufrufe (Claude, OpenAI, tmsearch, etc.)
+export const apiUsageLogs = pgTable("api_usage_logs", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id, { onDelete: "cascade" }),
+  
+  // API Provider Info
+  apiProvider: varchar("api_provider", { length: 50 }).notNull(), // claude, openai, tmsearch, tavily, hume, resend
+  apiEndpoint: varchar("api_endpoint", { length: 255 }).notNull(), // z.B. /api/claude-chat, /api/whisper
+  model: varchar("model", { length: 100 }), // z.B. claude-opus-4, gpt-4o, whisper-1
+  
+  // Token/Usage Metrics
+  inputTokens: integer("input_tokens").default(0),
+  outputTokens: integer("output_tokens").default(0),
+  totalTokens: integer("total_tokens").default(0),
+  units: decimal("units", { precision: 10, scale: 4 }), // Für APIs ohne Tokens (z.B. Minuten für Whisper, Suchen für tmsearch)
+  unitType: varchar("unit_type", { length: 50 }), // tokens, minutes, searches, emails
+  
+  // Kosten
+  costUsd: decimal("cost_usd", { precision: 10, scale: 6 }).default("0.000000"), // Echte API-Kosten in USD
+  costEur: decimal("cost_eur", { precision: 10, scale: 6 }).default("0.000000"), // Echte API-Kosten in EUR
+  creditsCharged: decimal("credits_charged", { precision: 10, scale: 2 }).default("0.00"), // Dem User berechnete Credits
+  
+  // Request Info
+  requestId: varchar("request_id", { length: 255 }), // Für Debugging/Tracking
+  durationMs: integer("duration_ms"), // Antwortzeit
+  statusCode: integer("status_code"), // HTTP Status Code
+  errorMessage: text("error_message"), // Falls Fehler aufgetreten
+  
+  // Kontext
+  caseId: varchar("case_id", { length: 255 }).references(() => trademarkCases.id, { onDelete: "set null" }),
+  sessionId: varchar("session_id", { length: 255 }), // Browser-Session
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(), // Zusätzliche Daten
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("api_usage_logs_user_idx").on(table.userId),
+  providerIdx: index("api_usage_logs_provider_idx").on(table.apiProvider),
+  endpointIdx: index("api_usage_logs_endpoint_idx").on(table.apiEndpoint),
+  createdAtIdx: index("api_usage_logs_created_at_idx").on(table.createdAt),
+  caseIdx: index("api_usage_logs_case_idx").on(table.caseId),
+}));
+
+export const apiUsageLogsRelations = relations(apiUsageLogs, ({ one }) => ({
+  user: one(users, { fields: [apiUsageLogs.userId], references: [users.id] }),
+  case: one(trademarkCases, { fields: [apiUsageLogs.caseId], references: [trademarkCases.id] }),
+}));
+
+// Credit Transactions - Historie aller Guthaben-Änderungen
+export const creditTransactions = pgTable("credit_transactions", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Transaktionstyp
+  type: varchar("type", { length: 50 }).notNull(), // purchase, usage, refund, bonus, adjustment
+  
+  // Beträge
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Positiv für Gutschrift, negativ für Abbuchung
+  balanceBefore: decimal("balance_before", { precision: 10, scale: 2 }).notNull(),
+  balanceAfter: decimal("balance_after", { precision: 10, scale: 2 }).notNull(),
+  
+  // Beschreibung
+  description: text("description").notNull(), // z.B. "100 Credits gekauft", "Claude Chat Anfrage"
+  
+  // Referenzen
+  apiUsageLogId: varchar("api_usage_log_id", { length: 255 }).references(() => apiUsageLogs.id, { onDelete: "set null" }),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  stripeCheckoutSessionId: varchar("stripe_checkout_session_id", { length: 255 }),
+  
+  // Admin-Info
+  createdBy: varchar("created_by", { length: 255 }), // Admin-ID bei manuellen Anpassungen
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("credit_transactions_user_idx").on(table.userId),
+  typeIdx: index("credit_transactions_type_idx").on(table.type),
+  createdAtIdx: index("credit_transactions_created_at_idx").on(table.createdAt),
+  stripePaymentIdx: index("credit_transactions_stripe_payment_idx").on(table.stripePaymentIntentId),
+}));
+
+export const creditTransactionsRelations = relations(creditTransactions, ({ one }) => ({
+  user: one(users, { fields: [creditTransactions.userId], references: [users.id] }),
+  apiUsageLog: one(apiUsageLogs, { fields: [creditTransactions.apiUsageLogId], references: [apiUsageLogs.id] }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Consultation = typeof consultations.$inferSelect;
@@ -355,3 +442,7 @@ export type UserEvent = typeof userEvents.$inferSelect;
 export type NewUserEvent = typeof userEvents.$inferInsert;
 export type UserSession = typeof userSessions.$inferSelect;
 export type NewUserSession = typeof userSessions.$inferInsert;
+export type ApiUsageLog = typeof apiUsageLogs.$inferSelect;
+export type NewApiUsageLog = typeof apiUsageLogs.$inferInsert;
+export type CreditTransaction = typeof creditTransactions.$inferSelect;
+export type NewCreditTransaction = typeof creditTransactions.$inferInsert;

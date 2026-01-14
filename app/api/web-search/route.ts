@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { logApiUsage } from "@/lib/api-logger";
 
 const TAVILY_API_URL = "https://api.tavily.com/search";
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
     }
+    
+    const userId = session.user.id;
 
     const tavilyKey = process.env.TAVILY_API_KEY;
     if (!tavilyKey) {
@@ -69,6 +74,24 @@ export async function POST(request: NextRequest) {
       snippet: r.content?.substring(0, 300) || "",
       score: r.score || 0
     }));
+
+    const durationMs = Date.now() - startTime;
+    
+    // API-Nutzung loggen und Credits abziehen
+    await logApiUsage({
+      userId,
+      apiProvider: "tavily",
+      apiEndpoint: "/api/web-search",
+      units: 1, // 1 Suche
+      unitType: "searches",
+      durationMs,
+      statusCode: 200,
+      metadata: {
+        query,
+        resultsCount: sources.length,
+        tavilyCredits: data.usage?.credits || 1,
+      },
+    });
 
     return NextResponse.json({
       success: true,

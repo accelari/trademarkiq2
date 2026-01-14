@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { logChatMessage, generateSessionId } from "@/lib/chat-logger";
+import { logApiUsage } from "@/lib/api-logger";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -615,7 +616,7 @@ export async function POST(request: NextRequest) {
             if (event.type === "message_stop") {
               const durationMs = Date.now() - startTime;
               
-              // Assistant-Antwort loggen
+              // Assistant-Antwort loggen (in chat_logs für Chat-Historie)
               if (userId) {
                 await logChatMessage({
                   userId,
@@ -627,6 +628,20 @@ export async function POST(request: NextRequest) {
                   outputTokens,
                   model: "claude-opus-4-20250514",
                   durationMs,
+                });
+                
+                // API-Nutzung loggen und Credits abziehen (in api_usage_logs für Kosten-Tracking)
+                await logApiUsage({
+                  userId,
+                  apiProvider: "claude",
+                  apiEndpoint: "/api/claude-chat",
+                  model: "claude-opus-4-20250514",
+                  inputTokens,
+                  outputTokens,
+                  durationMs,
+                  statusCode: 200,
+                  caseId,
+                  sessionId,
                 });
               }
               

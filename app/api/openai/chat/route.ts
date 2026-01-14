@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { logApiUsage } from "@/lib/api-logger";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+  
   try {
+    // Auth für Logging
+    const session = await auth();
+    const userId = session?.user?.id;
+    
     const body = await req.json();
     const { messages, temperature = 0.7, max_tokens = 500, model = "gpt-4o-mini" } = body;
 
@@ -48,8 +56,23 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
+    const durationMs = Date.now() - startTime;
     
     if (data.choices && data.choices[0]?.message?.content) {
+      // API-Nutzung loggen und Credits abziehen
+      if (userId && data.usage) {
+        await logApiUsage({
+          userId,
+          apiProvider: "openai",
+          apiEndpoint: "/api/openai/chat",
+          model,
+          inputTokens: data.usage.prompt_tokens || 0,
+          outputTokens: data.usage.completion_tokens || 0,
+          durationMs,
+          statusCode: 200,
+        });
+      }
+      
       return NextResponse.json({
         content: data.choices[0].message.content,
         usage: data.usage,
