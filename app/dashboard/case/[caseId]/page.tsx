@@ -1452,6 +1452,7 @@ export default function CasePage() {
     const [isLoadingApplicantProfile, setIsLoadingApplicantProfile] = useState(false);
     const [isSavingApplicantProfile, setIsSavingApplicantProfile] = useState(false);
     const [savedApplicantProfileId, setSavedApplicantProfileId] = useState<string | null>(null);
+    const [hasLoadedApplicantProfile, setHasLoadedApplicantProfile] = useState(false);
 
     // Kosten-Berechnung State (für Widget 3)
     const [calculatedCosts, setCalculatedCosts] = useState<{
@@ -3765,6 +3766,7 @@ WICHTIG - Befolge diese Schritte:
         console.error("Failed to load applicant profile:", err);
       } finally {
         setIsLoadingApplicantProfile(false);
+        setHasLoadedApplicantProfile(true);
       }
     }, []);
 
@@ -3951,10 +3953,10 @@ WICHTIG - Befolge diese Schritte:
 
     // Anmeldung: Profil laden wenn Akkordeon geöffnet wird
     useEffect(() => {
-      if (openAccordion === "anmeldung" && !savedApplicantProfileId && !isLoadingApplicantProfile) {
+      if (openAccordion === "anmeldung" && !hasLoadedApplicantProfile && !isLoadingApplicantProfile) {
         loadApplicantProfile();
       }
-    }, [openAccordion, savedApplicantProfileId, isLoadingApplicantProfile, loadApplicantProfile]);
+    }, [openAccordion, hasLoadedApplicantProfile, isLoadingApplicantProfile, loadApplicantProfile]);
 
     const applyTrademarkName = useCallback(
     async (name: string, qc?: { riskLevel?: string; riskScore?: number; conflicts?: number; criticalCount?: number }) => {
