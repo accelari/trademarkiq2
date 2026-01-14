@@ -1,11 +1,12 @@
 import { db } from "@/db";
 import { chatLogs } from "@/db/schema";
 
-// Claude Preise (Januar 2026)
-const CLAUDE_SONNET_INPUT_PRICE_PER_1M = 3.0; // $3 pro 1M Input Tokens
-const CLAUDE_SONNET_OUTPUT_PRICE_PER_1M = 15.0; // $15 pro 1M Output Tokens
+// Claude Opus 4 Preise (Januar 2026)
+// Quelle: https://www.anthropic.com/pricing
+const CLAUDE_OPUS_INPUT_PRICE_PER_1M = 15.0; // $15 pro 1M Input Tokens
+const CLAUDE_OPUS_OUTPUT_PRICE_PER_1M = 75.0; // $75 pro 1M Output Tokens
 const USD_TO_EUR = 0.92;
-const MARKUP_FACTOR = 3;
+const MARKUP_FACTOR = 3; // ×3 Markup für Kundenpreis
 const CREDIT_VALUE = 0.03; // 1 Credit = 0,03€
 
 export interface LogChatParams {
@@ -21,8 +22,8 @@ export interface LogChatParams {
 }
 
 export function calculateCosts(inputTokens: number, outputTokens: number) {
-  const inputCost = (inputTokens / 1_000_000) * CLAUDE_SONNET_INPUT_PRICE_PER_1M * USD_TO_EUR;
-  const outputCost = (outputTokens / 1_000_000) * CLAUDE_SONNET_OUTPUT_PRICE_PER_1M * USD_TO_EUR;
+  const inputCost = (inputTokens / 1_000_000) * CLAUDE_OPUS_INPUT_PRICE_PER_1M * USD_TO_EUR;
+  const outputCost = (outputTokens / 1_000_000) * CLAUDE_OPUS_OUTPUT_PRICE_PER_1M * USD_TO_EUR;
   const totalCost = inputCost + outputCost;
   const finalCost = totalCost * MARKUP_FACTOR;
   const credits = Math.ceil(finalCost / CREDIT_VALUE);

@@ -284,6 +284,55 @@ export const chatLogsRelations = relations(chatLogs, ({ one }) => ({
   case: one(trademarkCases, { fields: [chatLogs.caseId], references: [trademarkCases.id] }),
 }));
 
+// User Events für Analytics (Klicks, Seitenaufrufe, Abbrüche)
+export const userEvents = pgTable("user_events", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id, { onDelete: "cascade" }),
+  sessionId: varchar("session_id", { length: 255 }).notNull(),
+  eventType: varchar("event_type", { length: 50 }).notNull(), // page_view, click, form_submit, error, conversion
+  eventName: varchar("event_name", { length: 100 }).notNull(), // z.B. "beratung_started", "recherche_abgebrochen"
+  pagePath: varchar("page_path", { length: 500 }),
+  elementId: varchar("element_id", { length: 100 }),
+  elementText: varchar("element_text", { length: 255 }),
+  metadata: jsonb("metadata"), // Zusätzliche Daten als JSON
+  referrer: varchar("referrer", { length: 500 }),
+  userAgent: varchar("user_agent", { length: 500 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("user_events_user_idx").on(table.userId),
+  sessionIdx: index("user_events_session_idx").on(table.sessionId),
+  eventTypeIdx: index("user_events_event_type_idx").on(table.eventType),
+  createdAtIdx: index("user_events_created_at_idx").on(table.createdAt),
+}));
+
+export const userEventsRelations = relations(userEvents, ({ one }) => ({
+  user: one(users, { fields: [userEvents.userId], references: [users.id] }),
+}));
+
+// User Sessions für Sitzungsverwaltung
+export const userSessions = pgTable("user_sessions_analytics", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id, { onDelete: "cascade" }),
+  sessionId: varchar("session_id", { length: 255 }).unique().notNull(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at"),
+  duration: integer("duration"), // Dauer in Sekunden
+  pageViews: integer("page_views").default(0),
+  events: integer("events").default(0),
+  entryPage: varchar("entry_page", { length: 500 }),
+  exitPage: varchar("exit_page", { length: 500 }),
+  device: varchar("device", { length: 50 }), // desktop, mobile, tablet
+  browser: varchar("browser", { length: 100 }),
+  country: varchar("country", { length: 100 }),
+}, (table) => ({
+  userIdx: index("user_sessions_analytics_user_idx").on(table.userId),
+  startedAtIdx: index("user_sessions_analytics_started_at_idx").on(table.startedAt),
+}));
+
+export const userSessionsRelations = relations(userSessions, ({ one }) => ({
+  user: one(users, { fields: [userSessions.userId], references: [users.id] }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Consultation = typeof consultations.$inferSelect;
@@ -302,3 +351,7 @@ export type RechercheHistory = typeof rechercheHistory.$inferSelect;
 export type NewRechercheHistory = typeof rechercheHistory.$inferInsert;
 export type ChatLog = typeof chatLogs.$inferSelect;
 export type NewChatLog = typeof chatLogs.$inferInsert;
+export type UserEvent = typeof userEvents.$inferSelect;
+export type NewUserEvent = typeof userEvents.$inferInsert;
+export type UserSession = typeof userSessions.$inferSelect;
+export type NewUserSession = typeof userSessions.$inferInsert;

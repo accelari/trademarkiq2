@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import { Send, Keyboard, MoreVertical, RefreshCw, Paperclip, MessageSquare, Mic, MicOff } from "lucide-react";
+import { trackEvent, trackConversion } from "@/lib/analytics";
 
 // Web Speech API Type Declarations
 interface SpeechRecognitionEvent extends Event {
@@ -458,6 +459,13 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
     const sendMessage = useCallback(async (text: string) => {
       if (!text.trim() || isLoading) return;
 
+      // Track chat message sent
+      trackEvent({
+        eventType: "click",
+        eventName: "chat_message_sent",
+        metadata: { caseId, messageLength: text.length },
+      });
+
       // Deaktiviere Kontext-Modus bei User-Nachricht (zurück zu WhatsApp-Style)
       setIsContextMode(false);
       
@@ -557,6 +565,9 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
     const startSession = useCallback((mode: "voice" | "text" = "text") => {
       setIsConnected(true);
       setError(null);
+
+      // Track session start
+      trackConversion("beratung_started", { caseId, mode });
 
       // Process pending questions
       if (pendingQuestionsRef.current.length > 0) {
