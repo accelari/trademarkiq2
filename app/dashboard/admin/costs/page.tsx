@@ -323,7 +323,7 @@ export default function AdminCostsPage() {
 
           {activeTab === "users" && (
             <div className="space-y-2">
-              {userCosts.length > 0 ? (
+              {userCosts && userCosts.length > 0 ? (
                 userCosts.map((user) => (
                   <div key={user.userId} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -349,7 +349,7 @@ export default function AdminCostsPage() {
 
           {activeTab === "recent" && (
             <div className="space-y-2">
-              {recentCalls.length > 0 ? (
+              {recentCalls && recentCalls.length > 0 ? (
                 recentCalls.map((call) => (
                   <div key={call.id} className="bg-gray-50 rounded-lg px-4 py-3">
                     <div className="flex items-center justify-between mb-2">
