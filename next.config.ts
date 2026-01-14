@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
     "*.replit.dev",
     "*.spock.replit.dev",
     "*.picard.replit.dev",
+    "*.devinapps.com",
   ],
   images: {
     remotePatterns: [
