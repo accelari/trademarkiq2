@@ -179,6 +179,21 @@ WICHTIGE HINWEISE:
 - KMU-Förderung: Bis zu 75% Erstattung der Amtsgebühren möglich (SME Fund)
 
 ═══════════════════════════════════════════════════════════
+BIDIREKTIONALE SYNCHRONISATION (Formular ↔ Chat):
+═══════════════════════════════════════════════════════════
+
+Der Benutzer kann Daten AUCH direkt im Formular rechts eingeben!
+Wenn du eine [SYSTEM:...] Nachricht erhältst, dass der Benutzer Daten manuell eingegeben hat:
+
+1. **Bestätige die Eingabe**: "Super, ich sehe du hast die Daten direkt eingegeben!"
+2. **Prüfe was noch fehlt**: Schau im "AKTUELLER STAND" oben nach ❌ Markierungen
+3. **Frage nach fehlenden Daten** oder **berechne Kosten** wenn alles komplett
+
+Beispiel:
+[SYSTEM: Der Benutzer hat alle Anmelder-Daten manuell ausgefüllt! Typ: Firma, Name: "Test GmbH", ...]
+→ "Perfekt! Ich sehe, du hast alle Daten direkt eingegeben. Soll ich die Kosten berechnen? [KOSTEN_BERECHNEN]"
+
+═══════════════════════════════════════════════════════════
 WENN MARKEN-DATEN FEHLEN:
 ═══════════════════════════════════════════════════════════
 

@@ -1824,6 +1824,24 @@ Soll ich die Recherche starten?`
   const manualChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isFirstManualCheckRef = useRef(true); // Flag: Ersten Render überspringen
   
+  // Refs für ANMELDUNG - bidirektionale Synchronisation
+  const anmeldungTriggerChangeInProgressRef = useRef(false); // Flag: Änderung durch KI-Trigger
+  const lastLoggedAnmeldungFieldsRef = useRef<{ 
+    type?: string; 
+    name?: string; 
+    street?: string; 
+    zip?: string; 
+    city?: string; 
+    country?: string; 
+    email?: string; 
+    phone?: string; 
+    legalForm?: string;
+    initialized?: boolean 
+  }>({});
+  const anmeldungFieldChangeLogTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const anmeldungManualChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastNotifiedAnmeldungStateRef = useRef<string>("");
+  
   // Event-Log: Feldänderungen tracken (debounced)
   // Wichtig: Initialisiere mit aktuellen Werten, um fake Events beim Laden zu vermeiden
   const lastLoggedFieldsRef = useRef<{ name?: string; type?: string; classes?: string; countries?: string; initialized?: boolean }>({});
@@ -2114,6 +2132,173 @@ WICHTIG - Befolge diese Schritte:
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manualNameInput, rechercheForm.trademarkName, rechercheForm.niceClasses?.join(",") || "", rechercheForm.countries?.join(",") || "", trademarkType, isTrademarkTypeConfirmed, trademarkImageUrl || "", sessionMessages.length, openAccordion]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ANMELDUNG: Bidirektionale Synchronisation (Formular ↔ Chat)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  // Initialisiere lastLoggedAnmeldungFieldsRef mit aktuellen Werten beim ersten Laden
+  useEffect(() => {
+    if (!lastLoggedAnmeldungFieldsRef.current.initialized && hasLoadedApplicantProfile) {
+      lastLoggedAnmeldungFieldsRef.current = {
+        type: applicantData.type || undefined,
+        name: applicantData.name || undefined,
+        street: applicantData.street || undefined,
+        zip: applicantData.zip || undefined,
+        city: applicantData.city || undefined,
+        country: applicantData.country || undefined,
+        email: applicantData.email || undefined,
+        phone: applicantData.phone || undefined,
+        legalForm: applicantData.legalForm || undefined,
+        initialized: true
+      };
+    }
+  }, [hasLoadedApplicantProfile, applicantData]);
+  
+  // ANMELDUNG: Event-Log für Feldänderungen (debounced)
+  useEffect(() => {
+    // Nicht beim ersten Render loggen
+    if (!eventLogInitializedRef.current) return;
+    // Nicht wenn durch KI-Trigger geändert
+    if (anmeldungTriggerChangeInProgressRef.current) return;
+    // Nicht loggen bevor Initialwerte gesetzt wurden
+    if (!lastLoggedAnmeldungFieldsRef.current.initialized) return;
+    // Nur im Anmeldung-Akkordeon
+    if (openAccordion !== "anmeldung") return;
+    
+    // Debounce: 1.5 Sekunden warten
+    if (anmeldungFieldChangeLogTimeoutRef.current) {
+      clearTimeout(anmeldungFieldChangeLogTimeoutRef.current);
+    }
+    
+    anmeldungFieldChangeLogTimeoutRef.current = setTimeout(() => {
+      // Anmeldertyp
+      if (applicantData.type && applicantData.type !== lastLoggedAnmeldungFieldsRef.current.type) {
+        lastLoggedAnmeldungFieldsRef.current.type = applicantData.type;
+        const typeLabel = applicantData.type === "privat" ? "Privatperson" : "Firma";
+        logEvent("field_change", `Anmeldertyp → ${typeLabel}`);
+      }
+      
+      // Name
+      if (applicantData.name && applicantData.name !== lastLoggedAnmeldungFieldsRef.current.name) {
+        lastLoggedAnmeldungFieldsRef.current.name = applicantData.name;
+        logEvent("field_change", `Anmeldername → "${applicantData.name}"`);
+      }
+      
+      // Straße
+      if (applicantData.street && applicantData.street !== lastLoggedAnmeldungFieldsRef.current.street) {
+        lastLoggedAnmeldungFieldsRef.current.street = applicantData.street;
+        logEvent("field_change", `Straße → "${applicantData.street}"`);
+      }
+      
+      // PLZ
+      if (applicantData.zip && applicantData.zip !== lastLoggedAnmeldungFieldsRef.current.zip) {
+        lastLoggedAnmeldungFieldsRef.current.zip = applicantData.zip;
+        logEvent("field_change", `PLZ → "${applicantData.zip}"`);
+      }
+      
+      // Ort
+      if (applicantData.city && applicantData.city !== lastLoggedAnmeldungFieldsRef.current.city) {
+        lastLoggedAnmeldungFieldsRef.current.city = applicantData.city;
+        logEvent("field_change", `Ort → "${applicantData.city}"`);
+      }
+      
+      // Land
+      if (applicantData.country && applicantData.country !== lastLoggedAnmeldungFieldsRef.current.country) {
+        lastLoggedAnmeldungFieldsRef.current.country = applicantData.country;
+        logEvent("field_change", `Land → "${applicantData.country}"`);
+      }
+      
+      // E-Mail
+      if (applicantData.email && applicantData.email !== lastLoggedAnmeldungFieldsRef.current.email) {
+        lastLoggedAnmeldungFieldsRef.current.email = applicantData.email;
+        logEvent("field_change", `E-Mail → "${applicantData.email}"`);
+      }
+      
+      // Rechtsform (nur bei Firma)
+      if (applicantData.type === "firma" && applicantData.legalForm && applicantData.legalForm !== lastLoggedAnmeldungFieldsRef.current.legalForm) {
+        lastLoggedAnmeldungFieldsRef.current.legalForm = applicantData.legalForm;
+        logEvent("field_change", `Rechtsform → "${applicantData.legalForm}"`);
+      }
+    }, 1500);
+    
+    return () => {
+      if (anmeldungFieldChangeLogTimeoutRef.current) {
+        clearTimeout(anmeldungFieldChangeLogTimeoutRef.current);
+      }
+    };
+  }, [applicantData, openAccordion, logEvent]);
+  
+  // ANMELDUNG: Chat-Benachrichtigung bei manuellen Änderungen (10s Debounce)
+  useEffect(() => {
+    // Nicht wenn keine Anmeldung-Session aktiv oder wenn Änderung durch KI-Trigger kam
+    if (anmeldungMessages.length === 0) return;
+    if (anmeldungTriggerChangeInProgressRef.current) return;
+    // Nur im Anmeldung-Akkordeon aktiv
+    if (openAccordion !== "anmeldung") return;
+    
+    // Aktuellen Zustand als String für Vergleich
+    const currentState = JSON.stringify({
+      type: applicantData.type,
+      name: applicantData.name,
+      street: applicantData.street,
+      zip: applicantData.zip,
+      city: applicantData.city,
+      country: applicantData.country,
+      email: applicantData.email,
+      legalForm: applicantData.legalForm,
+    });
+    
+    // Wenn sich nichts geändert hat, nichts tun
+    if (currentState === lastNotifiedAnmeldungStateRef.current) return;
+    
+    // Zustand still aktualisieren (protokollieren ohne Chat-Nachricht)
+    lastNotifiedAnmeldungStateRef.current = currentState;
+    
+    // Vorherigen Timeout löschen (Debounce)
+    if (anmeldungManualChangeTimeoutRef.current) {
+      clearTimeout(anmeldungManualChangeTimeoutRef.current);
+    }
+    
+    // Neuen Timeout setzen - Prüfe ob ALLES komplett ist (10 Sekunden warten)
+    anmeldungManualChangeTimeoutRef.current = setTimeout(() => {
+      // Prüfe welche Felder fehlen
+      const missing: string[] = [];
+      const present: string[] = [];
+      
+      if (!applicantData.type) missing.push("Anmeldertyp");
+      if (!applicantData.name) missing.push("Name");
+      if (!applicantData.street) missing.push("Straße");
+      if (!applicantData.zip) missing.push("PLZ");
+      if (!applicantData.city) missing.push("Ort");
+      if (!applicantData.country) missing.push("Land");
+      if (!applicantData.email) missing.push("E-Mail");
+      if (applicantData.type === "firma" && !applicantData.legalForm) missing.push("Rechtsform");
+      
+      if (applicantData.type) present.push(`Typ: ${applicantData.type === "privat" ? "Privatperson" : "Firma"}`);
+      if (applicantData.name) present.push(`Name: "${applicantData.name}"`);
+      if (applicantData.street) present.push(`Straße: "${applicantData.street}"`);
+      if (applicantData.zip && applicantData.city) present.push(`${applicantData.zip} ${applicantData.city}`);
+      if (applicantData.country) present.push(`Land: ${applicantData.country}`);
+      if (applicantData.email) present.push(`E-Mail: "${applicantData.email}"`);
+      if (applicantData.type === "firma" && applicantData.legalForm) present.push(`Rechtsform: ${applicantData.legalForm}`);
+      
+      // Nur Chat-Nachricht wenn ALLES komplett ist
+      if (missing.length === 0 && anmeldungVoiceRef.current) {
+        anmeldungVoiceRef.current.sendQuestion(
+          `[SYSTEM: Der Benutzer hat alle Anmelder-Daten manuell ausgefüllt! ${present.join(", ")}. Bestätige die Daten und frage ob du die Kosten berechnen sollst. Nutze [KOSTEN_BERECHNEN] wenn der Benutzer zustimmt.]`
+        );
+      }
+      // Bei unvollständigen Daten: KEINE Chat-Nachricht (stilles Protokollieren)
+    }, 10000); // 10 Sekunden warten
+    
+    return () => {
+      if (anmeldungManualChangeTimeoutRef.current) {
+        clearTimeout(anmeldungManualChangeTimeoutRef.current);
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicantData, anmeldungMessages.length, openAccordion]);
 
   // Trigger-Erkennung für RECHERCHE (jetzt auch sessionMessages)
   const lastProcessedRechercheMsgIdRef = useRef<string | null>(null);
@@ -3882,63 +4067,88 @@ WICHTIG - Befolge diese Schritte:
 
     // Anmeldung: Trigger aus KI-Nachrichten verarbeiten
     const processAnmeldungTriggers = useCallback((content: string) => {
+      let hasChanges = false;
+      
       // [ANMELDER_TYP:privat] oder [ANMELDER_TYP:firma]
       const typMatch = content.match(/\[ANMELDER_TYP:(privat|firma)\]/i);
       if (typMatch) {
+        hasChanges = true;
+        anmeldungTriggerChangeInProgressRef.current = true;
         setApplicantData(prev => ({ ...prev, type: typMatch[1].toLowerCase() as "privat" | "firma" }));
       }
     
       // [ANMELDER_NAME:...]
       const nameMatch = content.match(/\[ANMELDER_NAME:([^\]]+)\]/i);
       if (nameMatch) {
+        hasChanges = true;
+        anmeldungTriggerChangeInProgressRef.current = true;
         setApplicantData(prev => ({ ...prev, name: nameMatch[1].trim() }));
       }
     
       // [ANMELDER_STRASSE:...]
       const streetMatch = content.match(/\[ANMELDER_STRASSE:([^\]]+)\]/i);
       if (streetMatch) {
+        hasChanges = true;
+        anmeldungTriggerChangeInProgressRef.current = true;
         setApplicantData(prev => ({ ...prev, street: streetMatch[1].trim() }));
       }
     
       // [ANMELDER_PLZ:...]
       const zipMatch = content.match(/\[ANMELDER_PLZ:([^\]]+)\]/i);
       if (zipMatch) {
+        hasChanges = true;
+        anmeldungTriggerChangeInProgressRef.current = true;
         setApplicantData(prev => ({ ...prev, zip: zipMatch[1].trim() }));
       }
     
       // [ANMELDER_ORT:...]
       const cityMatch = content.match(/\[ANMELDER_ORT:([^\]]+)\]/i);
       if (cityMatch) {
+        hasChanges = true;
+        anmeldungTriggerChangeInProgressRef.current = true;
         setApplicantData(prev => ({ ...prev, city: cityMatch[1].trim() }));
       }
     
       // [ANMELDER_LAND:...]
       const countryMatch = content.match(/\[ANMELDER_LAND:([^\]]+)\]/i);
       if (countryMatch) {
+        hasChanges = true;
+        anmeldungTriggerChangeInProgressRef.current = true;
         setApplicantData(prev => ({ ...prev, country: countryMatch[1].trim().toUpperCase() }));
       }
     
       // [ANMELDER_EMAIL:...]
       const emailMatch = content.match(/\[ANMELDER_EMAIL:([^\]]+)\]/i);
       if (emailMatch) {
+        hasChanges = true;
+        anmeldungTriggerChangeInProgressRef.current = true;
         setApplicantData(prev => ({ ...prev, email: emailMatch[1].trim() }));
       }
     
       // [ANMELDER_TELEFON:...]
       const phoneMatch = content.match(/\[ANMELDER_TELEFON:([^\]]+)\]/i);
       if (phoneMatch) {
+        hasChanges = true;
+        anmeldungTriggerChangeInProgressRef.current = true;
         setApplicantData(prev => ({ ...prev, phone: phoneMatch[1].trim() }));
       }
     
       // [ANMELDER_RECHTSFORM:...]
       const legalFormMatch = content.match(/\[ANMELDER_RECHTSFORM:([^\]]+)\]/i);
       if (legalFormMatch) {
+        hasChanges = true;
+        anmeldungTriggerChangeInProgressRef.current = true;
         setApplicantData(prev => ({ ...prev, legalForm: legalFormMatch[1].trim() }));
       }
     
       // [KOSTEN_BERECHNEN]
       if (content.includes("[KOSTEN_BERECHNEN]")) {
         calculateRegistrationCosts(registrationMode === "representative");
+      }
+      
+      // Flag nach kurzer Verzögerung zurücksetzen
+      if (hasChanges) {
+        setTimeout(() => { anmeldungTriggerChangeInProgressRef.current = false; }, 100);
       }
     }, [calculateRegistrationCosts, registrationMode]);
 
