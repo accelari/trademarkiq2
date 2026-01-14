@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Coins, 
   TrendingDown, 
@@ -11,7 +11,11 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckCircle,
-  Loader2
+  Loader2,
+  Filter,
+  ArrowUpDown,
+  ChevronDown,
+  Search
 } from "lucide-react";
 
 interface CreditBalance {
@@ -50,6 +54,10 @@ interface UsageStats {
   }[];
 }
 
+type SortField = "date" | "amount" | "provider";
+type SortDirection = "asc" | "desc";
+type FilterType = "all" | "usage" | "purchase" | "refund" | "bonus";
+
 export default function CreditsPage() {
   const [balance, setBalance] = useState<CreditBalance | null>(null);
   const [packages, setPackages] = useState<CreditPackage[]>([]);
@@ -57,6 +65,14 @@ export default function CreditsPage() {
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "history" | "usage">("overview");
+  
+  // Filter & Sort State
+  const [filterType, setFilterType] = useState<FilterType>("all");
+  const [filterProvider, setFilterProvider] = useState<string>("all");
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -122,20 +138,101 @@ export default function CreditsPage() {
     });
   };
 
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case "purchase":
-        return <TrendingUp className="w-4 h-4 text-green-500" />;
-      case "usage":
-        return <TrendingDown className="w-4 h-4 text-red-500" />;
-      case "refund":
-        return <TrendingUp className="w-4 h-4 text-blue-500" />;
-      case "bonus":
-        return <TrendingUp className="w-4 h-4 text-purple-500" />;
-      default:
-        return <Clock className="w-4 h-4 text-gray-500" />;
-    }
-  };
+    const getTransactionIcon = (type: string) => {
+      switch (type) {
+        case "purchase":
+          return <TrendingUp className="w-4 h-4 text-green-500" />;
+        case "usage":
+          return <TrendingDown className="w-4 h-4 text-red-500" />;
+        case "refund":
+          return <TrendingUp className="w-4 h-4 text-blue-500" />;
+        case "bonus":
+          return <TrendingUp className="w-4 h-4 text-purple-500" />;
+        default:
+          return <Clock className="w-4 h-4 text-gray-500" />;
+      }
+    };
+
+    // Extract provider from description (e.g., "claude API: /api/claude-chat" -> "claude")
+    const getProviderFromDescription = (description: string): string => {
+      const match = description.match(/^(\w+)\s+API:/i);
+      return match ? match[1].toLowerCase() : "other";
+    };
+
+    // Get unique providers from transactions
+    const uniqueProviders = useMemo(() => {
+      const providers = new Set<string>();
+      transactions.forEach(tx => {
+        if (tx.type === "usage") {
+          providers.add(getProviderFromDescription(tx.description));
+        }
+      });
+      return Array.from(providers).sort();
+    }, [transactions]);
+
+    // Filter and sort transactions
+    const filteredTransactions = useMemo(() => {
+      let filtered = [...transactions];
+
+      // Filter by type
+      if (filterType !== "all") {
+        filtered = filtered.filter(tx => tx.type === filterType);
+      }
+
+      // Filter by provider (only for usage transactions)
+      if (filterProvider !== "all") {
+        filtered = filtered.filter(tx => {
+          if (tx.type !== "usage") return filterProvider === "all";
+          return getProviderFromDescription(tx.description) === filterProvider;
+        });
+      }
+
+      // Filter by search query
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        filtered = filtered.filter(tx => 
+          tx.description.toLowerCase().includes(query)
+        );
+      }
+
+      // Sort
+      filtered.sort((a, b) => {
+        let comparison = 0;
+        switch (sortField) {
+          case "date":
+            comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            break;
+          case "amount":
+            comparison = Number(a.amount) - Number(b.amount);
+            break;
+          case "provider":
+            comparison = getProviderFromDescription(a.description).localeCompare(
+              getProviderFromDescription(b.description)
+            );
+            break;
+        }
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+
+      return filtered;
+    }, [transactions, filterType, filterProvider, sortField, sortDirection, searchQuery]);
+
+    const toggleSort = (field: SortField) => {
+      if (sortField === field) {
+        setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+      } else {
+        setSortField(field);
+        setSortDirection("desc");
+      }
+    };
+
+    const resetFilters = () => {
+      setFilterType("all");
+      setFilterProvider("all");
+      setSearchQuery("");
+      setSortField("date");
+      setSortDirection("desc");
+    };
 
   if (loading) {
     return (
@@ -303,33 +400,176 @@ export default function CreditsPage() {
             </div>
           )}
 
-          {activeTab === "history" && (
-            <div className="space-y-2">
-              {transactions.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">Keine Transaktionen vorhanden</p>
-              ) : (
-                transactions.map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      {getTransactionIcon(tx.type)}
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{tx.description}</p>
-                        <p className="text-xs text-gray-500">{formatDate(tx.createdAt)}</p>
+                    {activeTab === "history" && (
+                      <div className="space-y-4">
+                        {/* Filter & Sort Controls */}
+                        <div className="space-y-3">
+                          {/* Search Bar */}
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Suchen..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            />
+                          </div>
+
+                          {/* Filter Toggle & Sort Buttons */}
+                          <div className="flex items-center justify-between gap-2">
+                            <button
+                              onClick={() => setShowFilters(!showFilters)}
+                              className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                                showFilters || filterType !== "all" || filterProvider !== "all"
+                                  ? "bg-primary/10 border-primary text-primary"
+                                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                              }`}
+                            >
+                              <Filter className="w-4 h-4" />
+                              Filter
+                              {(filterType !== "all" || filterProvider !== "all") && (
+                                <span className="bg-primary text-white text-xs px-1.5 py-0.5 rounded-full">
+                                  {(filterType !== "all" ? 1 : 0) + (filterProvider !== "all" ? 1 : 0)}
+                                </span>
+                              )}
+                              <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? "rotate-180" : ""}`} />
+                            </button>
+
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-gray-500 mr-2">Sortieren:</span>
+                              <button
+                                onClick={() => toggleSort("date")}
+                                className={`flex items-center gap-1 px-2 py-1.5 text-xs rounded border transition-colors ${
+                                  sortField === "date"
+                                    ? "bg-primary/10 border-primary text-primary"
+                                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                                }`}
+                              >
+                                Datum
+                                {sortField === "date" && (
+                                  <ArrowUpDown className={`w-3 h-3 ${sortDirection === "asc" ? "rotate-180" : ""}`} />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => toggleSort("amount")}
+                                className={`flex items-center gap-1 px-2 py-1.5 text-xs rounded border transition-colors ${
+                                  sortField === "amount"
+                                    ? "bg-primary/10 border-primary text-primary"
+                                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                                }`}
+                              >
+                                Betrag
+                                {sortField === "amount" && (
+                                  <ArrowUpDown className={`w-3 h-3 ${sortDirection === "asc" ? "rotate-180" : ""}`} />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => toggleSort("provider")}
+                                className={`flex items-center gap-1 px-2 py-1.5 text-xs rounded border transition-colors ${
+                                  sortField === "provider"
+                                    ? "bg-primary/10 border-primary text-primary"
+                                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                                }`}
+                              >
+                                Provider
+                                {sortField === "provider" && (
+                                  <ArrowUpDown className={`w-3 h-3 ${sortDirection === "asc" ? "rotate-180" : ""}`} />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Expanded Filters */}
+                          {showFilters && (
+                            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">Typ</label>
+                                  <select
+                                    value={filterType}
+                                    onChange={(e) => setFilterType(e.target.value as FilterType)}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                  >
+                                    <option value="all">Alle Typen</option>
+                                    <option value="usage">Nutzung</option>
+                                    <option value="purchase">Kauf</option>
+                                    <option value="refund">Erstattung</option>
+                                    <option value="bonus">Bonus</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">Provider</label>
+                                  <select
+                                    value={filterProvider}
+                                    onChange={(e) => setFilterProvider(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                  >
+                                    <option value="all">Alle Provider</option>
+                                    {uniqueProviders.map(provider => (
+                                      <option key={provider} value={provider}>
+                                        {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                              <div className="flex justify-end">
+                                <button
+                                  onClick={resetFilters}
+                                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                                >
+                                  Filter zurücksetzen
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Results Count */}
+                          <div className="text-xs text-gray-500">
+                            {filteredTransactions.length} von {transactions.length} Transaktionen
+                          </div>
+                        </div>
+
+                        {/* Transaction List */}
+                        <div className="space-y-2">
+                          {filteredTransactions.length === 0 ? (
+                            <p className="text-center text-gray-500 py-8">
+                              {transactions.length === 0 
+                                ? "Keine Transaktionen vorhanden" 
+                                : "Keine Transaktionen gefunden"}
+                            </p>
+                          ) : (
+                            filteredTransactions.map((tx) => (
+                              <div key={tx.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 hover:bg-gray-100 transition-colors">
+                                <div className="flex items-center gap-3">
+                                  {getTransactionIcon(tx.type)}
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">{tx.description}</p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-xs text-gray-500">{formatDate(tx.createdAt)}</p>
+                                      {tx.type === "usage" && (
+                                        <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded capitalize">
+                                          {getProviderFromDescription(tx.description)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className={`text-sm font-semibold ${Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                    {Number(tx.amount) >= 0 ? "+" : ""}{Number(tx.amount).toFixed(2)}
+                                  </p>
+                                  <p className="text-xs text-gray-400">
+                                    Saldo: {Number(tx.balanceAfter).toFixed(2)}
+                                  </p>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-semibold ${Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        {Number(tx.amount) >= 0 ? "+" : ""}{Number(tx.amount).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        Saldo: {Number(tx.balanceAfter).toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
+                    )}
 
           {activeTab === "usage" && (
             <div className="space-y-4">
