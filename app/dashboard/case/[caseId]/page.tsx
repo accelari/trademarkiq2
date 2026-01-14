@@ -6178,6 +6178,51 @@ WORKFLOW:
                   </div>
                 </div>
               )}
+
+              {/* Weiter-Button - zur Recherche navigieren */}
+              <div className="p-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentName = manualNameInput || rechercheForm.trademarkName || "";
+                    const classes = rechercheForm.niceClasses.join(", ") || "keine";
+                    const countries = rechercheForm.countries.join(", ") || "keine";
+                    const typeLabel = trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : trademarkType === "wort-bildmarke" ? "Wort-/Bildmarke" : "nicht gewählt";
+                    const hasLogo = trademarkImageUrl ? "ja" : "nein";
+                    
+                    // Aktueller Zustand für Vergleich (inkl. Logo-Status)
+                    const currentState = JSON.stringify({ name: currentName, classes, countries, type: trademarkType, logo: hasLogo });
+                    
+                    // Wenn Web-Check bereits für diesen Zustand gemacht wurde → direkt navigieren
+                    if (hasTriggeredWebCheckRef.current && lastWebCheckStateRef.current === currentState) {
+                      setOpenAccordion("recherche");
+                      window.location.hash = "#recherche";
+                      setTimeout(() => {
+                        const el = document.getElementById("accordion-recherche");
+                        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }, 100);
+                      return;
+                    }
+                    
+                    // Ersten Klick: Web-Check triggern und Zustand speichern
+                    hasTriggeredWebCheckRef.current = true;
+                    lastWebCheckStateRef.current = currentState;
+                    
+                    // Chat triggern für Bestätigung + Navigation
+                    markennameVoiceRef.current?.sendQuestion(
+                      `[SYSTEM: User hat auf 'Weiter' geklickt im Markenname-Bereich. Aktueller Stand: Marke "${currentName}", Art: ${typeLabel}, Logo: ${hasLogo}, Klassen: ${classes}, Länder: ${countries}.
+WICHTIG - Befolge diese Schritte:
+1) Bestätige kurz den aktuellen Stand (Name, Logo-Status)
+2) Frag "Sollen wir jetzt zur Markenrecherche gehen?" - bei JA dann [GOTO:recherche]
+3) Warte auf User-Antwort bevor du navigierst!]`
+                    );
+                  }}
+                  className="w-full px-4 py-3 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Weiter</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
