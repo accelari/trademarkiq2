@@ -303,7 +303,7 @@ export default function AdminCostsPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-gray-900">{formatCurrency(p.costEur)}</p>
-                          <p className="text-xs text-gray-500">{p.creditsCharged.toFixed(2)} Credits</p>
+                          <p className="text-xs text-gray-500">{Number(p.creditsCharged).toFixed(2)} Credits</p>
                         </div>
                       </div>
                       <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -337,7 +337,7 @@ export default function AdminCostsPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">{formatCurrency(user.costEur)}</p>
-                      <p className="text-xs text-gray-500">{user.creditsCharged.toFixed(2)} Credits</p>
+                      <p className="text-xs text-gray-500">{Number(user.creditsCharged).toFixed(2)} Credits</p>
                     </div>
                   </div>
                 ))
@@ -369,7 +369,7 @@ export default function AdminCostsPage() {
                       </div>
                       <div className="text-right">
                         <span className="text-sm font-medium text-gray-900">{formatCurrency(call.costEur)}</span>
-                        <span className="text-xs text-gray-500 ml-2">({call.creditsCharged.toFixed(2)} Cr)</span>
+                        <span className="text-xs text-gray-500 ml-2">({Number(call.creditsCharged).toFixed(2)} Cr)</span>
                       </div>
                     </div>
                   </div>

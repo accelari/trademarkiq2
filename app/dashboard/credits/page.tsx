@@ -318,11 +318,11 @@ export default function CreditsPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-semibold ${tx.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        {tx.amount >= 0 ? "+" : ""}{tx.amount.toFixed(2)}
+                      <p className={`text-sm font-semibold ${Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {Number(tx.amount) >= 0 ? "+" : ""}{Number(tx.amount).toFixed(2)}
                       </p>
                       <p className="text-xs text-gray-400">
-                        Saldo: {tx.balanceAfter.toFixed(2)}
+                        Saldo: {Number(tx.balanceAfter).toFixed(2)}
                       </p>
                     </div>
                   </div>
@@ -337,8 +337,9 @@ export default function CreditsPage() {
                 <>
                   <div className="grid grid-cols-1 gap-3">
                     {usage.byProvider.map((p) => {
-                      const percentage = usage.totalCreditsUsed > 0 
-                        ? (p.creditsUsed / usage.totalCreditsUsed) * 100 
+                      const creditsUsed = Number(p.creditsUsed);
+                      const percentage = Number(usage.totalCreditsUsed) > 0 
+                        ? (creditsUsed / Number(usage.totalCreditsUsed)) * 100 
                         : 0;
                       return (
                         <div key={p.provider} className="bg-gray-50 rounded-lg p-4">
@@ -354,7 +355,7 @@ export default function CreditsPage() {
                           </div>
                           <div className="flex justify-between mt-2 text-xs text-gray-500">
                             <span>{p.calls} Aufrufe</span>
-                            <span>{p.creditsUsed.toFixed(2)} Credits</span>
+                            <span>{creditsUsed.toFixed(2)} Credits</span>
                           </div>
                         </div>
                       );
