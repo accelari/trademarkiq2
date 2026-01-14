@@ -5527,100 +5527,101 @@ WORKFLOW:
               {/* Logo-Galerie - OBEN (direkt unter Vorschau) */}
               {logoGallery.length > 0 && (
                 <div className="border-t border-gray-200 p-3 bg-gray-50">
-                  {/* Header mit Aktionen */}
+                  {/* Header mit Aktionen - nur sichtbar wenn Logos ausgewählt */}
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-gray-600">Logo-Galerie ({logoGallery.length})</span>
-                      {/* Alle auswählen Checkbox */}
-                      <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer hover:text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={checkedLogoIds.size === logoGallery.length && logoGallery.length > 0}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setCheckedLogoIds(new Set(logoGallery.map(l => l.id)));
-                            } else {
+                    <span className="text-xs font-medium text-gray-600">Logo-Galerie ({logoGallery.length})</span>
+                    {/* Aktionsleiste - erscheint nur wenn mindestens ein Logo ausgewählt */}
+                    {checkedLogoIds.size > 0 && (
+                      <div className="flex items-center gap-2 bg-teal-50 px-2 py-1 rounded-lg border border-teal-200">
+                        <span className="text-xs text-teal-700 font-medium">{checkedLogoIds.size} ausgewählt</span>
+                        {/* Alle auswählen */}
+                        <button
+                          onClick={() => {
+                            if (checkedLogoIds.size === logoGallery.length) {
                               setCheckedLogoIds(new Set());
+                            } else {
+                              setCheckedLogoIds(new Set(logoGallery.map(l => l.id)));
                             }
                           }}
-                          className="w-3 h-3 rounded border-gray-300 text-teal-500 focus:ring-teal-500"
-                        />
-                        Alle
-                      </label>
-                    </div>
-                    {/* Aktions-Buttons */}
-                    <div className="flex items-center gap-2">
-                      {checkedLogoIds.size > 0 && (
-                        <>
-                          <button
-                            onClick={() => {
-                              // Download alle ausgewählten
-                              checkedLogoIds.forEach(id => {
-                                const logo = logoGallery.find(l => l.id === id);
-                                if (logo) {
-                                  const link = document.createElement("a");
-                                  link.href = logo.url;
-                                  link.download = `logo-${id}.png`;
-                                  link.click();
-                                }
-                              });
-                            }}
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded transition-colors"
-                            title="Ausgewählte herunterladen"
-                          >
-                            <Download className="w-3 h-3" />
-                            {checkedLogoIds.size}
-                          </button>
-                          <button
-                            onClick={async () => {
-                              if (confirm(`${checkedLogoIds.size} Logo(s) löschen?`)) {
-                                const idsToDelete = Array.from(checkedLogoIds);
-                                const success = await deleteLogosFromDatabase(idsToDelete);
-                                
-                                if (success) {
-                                  setLogoGallery(prev => prev.filter(l => !checkedLogoIds.has(l.id)));
-                                  // Wenn aktuell ausgewähltes Logo gelöscht wird
-                                  if (selectedLogoId && checkedLogoIds.has(selectedLogoId)) {
-                                    const remaining = logoGallery.filter(l => !checkedLogoIds.has(l.id));
-                                    if (remaining.length > 0) {
-                                      setSelectedLogoId(remaining[0].id);
-                                      setTrademarkImageUrl(remaining[0].url);
-                                    } else {
-                                      setSelectedLogoId(null);
-                                      setTrademarkImageUrl(null);
-                                    }
-                                  }
-                                  setCheckedLogoIds(new Set());
-                                }
+                          className="text-xs text-teal-600 hover:text-teal-800 hover:underline"
+                        >
+                          {checkedLogoIds.size === logoGallery.length ? "Keine" : "Alle"}
+                        </button>
+                        <div className="w-px h-4 bg-teal-300" />
+                        {/* Download */}
+                        <button
+                          onClick={() => {
+                            checkedLogoIds.forEach(id => {
+                              const logo = logoGallery.find(l => l.id === id);
+                              if (logo) {
+                                const link = document.createElement("a");
+                                link.href = logo.url;
+                                link.download = `logo-${id}.png`;
+                                link.click();
                               }
-                            }}
-                            disabled={isDeletingLogos}
-                            className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
-                              isDeletingLogos 
-                                ? "text-gray-400 cursor-not-allowed" 
-                                : "text-red-500 hover:text-red-700 hover:bg-red-50"
-                            }`}
-                            title="Ausgewählte löschen"
-                          >
-                            {isDeletingLogos ? (
-                              <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <Trash2 className="w-3 h-3" />
-                            )}
-                            {checkedLogoIds.size}
-                          </button>
-                        </>
-                      )}
-                    </div>
+                            });
+                          }}
+                          className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-800"
+                          title="Herunterladen"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                        {/* Löschen */}
+                        <button
+                          onClick={async () => {
+                            if (confirm(`${checkedLogoIds.size} Logo(s) löschen?`)) {
+                              const idsToDelete = Array.from(checkedLogoIds);
+                              const success = await deleteLogosFromDatabase(idsToDelete);
+                              
+                              if (success) {
+                                setLogoGallery(prev => prev.filter(l => !checkedLogoIds.has(l.id)));
+                                if (selectedLogoId && checkedLogoIds.has(selectedLogoId)) {
+                                  const remaining = logoGallery.filter(l => !checkedLogoIds.has(l.id));
+                                  if (remaining.length > 0) {
+                                    setSelectedLogoId(remaining[0].id);
+                                    setTrademarkImageUrl(remaining[0].url);
+                                  } else {
+                                    setSelectedLogoId(null);
+                                    setTrademarkImageUrl(null);
+                                  }
+                                }
+                                setCheckedLogoIds(new Set());
+                              }
+                            }
+                          }}
+                          disabled={isDeletingLogos}
+                          className={`flex items-center gap-1 text-xs ${
+                            isDeletingLogos ? "text-gray-400" : "text-red-500 hover:text-red-700"
+                          }`}
+                          title="Löschen"
+                        >
+                          {isDeletingLogos ? (
+                            <div className="w-3.5 h-3.5 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                        {/* Abbrechen */}
+                        <button
+                          onClick={() => setCheckedLogoIds(new Set())}
+                          className="text-xs text-gray-500 hover:text-gray-700"
+                          title="Auswahl aufheben"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {/* Logo Thumbnails */}
+                  {/* Logo Thumbnails - Checkbox nur bei Hover sichtbar */}
                   <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                     {logoGallery.map((logo) => (
                       <div
                         key={logo.id}
-                        className={`relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                        className={`group relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
                           selectedLogoId === logo.id 
                             ? "border-teal-500 ring-2 ring-teal-200" 
+                            : checkedLogoIds.has(logo.id)
+                            ? "border-teal-400 bg-teal-50"
                             : "border-gray-200 hover:border-gray-400"
                         }`}
                         onClick={() => {
@@ -5633,9 +5634,11 @@ WORKFLOW:
                           alt="Logo" 
                           className="w-full h-full object-contain bg-white"
                         />
-                        {/* Checkbox oben rechts */}
+                        {/* Checkbox - nur bei Hover oder wenn ausgewählt sichtbar */}
                         <div 
-                          className="absolute top-0.5 right-0.5"
+                          className={`absolute top-0.5 right-0.5 transition-opacity ${
+                            checkedLogoIds.has(logo.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                          }`}
                           onClick={(e) => e.stopPropagation()}
                         >
                           <input
@@ -5650,11 +5653,11 @@ WORKFLOW:
                               }
                               setCheckedLogoIds(newSet);
                             }}
-                            className="w-3.5 h-3.5 rounded border-gray-300 text-teal-500 focus:ring-teal-500 cursor-pointer bg-white/80"
+                            className="w-4 h-4 rounded border-2 border-white text-teal-500 focus:ring-teal-500 cursor-pointer shadow-sm"
                           />
                         </div>
-                        {/* Source Badge */}
-                        <div className={`absolute top-0.5 left-0.5 px-1 py-0.5 rounded text-[8px] font-medium ${
+                        {/* Source Badge - unten links für bessere Sichtbarkeit */}
+                        <div className={`absolute bottom-0.5 left-0.5 px-1 py-0.5 rounded text-[8px] font-medium ${
                           logo.source === "generated" ? "bg-teal-500 text-white" :
                           logo.source === "edited" ? "bg-blue-500 text-white" :
                           "bg-gray-500 text-white"
