@@ -96,90 +96,249 @@ type CountryOption = {
   numeric?: string;
 };
 
+// Vollständige Liste aller 194 WIPO-Mitgliedsstaaten
 const COUNTRY_OPTIONS: CountryOption[] = [
-  // Bestehende Länder (TMSearch.ai verfügbar)
+  // Internationale Register
+  { code: "EU", label: "Europäische Union (EUIPO)", icon: "🇪🇺" },
+  { code: "WO", label: "WIPO (International)", icon: "🌐" },
+  // A
+  { code: "AD", label: "Andorra", icon: "🇦🇩", numeric: "020" },
   { code: "AE", label: "Vereinigte Arabische Emirate", icon: "🇦🇪", numeric: "784" },
+  { code: "AF", label: "Afghanistan", icon: "🇦🇫", numeric: "004" },
+  { code: "AG", label: "Antigua und Barbuda", icon: "🇦🇬", numeric: "028" },
+  { code: "AL", label: "Albanien", icon: "🇦🇱", numeric: "008" },
   { code: "AM", label: "Armenien", icon: "🇦🇲", numeric: "051" },
+  { code: "AO", label: "Angola", icon: "🇦🇴", numeric: "024" },
   { code: "AR", label: "Argentinien", icon: "🇦🇷", numeric: "032" },
+  { code: "AT", label: "Österreich", icon: "🇦🇹", numeric: "040" },
   { code: "AU", label: "Australien", icon: "🇦🇺", numeric: "036" },
   { code: "AZ", label: "Aserbaidschan", icon: "🇦🇿", numeric: "031" },
+  // B
+  { code: "BA", label: "Bosnien und Herzegowina", icon: "🇧🇦", numeric: "070" },
+  { code: "BB", label: "Barbados", icon: "🇧🇧", numeric: "052" },
+  { code: "BD", label: "Bangladesch", icon: "🇧🇩", numeric: "050" },
+  { code: "BE", label: "Belgien", icon: "🇧🇪", numeric: "056" },
+  { code: "BF", label: "Burkina Faso", icon: "🇧🇫", numeric: "854" },
+  { code: "BG", label: "Bulgarien", icon: "🇧🇬", numeric: "100" },
   { code: "BH", label: "Bahrain", icon: "🇧🇭", numeric: "048" },
+  { code: "BI", label: "Burundi", icon: "🇧🇮", numeric: "108" },
+  { code: "BJ", label: "Benin", icon: "🇧🇯", numeric: "204" },
+  { code: "BN", label: "Brunei", icon: "🇧🇳", numeric: "096" },
+  { code: "BO", label: "Bolivien", icon: "🇧🇴", numeric: "068" },
+  { code: "BR", label: "Brasilien", icon: "🇧🇷", numeric: "076" },
+  { code: "BS", label: "Bahamas", icon: "🇧🇸", numeric: "044" },
+  { code: "BT", label: "Bhutan", icon: "🇧🇹", numeric: "064" },
   { code: "BW", label: "Botswana", icon: "🇧🇼", numeric: "072" },
   { code: "BY", label: "Belarus", icon: "🇧🇾", numeric: "112" },
+  { code: "BZ", label: "Belize", icon: "🇧🇿", numeric: "084" },
+  // C
   { code: "CA", label: "Kanada", icon: "🇨🇦", numeric: "124" },
+  { code: "CD", label: "Demokratische Republik Kongo", icon: "🇨🇩", numeric: "180" },
+  { code: "CF", label: "Zentralafrikanische Republik", icon: "🇨🇫", numeric: "140" },
+  { code: "CG", label: "Republik Kongo", icon: "🇨🇬", numeric: "178" },
   { code: "CH", label: "Schweiz", icon: "🇨🇭", numeric: "756" },
-  { code: "EE", label: "Estland", icon: "🇪🇪", numeric: "233" },
-  { code: "EG", label: "Ägypten", icon: "🇪🇬", numeric: "818" },
-  { code: "ES", label: "Spanien", icon: "🇪🇸", numeric: "724" },
-  { code: "EU", label: "Europäische Union", icon: "🇪🇺" },
-  { code: "GB", label: "Vereinigtes Königreich", icon: "🇬🇧", numeric: "826" },
-  { code: "GE", label: "Georgien", icon: "🇬🇪", numeric: "268" },
-  { code: "HK", label: "Hongkong", icon: "🇭🇰", numeric: "344" },
-  { code: "IL", label: "Israel", icon: "🇮🇱", numeric: "376" },
-  { code: "IN", label: "Indien", icon: "🇮🇳", numeric: "356" },
-  { code: "IT", label: "Italien", icon: "🇮🇹", numeric: "380" },
-  { code: "KE", label: "Kenia", icon: "🇰🇪", numeric: "404" },
-  { code: "KG", label: "Kirgisistan", icon: "🇰🇬", numeric: "417" },
-  { code: "KZ", label: "Kasachstan", icon: "🇰🇿", numeric: "398" },
-  { code: "LT", label: "Litauen", icon: "🇱🇹", numeric: "440" },
-  { code: "LV", label: "Lettland", icon: "🇱🇻", numeric: "428" },
-  { code: "MA", label: "Marokko", icon: "🇲🇦", numeric: "504" },
-  { code: "MD", label: "Moldau", icon: "🇲🇩", numeric: "498" },
-  { code: "MX", label: "Mexiko", icon: "🇲🇽", numeric: "484" },
-  { code: "NO", label: "Norwegen", icon: "🇳🇴", numeric: "578" },
-  { code: "OM", label: "Oman", icon: "🇴🇲", numeric: "512" },
-  { code: "RU", label: "Russische Föderation", icon: "🇷🇺", numeric: "643" },
-  { code: "SA", label: "Saudi-Arabien", icon: "🇸🇦", numeric: "682" },
-  { code: "TR", label: "Türkei", icon: "🇹🇷", numeric: "792" },
-  { code: "TW", label: "Taiwan", icon: "🇹🇼", numeric: "158" },
-  { code: "UA", label: "Ukraine", icon: "🇺🇦", numeric: "804" },
-  { code: "US", label: "Vereinigte Staaten", icon: "🇺🇸", numeric: "840" },
-  { code: "UZ", label: "Usbekistan", icon: "🇺🇿", numeric: "860" },
-  { code: "WO", label: "WIPO", icon: "🌐" },
-  // Zusätzliche WIPO-Mitgliedsländer (kein direktes TMSearch.ai Register - Recherche über EUIPO/WIPO)
-  { code: "AT", label: "Österreich", icon: "🇦🇹", numeric: "040" },
-  { code: "BE", label: "Belgien", icon: "🇧🇪", numeric: "056" },
-  { code: "BG", label: "Bulgarien", icon: "🇧🇬", numeric: "100" },
-  { code: "BR", label: "Brasilien", icon: "🇧🇷", numeric: "076" },
+  { code: "CI", label: "Elfenbeinküste", icon: "🇨🇮", numeric: "384" },
+  { code: "CK", label: "Cookinseln", icon: "🇨🇰", numeric: "184" },
+  { code: "CL", label: "Chile", icon: "🇨🇱", numeric: "152" },
+  { code: "CM", label: "Kamerun", icon: "🇨🇲", numeric: "120" },
   { code: "CN", label: "China", icon: "🇨🇳", numeric: "156" },
+  { code: "CO", label: "Kolumbien", icon: "🇨🇴", numeric: "170" },
+  { code: "CR", label: "Costa Rica", icon: "🇨🇷", numeric: "188" },
+  { code: "CU", label: "Kuba", icon: "🇨🇺", numeric: "192" },
+  { code: "CV", label: "Kap Verde", icon: "🇨🇻", numeric: "132" },
   { code: "CY", label: "Zypern", icon: "🇨🇾", numeric: "196" },
   { code: "CZ", label: "Tschechien", icon: "🇨🇿", numeric: "203" },
+  // D
   { code: "DE", label: "Deutschland", icon: "🇩🇪", numeric: "276" },
+  { code: "DJ", label: "Dschibuti", icon: "🇩🇯", numeric: "262" },
   { code: "DK", label: "Dänemark", icon: "🇩🇰", numeric: "208" },
+  { code: "DM", label: "Dominica", icon: "🇩🇲", numeric: "212" },
+  { code: "DO", label: "Dominikanische Republik", icon: "🇩🇴", numeric: "214" },
+  { code: "DZ", label: "Algerien", icon: "🇩🇿", numeric: "012" },
+  // E
+  { code: "EC", label: "Ecuador", icon: "🇪🇨", numeric: "218" },
+  { code: "EE", label: "Estland", icon: "🇪🇪", numeric: "233" },
+  { code: "EG", label: "Ägypten", icon: "🇪🇬", numeric: "818" },
+  { code: "ER", label: "Eritrea", icon: "🇪🇷", numeric: "232" },
+  { code: "ES", label: "Spanien", icon: "🇪🇸", numeric: "724" },
+  { code: "ET", label: "Äthiopien", icon: "🇪🇹", numeric: "231" },
+  // F
   { code: "FI", label: "Finnland", icon: "🇫🇮", numeric: "246" },
+  { code: "FJ", label: "Fidschi", icon: "🇫🇯", numeric: "242" },
   { code: "FR", label: "Frankreich", icon: "🇫🇷", numeric: "250" },
+  // G
+  { code: "GA", label: "Gabun", icon: "🇬🇦", numeric: "266" },
+  { code: "GB", label: "Vereinigtes Königreich", icon: "🇬🇧", numeric: "826" },
+  { code: "GD", label: "Grenada", icon: "🇬🇩", numeric: "308" },
+  { code: "GE", label: "Georgien", icon: "🇬🇪", numeric: "268" },
+  { code: "GH", label: "Ghana", icon: "🇬🇭", numeric: "288" },
+  { code: "GM", label: "Gambia", icon: "🇬🇲", numeric: "270" },
+  { code: "GN", label: "Guinea", icon: "🇬🇳", numeric: "324" },
+  { code: "GQ", label: "Äquatorialguinea", icon: "🇬🇶", numeric: "226" },
   { code: "GR", label: "Griechenland", icon: "🇬🇷", numeric: "300" },
+  { code: "GT", label: "Guatemala", icon: "🇬🇹", numeric: "320" },
+  { code: "GW", label: "Guinea-Bissau", icon: "🇬🇼", numeric: "624" },
+  { code: "GY", label: "Guyana", icon: "🇬🇾", numeric: "328" },
+  // H
+  { code: "HK", label: "Hongkong", icon: "🇭🇰", numeric: "344" },
+  { code: "HN", label: "Honduras", icon: "🇭🇳", numeric: "340" },
   { code: "HR", label: "Kroatien", icon: "🇭🇷", numeric: "191" },
+  { code: "HT", label: "Haiti", icon: "🇭🇹", numeric: "332" },
   { code: "HU", label: "Ungarn", icon: "🇭🇺", numeric: "348" },
+  // I
+  { code: "ID", label: "Indonesien", icon: "🇮🇩", numeric: "360" },
   { code: "IE", label: "Irland", icon: "🇮🇪", numeric: "372" },
+  { code: "IL", label: "Israel", icon: "🇮🇱", numeric: "376" },
+  { code: "IN", label: "Indien", icon: "🇮🇳", numeric: "356" },
+  { code: "IQ", label: "Irak", icon: "🇮🇶", numeric: "368" },
+  { code: "IR", label: "Iran", icon: "🇮🇷", numeric: "364" },
+  { code: "IS", label: "Island", icon: "🇮🇸", numeric: "352" },
+  { code: "IT", label: "Italien", icon: "🇮🇹", numeric: "380" },
+  // J
+  { code: "JM", label: "Jamaika", icon: "🇯🇲", numeric: "388" },
+  { code: "JO", label: "Jordanien", icon: "🇯🇴", numeric: "400" },
   { code: "JP", label: "Japan", icon: "🇯🇵", numeric: "392" },
+  // K
+  { code: "KE", label: "Kenia", icon: "🇰🇪", numeric: "404" },
+  { code: "KG", label: "Kirgisistan", icon: "🇰🇬", numeric: "417" },
+  { code: "KH", label: "Kambodscha", icon: "🇰🇭", numeric: "116" },
+  { code: "KI", label: "Kiribati", icon: "🇰🇮", numeric: "296" },
+  { code: "KM", label: "Komoren", icon: "🇰🇲", numeric: "174" },
+  { code: "KN", label: "St. Kitts und Nevis", icon: "🇰🇳", numeric: "659" },
+  { code: "KP", label: "Nordkorea", icon: "🇰🇵", numeric: "408" },
   { code: "KR", label: "Südkorea", icon: "🇰🇷", numeric: "410" },
+  { code: "KW", label: "Kuwait", icon: "🇰🇼", numeric: "414" },
+  { code: "KZ", label: "Kasachstan", icon: "🇰🇿", numeric: "398" },
+  // L
+  { code: "LA", label: "Laos", icon: "🇱🇦", numeric: "418" },
+  { code: "LB", label: "Libanon", icon: "🇱🇧", numeric: "422" },
+  { code: "LC", label: "St. Lucia", icon: "🇱🇨", numeric: "662" },
+  { code: "LI", label: "Liechtenstein", icon: "🇱🇮", numeric: "438" },
+  { code: "LK", label: "Sri Lanka", icon: "🇱🇰", numeric: "144" },
+  { code: "LR", label: "Liberia", icon: "🇱🇷", numeric: "430" },
+  { code: "LS", label: "Lesotho", icon: "🇱🇸", numeric: "426" },
+  { code: "LT", label: "Litauen", icon: "🇱🇹", numeric: "440" },
   { code: "LU", label: "Luxemburg", icon: "🇱🇺", numeric: "442" },
+  { code: "LV", label: "Lettland", icon: "🇱🇻", numeric: "428" },
+  { code: "LY", label: "Libyen", icon: "🇱🇾", numeric: "434" },
+  // M
+  { code: "MA", label: "Marokko", icon: "🇲🇦", numeric: "504" },
+  { code: "MC", label: "Monaco", icon: "🇲🇨", numeric: "492" },
+  { code: "MD", label: "Moldau", icon: "🇲🇩", numeric: "498" },
+  { code: "ME", label: "Montenegro", icon: "🇲🇪", numeric: "499" },
+  { code: "MG", label: "Madagaskar", icon: "🇲🇬", numeric: "450" },
+  { code: "MH", label: "Marshallinseln", icon: "🇲🇭", numeric: "584" },
+  { code: "MK", label: "Nordmazedonien", icon: "🇲🇰", numeric: "807" },
+  { code: "ML", label: "Mali", icon: "🇲🇱", numeric: "466" },
+  { code: "MM", label: "Myanmar", icon: "🇲🇲", numeric: "104" },
+  { code: "MN", label: "Mongolei", icon: "🇲🇳", numeric: "496" },
+  { code: "MR", label: "Mauretanien", icon: "🇲🇷", numeric: "478" },
   { code: "MT", label: "Malta", icon: "🇲🇹", numeric: "470" },
+  { code: "MU", label: "Mauritius", icon: "🇲🇺", numeric: "480" },
+  { code: "MV", label: "Malediven", icon: "🇲🇻", numeric: "462" },
+  { code: "MW", label: "Malawi", icon: "🇲🇼", numeric: "454" },
+  { code: "MX", label: "Mexiko", icon: "🇲🇽", numeric: "484" },
+  { code: "MY", label: "Malaysia", icon: "🇲🇾", numeric: "458" },
+  { code: "MZ", label: "Mosambik", icon: "🇲🇿", numeric: "508" },
+  // N
+  { code: "NA", label: "Namibia", icon: "🇳🇦", numeric: "516" },
+  { code: "NE", label: "Niger", icon: "🇳🇪", numeric: "562" },
+  { code: "NG", label: "Nigeria", icon: "🇳🇬", numeric: "566" },
+  { code: "NI", label: "Nicaragua", icon: "🇳🇮", numeric: "558" },
   { code: "NL", label: "Niederlande", icon: "🇳🇱", numeric: "528" },
+  { code: "NO", label: "Norwegen", icon: "🇳🇴", numeric: "578" },
+  { code: "NP", label: "Nepal", icon: "🇳🇵", numeric: "524" },
+  { code: "NR", label: "Nauru", icon: "🇳🇷", numeric: "520" },
+  { code: "NU", label: "Niue", icon: "🇳🇺", numeric: "570" },
   { code: "NZ", label: "Neuseeland", icon: "🇳🇿", numeric: "554" },
+  // O
+  { code: "OM", label: "Oman", icon: "🇴🇲", numeric: "512" },
+  // P
+  { code: "PA", label: "Panama", icon: "🇵🇦", numeric: "591" },
+  { code: "PE", label: "Peru", icon: "🇵🇪", numeric: "604" },
+  { code: "PG", label: "Papua-Neuguinea", icon: "🇵🇬", numeric: "598" },
+  { code: "PH", label: "Philippinen", icon: "🇵🇭", numeric: "608" },
+  { code: "PK", label: "Pakistan", icon: "🇵🇰", numeric: "586" },
   { code: "PL", label: "Polen", icon: "🇵🇱", numeric: "616" },
   { code: "PT", label: "Portugal", icon: "🇵🇹", numeric: "620" },
+  { code: "PY", label: "Paraguay", icon: "🇵🇾", numeric: "600" },
+  // Q
+  { code: "QA", label: "Katar", icon: "🇶🇦", numeric: "634" },
+  // R
   { code: "RO", label: "Rumänien", icon: "🇷🇴", numeric: "642" },
+  { code: "RS", label: "Serbien", icon: "🇷🇸", numeric: "688" },
+  { code: "RU", label: "Russische Föderation", icon: "🇷🇺", numeric: "643" },
+  { code: "RW", label: "Ruanda", icon: "🇷🇼", numeric: "646" },
+  // S
+  { code: "SA", label: "Saudi-Arabien", icon: "🇸🇦", numeric: "682" },
+  { code: "SB", label: "Salomonen", icon: "🇸🇧", numeric: "090" },
+  { code: "SC", label: "Seychellen", icon: "🇸🇨", numeric: "690" },
+  { code: "SD", label: "Sudan", icon: "🇸🇩", numeric: "729" },
   { code: "SE", label: "Schweden", icon: "🇸🇪", numeric: "752" },
   { code: "SG", label: "Singapur", icon: "🇸🇬", numeric: "702" },
   { code: "SI", label: "Slowenien", icon: "🇸🇮", numeric: "705" },
   { code: "SK", label: "Slowakei", icon: "🇸🇰", numeric: "703" },
+  { code: "SL", label: "Sierra Leone", icon: "🇸🇱", numeric: "694" },
+  { code: "SM", label: "San Marino", icon: "🇸🇲", numeric: "674" },
+  { code: "SN", label: "Senegal", icon: "🇸🇳", numeric: "686" },
+  { code: "SO", label: "Somalia", icon: "🇸🇴", numeric: "706" },
+  { code: "SR", label: "Suriname", icon: "🇸🇷", numeric: "740" },
+  { code: "ST", label: "São Tomé und Príncipe", icon: "🇸🇹", numeric: "678" },
+  { code: "SV", label: "El Salvador", icon: "🇸🇻", numeric: "222" },
+  { code: "SY", label: "Syrien", icon: "🇸🇾", numeric: "760" },
+  { code: "SZ", label: "Eswatini", icon: "🇸🇿", numeric: "748" },
+  // T
+  { code: "TD", label: "Tschad", icon: "🇹🇩", numeric: "148" },
+  { code: "TG", label: "Togo", icon: "🇹🇬", numeric: "768" },
+  { code: "TH", label: "Thailand", icon: "🇹🇭", numeric: "764" },
+  { code: "TJ", label: "Tadschikistan", icon: "🇹🇯", numeric: "762" },
+  { code: "TL", label: "Osttimor", icon: "🇹🇱", numeric: "626" },
+  { code: "TM", label: "Turkmenistan", icon: "🇹🇲", numeric: "795" },
+  { code: "TN", label: "Tunesien", icon: "🇹🇳", numeric: "788" },
+  { code: "TO", label: "Tonga", icon: "🇹🇴", numeric: "776" },
+  { code: "TR", label: "Türkei", icon: "🇹🇷", numeric: "792" },
+  { code: "TT", label: "Trinidad und Tobago", icon: "🇹🇹", numeric: "780" },
+  { code: "TV", label: "Tuvalu", icon: "🇹🇻", numeric: "798" },
+  { code: "TW", label: "Taiwan", icon: "🇹🇼", numeric: "158" },
+  { code: "TZ", label: "Tansania", icon: "🇹🇿", numeric: "834" },
+  // U
+  { code: "UA", label: "Ukraine", icon: "🇺🇦", numeric: "804" },
+  { code: "UG", label: "Uganda", icon: "🇺🇬", numeric: "800" },
+  { code: "US", label: "Vereinigte Staaten", icon: "🇺🇸", numeric: "840" },
+  { code: "UY", label: "Uruguay", icon: "🇺🇾", numeric: "858" },
+  { code: "UZ", label: "Usbekistan", icon: "🇺🇿", numeric: "860" },
+  // V
+  { code: "VA", label: "Vatikanstadt", icon: "🇻🇦", numeric: "336" },
+  { code: "VC", label: "St. Vincent und die Grenadinen", icon: "🇻🇨", numeric: "670" },
+  { code: "VE", label: "Venezuela", icon: "🇻🇪", numeric: "862" },
+  { code: "VN", label: "Vietnam", icon: "🇻🇳", numeric: "704" },
+  { code: "VU", label: "Vanuatu", icon: "🇻🇺", numeric: "548" },
+  // W
+  { code: "WS", label: "Samoa", icon: "🇼🇸", numeric: "882" },
+  // Y
+  { code: "YE", label: "Jemen", icon: "🇾🇪", numeric: "887" },
+  // Z
   { code: "ZA", label: "Südafrika", icon: "🇿🇦", numeric: "710" },
+  { code: "ZM", label: "Sambia", icon: "🇿🇲", numeric: "894" },
+  { code: "ZW", label: "Simbabwe", icon: "🇿🇼", numeric: "716" },
 ].slice().sort((a, b) => a.label.localeCompare(b.label));
 
 // Welche Länder erlauben Selbstanmeldung ohne lokalen Vertreter?
 // true = Selbstanmeldung möglich, false = Vertreter erforderlich
+// Hinweis: Die meisten Länder erfordern einen lokalen Vertreter für ausländische Anmelder
 const SELF_REGISTER_ALLOWED: Record<string, boolean> = {
-  // Selbstanmeldung möglich
+  // Internationale Register
+  EU: true,  // EUIPO - EU-Bürger können selbst anmelden
+  WO: true,  // WIPO Madrid - über nationales Amt
+  // Selbstanmeldung möglich (ohne lokalen Vertreter)
   AU: true,  // Australien
   CA: true,  // Kanada
   CH: true,  // Schweiz
-  EU: true,  // EUIPO
   GB: true,  // UK
-  NO: true,  // Norwegen
+  IS: true,  // Island (EWR)
+  LI: true,  // Liechtenstein (EWR)
+  NO: true,  // Norwegen (EWR)
   NZ: true,  // Neuseeland
-  WO: true,  // WIPO Madrid
   // EU-Länder (EU-Bürger können selbst anmelden)
   AT: true,  // Österreich
   BE: true,  // Belgien
@@ -208,39 +367,169 @@ const SELF_REGISTER_ALLOWED: Record<string, boolean> = {
   SE: true,  // Schweden
   SI: true,  // Slowenien
   SK: true,  // Slowakei
-  // Vertreter erforderlich
+  // Alle anderen Länder - Vertreter erforderlich (default: false)
+  // Die folgenden Länder sind explizit aufgeführt, aber für alle nicht aufgeführten
+  // Länder gilt ebenfalls: Vertreter erforderlich
+  AD: false, // Andorra
   AE: false, // VAE
+  AF: false, // Afghanistan
+  AG: false, // Antigua und Barbuda
+  AL: false, // Albanien
   AM: false, // Armenien
+  AO: false, // Angola
   AR: false, // Argentinien
   AZ: false, // Aserbaidschan
+  BA: false, // Bosnien und Herzegowina
+  BB: false, // Barbados
+  BD: false, // Bangladesch
+  BF: false, // Burkina Faso
   BH: false, // Bahrain
+  BI: false, // Burundi
+  BJ: false, // Benin
+  BN: false, // Brunei
+  BO: false, // Bolivien
   BR: false, // Brasilien
+  BS: false, // Bahamas
+  BT: false, // Bhutan
   BW: false, // Botswana
   BY: false, // Belarus
+  BZ: false, // Belize
+  CD: false, // DR Kongo
+  CF: false, // Zentralafrikanische Republik
+  CG: false, // Republik Kongo
+  CI: false, // Elfenbeinküste
+  CK: false, // Cookinseln
+  CL: false, // Chile
+  CM: false, // Kamerun
   CN: false, // China
+  CO: false, // Kolumbien
+  CR: false, // Costa Rica
+  CU: false, // Kuba
+  CV: false, // Kap Verde
+  DJ: false, // Dschibuti
+  DM: false, // Dominica
+  DO: false, // Dominikanische Republik
+  DZ: false, // Algerien
+  EC: false, // Ecuador
   EG: false, // Ägypten
+  ER: false, // Eritrea
+  ET: false, // Äthiopien
+  FJ: false, // Fidschi
+  GA: false, // Gabun
+  GD: false, // Grenada
   GE: false, // Georgien
+  GH: false, // Ghana
+  GM: false, // Gambia
+  GN: false, // Guinea
+  GQ: false, // Äquatorialguinea
+  GT: false, // Guatemala
+  GW: false, // Guinea-Bissau
+  GY: false, // Guyana
   HK: false, // Hongkong
+  HN: false, // Honduras
+  HT: false, // Haiti
+  ID: false, // Indonesien
   IL: false, // Israel
   IN: false, // Indien
+  IQ: false, // Irak
+  IR: false, // Iran
+  JM: false, // Jamaika
+  JO: false, // Jordanien
   JP: false, // Japan
   KE: false, // Kenia
   KG: false, // Kirgisistan
+  KH: false, // Kambodscha
+  KI: false, // Kiribati
+  KM: false, // Komoren
+  KN: false, // St. Kitts und Nevis
+  KP: false, // Nordkorea
   KR: false, // Südkorea
+  KW: false, // Kuwait
   KZ: false, // Kasachstan
+  LA: false, // Laos
+  LB: false, // Libanon
+  LC: false, // St. Lucia
+  LK: false, // Sri Lanka
+  LR: false, // Liberia
+  LS: false, // Lesotho
+  LY: false, // Libyen
   MA: false, // Marokko
+  MC: false, // Monaco
   MD: false, // Moldau
+  ME: false, // Montenegro
+  MG: false, // Madagaskar
+  MH: false, // Marshallinseln
+  MK: false, // Nordmazedonien
+  ML: false, // Mali
+  MM: false, // Myanmar
+  MN: false, // Mongolei
+  MR: false, // Mauretanien
+  MU: false, // Mauritius
+  MV: false, // Malediven
+  MW: false, // Malawi
   MX: false, // Mexiko
+  MY: false, // Malaysia
+  MZ: false, // Mosambik
+  NA: false, // Namibia
+  NE: false, // Niger
+  NG: false, // Nigeria
+  NI: false, // Nicaragua
+  NP: false, // Nepal
+  NR: false, // Nauru
+  NU: false, // Niue
   OM: false, // Oman
+  PA: false, // Panama
+  PE: false, // Peru
+  PG: false, // Papua-Neuguinea
+  PH: false, // Philippinen
+  PK: false, // Pakistan
+  PY: false, // Paraguay
+  QA: false, // Katar
+  RS: false, // Serbien
   RU: false, // Russland
+  RW: false, // Ruanda
   SA: false, // Saudi-Arabien
+  SB: false, // Salomonen
+  SC: false, // Seychellen
+  SD: false, // Sudan
   SG: false, // Singapur
+  SL: false, // Sierra Leone
+  SM: false, // San Marino
+  SN: false, // Senegal
+  SO: false, // Somalia
+  SR: false, // Suriname
+  ST: false, // São Tomé und Príncipe
+  SV: false, // El Salvador
+  SY: false, // Syrien
+  SZ: false, // Eswatini
+  TD: false, // Tschad
+  TG: false, // Togo
+  TH: false, // Thailand
+  TJ: false, // Tadschikistan
+  TL: false, // Osttimor
+  TM: false, // Turkmenistan
+  TN: false, // Tunesien
+  TO: false, // Tonga
   TR: false, // Türkei
+  TT: false, // Trinidad und Tobago
+  TV: false, // Tuvalu
   TW: false, // Taiwan
+  TZ: false, // Tansania
   UA: false, // Ukraine
+  UG: false, // Uganda
   US: false, // USA (Ausländer brauchen Anwalt)
+  UY: false, // Uruguay
   UZ: false, // Usbekistan
+  VA: false, // Vatikanstadt
+  VC: false, // St. Vincent und die Grenadinen
+  VE: false, // Venezuela
+  VN: false, // Vietnam
+  VU: false, // Vanuatu
+  WS: false, // Samoa
+  YE: false, // Jemen
   ZA: false, // Südafrika
+  ZM: false, // Sambia
+  ZW: false, // Simbabwe
 };
 
 interface StepStatus {
