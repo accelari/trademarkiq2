@@ -258,6 +258,8 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
         .replace(/\[LOGO_GENERIEREN\]/g, "") // Ohne Prompt
         .replace(/\[LOGO_BEARBEITEN:[^\]]+\]/g, "") // Logo bearbeiten
         .replace(/\[RECHERCHE_STARTEN\]/g, "")
+        .replace(/\[WEITERE_RECHERCHE\]/g, "") // Neue Recherche starten
+        .replace(/\[WEITER:[^\]]+\]/g, "") // Navigation zu anderem Akkordeon
         .replace(/\[WEB_SUCHE:[^\]]+\]/g, "") // Web-Suche Trigger
         .replace(/\s{2,}/g, " ") // Mehrfache Leerzeichen entfernen
         .trim();
