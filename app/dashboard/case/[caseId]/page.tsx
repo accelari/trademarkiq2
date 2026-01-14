@@ -613,8 +613,6 @@ interface StepStatus {
     beratung: StepStatus;
     markenname: StepStatus;
     recherche: StepStatus;
-    analyse: StepStatus;
-    ueberpruefung: StepStatus;
     anmeldung: StepStatus;
     kommunikation: StepStatus;
     ueberwachung: StepStatus;
@@ -636,8 +634,6 @@ const WORKFLOW_STEPS: WorkflowStep[] = [
   { id: "beratung", title: "Beratung", icon: MessageCircle, buttonText: "Beratung starten", buttonAction: "open" },
   { id: "markenname", title: "Markenname", icon: Tag, buttonText: "Markenname festlegen", buttonAction: "edit" },
   { id: "recherche", title: "Recherche", icon: Search, buttonText: "Recherche starten", buttonAction: "open" },
-  { id: "analyse", title: "Analyse", icon: BarChart3, buttonText: "Analyse anzeigen", buttonAction: "show" },
-  { id: "ueberpruefung", title: "Checkliste", icon: CheckCircle, buttonText: "Checkliste prüfen", buttonAction: "placeholder" },
   { id: "anmeldung", title: "Anmeldung", icon: FileText, buttonText: "Anmeldung vorbereiten", buttonAction: "placeholder" },
   { id: "kommunikation", title: "Kommunikation", icon: Mail, buttonText: "Kommunikation erfassen", buttonAction: "placeholder" },
   { id: "ueberwachung", title: "Überwachung", icon: Eye, buttonText: "Überwachung starten", buttonAction: "placeholder" },
@@ -1488,7 +1484,7 @@ export default function CasePage() {
 
   // Automatischer Akkordeon-Wechsel via [WEITER:ziel] Trigger
   const lastRedirectMsgIdRef = useRef<string | null>(null);
-  const VALID_ACCORDIONS = ["beratung", "markenname", "recherche", "checkliste", "anmeldung", "ueberwachung", "kosten"];
+  const VALID_ACCORDIONS = ["beratung", "markenname", "recherche", "anmeldung", "kommunikation", "ueberwachung", "fristen", "kosten"];
   
   useEffect(() => {
     if (sessionMessages.length < 1) return;
@@ -1676,17 +1672,16 @@ export default function CasePage() {
     if (openAccordion === lastVisitedAccordionRef.current) return;
     
     // Event-Log: Akkordeon-Wechsel (IMMER loggen bei jedem Wechsel)
-    const allAccordionNames: Record<string, string> = { 
-      beratung: "Beratung", 
-      markenname: "Markenname", 
-      recherche: "Recherche",
-      checkliste: "Checkliste",
-      anmeldung: "Anmeldung",
-      kommunikation: "Kommunikation",
-      ueberwachung: "Überwachung",
-      kosten: "Kosten",
-      analyse: "Analyse"
-    };
+        const allAccordionNames: Record<string, string> = { 
+          beratung: "Beratung", 
+          markenname: "Markenname", 
+          recherche: "Recherche",
+          anmeldung: "Anmeldung",
+          kommunikation: "Kommunikation",
+          ueberwachung: "Überwachung",
+          fristen: "Fristen",
+          kosten: "Kosten"
+        };
     if (eventLogInitializedRef.current) {
       logEvent("accordion_change", `Wechsel zu "${allAccordionNames[openAccordion] || openAccordion}"`, `Von: ${lastVisitedAccordionRef.current || "Start"}`);
     }
@@ -1921,7 +1916,7 @@ Soll ich die Recherche starten?`
     }
     
     // [GOTO:markenname] - Zu Akkordeon navigieren (nur wenn nicht bereits dort)
-    const gotoMatch = content.match(/\[GOTO:(beratung|markenname|recherche|checkliste|anmeldung|kommunikation|ueberwachung|fristen)\]/i);
+    const gotoMatch = content.match(/\[GOTO:(beratung|markenname|recherche|anmeldung|kommunikation|ueberwachung|fristen)\]/i);
     if (gotoMatch?.[1]) {
       const target = gotoMatch[1].toLowerCase();
       // Nur navigieren wenn User NICHT bereits im Ziel-Akkordeon ist
@@ -4151,12 +4146,12 @@ WICHTIG - Befolge diese Schritte:
     window.location.hash = `#${stepId}`;
 
     // Mark previous pending steps as skipped
-    const stepOrder: WorkflowStepId[] = ["beratung", "markenname", "recherche", "ueberpruefung", "anmeldung", "kommunikation", "ueberwachung", "fristen"];
-    const stepLabels: Record<WorkflowStepId, string> = {
-      beratung: "Beratung", markenname: "Markenname", recherche: "Recherche",
-      ueberpruefung: "Checkliste", anmeldung: "Anmeldung", kommunikation: "Kommunikation",
-      ueberwachung: "Überwachung", fristen: "Fristen", analyse: "Analyse"
-    };
+        const stepOrder: WorkflowStepId[] = ["beratung", "markenname", "recherche", "anmeldung", "kommunikation", "ueberwachung", "fristen"];
+        const stepLabels: Record<WorkflowStepId, string> = {
+          beratung: "Beratung", markenname: "Markenname", recherche: "Recherche",
+          anmeldung: "Anmeldung", kommunikation: "Kommunikation",
+          ueberwachung: "Überwachung", fristen: "Fristen"
+        };
     const currentIndex = stepOrder.indexOf(stepId);
     const skippedNames: string[] = [];
     if (currentIndex > 0) {
@@ -5416,11 +5411,10 @@ Du: "Alles klar! Ich setze das Formular zurück. Welchen Namen möchtest du rech
 NAVIGATION-TRIGGER (um zu anderem Bereich zu wechseln):
 [WEITER:beratung]    → Zurück zur Beratung
 [WEITER:markenname]  → Zum Logo-Bereich
-[WEITER:checkliste]  → Zur Checkliste
 [WEITER:anmeldung]   → Zur Anmeldung
 
 NACH RECHERCHE-ERGEBNIS:
-- Bei GO: "Sehr gut! Die Marke ist frei. Soll ich zur Checkliste weiterleiten? [WEITER:checkliste]"
+- Bei GO: "Sehr gut! Die Marke ist frei. Soll ich zur Anmeldung weiterleiten? [WEITER:anmeldung]"
 - Bei NO-GO: Alternativen vorschlagen, NICHT automatisch weiterleiten
 
 SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfragen.
@@ -7700,13 +7694,9 @@ WICHTIGE REGELN:
         return renderBeratungContent();
       case "markenname":
         return renderMarkennameContent();
-      case "recherche":
-        return renderRechercheContent();
-      case "analyse":
-        return renderAnalyseContent();
-      case "ueberpruefung":
-        return renderUeberpruefungContent();
-      case "anmeldung":
+            case "recherche":
+              return renderRechercheContent();
+            case "anmeldung":
         return renderAnmeldungContent();
       case "kommunikation":
         return renderKommunikationContent();
@@ -7723,8 +7713,7 @@ WICHTIGE REGELN:
     { hash: "beratung", label: "Beratung", stepId: "beratung" as WorkflowStepId, icon: Mic },
     { hash: "markenname", label: "Markenname", stepId: "markenname" as WorkflowStepId, icon: Type },
     { hash: "recherche", label: "Recherche", stepId: "recherche" as WorkflowStepId, icon: Search },
-    { hash: "ueberpruefung", label: "Checkliste", stepId: "ueberpruefung" as WorkflowStepId, icon: CheckCircle },
-    { hash: "anmeldung", label: "Anmeldung", stepId: "anmeldung" as WorkflowStepId, icon: FileText },
+        { hash: "anmeldung", label: "Anmeldung", stepId: "anmeldung" as WorkflowStepId, icon: FileText },
     { hash: "kommunikation", label: "Kommunikation", stepId: "kommunikation" as WorkflowStepId, icon: Mail },
     { hash: "ueberwachung", label: "Überwachung", stepId: "ueberwachung" as WorkflowStepId, icon: Eye },
     { hash: "fristen", label: "Fristen", stepId: "fristen" as WorkflowStepId, icon: Calendar },

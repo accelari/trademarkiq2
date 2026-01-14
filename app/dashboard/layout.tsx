@@ -147,16 +147,15 @@ function Sidebar({
     return () => window.removeEventListener("hashchange", update);
   }, [isCasePage]);
 
-  const caseTabs = [
-    { name: "Beratung", hash: "beratung", icon: Mic },
-    { name: "Markenname", hash: "markenname", icon: Type },
-    { name: "Recherche", hash: "recherche", icon: Search },
-    { name: "Checkliste", hash: "ueberpruefung", icon: ClipboardCheck },
-    { name: "Anmeldung", hash: "anmeldung", icon: FileText },
-    { name: "Kommunikation", hash: "kommunikation", icon: MessageCircle },
-    { name: "Überwachung", hash: "ueberwachung", icon: Eye },
-    { name: "Fristen", hash: "fristen", icon: Calendar },
-  ] as const;
+    const caseTabs = [
+      { name: "Beratung", hash: "beratung", icon: Mic },
+      { name: "Markenname", hash: "markenname", icon: Type },
+      { name: "Recherche", hash: "recherche", icon: Search },
+      { name: "Anmeldung", hash: "anmeldung", icon: FileText },
+      { name: "Kommunikation", hash: "kommunikation", icon: MessageCircle },
+      { name: "Überwachung", hash: "ueberwachung", icon: Eye },
+      { name: "Fristen", hash: "fristen", icon: Calendar },
+    ] as const;
 
   const handleNavClick = (e: React.MouseEvent, href: string) => {
     const refCheck = checkUnsavedDataRef.current?.() ?? false;
