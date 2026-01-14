@@ -42,22 +42,33 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      case "usage": {
-        // Verbrauchsstatistiken
-        const startDate = searchParams.get("startDate") 
-          ? new Date(searchParams.get("startDate")!) 
-          : undefined;
-        const endDate = searchParams.get("endDate") 
-          ? new Date(searchParams.get("endDate")!) 
-          : undefined;
+            case "usage": {
+              // Verbrauchsstatistiken
+              const startDate = searchParams.get("startDate") 
+                ? new Date(searchParams.get("startDate")!) 
+                : undefined;
+              const endDate = searchParams.get("endDate") 
+                ? new Date(searchParams.get("endDate")!) 
+                : undefined;
         
-        const stats = await getUserUsageStats(userId, { startDate, endDate });
+              const stats = await getUserUsageStats(userId, { startDate, endDate });
         
-        return NextResponse.json({
-          success: true,
-          ...stats,
-        });
-      }
+              // Transform apiBreakdown to byProvider format expected by UI
+              const byProvider = stats.apiBreakdown.map((b) => ({
+                provider: b.apiProvider,
+                calls: b.callCount,
+                creditsUsed: b.totalCredits,
+              }));
+        
+              const totalCalls = stats.apiBreakdown.reduce((sum, b) => sum + b.callCount, 0);
+        
+              return NextResponse.json({
+                success: true,
+                totalCreditsUsed: stats.totalCreditsUsed,
+                totalCalls,
+                byProvider,
+              });
+            }
 
       case "packages": {
         // Verfügbare Credit-Pakete
