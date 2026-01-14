@@ -1150,7 +1150,7 @@ export default function CasePage() {
     trademarkName: "",
     countries: [] as string[],
     niceClasses: [] as number[],
-    includeRelatedNiceClasses: true,
+    includeRelatedNiceClasses: false,
   });
 
   // Klassen, Länder und Markenart aus DB laden beim Reload
@@ -3163,7 +3163,7 @@ Soll ich die Recherche starten?`
           trademarkName: "",
           countries: [],
           niceClasses: [],
-          includeRelatedNiceClasses: true,
+          includeRelatedNiceClasses: false,
         });
         
         mutate();
@@ -5516,29 +5516,7 @@ SELBST-CHECK: "Habe ich den Kunden richtig verstanden?" Bei Unsicherheit nachfra
                       </span>
                     )}
                   </div>
-                  <label className="flex items-center gap-2 mt-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={!!rechercheForm.includeRelatedNiceClasses}
-                      onChange={(e) => setRechercheForm((prev) => ({ ...prev, includeRelatedNiceClasses: e.target.checked }))}
-                      className="w-3.5 h-3.5 rounded border-gray-300 text-teal-600"
-                    />
-                    <span className="text-xs text-gray-600">Verwandte Klassen prüfen</span>
-                  </label>
-                  {rechercheForm.includeRelatedNiceClasses && relatedClasses.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {relatedClasses.slice(0, 8).map((c) => (
-                        <span key={c} className="inline-flex items-center px-1.5 py-0.5 bg-yellow-50 text-yellow-700 text-xs rounded border border-yellow-300">
-                          {c < 10 ? `0${c}` : c}
-                        </span>
-                      ))}
-                      {relatedClasses.length > 8 && (
-                        <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded">
-                          +{relatedClasses.length - 8}
-                        </span>
-                      )}
-                    </div>
-                  )}
+{/* Verwandte Klassen Checkbox entfernt - ohne Klasseninhalte von TMSearch führt das zu False Positives */}
                 </>
               )}
             </div>
