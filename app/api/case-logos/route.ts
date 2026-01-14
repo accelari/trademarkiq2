@@ -4,6 +4,30 @@ import { db } from "@/db";
 import { caseLogos, trademarkCases } from "@/db/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 
+// Hilfsfunktion: Bild von URL herunterladen und als Base64 konvertieren
+async function downloadImageAsBase64(imageUrl: string): Promise<string | null> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      console.error(`[downloadImageAsBase64] Fehler beim Herunterladen: ${response.status}`);
+      return null;
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64 = buffer.toString("base64");
+    
+    // Content-Type ermitteln
+    const contentType = response.headers.get("content-type") || "image/png";
+    
+    // Data URL erstellen
+    return `data:${contentType};base64,${base64}`;
+  } catch (error) {
+    console.error("[downloadImageAsBase64] Fehler:", error);
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
@@ -69,6 +93,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Fall nicht gefunden" }, { status: 404 });
     }
 
+    // Bild herunterladen und als Base64 speichern
+    console.log("[POST /api/case-logos] Lade Bild herunter:", url);
+    const imageData = await downloadImageAsBase64(url);
+    
+    if (!imageData) {
+      console.error("[POST /api/case-logos] Konnte Bild nicht herunterladen");
+      // Fallback: Nur URL speichern (kann später ablaufen)
+    }
+
     const existingLogos = await db.query.caseLogos.findMany({
       where: eq(caseLogos.caseId, caseId),
     });
@@ -80,6 +113,7 @@ export async function POST(req: NextRequest) {
         caseId,
         userId: session.user.id,
         url,
+        imageData: imageData || null, // Base64-kodiertes Bild
         thumbnailUrl: thumbnailUrl || null,
         source,
         prompt: prompt || null,

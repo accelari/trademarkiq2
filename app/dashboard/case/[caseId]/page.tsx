@@ -608,6 +608,7 @@ export default function CasePage() {
   const [logoGallery, setLogoGallery] = useState<Array<{
     id: string;
     url: string;
+    imageData?: string; // Base64-kodiertes Bild (dauerhaft)
     timestamp: Date;
     source: "generated" | "uploaded" | "edited";
     prompt?: string;
@@ -630,6 +631,7 @@ export default function CasePage() {
             setLogoGallery(data.logos.map((logo: any) => ({
               id: logo.id,
               url: logo.url,
+              imageData: logo.imageData, // Base64-kodiertes Bild
               timestamp: new Date(logo.createdAt),
               source: logo.source as "generated" | "uploaded" | "edited",
               prompt: logo.prompt,
@@ -638,7 +640,8 @@ export default function CasePage() {
             // Erstes Logo als ausgewählt setzen wenn vorhanden
             if (data.logos.length > 0 && !selectedLogoId) {
               setSelectedLogoId(data.logos[0].id);
-              setTrademarkImageUrl(data.logos[0].url);
+              // Bevorzuge imageData (Base64) über url (kann ablaufen)
+              setTrademarkImageUrl(data.logos[0].imageData || data.logos[0].url);
             }
           }
         }
@@ -5555,7 +5558,8 @@ WORKFLOW:
                               const logo = logoGallery.find(l => l.id === id);
                               if (logo) {
                                 const link = document.createElement("a");
-                                link.href = logo.url;
+                                // Bevorzuge imageData (Base64) über url (kann ablaufen)
+                                link.href = logo.imageData || logo.url;
                                 link.download = `logo-${id}.png`;
                                 link.click();
                               }
@@ -5630,11 +5634,12 @@ WORKFLOW:
                           }`}
                           onClick={() => {
                             setSelectedLogoId(logo.id);
-                            setTrademarkImageUrl(logo.url);
+                            // Bevorzuge imageData (Base64) über url (kann ablaufen)
+                            setTrademarkImageUrl(logo.imageData || logo.url);
                           }}
                         >
                           <img 
-                            src={logo.url} 
+                            src={logo.imageData || logo.url} 
                             alt="Logo" 
                             className="w-full h-full object-contain bg-white"
                           />

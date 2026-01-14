@@ -427,7 +427,8 @@ export const caseLogos = pgTable("case_logos", {
   userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
   
   // Logo-Daten
-  url: text("url").notNull(), // URL zum Bild (von Ideogram/BFL)
+  url: text("url"), // Original URL zum Bild (kann ablaufen)
+  imageData: text("image_data"), // Base64-kodiertes Bild (dauerhaft gespeichert)
   thumbnailUrl: text("thumbnail_url"), // Optional: Kleinere Version
   
   // Metadaten
