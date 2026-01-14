@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fal } from "@fal-ai/client";
-
-// Configure fal.ai client
-fal.config({
-  credentials: process.env.FAL_KEY,
-});
+import { auth } from "@/lib/auth";
+import { logApiUsage } from "@/lib/api-logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,51 +15,107 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Bearbeitungsanweisung ist erforderlich" }, { status: 400 });
     }
 
-    if (!process.env.FAL_KEY) {
-      return NextResponse.json({ error: "fal.ai API Key nicht konfiguriert" }, { status: 500 });
+    if (!process.env.BFL_API_KEY) {
+      return NextResponse.json({ error: "BFL API Key nicht konfiguriert" }, { status: 500 });
     }
+
+    // Get user for credit tracking
+    const session = await auth();
+    const userId = session?.user?.id;
 
     // Build edit prompt for Flux Kontext
     const finalPrompt = `Edit this logo: ${editPrompt}. Keep the brand name "${brandName || 'Brand'}" visible. Maintain professional vector logo style, clean design.`;
 
-    console.log("=== LOGO EDIT DEBUG (Flux Kontext) ===");
+    console.log("=== LOGO EDIT DEBUG (BFL Flux Kontext Pro) ===");
     console.log("Original image URL:", imageUrl);
     console.log("Edit prompt:", editPrompt);
     console.log("Final prompt:", finalPrompt);
-    console.log("======================================");
+    console.log("==============================================");
 
-    // Call Flux Kontext for image editing
-    const result = await fal.subscribe("fal-ai/flux-pro/kontext", {
-      input: {
-        prompt: finalPrompt,
-        image_url: imageUrl,
+    // Step 1: Create request to BFL API
+    const createResponse = await fetch("https://api.bfl.ai/v1/flux-kontext-pro", {
+      method: "POST",
+      headers: {
+        "x-key": process.env.BFL_API_KEY,
+        "Content-Type": "application/json",
       },
-      logs: true,
+      body: JSON.stringify({
+        prompt: finalPrompt,
+        input_image: imageUrl, // BFL accepts URLs directly
+        output_format: "png",
+        safety_tolerance: 2,
+      }),
     });
 
-    console.log("fal.ai Flux Kontext full response:", JSON.stringify(result, null, 2));
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error("BFL API create error:", errorText);
+      return NextResponse.json({ error: `BFL API Fehler: ${errorText}` }, { status: 500 });
+    }
 
-    // Extract image URL from result - try multiple possible structures
-    const resultAny = result as Record<string, unknown>;
-    const editedImageUrl = 
-      (resultAny.data as { images?: { url: string }[] })?.images?.[0]?.url ||
-      (resultAny.images as { url: string }[])?.[0]?.url ||
-      (resultAny as { image?: { url: string } })?.image?.url ||
-      (resultAny.data as { image?: { url: string } })?.image?.url ||
-      (resultAny as { url?: string })?.url ||
-      (resultAny.data as { url?: string })?.url;
+    const createResult = await createResponse.json();
+    console.log("BFL create response:", JSON.stringify(createResult, null, 2));
+
+    const { polling_url } = createResult;
+    if (!polling_url) {
+      return NextResponse.json({ error: "Keine Polling-URL erhalten" }, { status: 500 });
+    }
+
+    // Step 2: Poll for result
+    let editedImageUrl: string | null = null;
+    const maxAttempts = 60; // Max 30 seconds (60 * 500ms)
     
-    console.log("Extracted image URL:", editedImageUrl);
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
 
-    if (editedImageUrl) {
-      return NextResponse.json({
-        imageUrl: editedImageUrl,
-        prompt: finalPrompt,
-        originalImageUrl: imageUrl,
+      const pollResponse = await fetch(polling_url, {
+        method: "GET",
+        headers: {
+          "x-key": process.env.BFL_API_KEY,
+          "accept": "application/json",
+        },
+      });
+
+      if (!pollResponse.ok) {
+        continue; // Retry on error
+      }
+
+      const pollResult = await pollResponse.json();
+      console.log(`Poll attempt ${attempt + 1}:`, pollResult.status);
+
+      if (pollResult.status === "Ready") {
+        editedImageUrl = pollResult.result?.sample;
+        break;
+      } else if (pollResult.status === "Error" || pollResult.status === "Failed") {
+        console.error("BFL generation failed:", pollResult);
+        return NextResponse.json({ error: "Bildbearbeitung fehlgeschlagen" }, { status: 500 });
+      }
+      // Continue polling for "Pending" or other statuses
+    }
+
+    if (!editedImageUrl) {
+      return NextResponse.json({ error: "Timeout bei der Bildbearbeitung" }, { status: 500 });
+    }
+
+    console.log("Edited image URL:", editedImageUrl);
+
+    // Log API usage for credit tracking
+    if (userId) {
+      await logApiUsage({
+        userId,
+        apiProvider: "bfl",
+        apiEndpoint: "/api/edit-logo",
+        model: "flux-kontext-pro",
+        units: 1, // 1 Bild bearbeitet
+        unitType: "images",
       });
     }
 
-    return NextResponse.json({ error: "Keine Bilddaten in der Antwort" }, { status: 500 });
+    return NextResponse.json({
+      imageUrl: editedImageUrl,
+      prompt: finalPrompt,
+      originalImageUrl: imageUrl,
+    });
 
   } catch (error: unknown) {
     console.error("Logo edit error:", error);

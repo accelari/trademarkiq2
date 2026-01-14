@@ -3,7 +3,7 @@ import { apiUsageLogs, users, creditTransactions } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 
 // API Provider Typen
-export type ApiProvider = "claude" | "openai" | "tmsearch" | "tavily" | "hume" | "resend" | "ideogram";
+export type ApiProvider = "claude" | "openai" | "tmsearch" | "tavily" | "hume" | "resend" | "ideogram" | "bfl";
 
 // Preiskonfiguration für alle APIs (Januar 2026)
 // Quelle: https://www.anthropic.com/news/claude-opus-4-5
@@ -83,6 +83,22 @@ export const API_PRICING = {
     // Ideogram 1.0
     "V_1_TURBO": { perImage: 0.02 },
     "V_1": { perImage: 0.06 },
+  },
+  // Black Forest Labs (BFL) - FLUX Kontext (Januar 2026)
+  // Quelle: https://docs.bfl.ai/ und Fireworks AI ($0.04/image)
+  bfl: {
+    // FLUX.1 Kontext Pro - Image Editing
+    "flux-kontext-pro": { perImage: 0.04 },
+    // FLUX.1 Kontext Max - Higher Quality
+    "flux-kontext-max": { perImage: 0.08 },
+    // FLUX.2 Pro - Generation + Editing
+    "flux-2-pro": { perImage: 0.03 },
+    // FLUX.2 Flex - Budget Option
+    "flux-2-flex": { perImage: 0.015 },
+    // FLUX 1.1 Pro
+    "flux-1.1-pro": { perImage: 0.04 },
+    // FLUX 1.1 Pro Ultra
+    "flux-1.1-pro-ultra": { perImage: 0.06 },
   },
 } as const;
 
@@ -164,6 +180,13 @@ export function calculateApiCost(params: {
         const modelKey = model as keyof typeof API_PRICING.ideogram;
         const pricing = API_PRICING.ideogram[modelKey] || API_PRICING.ideogram["V_2_TURBO"];
         costUsd = units * pricing.perImage;
+        break;
+      }
+      case "bfl": {
+        // BFL FLUX Kontext - Bildbearbeitung/Generierung pro Bild
+        const bflModelKey = model as keyof typeof API_PRICING.bfl;
+        const bflPricing = API_PRICING.bfl[bflModelKey] || API_PRICING.bfl["flux-kontext-pro"];
+        costUsd = units * bflPricing.perImage;
         break;
       }
     }
