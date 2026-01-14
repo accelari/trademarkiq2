@@ -117,9 +117,79 @@ export const WIPO_MEMBERS = [
   "SM", "ST", "SY", "SZ", "TH", "TJ", "TM", "TN", "TR", "UA", "US", "UZ", "VN", "ZM", "ZW"
 ];
 
+// Benelux-Länder (bei WIPO als "BX" bezeichnet)
+export const BENELUX_COUNTRIES = ["BE", "NL", "LU"];
+
+// OAPI-Mitgliedsländer (African Intellectual Property Organization)
+// Bei WIPO Madrid als "OA" bezeichnet - 17 afrikanische Länder
+export const OAPI_COUNTRIES = [
+  "BJ",  // Benin
+  "BF",  // Burkina Faso
+  "CM",  // Kamerun
+  "CF",  // Zentralafrikanische Republik
+  "KM",  // Komoren
+  "CG",  // Kongo (Republik)
+  "CI",  // Elfenbeinküste (Côte d'Ivoire)
+  "GA",  // Gabun
+  "GN",  // Guinea
+  "GW",  // Guinea-Bissau
+  "GQ",  // Äquatorialguinea
+  "ML",  // Mali
+  "MR",  // Mauretanien
+  "NE",  // Niger
+  "SN",  // Senegal
+  "TD",  // Tschad
+  "TG",  // Togo
+];
+
+// WIPO Designation Mapping: Ländercode → WIPO-Designationscode
+// Für regionale Organisationen, die bei WIPO einen eigenen Code haben
+export const WIPO_DESIGNATION_MAPPING: Record<string, string> = {
+  // Benelux-Länder → BX
+  "BE": "BX",
+  "NL": "BX",
+  "LU": "BX",
+  // OAPI-Länder → OA
+  "BJ": "OA",
+  "BF": "OA",
+  "CM": "OA",
+  "CF": "OA",
+  "KM": "OA",
+  "CG": "OA",
+  "CI": "OA",
+  "GA": "OA",
+  "GN": "OA",
+  "GW": "OA",
+  "GQ": "OA",
+  "ML": "OA",
+  "MR": "OA",
+  "NE": "OA",
+  "SN": "OA",
+  "TD": "OA",
+  "TG": "OA",
+};
+
+// Funktion um den korrekten WIPO-Designationscode zu erhalten
+export function getWIPODesignation(countryCode: string): string {
+  return WIPO_DESIGNATION_MAPPING[countryCode.toUpperCase()] || countryCode.toUpperCase();
+}
+
+// Prüft ob ein Land Teil einer regionalen Organisation bei WIPO ist
+export function isRegionalWIPOMember(countryCode: string): { isRegional: boolean; regionCode?: string; regionName?: string } {
+  const code = countryCode.toUpperCase();
+  if (BENELUX_COUNTRIES.includes(code)) {
+    return { isRegional: true, regionCode: "BX", regionName: "Benelux" };
+  }
+  if (OAPI_COUNTRIES.includes(code)) {
+    return { isRegional: true, regionCode: "OA", regionName: "OAPI (African Intellectual Property Organization)" };
+  }
+  return { isRegional: false };
+}
+
 export const REGION_MAPPINGS: Record<string, string[]> = {
   EU: EU_COUNTRIES,
-  BX: ["BE", "NL", "LU"],
+  BX: BENELUX_COUNTRIES,
+  OA: OAPI_COUNTRIES,
   EMEA: ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "AE", "SA", "ZA", "EG", "IL"],
 };
 
@@ -198,6 +268,29 @@ export const TMSEARCH_AVAILABLE_REGISTERS: Record<string, boolean> = {
   "NZ": false,  // Neuseeland (nur über WIPO)
   "SG": false,  // Singapur (nur über WIPO)
   "ZA": false,  // Südafrika (nur über WIPO)
+  
+  // OAPI-Länder (nur über WIPO mit OA-Designation)
+  "BJ": false,  // Benin (OAPI)
+  "BF": false,  // Burkina Faso (OAPI)
+  "CM": false,  // Kamerun (OAPI)
+  "CF": false,  // Zentralafrikanische Republik (OAPI)
+  "KM": false,  // Komoren (OAPI)
+  "CG": false,  // Kongo (OAPI)
+  "CI": false,  // Elfenbeinküste (OAPI)
+  "GA": false,  // Gabun (OAPI)
+  "GN": false,  // Guinea (OAPI)
+  "GW": false,  // Guinea-Bissau (OAPI)
+  "GQ": false,  // Äquatorialguinea (OAPI)
+  "ML": false,  // Mali (OAPI)
+  "MR": false,  // Mauretanien (OAPI)
+  "NE": false,  // Niger (OAPI)
+  "SN": false,  // Senegal (OAPI)
+  "TD": false,  // Tschad (OAPI)
+  "TG": false,  // Togo (OAPI)
+  
+  // Regionale Organisationen
+  "BX": true,   // Benelux (bei WIPO verfügbar)
+  "OA": true,   // OAPI (bei WIPO verfügbar)
 };
 
 // Links zu offiziellen nationalen Markenregistern für Selbstrecherche
@@ -347,6 +440,103 @@ export const NATIONAL_REGISTER_URLS: Record<string, { name: string; url: string;
     url: "https://www.cipc.co.za",
     searchUrl: "https://iponline.cipc.co.za/"
   },
+  // Regionale Organisationen
+  "BX": { 
+    name: "BOIP (Benelux Office for Intellectual Property)", 
+    url: "https://www.boip.int",
+    searchUrl: "https://www.boip.int/en/trademarks-register"
+  },
+  "OA": { 
+    name: "OAPI (African Intellectual Property Organization)", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  // OAPI-Mitgliedsländer (alle verweisen auf OAPI)
+  "BJ": { 
+    name: "OAPI - Benin", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "BF": { 
+    name: "OAPI - Burkina Faso", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "CM": { 
+    name: "OAPI - Kamerun", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "CF": { 
+    name: "OAPI - Zentralafrikanische Republik", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "KM": { 
+    name: "OAPI - Komoren", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "CG": { 
+    name: "OAPI - Kongo", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "CI": { 
+    name: "OAPI - Elfenbeinküste", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "GA": { 
+    name: "OAPI - Gabun", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "GN": { 
+    name: "OAPI - Guinea", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "GW": { 
+    name: "OAPI - Guinea-Bissau", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "GQ": { 
+    name: "OAPI - Äquatorialguinea", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "ML": { 
+    name: "OAPI - Mali", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "MR": { 
+    name: "OAPI - Mauretanien", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "NE": { 
+    name: "OAPI - Niger", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "SN": { 
+    name: "OAPI - Senegal", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "TD": { 
+    name: "OAPI - Tschad", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
+  "TG": { 
+    name: "OAPI - Togo", 
+    url: "https://oapi.int",
+    searchUrl: "https://oapi.int/en/databases/"
+  },
 };
 
 // Interface für Suchbericht
@@ -410,6 +600,10 @@ export function createSearchCoverageReport(
     const hasNational = hasNationalRegister(code);
     const conflictsFound = conflictsPerCountry[code] || 0;
     
+    // Prüfe ob das Land Teil einer regionalen Organisation ist
+    const regionalInfo = isRegionalWIPOMember(code);
+    const wipoDesignation = getWIPODesignation(code);
+    
     if (hasNational) {
       // Nationales Register verfügbar
       searchedRegisters.push({ 
@@ -421,15 +615,28 @@ export function createSearchCoverageReport(
       // Kein nationales Register - nur EUIPO/WIPO
       const searchedVia: ("EUIPO" | "WIPO")[] = [];
       if (EU_COUNTRIES.includes(code)) searchedVia.push("EUIPO");
-      if (WIPO_MEMBERS.includes(code)) searchedVia.push("WIPO");
+      // WIPO-Suche: Für Benelux/OAPI-Länder wird mit BX/OA gesucht
+      if (WIPO_MEMBERS.includes(code) || regionalInfo.isRegional) searchedVia.push("WIPO");
       
       const registerInfo = NATIONAL_REGISTER_URLS[code];
+      
+      // Für regionale Organisationen: Verweis auf das regionale Register
+      let nationalRegisterName = registerInfo?.name || `${countryName} Markenamt`;
+      let searchUrl = registerInfo?.searchUrl;
+      
+      if (regionalInfo.isRegional && regionalInfo.regionCode) {
+        const regionalRegisterInfo = NATIONAL_REGISTER_URLS[regionalInfo.regionCode];
+        if (regionalRegisterInfo) {
+          nationalRegisterName = regionalRegisterInfo.name;
+          searchUrl = regionalRegisterInfo.searchUrl;
+        }
+      }
       
       countriesWithoutNationalRegister.push({
         countryCode: code,
         countryName,
-        nationalRegisterName: registerInfo?.name || `${countryName} Markenamt`,
-        searchUrl: registerInfo?.searchUrl,
+        nationalRegisterName,
+        searchUrl,
         searchedVia,
       });
       
@@ -438,8 +645,8 @@ export function createSearchCoverageReport(
         countriesNeedingManualSearch.push({
           countryCode: code,
           countryName,
-          nationalRegisterName: registerInfo?.name || `${countryName} Markenamt`,
-          searchUrl: registerInfo?.searchUrl,
+          nationalRegisterName,
+          searchUrl,
         });
       }
     }
@@ -463,6 +670,7 @@ export interface SearchOfficeStrategy {
     name: string;
     type: "national" | "wipo" | "euipo";
     reason: string;
+    wipoDesignation?: string;  // Der korrekte WIPO-Designationscode (z.B. BX für Benelux, OA für OAPI)
   }[];
 }
 
@@ -471,25 +679,51 @@ export function getSearchOfficesForCountry(countryCode: string): SearchOfficeStr
   const countryName = OFFICE_NAMES[code] || code;
   const offices: SearchOfficeStrategy["offices"] = [];
 
-  // 1. National office (always first)
-  offices.push({
-    code: code,
-    name: OFFICE_NAMES[code] || `${code} National`,
-    type: "national",
-    reason: `Direktsuche im nationalen Amt ${OFFICE_NAMES[code] || code}`
-  });
+  // Prüfe ob das Land Teil einer regionalen Organisation ist
+  const regionalInfo = isRegionalWIPOMember(code);
 
-  // 2. WIPO if member
-  if (WIPO_MEMBERS.includes(code)) {
+  // 1. National office (always first) - nur wenn nicht regionale Organisation
+  if (code !== "BX" && code !== "OA") {
     offices.push({
-      code: "WO",
-      name: "WIPO",
-      type: "wipo",
-      reason: `${code} ist WIPO-Mitglied - suche WIPO-Marken mit Designation ${code}`
+      code: code,
+      name: OFFICE_NAMES[code] || `${code} National`,
+      type: "national",
+      reason: `Direktsuche im nationalen Amt ${OFFICE_NAMES[code] || code}`
     });
   }
 
-  // 3. EUIPO if EU member
+  // 2. WIPO - mit korrektem Designationscode
+  // Für Benelux-Länder: BX, für OAPI-Länder: OA, sonst Ländercode
+  const wipoDesignation = getWIPODesignation(code);
+  
+  // Prüfe ob das Land oder die Region WIPO-Mitglied ist
+  const isWIPOMember = WIPO_MEMBERS.includes(code) || 
+                       regionalInfo.isRegional || 
+                       code === "BX" || 
+                       code === "OA";
+  
+  if (isWIPOMember) {
+    let wipoReason = "";
+    if (regionalInfo.isRegional) {
+      wipoReason = `${code} ist Teil von ${regionalInfo.regionName} - suche WIPO-Marken mit Designation ${wipoDesignation}`;
+    } else if (code === "BX") {
+      wipoReason = "Benelux - suche WIPO-Marken mit Designation BX (gilt für BE, NL, LU)";
+    } else if (code === "OA") {
+      wipoReason = "OAPI - suche WIPO-Marken mit Designation OA (gilt für 17 afrikanische Länder)";
+    } else {
+      wipoReason = `${code} ist WIPO-Mitglied - suche WIPO-Marken mit Designation ${wipoDesignation}`;
+    }
+    
+        offices.push({
+          code: "WO",
+          name: "WIPO",
+          type: "wipo",
+          reason: wipoReason,
+          wipoDesignation: wipoDesignation
+        });
+  }
+
+  // 3. EUIPO if EU member (Benelux-Länder sind auch EU-Mitglieder)
   if (EU_COUNTRIES.includes(code)) {
     offices.push({
       code: "EU",

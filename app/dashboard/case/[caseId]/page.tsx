@@ -96,11 +96,14 @@ type CountryOption = {
   numeric?: string;
 };
 
-// Vollständige Liste aller 194 WIPO-Mitgliedsstaaten
+// Vollständige Liste aller 194 WIPO-Mitgliedsstaaten + regionale Organisationen
 const COUNTRY_OPTIONS: CountryOption[] = [
   // Internationale Register
   { code: "EU", label: "Europäische Union (EUIPO)", icon: "🇪🇺" },
   { code: "WO", label: "WIPO (International)", icon: "🌐" },
+  // Regionale Organisationen (bei WIPO als eigene Designation)
+  { code: "BX", label: "Benelux (BE, NL, LU)", icon: "🇧🇪" },
+  { code: "OA", label: "OAPI (17 afrikanische Länder)", icon: "🌍" },
   // A
   { code: "AD", label: "Andorra", icon: "🇦🇩", numeric: "020" },
   { code: "AE", label: "Vereinigte Arabische Emirate", icon: "🇦🇪", numeric: "784" },
@@ -330,6 +333,9 @@ const SELF_REGISTER_ALLOWED: Record<string, boolean> = {
   // Internationale Register
   EU: true,  // EUIPO - EU-Bürger können selbst anmelden
   WO: true,  // WIPO Madrid - über nationales Amt
+  // Regionale Organisationen
+  BX: true,  // Benelux - EU-Bürger können selbst anmelden (BE, NL, LU sind EU-Mitglieder)
+  OA: false, // OAPI - Vertreter erforderlich für ausländische Anmelder
   // Selbstanmeldung möglich (ohne lokalen Vertreter)
   AU: true,  // Australien
   CA: true,  // Kanada
