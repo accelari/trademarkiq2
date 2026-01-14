@@ -5612,57 +5612,61 @@ WORKFLOW:
                       </div>
                     )}
                   </div>
-                  {/* Logo Thumbnails - Checkbox nur bei Hover sichtbar */}
-                  <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                  {/* Logo Thumbnails - Checkbox ragt zur Hälfte aus dem Frame heraus */}
+                  <div className="flex gap-3 overflow-x-auto pb-2 pt-2 pl-2 custom-scrollbar">
                     {logoGallery.map((logo) => (
                       <div
                         key={logo.id}
-                        className={`group relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
-                          selectedLogoId === logo.id 
-                            ? "border-teal-500 ring-2 ring-teal-200" 
-                            : checkedLogoIds.has(logo.id)
-                            ? "border-teal-400 bg-teal-50"
-                            : "border-gray-200 hover:border-gray-400"
-                        }`}
-                        onClick={() => {
-                          setSelectedLogoId(logo.id);
-                          setTrademarkImageUrl(logo.url);
-                        }}
+                        className="group relative flex-shrink-0"
                       >
-                        <img 
-                          src={logo.url} 
-                          alt="Logo" 
-                          className="w-full h-full object-contain bg-white"
-                        />
-                        {/* Checkbox - nur bei Hover oder wenn ausgewählt sichtbar */}
+                        {/* Logo Container */}
+                        <div
+                          className={`w-16 h-16 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                            selectedLogoId === logo.id 
+                              ? "border-teal-500 ring-2 ring-teal-200" 
+                              : checkedLogoIds.has(logo.id)
+                              ? "border-teal-400"
+                              : "border-gray-200 hover:border-gray-400"
+                          }`}
+                          onClick={() => {
+                            setSelectedLogoId(logo.id);
+                            setTrademarkImageUrl(logo.url);
+                          }}
+                        >
+                          <img 
+                            src={logo.url} 
+                            alt="Logo" 
+                            className="w-full h-full object-contain bg-white"
+                          />
+                        </div>
+                        {/* Checkbox - ragt zur Hälfte aus dem Frame heraus (oben links) */}
                         <div 
-                          className={`absolute top-0.5 right-0.5 transition-opacity ${
+                          className={`absolute -top-1.5 -left-1.5 transition-opacity ${
                             checkedLogoIds.has(logo.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                           }`}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <input
-                            type="checkbox"
-                            checked={checkedLogoIds.has(logo.id)}
-                            onChange={(e) => {
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center cursor-pointer shadow-md transition-colors ${
+                            checkedLogoIds.has(logo.id) 
+                              ? "bg-teal-500" 
+                              : "bg-white border-2 border-gray-300 hover:border-teal-400"
+                          }`}
+                            onClick={() => {
                               const newSet = new Set(checkedLogoIds);
-                              if (e.target.checked) {
-                                newSet.add(logo.id);
-                              } else {
+                              if (checkedLogoIds.has(logo.id)) {
                                 newSet.delete(logo.id);
+                              } else {
+                                newSet.add(logo.id);
                               }
                               setCheckedLogoIds(newSet);
                             }}
-                            className="w-4 h-4 rounded border-2 border-white text-teal-500 focus:ring-teal-500 cursor-pointer shadow-sm"
-                          />
-                        </div>
-                        {/* Source Badge - unten links für bessere Sichtbarkeit */}
-                        <div className={`absolute bottom-0.5 left-0.5 px-1 py-0.5 rounded text-[8px] font-medium ${
-                          logo.source === "generated" ? "bg-teal-500 text-white" :
-                          logo.source === "edited" ? "bg-blue-500 text-white" :
-                          "bg-gray-500 text-white"
-                        }`}>
-                          {logo.source === "generated" ? "KI" : logo.source === "edited" ? "Edit" : "↑"}
+                          >
+                            {checkedLogoIds.has(logo.id) && (
+                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
