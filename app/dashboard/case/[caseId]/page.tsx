@@ -5173,9 +5173,10 @@ Halte dich kurz (ca. 5-8 Sätze), aber erkläre die wichtigsten Punkte.`;
                               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${c.riskLevel === "high" ? "bg-red-500" : c.riskLevel === "medium" ? "bg-orange-500" : "bg-gray-400"}`} />
                               <div className="font-semibold text-gray-900 truncate">{c.name}</div>
                             </div>
-                            <div className={`text-sm font-bold px-2 py-0.5 rounded ${c.riskLevel === "high" ? "bg-red-100 text-red-700" : c.riskLevel === "medium" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-600"}`}>{c.accuracy || c.riskScore}%</div>
-                          </div>
-                          {/* Zeile 2: Register | Länder | Status */}
+                                                      {/* Farbiger Punkt statt Prozent - Risiko wird durch Farbe angezeigt */}
+                                                      <div className={`w-3 h-3 rounded-full ${c.riskLevel === "high" ? "bg-red-500" : c.riskLevel === "medium" ? "bg-orange-500" : "bg-gray-400"}`} title={c.riskLevel === "high" ? "Hohes Risiko" : c.riskLevel === "medium" ? "Mittleres Risiko" : "Geringes Risiko"} />
+                                                    </div>
+                                                    {/* Zeile 2: Register | Länder | Status */}
                           <div className="flex items-center gap-3 text-xs mb-1">
                             <span className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded font-medium">{c.office}</span>
                             {c.relevantCountries && c.relevantCountries.length > 0 && !selectedCountryFilter && (
@@ -6728,24 +6729,25 @@ Antworte kurz und prägnant. Per DU.
                             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${c.riskLevel === "high" ? "bg-red-500" : c.riskLevel === "medium" ? "bg-orange-500" : "bg-gray-400"}`} />
                             <div className="font-semibold text-gray-900 truncate">{c.name}</div>
                           </div>
-                          <div className={`text-sm font-bold px-2 py-0.5 rounded ${c.riskLevel === "high" ? "bg-red-100 text-red-700" : c.riskLevel === "medium" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-600"}`}>{c.accuracy || c.riskScore}%</div>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs mb-1">
-                          <span className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded font-medium">{c.office}</span>
-                          {c.relevantCountries && c.relevantCountries.length > 0 && (
-                            <span className="text-blue-600 font-medium">{c.relevantCountries.join(", ")}</span>
-                          )}
-                          <span className={`px-1.5 py-0.5 rounded text-xs ${c.status === "LIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{c.status === "LIVE" ? "Aktiv" : "Inaktiv"}</span>
-                        </div>
-                        <div className="text-xs text-gray-500 mb-1.5">
-                          <span className="font-medium">Kl.</span> {c.classes.join(", ")}
-                        </div>
-                        {c.reasoning && (
-                          <div className="text-xs text-gray-600 line-clamp-2 pt-1.5 border-t border-gray-200/50">{c.reasoning}</div>
-                        )}
-                      </div>
-                    ))}
-                    {conflicts.length === 0 && (
+                                              {/* Farbiger Punkt statt Prozent - Risiko wird durch Farbe angezeigt */}
+                                              <div className={`w-3 h-3 rounded-full ${c.riskLevel === "high" ? "bg-red-500" : c.riskLevel === "medium" ? "bg-orange-500" : "bg-gray-400"}`} title={c.riskLevel === "high" ? "Hohes Risiko" : c.riskLevel === "medium" ? "Mittleres Risiko" : "Geringes Risiko"} />
+                                            </div>
+                                            <div className="flex items-center gap-3 text-xs mb-1">
+                                              <span className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded font-medium">{c.office}</span>
+                                              {c.relevantCountries && c.relevantCountries.length > 0 && (
+                                                <span className="text-blue-600 font-medium">{c.relevantCountries.join(", ")}</span>
+                                              )}
+                                              <span className={`px-1.5 py-0.5 rounded text-xs ${c.status === "LIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{c.status === "LIVE" ? "Aktiv" : "Inaktiv"}</span>
+                                            </div>
+                                            <div className="text-xs text-gray-500 mb-1.5">
+                                              <span className="font-medium">Kl.</span> {c.classes.join(", ")}
+                                            </div>
+                                            {c.reasoning && (
+                                              <div className="text-xs text-gray-600 line-clamp-2 pt-1.5 border-t border-gray-200/50">{c.reasoning}</div>
+                                            )}
+                                          </div>
+                                        ))}
+                                        {conflicts.length === 0 && (
                       <div className="text-center py-8 text-gray-500">
                         <Check className="w-8 h-8 mx-auto mb-2 text-teal-500" />
                         <p className="text-sm">Keine kritischen Konflikte gefunden</p>
