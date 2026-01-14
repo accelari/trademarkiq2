@@ -97,6 +97,7 @@ type CountryOption = {
 };
 
 const COUNTRY_OPTIONS: CountryOption[] = [
+  // Bestehende Länder (TMSearch.ai verfügbar)
   { code: "AE", label: "Vereinigte Arabische Emirate", icon: "🇦🇪", numeric: "784" },
   { code: "AM", label: "Armenien", icon: "🇦🇲", numeric: "051" },
   { code: "AR", label: "Argentinien", icon: "🇦🇷", numeric: "032" },
@@ -135,6 +136,36 @@ const COUNTRY_OPTIONS: CountryOption[] = [
   { code: "US", label: "Vereinigte Staaten", icon: "🇺🇸", numeric: "840" },
   { code: "UZ", label: "Usbekistan", icon: "🇺🇿", numeric: "860" },
   { code: "WO", label: "WIPO", icon: "🌐" },
+  // Zusätzliche WIPO-Mitgliedsländer (kein direktes TMSearch.ai Register - Recherche über EUIPO/WIPO)
+  { code: "AT", label: "Österreich", icon: "🇦🇹", numeric: "040" },
+  { code: "BE", label: "Belgien", icon: "🇧🇪", numeric: "056" },
+  { code: "BG", label: "Bulgarien", icon: "🇧🇬", numeric: "100" },
+  { code: "BR", label: "Brasilien", icon: "🇧🇷", numeric: "076" },
+  { code: "CN", label: "China", icon: "🇨🇳", numeric: "156" },
+  { code: "CY", label: "Zypern", icon: "🇨🇾", numeric: "196" },
+  { code: "CZ", label: "Tschechien", icon: "🇨🇿", numeric: "203" },
+  { code: "DE", label: "Deutschland", icon: "🇩🇪", numeric: "276" },
+  { code: "DK", label: "Dänemark", icon: "🇩🇰", numeric: "208" },
+  { code: "FI", label: "Finnland", icon: "🇫🇮", numeric: "246" },
+  { code: "FR", label: "Frankreich", icon: "🇫🇷", numeric: "250" },
+  { code: "GR", label: "Griechenland", icon: "🇬🇷", numeric: "300" },
+  { code: "HR", label: "Kroatien", icon: "🇭🇷", numeric: "191" },
+  { code: "HU", label: "Ungarn", icon: "🇭🇺", numeric: "348" },
+  { code: "IE", label: "Irland", icon: "🇮🇪", numeric: "372" },
+  { code: "JP", label: "Japan", icon: "🇯🇵", numeric: "392" },
+  { code: "KR", label: "Südkorea", icon: "🇰🇷", numeric: "410" },
+  { code: "LU", label: "Luxemburg", icon: "🇱🇺", numeric: "442" },
+  { code: "MT", label: "Malta", icon: "🇲🇹", numeric: "470" },
+  { code: "NL", label: "Niederlande", icon: "🇳🇱", numeric: "528" },
+  { code: "NZ", label: "Neuseeland", icon: "🇳🇿", numeric: "554" },
+  { code: "PL", label: "Polen", icon: "🇵🇱", numeric: "616" },
+  { code: "PT", label: "Portugal", icon: "🇵🇹", numeric: "620" },
+  { code: "RO", label: "Rumänien", icon: "🇷🇴", numeric: "642" },
+  { code: "SE", label: "Schweden", icon: "🇸🇪", numeric: "752" },
+  { code: "SG", label: "Singapur", icon: "🇸🇬", numeric: "702" },
+  { code: "SI", label: "Slowenien", icon: "🇸🇮", numeric: "705" },
+  { code: "SK", label: "Slowakei", icon: "🇸🇰", numeric: "703" },
+  { code: "ZA", label: "Südafrika", icon: "🇿🇦", numeric: "710" },
 ].slice().sort((a, b) => a.label.localeCompare(b.label));
 
 // Welche Länder erlauben Selbstanmeldung ohne lokalen Vertreter?
@@ -147,28 +178,55 @@ const SELF_REGISTER_ALLOWED: Record<string, boolean> = {
   EU: true,  // EUIPO
   GB: true,  // UK
   NO: true,  // Norwegen
+  NZ: true,  // Neuseeland
   WO: true,  // WIPO Madrid
   // EU-Länder (EU-Bürger können selbst anmelden)
+  AT: true,  // Österreich
+  BE: true,  // Belgien
+  BG: true,  // Bulgarien
+  CY: true,  // Zypern
+  CZ: true,  // Tschechien
+  DE: true,  // Deutschland
+  DK: true,  // Dänemark
   EE: true,  // Estland
   ES: true,  // Spanien
+  FI: true,  // Finnland
+  FR: true,  // Frankreich
+  GR: true,  // Griechenland
+  HR: true,  // Kroatien
+  HU: true,  // Ungarn
+  IE: true,  // Irland
   IT: true,  // Italien
   LT: true,  // Litauen
+  LU: true,  // Luxemburg
   LV: true,  // Lettland
+  MT: true,  // Malta
+  NL: true,  // Niederlande
+  PL: true,  // Polen
+  PT: true,  // Portugal
+  RO: true,  // Rumänien
+  SE: true,  // Schweden
+  SI: true,  // Slowenien
+  SK: true,  // Slowakei
   // Vertreter erforderlich
   AE: false, // VAE
   AM: false, // Armenien
   AR: false, // Argentinien
   AZ: false, // Aserbaidschan
   BH: false, // Bahrain
+  BR: false, // Brasilien
   BW: false, // Botswana
   BY: false, // Belarus
+  CN: false, // China
   EG: false, // Ägypten
   GE: false, // Georgien
   HK: false, // Hongkong
   IL: false, // Israel
   IN: false, // Indien
+  JP: false, // Japan
   KE: false, // Kenia
   KG: false, // Kirgisistan
+  KR: false, // Südkorea
   KZ: false, // Kasachstan
   MA: false, // Marokko
   MD: false, // Moldau
@@ -176,11 +234,13 @@ const SELF_REGISTER_ALLOWED: Record<string, boolean> = {
   OM: false, // Oman
   RU: false, // Russland
   SA: false, // Saudi-Arabien
+  SG: false, // Singapur
   TR: false, // Türkei
   TW: false, // Taiwan
   UA: false, // Ukraine
   US: false, // USA (Ausländer brauchen Anwalt)
   UZ: false, // Usbekistan
+  ZA: false, // Südafrika
 };
 
 interface StepStatus {

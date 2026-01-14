@@ -195,6 +195,9 @@ export const TMSEARCH_AVAILABLE_REGISTERS: Record<string, boolean> = {
   "JP": false,  // Japan (nur über WIPO)
   "KR": false,  // Südkorea (nur über WIPO)
   "BR": false,  // Brasilien (nur über WIPO)
+  "NZ": false,  // Neuseeland (nur über WIPO)
+  "SG": false,  // Singapur (nur über WIPO)
+  "ZA": false,  // Südafrika (nur über WIPO)
 };
 
 // Links zu offiziellen nationalen Markenregistern für Selbstrecherche
@@ -293,6 +296,56 @@ export const NATIONAL_REGISTER_URLS: Record<string, { name: string; url: string;
     name: "INPI Brasil", 
     url: "https://www.gov.br/inpi",
     searchUrl: "https://busca.inpi.gov.br/pePI/jsp/marcas/Pesquisa_classe_702.jsp"
+  },
+  "RO": { 
+    name: "OSIM (Oficiul de Stat pentru Inventii si Marci)", 
+    url: "https://www.osim.ro",
+    searchUrl: "http://api.osim.ro:8080/marci/search"
+  },
+  "BG": { 
+    name: "Bulgarisches Patentamt", 
+    url: "https://www.bpo.bg",
+    searchUrl: "https://portal.bpo.bg/trademarks-search"
+  },
+  "HR": { 
+    name: "DZIV (Kroatisches Patentamt)", 
+    url: "https://www.dziv.hr",
+    searchUrl: "https://www.dziv.hr/en/e-services/search-databases/"
+  },
+  "SK": { 
+    name: "Slowakisches Patentamt (ÚPV SR)", 
+    url: "https://www.indprop.gov.sk",
+    searchUrl: "https://wbr.indprop.gov.sk/WebRegistre/"
+  },
+  "SI": { 
+    name: "SIPO (Slowenisches Patentamt)", 
+    url: "https://www.uil-sipo.si",
+    searchUrl: "https://www.uil-sipo.si/uil/dodatno/baze-podatkov/"
+  },
+  "CY": { 
+    name: "Zyprisches Markenamt", 
+    url: "https://www.mcit.gov.cy",
+    searchUrl: "https://www.tmdn.org/tmview/"
+  },
+  "MT": { 
+    name: "Maltesisches Patentamt", 
+    url: "https://commerce.gov.mt",
+    searchUrl: "https://www.tmdn.org/tmview/"
+  },
+  "NZ": { 
+    name: "IPONZ (Intellectual Property Office of New Zealand)", 
+    url: "https://www.iponz.govt.nz",
+    searchUrl: "https://app.iponz.govt.nz/app/TradeMarkSearch"
+  },
+  "SG": { 
+    name: "IPOS (Intellectual Property Office of Singapore)", 
+    url: "https://www.ipos.gov.sg",
+    searchUrl: "https://ip2sg.ipos.gov.sg/RPS/WP/CM/SearchSimple/TM.aspx"
+  },
+  "ZA": { 
+    name: "CIPC (Companies and Intellectual Property Commission)", 
+    url: "https://www.cipc.co.za",
+    searchUrl: "https://iponline.cipc.co.za/"
   },
 };
 
