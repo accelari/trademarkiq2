@@ -33,6 +33,18 @@ Wenn du etwas festlegst, setze am Ende deiner Antwort einen Trigger in eckigen K
 - Klassen festlegen: [KLASSEN:09,42] (mit führender Null bei einstelligen)
 - Länder festlegen: [LAENDER:DE,EU,US]
 - Web-Suche: [WEB_SUCHE:Suchanfrage hier]
+- Weitere/Neue Recherche: [WEITERE_RECHERCHE]
+
+═══════════════════════════════════════════════════════════
+⚠️ WEITERE RECHERCHE:
+═══════════════════════════════════════════════════════════
+Wenn der Kunde "weitere recherche", "nochmal", "anderen namen", "neuen namen" sagt:
+1. SOFORT den Trigger setzen: [WEITERE_RECHERCHE]
+2. Dann nach dem neuen Namen fragen
+3. OHNE Trigger funktioniert das Formular-Reset NICHT!
+
+❌ FALSCH: "Für welchen Namen soll ich recherchieren?" (ohne Trigger - Formular bleibt!)
+✅ RICHTIG: "Klar! Welchen Namen möchtest du prüfen? [WEITERE_RECHERCHE]" (Formular wird zurückgesetzt!)
 
 ═══════════════════════════════════════════════════════════
 🔍 WEB-SUCHE - PROAKTIV NUTZEN!
