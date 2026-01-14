@@ -6,16 +6,34 @@ import { eq, sql } from "drizzle-orm";
 export type ApiProvider = "claude" | "openai" | "tmsearch" | "tavily" | "hume" | "resend";
 
 // Preiskonfiguration für alle APIs (Januar 2026)
+// Quelle: https://www.anthropic.com/news/claude-opus-4-5
 export const API_PRICING = {
-  // Claude Opus 4
+  // Claude Modelle (aktualisiert Januar 2026)
   claude: {
+    // Claude Opus 4.5 (November 2025) - Flagship
+    "claude-opus-4-5-20251101": {
+      inputPer1M: 5.0,   // $5 pro 1M Input Tokens
+      outputPer1M: 25.0, // $25 pro 1M Output Tokens
+    },
+    // Claude Opus 4 (Legacy - Mai 2025)
     "claude-opus-4-20250514": {
       inputPer1M: 15.0,  // $15 pro 1M Input Tokens
       outputPer1M: 75.0, // $75 pro 1M Output Tokens
     },
+    // Claude Sonnet 4.5 - Balanced (empfohlen für Chat)
+    "claude-sonnet-4-5-20251022": {
+      inputPer1M: 3.0,   // $3 pro 1M Input Tokens
+      outputPer1M: 15.0, // $15 pro 1M Output Tokens
+    },
+    // Claude Sonnet 4 (Legacy)
     "claude-sonnet-4-20250514": {
       inputPer1M: 3.0,   // $3 pro 1M Input Tokens
       outputPer1M: 15.0, // $15 pro 1M Output Tokens
+    },
+    // Claude Haiku 4.5 - Fast & Cheap
+    "claude-haiku-4-5-20251022": {
+      inputPer1M: 1.0,   // $1 pro 1M Input Tokens
+      outputPer1M: 5.0,  // $5 pro 1M Output Tokens
     },
   },
   // OpenAI

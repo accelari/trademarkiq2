@@ -590,7 +590,7 @@ export async function POST(request: NextRequest) {
           let outputTokens = 0;
 
           const response = await anthropic.messages.create({
-            model: "claude-opus-4-20250514",
+            model: "claude-sonnet-4-20250514",
             max_tokens: 1500,
             system: systemPrompt,
             messages: claudeMessages,
@@ -626,7 +626,7 @@ export async function POST(request: NextRequest) {
                   content: fullResponse,
                   inputTokens,
                   outputTokens,
-                  model: "claude-opus-4-20250514",
+                  model: "claude-sonnet-4-20250514",
                   durationMs,
                 });
                 
@@ -635,7 +635,7 @@ export async function POST(request: NextRequest) {
                   userId,
                   apiProvider: "claude",
                   apiEndpoint: "/api/claude-chat",
-                  model: "claude-opus-4-20250514",
+                  model: "claude-sonnet-4-20250514",
                   inputTokens,
                   outputTokens,
                   durationMs,
