@@ -2,30 +2,32 @@ import { db } from "@/db";
 import { users, creditTransactions, apiUsageLogs } from "@/db/schema";
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 
-// Credit-Pakete für Stripe
+// Credit-Pakete für Stripe (Januar 2026)
+// Preisberechnung: 1 Credit = 0.03 EUR (3x Markup auf API-Kosten)
+// Rabatte für größere Pakete motivieren zum Kauf
 export const CREDIT_PACKAGES = [
   {
-    id: "credits_100",
-    name: "100 Credits",
-    credits: 100,
-    priceEur: 3.00,
-    stripePriceId: process.env.STRIPE_PRICE_100_CREDITS,
+    id: "credits_350",
+    name: "350 Credits",
+    credits: 350,
+    priceEur: 10.00, // Einstiegspaket, kein Rabatt
+    stripePriceId: process.env.STRIPE_PRICE_350_CREDITS,
     popular: false,
   },
   {
-    id: "credits_500",
-    name: "500 Credits",
-    credits: 500,
-    priceEur: 12.50, // 10% Rabatt
-    stripePriceId: process.env.STRIPE_PRICE_500_CREDITS,
+    id: "credits_900",
+    name: "900 Credits",
+    credits: 900,
+    priceEur: 25.00, // ~3% Rabatt (0.0278 EUR/Credit)
+    stripePriceId: process.env.STRIPE_PRICE_900_CREDITS,
     popular: true,
   },
   {
-    id: "credits_1000",
-    name: "1000 Credits",
-    credits: 1000,
-    priceEur: 22.50, // 25% Rabatt
-    stripePriceId: process.env.STRIPE_PRICE_1000_CREDITS,
+    id: "credits_1900",
+    name: "1900 Credits",
+    credits: 1900,
+    priceEur: 50.00, // ~7% Rabatt (0.0263 EUR/Credit)
+    stripePriceId: process.env.STRIPE_PRICE_1900_CREDITS,
     popular: false,
   },
 ] as const;
