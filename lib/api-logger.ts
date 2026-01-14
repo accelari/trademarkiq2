@@ -3,7 +3,7 @@ import { apiUsageLogs, users, creditTransactions } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 
 // API Provider Typen
-export type ApiProvider = "claude" | "openai" | "tmsearch" | "tavily" | "hume" | "resend";
+export type ApiProvider = "claude" | "openai" | "tmsearch" | "tavily" | "hume" | "resend" | "ideogram";
 
 // Preiskonfiguration für alle APIs (Januar 2026)
 // Quelle: https://www.anthropic.com/news/claude-opus-4-5
@@ -66,6 +66,24 @@ export const API_PRICING = {
   resend: {
     perEmail: 0.001, // $0.001 pro E-Mail
   },
+  // Ideogram Image Generation (Januar 2026)
+  // Quelle: https://about.ideogram.ai/api-pricing
+  ideogram: {
+    // Ideogram 3.0
+    "V_3_FLASH": { perImage: 0.03 },
+    "V_3_TURBO": { perImage: 0.03 },
+    "V_3": { perImage: 0.06 },
+    "V_3_QUALITY": { perImage: 0.09 },
+    // Ideogram 2.0
+    "V_2_TURBO": { perImage: 0.05 },
+    "V_2": { perImage: 0.08 },
+    // Ideogram 2a
+    "V_2A_TURBO": { perImage: 0.025 },
+    "V_2A": { perImage: 0.04 },
+    // Ideogram 1.0
+    "V_1_TURBO": { perImage: 0.02 },
+    "V_1": { perImage: 0.06 },
+  },
 } as const;
 
 // Konstanten
@@ -81,8 +99,8 @@ export interface LogApiUsageParams {
   model?: string;
   inputTokens?: number;
   outputTokens?: number;
-  units?: number; // Für nicht-Token-basierte APIs (Minuten, Suchen, etc.)
-  unitType?: "tokens" | "minutes" | "searches" | "emails";
+  units?: number; // Für nicht-Token-basierte APIs (Minuten, Suchen, Bilder, etc.)
+  unitType?: "tokens" | "minutes" | "searches" | "emails" | "images";
   durationMs?: number;
   statusCode?: number;
   errorMessage?: string;
@@ -137,13 +155,20 @@ export function calculateApiCost(params: {
       costUsd = units * API_PRICING.hume.perMinute;
       break;
     }
-    case "resend": {
-      costUsd = units * API_PRICING.resend.perEmail;
-      break;
+      case "resend": {
+        costUsd = units * API_PRICING.resend.perEmail;
+        break;
+      }
+      case "ideogram": {
+        // Bildgenerierung - Kosten pro Bild basierend auf Modell
+        const modelKey = model as keyof typeof API_PRICING.ideogram;
+        const pricing = API_PRICING.ideogram[modelKey] || API_PRICING.ideogram["V_2_TURBO"];
+        costUsd = units * pricing.perImage;
+        break;
+      }
     }
-  }
 
-  const costEur = costUsd * USD_TO_EUR;
+    const costEur = costUsd * USD_TO_EUR;
   const finalCost = costEur * MARKUP_FACTOR;
   const creditsCharged = Math.ceil(finalCost / CREDIT_VALUE);
 

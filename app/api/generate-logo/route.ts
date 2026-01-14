@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fal } from "@fal-ai/client";
-
-// Configure fal.ai client
-fal.config({
-  credentials: process.env.FAL_KEY,
-});
+import { auth } from "@/lib/auth";
+import { logApiUsage } from "@/lib/api-logger";
 
 // Professional prompt template for trademark-ready logos
 function buildLogoPrompt(userPrompt: string, trademarkType: string, brandName: string): string {
@@ -25,15 +21,18 @@ function buildLogoPrompt(userPrompt: string, trademarkType: string, brandName: s
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth();
+    const userId = session?.user?.id;
+    
     const body = await req.json();
-    const { prompt, trademarkType, brandName } = body;
+    const { prompt, trademarkType, brandName, model = "V_2_TURBO" } = body;
 
     if (!prompt && !brandName) {
       return NextResponse.json({ error: "Prompt oder Markenname ist erforderlich" }, { status: 400 });
     }
 
-    if (!process.env.FAL_KEY) {
-      return NextResponse.json({ error: "fal.ai API Key nicht konfiguriert" }, { status: 500 });
+    if (!process.env.IDEOGRAM_API_KEY) {
+      return NextResponse.json({ error: "Ideogram API Key nicht konfiguriert" }, { status: 500 });
     }
 
     // Build the optimized prompt for trademark logos
@@ -47,27 +46,56 @@ export async function POST(req: NextRequest) {
       originalPrompt: prompt,
       trademarkType,
       brandName,
+      model,
       finalPrompt: finalPrompt.substring(0, 100) + "...",
     });
 
-    // Call fal.ai NanoBanana for logo generation (outputs PNG for Flux Kontext editing)
-    const result = await fal.subscribe("fal-ai/ideogram/v2/turbo", {
-      input: {
-        prompt: finalPrompt,
-        aspect_ratio: "1:1", // Quadratisch für Logos
+    // Call Ideogram API v2 directly
+    const response = await fetch("https://api.ideogram.ai/generate", {
+      method: "POST",
+      headers: {
+        "Api-Key": process.env.IDEOGRAM_API_KEY,
+        "Content-Type": "application/json",
       },
-      logs: true,
-    }) as { data?: { images?: { url: string }[] } };
+      body: JSON.stringify({
+        image_request: {
+          prompt: finalPrompt,
+          model: model, // V_2_TURBO ($0.05) or V_2 ($0.08)
+          aspect_ratio: "ASPECT_1_1", // Quadratisch für Logos
+          magic_prompt_option: "AUTO",
+        },
+      }),
+    });
 
-    console.log("fal.ai response:", result);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Ideogram API error:", errorText);
+      return NextResponse.json({ error: `Ideogram API Fehler: ${response.status}` }, { status: 500 });
+    }
+
+    const result = await response.json();
+    console.log("Ideogram API response:", JSON.stringify(result, null, 2));
 
     // Extract image URL from result
-    const imageUrl = result.data?.images?.[0]?.url;
+    const imageUrl = result.data?.[0]?.url;
     
     if (imageUrl) {
+            // Log API usage for credit tracking
+            if (userId) {
+              await logApiUsage({
+                userId,
+                apiProvider: "ideogram",
+                apiEndpoint: "/api/generate-logo",
+                model: model,
+                units: 1, // 1 Bild generiert
+                unitType: "images",
+              });
+            }
+      
       return NextResponse.json({ 
         imageUrl,
         prompt: finalPrompt,
+        model,
       });
     }
 
