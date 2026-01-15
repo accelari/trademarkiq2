@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth, isAdminSession } from "@/lib/auth";
 import { db } from "@/db";
 import { trademarkCases, caseSteps, caseDecisions, caseAnalyses, consultations, caseEvents } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or } from "drizzle-orm";
 
 export async function GET(
   request: NextRequest,
@@ -15,20 +15,26 @@ export async function GET(
     }
 
     const { caseId } = await params;
+    const isAdmin = isAdminSession(session);
 
+    // Admins können alle Fälle sehen, normale User nur ihre eigenen
     let trademarkCase = await db.query.trademarkCases.findFirst({
-      where: and(
-        eq(trademarkCases.id, caseId),
-        eq(trademarkCases.userId, session.user.id)
-      ),
+      where: isAdmin 
+        ? eq(trademarkCases.id, caseId)
+        : and(
+            eq(trademarkCases.id, caseId),
+            eq(trademarkCases.userId, session.user.id)
+          ),
     });
 
     if (!trademarkCase) {
       trademarkCase = await db.query.trademarkCases.findFirst({
-        where: and(
-          eq(trademarkCases.caseNumber, caseId),
-          eq(trademarkCases.userId, session.user.id)
-        ),
+        where: isAdmin
+          ? eq(trademarkCases.caseNumber, caseId)
+          : and(
+              eq(trademarkCases.caseNumber, caseId),
+              eq(trademarkCases.userId, session.user.id)
+            ),
       });
     }
 
