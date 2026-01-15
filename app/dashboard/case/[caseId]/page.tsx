@@ -61,6 +61,7 @@ import { RechercheSteps, RechercheStep } from "@/app/components/RechercheSteps";
 import { ReportGenerator } from "@/app/components/ReportGenerator";
 import { AccordionSkeleton } from "@/app/components/Skeleton";
 import { AccordionSection } from "@/app/components/ui/AccordionSection";
+import { TriggerFeedback, useTriggerFeedback, TriggerChange } from "@/app/components/ui/TriggerFeedback";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface AnalysisSummary{
@@ -788,6 +789,9 @@ export default function CasePage() {
   const [liveAnalysisError, setLiveAnalysisError] = useState<string | null>(null);
   const [rechercheSteps, setRechercheSteps] = useState<RechercheStep[]>([]);
   const rechercheStepsRef = useRef<RechercheStep[]>([]); // Ref für aktuelle Steps (Closure-Fix)
+  
+  // Trigger-Feedback für visuelles Feedback bei KI-Änderungen
+  const { changes: triggerChanges, addChange: addTriggerChange, dismissChange: dismissTriggerChange } = useTriggerFeedback();
   const [liveAnalysisResult, setLiveAnalysisResult] = useState<{
     success: boolean;
     isTestMode: boolean;
@@ -1834,9 +1838,11 @@ Für die Anmeldung brauche ich noch ein paar Angaben zu dir als Anmelder.
     if (markeMatch?.[1]) {
       hasAction = true;
       const name = markeMatch[1].trim();
+      const oldName = manualNameInput;
       triggerChangeInProgressRef.current = true; // Flag: Änderung durch KI-Trigger
       setManualNameInput(name);
       setRechercheForm(prev => ({ ...prev, trademarkName: name }));
+      addTriggerChange("marke", "Markenname", oldName, name);
       setTimeout(() => { triggerChangeInProgressRef.current = false; }, 100);
     }
     
@@ -1846,8 +1852,10 @@ Für die Anmeldung brauche ich noch ein paar Angaben zu dir als Anmelder.
       hasAction = true;
       const classes = klassenMatch[1].split(",").map((c: string) => parseInt(c.trim(), 10)).filter((n: number) => !isNaN(n) && n >= 1 && n <= 45);
       if (classes.length > 0) {
+        const oldClasses = [...rechercheForm.niceClasses];
         triggerChangeInProgressRef.current = true;
         setRechercheForm(prev => ({ ...prev, niceClasses: [...new Set(classes)] as number[] }));
+        addTriggerChange("klassen", "Nizza-Klassen", oldClasses, classes);
         setTimeout(() => { triggerChangeInProgressRef.current = false; }, 100);
       }
     }
@@ -1858,8 +1866,10 @@ Für die Anmeldung brauche ich noch ein paar Angaben zu dir als Anmelder.
       hasAction = true;
       const codes = laenderMatch[1].split(",").map((c: string) => c.trim().toUpperCase()).filter((c: string) => c.length >= 2);
       if (codes.length > 0) {
+        const oldCountries = [...rechercheForm.countries];
         triggerChangeInProgressRef.current = true;
         setRechercheForm(prev => ({ ...prev, countries: [...new Set(codes)] as string[] }));
+        addTriggerChange("laender", "Länder", oldCountries, codes);
         setTimeout(() => { triggerChangeInProgressRef.current = false; }, 100);
       }
     }
@@ -1869,9 +1879,11 @@ Für die Anmeldung brauche ich noch ein paar Angaben zu dir als Anmelder.
     if (artMatch?.[1]) {
       hasAction = true;
       const art = artMatch[1].toLowerCase() as "wortmarke" | "bildmarke" | "wort-bildmarke";
+      const oldArt = trademarkType;
       triggerChangeInProgressRef.current = true;
       setTrademarkType(art);
       setIsTrademarkTypeConfirmed(true);
+      addTriggerChange("art", "Markenart", oldArt, art);
       setTimeout(() => { triggerChangeInProgressRef.current = false; }, 100);
     }
     
@@ -9704,6 +9716,32 @@ Antworte kurz und prägnant. Per DU.
           </div>
         )}
       </div>
+      
+      {/* Trigger-Feedback für visuelles Feedback bei KI-Änderungen */}
+      <TriggerFeedback
+        changes={triggerChanges}
+        onUndo={(change) => {
+          // Undo-Logik: Setze den alten Wert zurück
+          triggerChangeInProgressRef.current = true;
+          switch (change.field) {
+            case "marke":
+              setManualNameInput(change.oldValue as string);
+              setRechercheForm(prev => ({ ...prev, trademarkName: change.oldValue as string }));
+              break;
+            case "klassen":
+              setRechercheForm(prev => ({ ...prev, niceClasses: change.oldValue as number[] }));
+              break;
+            case "laender":
+              setRechercheForm(prev => ({ ...prev, countries: change.oldValue as string[] }));
+              break;
+            case "art":
+              setTrademarkType(change.oldValue as "wortmarke" | "bildmarke" | "wort-bildmarke" | "");
+              break;
+          }
+          setTimeout(() => { triggerChangeInProgressRef.current = false; }, 100);
+        }}
+        onDismiss={dismissTriggerChange}
+      />
     </div>
   );
 }
