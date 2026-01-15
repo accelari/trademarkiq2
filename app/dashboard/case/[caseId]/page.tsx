@@ -59,8 +59,9 @@ import { getBeratungPrompt, getRecherchePrompt, getMarkennamePrompt, getAnmeldun
 import { getAnmeldungRules } from "@/lib/prompts/anmeldung";
 import { RechercheSteps, RechercheStep } from "@/app/components/RechercheSteps";
 import { ReportGenerator } from "@/app/components/ReportGenerator";
+import { AccordionSkeleton } from "@/app/components/Skeleton";
 
-interface AnalysisSummary {
+interface AnalysisSummary{
   id: string;
   createdAt: string;
   trademarkName: string;
@@ -724,17 +725,7 @@ function AccordionSection({
 }
 
 function LoadingSkeleton() {
-  return (
-    <div className="animate-pulse space-y-6">
-      <div className="h-8 bg-gray-200 rounded w-48"></div>
-      <div className="h-12 bg-gray-200 rounded w-64"></div>
-      <div className="space-y-4">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
-          <div key={i} className="h-16 bg-gray-200 rounded-xl"></div>
-        ))}
-      </div>
-    </div>
-  );
+  return <AccordionSkeleton items={9} />;
 }
 
 function formatDuration(seconds: number | null): string {

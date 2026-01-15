@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { MessageSquare, User, Bot, Clock, Hash, DollarSign, Calendar, Filter, RefreshCw } from "lucide-react";
 import { formatDate, formatTime } from "@/lib/utils";
+import { ChatMonitorSkeleton } from "@/app/components/Skeleton";
 
-interface ChatMessage {
+interface ChatMessage{
   id: string;
   userId: string;
   userEmail?: string;
@@ -166,10 +167,7 @@ export default function ChatMonitorPage() {
 
       {/* Loading State */}
       {loading && sessions.length === 0 && (
-        <div className="text-center py-12">
-          <RefreshCw className="w-8 h-8 text-gray-400 animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">Lade Chat-Logs...</p>
-        </div>
+        <ChatMonitorSkeleton items={5} />
       )}
 
       {/* Empty State */}

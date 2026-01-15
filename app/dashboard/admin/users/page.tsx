@@ -7,8 +7,9 @@ import {
   MousePointer, Briefcase, Calendar, Clock
 } from "lucide-react";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
+import { UsersListSkeleton } from "@/app/components/Skeleton";
 
-interface UserData {
+interface UserData{
   id: string;
   name: string | null;
   email: string;

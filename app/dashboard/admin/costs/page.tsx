@@ -17,8 +17,9 @@ import {
   Server
 } from "lucide-react";
 import { formatDate, formatCurrency } from "@/lib/utils";
+import { CostsSkeleton } from "@/app/components/Skeleton";
 
-interface CostOverview {
+interface CostOverview{
   period: {
     startDate: string;
     endDate: string;
@@ -134,8 +135,8 @@ export default function AdminCostsPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="max-w-6xl mx-auto p-6">
+        <CostsSkeleton />
       </div>
     );
   }

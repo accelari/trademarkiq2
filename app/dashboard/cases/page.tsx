@@ -19,8 +19,9 @@ import {
   Minus,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { CasesListSkeleton } from "@/app/components/Skeleton";
 
-const fetcher = async (url: string) => {
+const fetcher= async (url: string) => {
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error("Fehler beim Laden");
@@ -620,9 +621,7 @@ export default function CasesPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
-        </div>
+        <CasesListSkeleton items={5} />
       ) : error ? (
         <div className="bg-white rounded-xl border border-red-200 p-8 text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
