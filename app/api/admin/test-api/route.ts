@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth, isAdminSession } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
 
 const MARKUP_FACTOR = 3;
@@ -35,6 +35,11 @@ export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+  }
+
+  // Admin-Check: Nur Admins dürfen API-Tests durchführen
+  if (!isAdminSession(session)) {
+    return NextResponse.json({ error: "Keine Admin-Berechtigung" }, { status: 403 });
   }
 
   const body = await request.json().catch(() => ({}));

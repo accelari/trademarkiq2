@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth, isAdminSession } from "@/lib/auth";
 import { db } from "@/db";
 import { chatLogs, users, trademarkCases } from "@/db/schema";
 import { desc, eq, gte, and, sql } from "drizzle-orm";
@@ -8,6 +8,11 @@ export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+  }
+
+  // Admin-Check: Nur Admins dürfen Chat-Logs sehen
+  if (!isAdminSession(session)) {
+    return NextResponse.json({ error: "Keine Admin-Berechtigung" }, { status: 403 });
   }
 
   // Filter aus Query-Parametern

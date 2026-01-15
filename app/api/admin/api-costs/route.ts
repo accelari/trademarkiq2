@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth, isAdminSession } from "@/lib/auth";
 import { db } from "@/db";
 import { apiUsageLogs, users, creditTransactions } from "@/db/schema";
 import { eq, sql, desc, and, gte, lte } from "drizzle-orm";
@@ -12,8 +12,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
     }
 
-    // Admin-Check (hier könnte man isAdmin prüfen)
-    // TODO: Echte Admin-Prüfung implementieren
+    // Admin-Check: Nur Admins dürfen API-Kosten sehen
+    if (!isAdminSession(session)) {
+      return NextResponse.json({ error: "Keine Admin-Berechtigung" }, { status: 403 });
+    }
     
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") || "overview";

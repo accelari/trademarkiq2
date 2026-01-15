@@ -5,6 +5,24 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
+/**
+ * Prüft ob der aktuelle User ein Admin ist
+ * @returns true wenn Admin, false sonst
+ */
+export async function isAdmin(): Promise<boolean> {
+  const session = await auth();
+  return (session?.user as any)?.isAdmin === true;
+}
+
+/**
+ * Prüft ob der User mit der gegebenen Session ein Admin ist
+ * @param session - Die Session des Users
+ * @returns true wenn Admin, false sonst
+ */
+export function isAdminSession(session: any): boolean {
+  return session?.user?.isAdmin === true;
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   secret: process.env.AUTH_SECRET,
