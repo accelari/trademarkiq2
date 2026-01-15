@@ -24,7 +24,11 @@ import {
   User,
   CreditCard,
   Settings,
-  Trash2
+  Trash2,
+  Shield,
+  DollarSign,
+  Users,
+  MessageSquare
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -291,6 +295,51 @@ function Sidebar({
             <CreditDisplay className="w-full" />
           </Link>
         </div>
+
+        {/* Admin-Bereich - nur für Admins sichtbar */}
+        {(session?.user as any)?.isAdmin && (
+          <div className="px-4 py-3 border-t border-gray-200">
+            <div className="flex items-center gap-2 px-2 mb-2">
+              <Shield className="w-4 h-4 text-amber-600" />
+              <span className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Admin</span>
+            </div>
+            <div className="space-y-1">
+              <Link
+                href="/dashboard/admin/costs"
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  pathname.startsWith('/dashboard/admin/costs') 
+                    ? 'bg-amber-100 text-amber-800' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <DollarSign className="w-4 h-4" />
+                API-Kosten
+              </Link>
+              <Link
+                href="/dashboard/admin/users"
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  pathname.startsWith('/dashboard/admin/users') 
+                    ? 'bg-amber-100 text-amber-800' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                Benutzer
+              </Link>
+              <Link
+                href="/dashboard/admin/chat-monitor"
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  pathname.startsWith('/dashboard/admin/chat-monitor') 
+                    ? 'bg-amber-100 text-amber-800' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                Chat-Logs
+              </Link>
+            </div>
+          </div>
+        )}
 
         <div className="p-4 border-t border-gray-200">
           <DropdownMenu>
