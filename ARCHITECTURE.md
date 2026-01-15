@@ -640,6 +640,121 @@ Automatisch via [WEITER:markenname] Trigger:
 
 ---
 
+## Akkordeon-Wechsel-Nachrichten (Detaillierte Regeln)
+
+### Wann wird eine Nachricht gesendet?
+
+Die Nachricht wird gesendet wenn **ALLE** folgenden Bedingungen erfüllt sind (page.tsx, Zeile 1702-1817):
+
+| # | Bedingung | Code | Zeile |
+|---|-----------|------|-------|
+| 1 | Akkordeon ist gesetzt | `if (!openAccordion) return` | 1703 |
+| 2 | Akkordeon hat gewechselt | `if (openAccordion === lastVisitedAccordionRef.current) return` | 1704 |
+| 3 | Akkordeon hat KI-Berater | `accordionsWithAI.includes(openAccordion)` | 1722-1726 |
+| 4 | Es gibt bereits Nachrichten | `if (sessionMessages.length === 0) return` | 1728-1731 |
+| 5 | Akkordeon wurde noch nicht begrüßt | `if (greetedAccordionsRef.current.has(openAccordion)) return` | 1734-1738 |
+| 6 | Es gab ein vorheriges Akkordeon | `if (contextMsg && lastVisitedAccordionRef.current !== null)` | 1796 |
+
+**Akkordeons mit KI-Berater:** `["beratung", "markenname", "recherche"]`
+
+### Welche Nachricht wird gesendet?
+
+Die Nachricht ist **dynamisch** und hängt vom Akkordeon und dem aktuellen Status ab:
+
+**Beratung (statisch):**
+```
+Wir sind jetzt im Bereich **Beratung**. Hier können wir:
+- Deinen Markennamen besprechen
+- Die passende Markenart wählen (Wort-, Bild- oder Wort-/Bildmarke)
+- Die richtigen Nizza-Klassen für dein Geschäft finden
+- Die Länder/Regionen für den Markenschutz auswählen
+
+Was möchtest du als nächstes tun?
+```
+
+**Markenname (dynamisch, Zeile 1749-1781):**
+
+| Bedingung | Nachricht |
+|-----------|-----------|
+| `manualNameInput && trademarkType` UND `bildmarke/wort-bildmarke` | Logo-Erstellung anbieten: "Perfekt! Hier erstellen wir dein Logo für '{name}'..." |
+| `manualNameInput && trademarkType` UND `wortmarke` | Namensalternativen oder Recherche: "'{name}' als Wortmarke - hier kannst du..." |
+| Sonst (neuer Fall) | Willkommens-Nachricht: "Willkommen! Hier legst du deine Marke an..." |
+
+**Recherche (dynamisch, Zeile 1782-1791):**
+```
+Perfekt, wir sind jetzt bei der **Markenrecherche**! Hier prüfen wir:
+- Ob dein Markenname bereits geschützt ist
+- Ähnliche eingetragene Marken in deinen Klassen
+- Konflikte in den gewählten Ländern/Regionen
+
+{Markenname: "..." wenn vorhanden}
+{Klassen: ... wenn vorhanden}
+{Länder: ... wenn vorhanden}
+
+Soll ich die Recherche starten?
+```
+
+### Wie wird die Nachricht im Chat platziert?
+
+Die Funktion `simulateStreaming()` in ClaudeAssistant.tsx (Zeile 771-825) wird aufgerufen:
+
+```
+1. Container ausblenden (verhindert Flackern)
+   └── messagesContainerRef.current.style.visibility = "hidden"
+   └── Scroll zum Ende: scrollTop = scrollHeight
+   
+2. Kontext-Modus aktivieren
+   └── setIsContextMode(true)
+   
+3. Container nach 20ms wieder einblenden
+   └── messagesContainerRef.current.style.visibility = "visible"
+   
+4. Text Wort für Wort streamen (30ms pro Wort)
+   └── const words = text.split(" ")
+   └── for (word of words): setStreamingResponse(currentText)
+   
+5. Nachricht zu messages hinzufügen
+   └── role: "assistant"
+   └── content: text (vollständiger Text)
+   └── timestamp: new Date()
+   
+6. Callback aufrufen
+   └── onMessageSent?.(assistantMessage)
+   └── → setSessionMessages(prev => [...prev, msg])
+   
+7. Scroll zur neuen Nachricht (nach 100ms)
+   └── container.scrollTop = messageElement.offsetTop - 16
+   └── Nachricht erscheint oben im sichtbaren Bereich
+```
+
+### Persistenz (Akkordeon als "besucht" speichern)
+
+```
+1. In Memory markieren
+   └── greetedAccordionsRef.current.add(openAccordion)
+   
+2. In DB speichern
+   └── saveVisitedAccordion(openAccordion)
+   └── POST /api/cases/{caseId}/visited-accordions
+   └── Body: { accordion: "markenname" }
+   
+3. Bei Reload aus DB laden (Zeile 1663-1665)
+   └── const visitedFromDB = data.decisions?.visitedAccordions || []
+   └── visitedFromDB.forEach(acc => greetedAccordionsRef.current.add(acc))
+   
+4. Ergebnis: Akkordeon wird NIE wieder begrüßt (auch nach Reload)
+```
+
+### Refs für Akkordeon-Wechsel (Zeile 1620-1623)
+
+```typescript
+lastVisitedAccordionRef     // Letztes besuchtes Akkordeon (string | null)
+greetedAccordionsRef        // Set<string> - bereits begrüßte Akkordeons
+greetingsInitializedRef     // boolean - Initialisierung abgeschlossen
+```
+
+---
+
 ## Nachrichten-System
 
 ### sessionMessages (Globaler Chat-Verlauf)
