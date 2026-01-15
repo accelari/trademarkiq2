@@ -2590,7 +2590,190 @@ Die Komponenten sind in `/app/components/` und `/components/` organisiert.
 
 ---
 
-*(Kategorie 4: Lib-Module - Analyse folgt...)*
+### Kategorie 4: Lib-Module (35 Dateien)
+
+Die Lib-Module sind in `/lib/` organisiert und enthalten wiederverwendbare Logik.
+
+#### 4.1 Authentifizierung & Sicherheit
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/lib/auth.ts` | 108 | NextAuth.js Konfiguration. JWT-Sessions, Credentials-Provider. |
+| `/lib/validation.ts` | 66 | Input-Validierung. Email, Passwort, Name. |
+| `/lib/rate-limit.ts` | 51 | In-Memory Rate-Limiting mit Map. |
+| `/lib/env.ts` | 8 | Umgebungsvariablen-Validierung. |
+
+**Wichtige Details zu auth.ts:**
+- JWT-Sessions mit 30 Tagen Gültigkeit
+- Timing-Attack-Schutz bei fehlenden Usern
+- Email-Verifizierung erforderlich
+- isAdmin-Flag in Session
+
+---
+
+#### 4.2 KI & API-Clients
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/lib/anthropic.ts` | 11 | Anthropic Client. Claude Opus/Sonnet/Haiku Modelle. |
+| `/lib/api-logger.ts` | ~300 | API-Kosten-Logging. 8 Provider, Credit-Berechnung. |
+| `/lib/chat-logger.ts` | 72 | Chat-Logging mit Token-Kosten. |
+| `/lib/api-error.ts` | 15 | APIError-Klasse und Handler. |
+
+**Wichtige Details zu api-logger.ts:**
+- Preise für: Claude, OpenAI, tmsearch, Tavily, Hume, Resend, Ideogram, BFL
+- Formel: costUsd → costEur (×0.92) → finalCost (×3) → credits (÷0.03)
+- Automatisches Credit-Abzug
+
+---
+
+#### 4.3 Markenrecherche
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/lib/tmsearch/client.ts` | 260 | TMSearch.ai API-Client. Suche, Filter, Info. |
+| `/lib/tmsearch/types.ts` | 857 | Typen, Konstanten, Normalisierung. WIPO-Codes. |
+| `/lib/trademark-search.ts` | 241 | Direkte API-Aufrufe zu EUIPO, DPMA, USPTO. |
+| `/lib/similarity/index.ts` | 269 | Ähnlichkeitsberechnung. Levenshtein, Phonetik, Visuell. |
+| `/lib/search-variants.ts` | 314 | Suchvarianten-Generierung. Phonetik, Tippfehler. |
+| `/lib/country-mapping.ts` | 112 | Länder-Mapping für regionale Register (EU, BX, OA). |
+| `/lib/register-urls.ts` | 123 | URLs zu offiziellen Markenregistern. |
+| `/lib/related-classes.ts` | 360 | Verwandte Nizza-Klassen mit Risiko-Levels. |
+| `/lib/nice-classes.ts` | 67 | 45 Nizza-Klassen mit deutschen Beschreibungen. |
+
+**Wichtige Details zu tmsearch/types.ts:**
+- TMSEARCH_AVAILABLE_REGISTERS: Welche Länder direkt durchsuchbar sind
+- NATIONAL_REGISTER_URLS: Links für manuelle Recherche
+- SearchCoverageReport: Dokumentiert nicht-durchsuchte Register
+- WIPO_DESIGNATION_MAPPING: BE→BX, CM→OA etc.
+
+**Wichtige Details zu similarity/index.ts:**
+- levenshteinDistance/Similarity: Edit-Distanz
+- phoneticSimilarity: Phonetische Ähnlichkeit
+- visualSimilarity: Visuelle Ähnlichkeit
+- calculateSimilarity: Kombiniert (60% phonetisch, 40% visuell)
+
+---
+
+#### 4.4 Case & Credit Management
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/lib/case-memory.ts` | 289 | Case-Gedächtnis für KI-Agenten. Timeline, Recherchen. |
+| `/lib/credit-manager.ts` | ~200 | Credit-Verwaltung. Pakete, Abzug, Prüfung. |
+| `/lib/content-validation.ts` | 36 | Prüft ob Chat substantiven Inhalt hat. |
+
+**Wichtige Details zu case-memory.ts:**
+- buildCaseMemory(): Baut vollständiges Case-Gedächtnis
+- generatePromptForAgent(): Generiert Kontext-Prompt für KI
+- Timeline mit allen Events
+- Journey-Status (beratung, recherche, etc.)
+
+**Wichtige Details zu credit-manager.ts:**
+- CREDIT_PACKAGES: 350/10€, 900/25€, 1900/50€
+- checkCredits(): Prüft ob genug Credits
+- deductCredits(): Zieht Credits ab
+- WARNING_THRESHOLD: 50 Credits
+
+---
+
+#### 4.5 Prompts
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/lib/prompts/beratung.ts` | ~200 | Beratungs-Berater Prompt. |
+| `/lib/prompts/markenname.ts` | ~150 | Markenname-Berater Prompt. |
+| `/lib/prompts/recherche.ts` | ~150 | Recherche-Berater Prompt. |
+| `/lib/prompts/anmeldung.ts` | ~200 | Anmeldung-Berater Prompt. |
+| `/lib/prompts/base-rules.ts` | ~50 | Basis-Regeln für alle Berater. |
+| `/lib/prompts/index.ts` | ~20 | Export aller Prompts. |
+
+**Wichtige Details:**
+- Jeder Prompt definiert Trigger-Format
+- Basis-Regeln werden in alle Prompts eingebunden
+- Deutsche Sprache, professioneller Ton
+
+---
+
+#### 4.6 Utilities & Hooks
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/lib/utils.ts` | 7 | cn() für Tailwind-Klassen. |
+| `/lib/cache.ts` | 28 | In-Memory Cache mit TTL. |
+| `/lib/hooks.ts` | 59 | SWR-Hooks für API-Daten. |
+| `/lib/hooks/useActiveCase.ts` | ~50 | Hook für aktiven Case. |
+| `/lib/analytics.ts` | 119 | Client-Side Analytics. Events, Page Views. |
+| `/lib/email.ts` | 226 | Resend-Integration. Verifizierung, Passwort-Reset. |
+
+**Wichtige Details zu hooks.ts:**
+- useSearches, usePlaybooks, useWatchlist, useAlerts
+- useTeam, useExperts, useDashboardStats
+- useApplications, useApplication
+- Alle mit SWR für Caching und Revalidierung
+
+---
+
+#### 4.7 Agents (AI-Agenten)
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/lib/ai/extract-decisions.ts` | ~100 | Extrahiert Entscheidungen aus Chat. |
+| `/lib/tmview-agent.ts` | ~200 | TMView-Agent für Markenrecherche. |
+
+---
+
+### Zusammenfassung Kategorie 4 (Lib-Module)
+
+**Gesamtanzahl:** 35 Lib-Dateien
+
+**Nach Funktionsbereich:**
+| Bereich | Anzahl | Wichtigste Dateien |
+|---------|--------|-------------------|
+| Auth & Sicherheit | 4 | auth.ts, validation.ts |
+| KI & API | 4 | anthropic.ts, api-logger.ts |
+| Markenrecherche | 9 | tmsearch/*, similarity/* |
+| Case & Credit | 3 | case-memory.ts, credit-manager.ts |
+| Prompts | 6 | beratung.ts, markenname.ts |
+| Utilities | 6 | utils.ts, hooks.ts |
+| Agents | 2 | extract-decisions.ts |
+
+**Identifizierte Muster:**
+
+1. **Singleton-Pattern:**
+   - TMSearchClient mit getTMSearchClient()
+   - Anthropic-Client als Export
+
+2. **In-Memory Caching:**
+   - Rate-Limit Map
+   - Strategy Cache (LRU)
+   - Generic Cache mit TTL
+
+3. **Normalisierung:**
+   - normalizeResult() für API-Responses
+   - toPhonetic() für Ähnlichkeitsvergleich
+
+**Bekannte Probleme:**
+
+1. **Duplizierte Konstanten:**
+   - EU_COUNTRIES in tmsearch/types.ts UND country-mapping.ts
+   - **Vorschlag:** Zentrale constants.ts erstellen
+
+2. **In-Memory Rate-Limiting:**
+   - Funktioniert nicht bei mehreren Server-Instanzen
+   - **Vorschlag:** Redis-basiertes Rate-Limiting
+
+3. **Fehlende Error-Boundaries:**
+   - API-Clients werfen Errors ohne Recovery
+   - **Vorschlag:** Retry-Logik mit Exponential Backoff
+
+4. **Hardcoded Preise:**
+   - API-Preise in api-logger.ts hardcoded
+   - **Vorschlag:** Preise in Datenbank oder Config
+
+---
+
+*(Kategorie 5: Frontend-Seiten - Analyse folgt...)*
 
 ---
 
