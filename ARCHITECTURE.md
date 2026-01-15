@@ -1356,6 +1356,871 @@ export const processMarkennameTriggers = (content: string, ctx: TriggerContext) 
 
 ---
 
+## Systematische Code-Analyse (Roadmap)
+
+### Übersicht
+
+Das Projekt enthält **147 TypeScript-Dateien**, die in 8 Kategorien analysiert werden:
+
+| # | Kategorie | Dateien | Status | Aufwand |
+|---|-----------|---------|--------|---------|
+| 1 | Kern-Dateien | 10 | IN ARBEIT | 2-3 h |
+| 2 | API-Routen | 45 | OFFEN | 4-5 h |
+| 3 | Komponenten | 15 | OFFEN | 1-2 h |
+| 4 | Lib-Module | 30 | OFFEN | 2-3 h |
+| 5 | Frontend-Seiten | 16 | OFFEN | 1-2 h |
+| 6 | Agents | 8 | OFFEN | 1 h |
+| 7 | Datenbank & Tests | 10 | OFFEN | 1 h |
+| 8 | Konfiguration | 3 | OFFEN | 15 min |
+
+**Gesamtaufwand:** 12-18 Stunden
+
+### Dokumentations-Format pro Datei
+
+```
+## [Dateiname]
+**Pfad:** /pfad/zur/datei.ts
+**Zeilen:** ~XXX
+**Zweck:** Was macht die Datei?
+**Abhängigkeiten:** Welche Dateien werden importiert?
+**Exportiert:** Was wird exportiert?
+**Wichtige Funktionen:** Hauptfunktionen/Komponenten
+**Bekannte Probleme:** Falls vorhanden
+**Verbesserungsvorschläge:** Falls vorhanden
+```
+
+---
+
+### Kategorie 1: Kern-Dateien (10 Dateien)
+
+Diese Dateien bilden das Herzstück der Anwendung:
+
+| # | Datei | Zeilen | Status |
+|---|-------|--------|--------|
+| 1.1 | `app/dashboard/case/[caseId]/page.tsx` | ~9800 | OFFEN |
+| 1.2 | `app/components/ClaudeAssistant.tsx` | ~1100 | OFFEN |
+| 1.3 | `lib/prompts/beratung.ts` | ~200 | OFFEN |
+| 1.4 | `lib/prompts/markenname.ts` | ~150 | OFFEN |
+| 1.5 | `lib/prompts/recherche.ts` | ~150 | OFFEN |
+| 1.6 | `lib/prompts/anmeldung.ts` | ~200 | OFFEN |
+| 1.7 | `lib/prompts/base-rules.ts` | ~50 | OFFEN |
+| 1.8 | `lib/prompts/index.ts` | ~20 | OFFEN |
+| 1.9 | `lib/api-logger.ts` | ~300 | OFFEN |
+| 1.10 | `lib/credit-manager.ts` | ~200 | OFFEN |
+
+---
+
+### Kategorie 2: API-Routen (45 Dateien)
+
+| # | Datei | Status |
+|---|-------|--------|
+| 2.1 | `app/api/claude-chat/route.ts` | OFFEN |
+| 2.2 | `app/api/openai/chat/route.ts` | OFFEN |
+| 2.3 | `app/api/tmsearch/search/route.ts` | OFFEN |
+| 2.4 | `app/api/tmsearch/analyze/route.ts` | OFFEN |
+| 2.5 | `app/api/tmsearch/analyze-stream/route.ts` | OFFEN |
+| 2.6 | `app/api/tmsearch/info/route.ts` | OFFEN |
+| 2.7 | `app/api/generate-logo/route.ts` | OFFEN |
+| 2.8 | `app/api/edit-logo/route.ts` | OFFEN |
+| 2.9 | `app/api/case-logos/route.ts` | OFFEN |
+| 2.10 | `app/api/web-search/route.ts` | OFFEN |
+| 2.11 | `app/api/credits/route.ts` | OFFEN |
+| 2.12 | `app/api/whisper/route.ts` | OFFEN |
+| 2.13 | `app/api/cases/route.ts` | OFFEN |
+| 2.14 | `app/api/cases/[caseId]/route.ts` | OFFEN |
+| 2.15 | `app/api/cases/[caseId]/consultation/route.ts` | OFFEN |
+| 2.16 | `app/api/cases/[caseId]/consultation/messages/route.ts` | OFFEN |
+| 2.17 | `app/api/cases/[caseId]/analyses/route.ts` | OFFEN |
+| 2.18 | `app/api/cases/[caseId]/analysis/route.ts` | OFFEN |
+| 2.19 | `app/api/cases/[caseId]/full/route.ts` | OFFEN |
+| 2.20 | `app/api/cases/[caseId]/memory/route.ts` | OFFEN |
+| 2.21 | `app/api/cases/[caseId]/prefill/route.ts` | OFFEN |
+| 2.22 | `app/api/cases/[caseId]/recherche-history/route.ts` | OFFEN |
+| 2.23 | `app/api/cases/[caseId]/reset-steps/route.ts` | OFFEN |
+| 2.24 | `app/api/cases/[caseId]/run-recherche-analyse/route.ts` | OFFEN |
+| 2.25 | `app/api/cases/[caseId]/session-events/route.ts` | OFFEN |
+| 2.26 | `app/api/cases/[caseId]/skip/route.ts` | OFFEN |
+| 2.27 | `app/api/cases/[caseId]/steps/route.ts` | OFFEN |
+| 2.28 | `app/api/cases/[caseId]/update-status/route.ts` | OFFEN |
+| 2.29 | `app/api/cases/[caseId]/visited-accordions/route.ts` | OFFEN |
+| 2.30 | `app/api/cases/[caseId]/catch-up-beratung/route.ts` | OFFEN |
+| 2.31 | `app/api/cases/active/route.ts` | OFFEN |
+| 2.32 | `app/api/cases/extract-decisions/route.ts` | OFFEN |
+| 2.33 | `app/api/cases/save-decisions/route.ts` | OFFEN |
+| 2.34 | `app/api/cases/select-alternative/route.ts` | OFFEN |
+| 2.35 | `app/api/cases/start/route.ts` | OFFEN |
+| 2.36 | `app/api/anmeldung/applicant-profile/route.ts` | OFFEN |
+| 2.37 | `app/api/anmeldung/generate-strategy/route.ts` | OFFEN |
+| 2.38 | `app/api/anmeldung/registration-order/route.ts` | OFFEN |
+| 2.39 | `app/api/admin/analytics/route.ts` | OFFEN |
+| 2.40 | `app/api/admin/api-costs/route.ts` | OFFEN |
+| 2.41 | `app/api/admin/chat-logs/route.ts` | OFFEN |
+| 2.42 | `app/api/admin/test-api/route.ts` | OFFEN |
+| 2.43 | `app/api/auth/*.ts` (7 Dateien) | OFFEN |
+| 2.44 | `app/api/recherche/*.ts` (2 Dateien) | OFFEN |
+| 2.45 | `app/api/report/*.ts` (2 Dateien) | OFFEN |
+
+---
+
+### Kategorie 3: Komponenten (15 Dateien)
+
+| # | Datei | Status |
+|---|-------|--------|
+| 3.1 | `app/components/CaseTimeline.tsx` | OFFEN |
+| 3.2 | `app/components/ErrorBoundary.tsx` | OFFEN |
+| 3.3 | `app/components/Footer.tsx` | OFFEN |
+| 3.4 | `app/components/Header.tsx` | OFFEN |
+| 3.5 | `app/components/Messages.tsx` | OFFEN |
+| 3.6 | `app/components/OpenAIVoiceAssistant.tsx` | OFFEN |
+| 3.7 | `app/components/RechercheHistoryBanner.tsx` | OFFEN |
+| 3.8 | `app/components/RechercheSteps.tsx` | OFFEN |
+| 3.9 | `app/components/ReportGenerator.tsx` | OFFEN |
+| 3.10 | `app/components/cases/AnimatedRiskScore.tsx` | OFFEN |
+| 3.11 | `app/components/cases/ConflictCard.tsx` | OFFEN |
+| 3.12 | `app/components/ui/progress-bar.tsx` | OFFEN |
+| 3.13 | `app/components/ui/tooltip.tsx` | OFFEN |
+| 3.14 | `components/CreditDisplay.tsx` | OFFEN |
+| 3.15 | `components/analytics-provider.tsx` | OFFEN |
+
+---
+
+### Kategorie 4: Lib-Module (30 Dateien)
+
+| # | Datei | Status |
+|---|-------|--------|
+| 4.1 | `lib/anthropic.ts` | OFFEN |
+| 4.2 | `lib/auth.ts` | OFFEN |
+| 4.3 | `lib/cache.ts` | OFFEN |
+| 4.4 | `lib/case-memory.ts` | OFFEN |
+| 4.5 | `lib/chat-logger.ts` | OFFEN |
+| 4.6 | `lib/content-validation.ts` | OFFEN |
+| 4.7 | `lib/country-mapping.ts` | OFFEN |
+| 4.8 | `lib/email.ts` | OFFEN |
+| 4.9 | `lib/env.ts` | OFFEN |
+| 4.10 | `lib/hooks.ts` | OFFEN |
+| 4.11 | `lib/hooks/useActiveCase.ts` | OFFEN |
+| 4.12 | `lib/nice-classes.ts` | OFFEN |
+| 4.13 | `lib/rate-limit.ts` | OFFEN |
+| 4.14 | `lib/register-urls.ts` | OFFEN |
+| 4.15 | `lib/related-classes.ts` | OFFEN |
+| 4.16 | `lib/search-variants.ts` | OFFEN |
+| 4.17 | `lib/similarity/index.ts` | OFFEN |
+| 4.18 | `lib/tmsearch/client.ts` | OFFEN |
+| 4.19 | `lib/tmsearch/types.ts` | OFFEN |
+| 4.20 | `lib/tmview-agent.ts` | OFFEN |
+| 4.21 | `lib/trademark-search.ts` | OFFEN |
+| 4.22 | `lib/utils.ts` | OFFEN |
+| 4.23 | `lib/validation.ts` | OFFEN |
+| 4.24 | `lib/analytics.ts` | OFFEN |
+| 4.25 | `lib/api-error.ts` | OFFEN |
+| 4.26 | `lib/ai/extract-decisions.ts` | OFFEN |
+
+---
+
+### Kategorie 5: Frontend-Seiten (16 Dateien)
+
+| # | Datei | Status |
+|---|-------|--------|
+| 5.1 | `app/page.tsx` | OFFEN |
+| 5.2 | `app/layout.tsx` | OFFEN |
+| 5.3 | `app/providers.tsx` | OFFEN |
+| 5.4 | `app/dashboard/page.tsx` | OFFEN |
+| 5.5 | `app/dashboard/layout.tsx` | OFFEN |
+| 5.6 | `app/dashboard/cases/page.tsx` | OFFEN |
+| 5.7 | `app/dashboard/credits/page.tsx` | OFFEN |
+| 5.8 | `app/dashboard/profile/page.tsx` | OFFEN |
+| 5.9 | `app/dashboard/subscription/page.tsx` | OFFEN |
+| 5.10 | `app/dashboard/admin/costs/page.tsx` | OFFEN |
+| 5.11 | `app/dashboard/admin/users/page.tsx` | OFFEN |
+| 5.12 | `app/dashboard/admin/users/[userId]/page.tsx` | OFFEN |
+| 5.13 | `app/dashboard/admin/chat-monitor/page.tsx` | OFFEN |
+| 5.14 | `app/dashboard/admin/api-test/page.tsx` | OFFEN |
+| 5.15 | `app/(auth)/*.tsx` (6 Dateien) | OFFEN |
+
+---
+
+### Kategorie 6: Agents (8 Dateien)
+
+| # | Datei | Status |
+|---|-------|--------|
+| 6.1 | `app/agents/index.ts` | OFFEN |
+| 6.2 | `app/agents/types.ts` | OFFEN |
+| 6.3 | `app/agents/multi-agent-handler.ts` | OFFEN |
+| 6.4 | `app/agents/master/orchestrator.ts` | OFFEN |
+| 6.5 | `app/agents/master/proposal-generator.ts` | OFFEN |
+| 6.6 | `app/agents/code/code-agent.ts` | OFFEN |
+| 6.7 | `app/agents/design/design-agent.ts` | OFFEN |
+| 6.8 | `app/agents/qa/qa-agent.ts` | OFFEN |
+| 6.9 | `app/agents/workflow/workflow-agent.ts` | OFFEN |
+
+---
+
+### Kategorie 7: Datenbank & Tests (10 Dateien)
+
+| # | Datei | Status |
+|---|-------|--------|
+| 7.1 | `db/schema.ts` | OFFEN |
+| 7.2 | `db/index.ts` | OFFEN |
+| 7.3 | `db/seed.ts` | OFFEN |
+| 7.4 | `tests/setup.ts` | OFFEN |
+| 7.5 | `tests/unit/api-logger.test.ts` | OFFEN |
+| 7.6 | `tests/unit/content-validation.test.ts` | OFFEN |
+| 7.7 | `tests/unit/country-mapping.test.ts` | OFFEN |
+| 7.8 | `tests/unit/credit-manager.test.ts` | OFFEN |
+| 7.9 | `tests/unit/similarity.test.ts` | OFFEN |
+| 7.10 | `tests/integration/*.test.ts` (2 Dateien) | OFFEN |
+
+---
+
+### Kategorie 8: Konfiguration (3 Dateien)
+
+| # | Datei | Status |
+|---|-------|--------|
+| 8.1 | `middleware.ts` | OFFEN |
+| 8.2 | `drizzle.config.ts` | OFFEN |
+| 8.3 | `vitest.config.ts` | OFFEN |
+| 8.4 | `tailwind.config.ts` | OFFEN |
+
+---
+
+## Detaillierte Datei-Analysen
+
+### Kategorie 1: Kern-Dateien
+
+#### 1.1 app/dashboard/case/[caseId]/page.tsx
+
+**Pfad:** `/app/dashboard/case/[caseId]/page.tsx`
+**Zeilen:** ~9783
+**Typ:** React Client Component ("use client")
+
+**Zweck:**
+Die Hauptseite für einen einzelnen Markenfall. Enthält das komplette Akkordeon-System mit 4 KI-Beratern (Beratung, Markenname, Recherche, Anmeldung) und alle zugehörigen Formulare, Trigger-Handler und UI-Komponenten.
+
+**Abhängigkeiten (Imports):**
+- React: useState, useRef, useCallback, useEffect
+- Next.js: useParams, useRouter
+- SWR: useSWR, mutate
+- Lucide Icons: ~40 Icons
+- Eigene Komponenten:
+  - `AnimatedRiskScore` - Animierte Risiko-Anzeige
+  - `RechercheHistoryBanner` - Historie-Banner
+  - `ConflictCard`, `ConflictDetailModal` - Konflikt-Anzeige
+  - `ClaudeAssistant` - KI-Chat-Komponente
+  - `Tooltip` + spezialisierte Tooltips
+  - `RechercheSteps` - Recherche-Fortschritt
+  - `ReportGenerator` - PDF-Export
+- Prompts: getBeratungPrompt, getRecherchePrompt, getMarkennamePrompt, getAnmeldungPrompt
+
+**Exportiert:**
+- `CasePage` (default export) - Haupt-Komponente
+
+**Struktur der Datei:**
+
+| Zeilen | Abschnitt | Beschreibung |
+|--------|-----------|--------------|
+| 1-61 | Imports | React, Next.js, Icons, Komponenten |
+| 63-101 | Interfaces/Types | AnalysisSummary, QuickCheckStatus, NameSuggestion, CountryOption |
+| 103-330 | COUNTRY_OPTIONS | 194 WIPO-Länder + regionale Codes (BX, OA) |
+| 335-542 | SELF_REGISTER_ALLOWED | Länder mit Selbstanmeldung |
+| 544-625 | StepStatus Interface | Workflow-Schritt-Typen |
+| 636-644 | WORKFLOW_STEPS | Workflow-Definition |
+| 646-724 | AccordionSection | Wiederverwendbare Akkordeon-Komponente |
+| 726-774 | Hilfsfunktionen | LoadingSkeleton, formatDuration, formatGermanDate, truncateText |
+| 776-9783 | CasePage | Haupt-Komponente |
+
+**State-Management (99 useState Hooks):**
+
+Die wichtigsten State-Variablen:
+
+| State | Typ | Zweck |
+|-------|-----|-------|
+| `openAccordion` | string | Aktuell geöffnetes Akkordeon |
+| `sessionMessages` | Message[] | Chat-Nachrichten für Beratung |
+| `markennameMessages` | Message[] | Chat-Nachrichten für Markenname |
+| `rechercheMessages` | Message[] | Chat-Nachrichten für Recherche |
+| `anmeldungMessages` | Message[] | Chat-Nachrichten für Anmeldung |
+| `rechercheForm` | Object | Recherche-Formular (Name, Klassen, Länder) |
+| `anmeldungForm` | Object | Anmeldung-Formular |
+| `applicantData` | Object | Anmelder-Daten |
+| `liveAnalysisResult` | Object | Recherche-Ergebnisse |
+| `trademarkType` | string | Markenart (wortmarke/bildmarke/wort-bildmarke) |
+| `logoGallery` | Array | Generierte/hochgeladene Logos |
+
+**Refs (für Trigger-Verarbeitung):**
+
+| Ref | Zweck |
+|-----|-------|
+| `voiceAssistantRef` | Beratung ClaudeAssistant |
+| `markennameVoiceRef` | Markenname ClaudeAssistant |
+| `rechercheVoiceRef` | Recherche ClaudeAssistant |
+| `anmeldungVoiceRef` | Anmeldung ClaudeAssistant |
+| `triggerChangeInProgressRef` | Flag: KI-Trigger aktiv |
+| `lastNotifiedStateRef` | Letzter benachrichtigter Zustand |
+| `lastProcessedBeratungMsgIdRef` | Letzte verarbeitete Beratung-Nachricht |
+| `lastProcessedRechercheMsgIdRef` | Letzte verarbeitete Recherche-Nachricht |
+
+**Trigger-Handler (useEffect Hooks):**
+
+| Zeilen | Handler | Trigger |
+|--------|---------|---------|
+| 1912-1995 | Beratung-Trigger | [MARKE:], [KLASSEN:], [LAENDER:], [ART:], [GOTO:] |
+| 2303-2461 | Recherche-Trigger | [MARKE:], [KLASSEN:], [LAENDER:], [RECHERCHE_STARTEN], [WEITERE_RECHERCHE], [WEB_SUCHE:] |
+| 2463-2697 | Markenname-Trigger | [LOGO_GENERIEREN:], [LOGO_BEARBEITEN:] |
+| 2227-2301 | Anmeldung-Trigger | Manuelle Änderungserkennung |
+
+**Bekannte Probleme:**
+
+1. **BUG: triggerChangeInProgressRef fehlt in Recherche** (Zeilen 2314-2341)
+   - Im Recherche-Trigger-Handler wird `triggerChangeInProgressRef.current = true` nicht gesetzt
+   - Kann zu falschen "manuellen Änderung"-Erkennungen führen
+   - **Fix:** Zeilen 2316-2320 anpassen wie in Beratung (Zeilen 1926-1930)
+
+2. **BUG: lastNotifiedStateRef nicht aktualisiert in Recherche** (Zeilen 2458-2461)
+   - Nach Trigger-Verarbeitung wird `lastNotifiedStateRef` nicht aktualisiert
+   - **Fix:** Wie in Beratung (Zeilen 1986-1993) hinzufügen
+
+3. **Code-Duplizierung:**
+   - Trigger-Verarbeitung für [MARKE:], [KLASSEN:], [LAENDER:] ist in Beratung UND Recherche fast identisch
+   - **Vorschlag:** Zentrale `processTriggers()` Funktion erstellen
+
+4. **Datei zu groß:**
+   - ~9800 Zeilen ist schwer wartbar
+   - **Vorschlag:** Aufteilen in:
+     - `page.tsx` - Haupt-Layout (~1000 Zeilen)
+     - `hooks/useTriggerHandlers.ts` - Trigger-Logik (~500 Zeilen)
+     - `hooks/useRechercheForm.ts` - Recherche-State (~300 Zeilen)
+     - `hooks/useAnmeldungForm.ts` - Anmeldung-State (~300 Zeilen)
+     - `components/BeratungAccordion.tsx` - Beratung UI (~1500 Zeilen)
+     - `components/MarkennameAccordion.tsx` - Markenname UI (~1500 Zeilen)
+     - `components/RechercheAccordion.tsx` - Recherche UI (~2000 Zeilen)
+     - `components/AnmeldungAccordion.tsx` - Anmeldung UI (~2000 Zeilen)
+
+**Verbesserungsvorschläge:**
+
+| # | Verbesserung | Aufwand | Priorität |
+|---|--------------|---------|-----------|
+| 1 | Bug #1 beheben (triggerChangeInProgressRef) | 15 min | HOCH |
+| 2 | Bug #2 beheben (lastNotifiedStateRef) | 15 min | HOCH |
+| 3 | Zentrale Trigger-Funktion | 2 h | MITTEL |
+| 4 | Datei aufteilen | 8-16 h | NIEDRIG |
+| 5 | TypeScript Interfaces verbessern | 2 h | NIEDRIG |
+
+---
+
+#### 1.2 app/components/ClaudeAssistant.tsx
+
+**Pfad:** `/app/components/ClaudeAssistant.tsx`
+**Zeilen:** ~1142
+**Typ:** React Client Component
+
+**Zweck:**
+Wiederverwendbare Chat-Komponente für alle KI-Berater. Verwaltet Chat-UI, Nachrichtenverlauf, Streaming-Antworten, Voice-Input und Trigger-Filterung.
+
+**Abhängigkeiten:**
+- React: useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef
+- Lucide Icons: Send, Mic, MicOff, Volume2, VolumeX, Loader2, User, Bot, Copy, Check, RefreshCw
+- react-markdown: Markdown-Rendering
+- remark-gfm: GitHub Flavored Markdown
+
+**Exportiert:**
+- `ClaudeAssistant` (default) - Haupt-Komponente
+- `ClaudeAssistantHandle` (type) - Ref-Interface für externe Steuerung
+
+**Props Interface:**
+
+```typescript
+interface ClaudeAssistantProps {
+  systemPrompt: string;           // System-Prompt für Claude
+  caseId: string;                 // Fall-ID
+  consultationType: string;       // "beratung" | "markenname" | "recherche" | "anmeldung"
+  contextData?: Record<string, unknown>; // Kontext-Daten
+  messages: Message[];            // Externe Nachrichten
+  setMessages: (msgs: Message[]) => void; // Nachrichten-Setter
+  onTriggerDetected?: (trigger: string, value: string) => void; // Trigger-Callback
+  placeholder?: string;           // Input-Placeholder
+  welcomeMessage?: string;        // Initiale Begrüßung
+  className?: string;             // CSS-Klassen
+}
+```
+
+**Handle Interface (für Refs):**
+
+```typescript
+interface ClaudeAssistantHandle {
+  sendQuestion: (question: string) => Promise<void>;  // Frage senden
+  clearMessages: () => void;                          // Chat leeren
+  getMessages: () => Message[];                       // Nachrichten abrufen
+}
+```
+
+**Wichtige Funktionen:**
+
+| Funktion | Zeilen | Beschreibung |
+|----------|--------|--------------|
+| `sendMessage` | ~200-400 | Nachricht an Claude senden, Streaming verarbeiten |
+| `filterTriggers` | ~150-180 | Trigger aus Antwort entfernen für UI |
+| `handleVoiceInput` | ~450-500 | Spracheingabe verarbeiten |
+| `copyToClipboard` | ~520-540 | Nachricht kopieren |
+
+**Trigger-Filterung:**
+
+Die Komponente filtert folgende Trigger aus der UI-Anzeige:
+- `[MARKE:...]`
+- `[KLASSEN:...]`
+- `[LAENDER:...]`
+- `[ART:...]`
+- `[GOTO:...]`
+- `[RECHERCHE_STARTEN]`
+- `[WEITERE_RECHERCHE]`
+- `[WEB_SUCHE:...]`
+- `[LOGO_GENERIEREN:...]`
+- `[LOGO_BEARBEITEN:...]`
+- `[KOSTEN_BERECHNEN]`
+- `[ANMELDUNG_STARTEN]`
+
+**Bekannte Probleme:**
+
+1. **Trigger-Liste nicht zentral:**
+   - Trigger sind in ClaudeAssistant UND page.tsx definiert
+   - Bei neuen Triggern müssen beide Dateien geändert werden
+   - **Vorschlag:** Zentrale `TRIGGERS` Konstante in `/lib/triggers.ts`
+
+2. **Keine Fehlerbehandlung bei Streaming-Abbruch:**
+   - Wenn der User während Streaming navigiert, kann es zu Fehlern kommen
+   - **Vorschlag:** AbortController für Streaming-Requests
+
+**Verbesserungsvorschläge:**
+
+| # | Verbesserung | Aufwand | Priorität |
+|---|--------------|---------|-----------|
+| 1 | Zentrale Trigger-Definition | 1 h | MITTEL |
+| 2 | AbortController für Streaming | 30 min | NIEDRIG |
+| 3 | Bessere TypeScript-Typen | 1 h | NIEDRIG |
+
+---
+
+#### 1.3 lib/prompts/beratung.ts
+
+**Pfad:** `/lib/prompts/beratung.ts`
+**Zeilen:** 332
+**Typ:** TypeScript Module
+
+**Zweck:**
+Definiert die KI-Persönlichkeit und Regeln für den Beratungs-Berater. Enthält Trigger-Definitionen, Workflow-Anweisungen und Beispiele für die KI.
+
+**Exportiert:**
+- `BeratungContext` (interface) - Kontext-Daten für den Prompt
+- `getBeratungRules(context)` - Generiert akkordeon-spezifische Regeln
+
+**Kontext-Interface:**
+```typescript
+interface BeratungContext {
+  markenname: string;
+  markenart: string;
+  klassen: string;
+  laender: string;
+  isTrademarkTypeConfirmed: boolean;
+  trademarkType: string;
+}
+```
+
+**Definierte Trigger:**
+| Trigger | Beschreibung |
+|---------|--------------|
+| `[MARKE:Name]` | Markenname setzen |
+| `[ART:wortmarke\|bildmarke\|wort-bildmarke]` | Markenart setzen |
+| `[KLASSEN:01,02,03]` | Nizza-Klassen setzen |
+| `[LAENDER:DE,EU,US]` | Länder setzen |
+| `[WEB_SUCHE:query]` | Web-Suche ausführen |
+| `[WEITERE_RECHERCHE]` | Formular zurücksetzen |
+| `[WEITER:akkordeon]` | Zu anderem Akkordeon navigieren |
+
+**Wichtige Regeln:**
+1. Web-Suche PROAKTIV bei jedem neuen Markennamen
+2. Bei Konflikten WARTEN auf User-Bestätigung (keine Trigger setzen!)
+3. Zusammenfassung erst wenn ALLE Daten komplett
+4. Validierung von Klassen (1-45), Ländern, Markennamen
+
+---
+
+#### 1.4 lib/prompts/markenname.ts
+
+**Pfad:** `/lib/prompts/markenname.ts`
+**Zeilen:** 88
+**Typ:** TypeScript Module
+
+**Zweck:**
+Definiert die KI-Persönlichkeit für den Logo/Markenname-Berater. Fokus auf Logo-Generierung und Design-Beratung.
+
+**Exportiert:**
+- `MarkennameContext` (interface)
+- `getMarkennameRules(context)`
+
+**Kontext-Interface:**
+```typescript
+interface MarkennameContext {
+  trademarkName: string;
+  trademarkType: string;
+  hasLogo: boolean;
+}
+```
+
+**Definierte Trigger:**
+| Trigger | Beschreibung |
+|---------|--------------|
+| `[LOGO_GENERIEREN:prompt]` | Logo mit AI generieren |
+| `[WEITER:recherche]` | Zur Recherche navigieren |
+
+**Wichtige Regeln:**
+1. Fragen nach Stil, Farben, Symbolen vor Logo-Generierung
+2. Nach Logo-Erstellung Feedback einholen
+3. Rechtliche Hinweise bei kopierten/ähnlichen Logos
+
+---
+
+#### 1.5 lib/prompts/recherche.ts
+
+**Pfad:** `/lib/prompts/recherche.ts`
+**Zeilen:** 106
+**Typ:** TypeScript Module
+
+**Zweck:**
+Definiert die KI-Persönlichkeit für den Recherche-Berater. Fokus auf Markenrecherche und Konfliktanalyse.
+
+**Exportiert:**
+- `RechercheContext` (interface)
+- `getRechercheRules(context)`
+
+**Kontext-Interface:**
+```typescript
+interface RechercheContext {
+  trademarkName: string;
+  niceClasses: string[];
+  countries: string[];
+  trademarkType: string;
+  isRunningAnalysis: boolean;
+}
+```
+
+**Definierte Trigger:**
+| Trigger | Beschreibung |
+|---------|--------------|
+| `[RECHERCHE_STARTEN]` | Markenrecherche starten |
+| `[WEB_SUCHE:query]` | Web-Suche für Infos |
+| `[WEITER:checkliste]` | Zur Checkliste navigieren |
+| `[WEITER:beratung]` | Zurück zur Beratung |
+
+**Wichtige Regeln:**
+1. Recherche NUR starten wenn Name, Klassen UND Länder vorhanden
+2. Unterschied zwischen `[RECHERCHE_STARTEN]` (Datenbanken) und `[WEB_SUCHE]` (Internet)
+3. Ergebnis-Handling: GO (grün), WARNUNG (gelb), NO-GO (rot)
+
+---
+
+#### 1.6 lib/prompts/anmeldung.ts
+
+**Pfad:** `/lib/prompts/anmeldung.ts`
+**Zeilen:** 209
+**Typ:** TypeScript Module
+
+**Zweck:**
+Definiert die KI-Persönlichkeit für den Anmeldungs-Berater. Fokus auf Anmelder-Daten und Kostenberechnung.
+
+**Exportiert:**
+- `AnmeldungContext` (interface)
+- `getAnmeldungRules(context)`
+
+**Kontext-Interface:**
+```typescript
+interface AnmeldungContext {
+  trademarkName: string;
+  trademarkType: string;
+  niceClasses: string[];
+  countries: string[];
+  applicantType?: string;
+  applicantName?: string;
+  applicantStreet?: string;
+  applicantZip?: string;
+  applicantCity?: string;
+  applicantCountry?: string;
+  applicantEmail?: string;
+  applicantPhone?: string;
+  applicantLegalForm?: string;
+  selfRegisterAllowed?: boolean;
+  hasAllData?: boolean;
+}
+```
+
+**Definierte Trigger:**
+| Trigger | Beschreibung |
+|---------|--------------|
+| `[ANMELDER_TYP:privat\|firma]` | Anmeldertyp setzen |
+| `[ANMELDER_NAME:...]` | Name/Firma setzen |
+| `[ANMELDER_STRASSE:...]` | Straße setzen |
+| `[ANMELDER_PLZ:...]` | PLZ setzen |
+| `[ANMELDER_ORT:...]` | Ort setzen |
+| `[ANMELDER_LAND:...]` | Land setzen |
+| `[ANMELDER_EMAIL:...]` | E-Mail setzen |
+| `[ANMELDER_TELEFON:...]` | Telefon setzen |
+| `[ANMELDER_RECHTSFORM:...]` | Rechtsform setzen |
+| `[KOSTEN_BERECHNEN]` | Kostenübersicht anzeigen |
+| `[WEB_SUCHE:query]` | Web-Suche für Gebühren |
+
+**Wichtige Regeln:**
+1. Workflow: Begrüßung → Anmelder-Daten → Kosten → Optionen
+2. Bidirektionale Synchronisation: Formular ↔ Chat
+3. Selbstanmeldung vs. Vertreter je nach Land
+
+---
+
+#### 1.7 lib/prompts/base-rules.ts
+
+**Pfad:** `/lib/prompts/base-rules.ts`
+**Zeilen:** 247
+**Typ:** TypeScript Module
+
+**Zweck:**
+Globale Basis-Regeln die in ALLEN Akkordeons gelten. Enthält allgemeine Verhaltensregeln, FAQ-Antworten und Formatierungsrichtlinien.
+
+**Exportiert:**
+- `BASE_RULES` (const string) - Globale Regeln
+
+**Wichtige Abschnitte:**
+| Abschnitt | Beschreibung |
+|-----------|--------------|
+| Mehrsprachigkeit | Automatische Spracherkennung |
+| Formatierung | Fett für wichtige Fragen |
+| Ignorierte Fragen | Wie mit abgelenkten Usern umgehen |
+| Unklare Antworten | Nachfragen statt raten |
+| Abbruch-Handling | Pausieren/Später weitermachen |
+| Frustrierter User | Empathische Reaktion |
+| Falsche Fachbegriffe | Patent vs. Marke erklären |
+| Kosten-Fragen | Richtwerte für Amtsgebühren |
+| Dauer-Fragen | Bearbeitungszeiten |
+| Anwalt-Frage | Wann Anwalt empfehlen |
+| Datenschutz | DSGVO-Hinweise |
+| Nizza-Klassen | Erklärung des Systems |
+| Navigation-Trigger | `[WEITER:...]` Trigger |
+
+---
+
+#### 1.8 lib/prompts/index.ts
+
+**Pfad:** `/lib/prompts/index.ts`
+**Zeilen:** 57
+**Typ:** TypeScript Module
+
+**Zweck:**
+Zentrale Prompt-Verwaltung. Kombiniert akkordeon-spezifische Regeln mit globalen Basis-Regeln.
+
+**Exportiert:**
+- `getBeratungPrompt(context)` - Vollständiger Beratungs-Prompt
+- `getRecherchePrompt(context)` - Vollständiger Recherche-Prompt
+- `getMarkennamePrompt(context)` - Vollständiger Markenname-Prompt
+- `getAnmeldungPrompt(context)` - Vollständiger Anmeldung-Prompt
+- `BASE_RULES` - Re-export
+- Alle `get*Rules` Funktionen - Re-export
+- Alle Context-Types - Re-export
+
+**Struktur:**
+```
+Vollständiger Prompt = Akkordeon-spezifische Regeln + BASE_RULES
+```
+
+---
+
+**Zusammenfassung Prompt-System:**
+
+| Datei | Zeilen | Trigger | Zweck |
+|-------|--------|---------|-------|
+| beratung.ts | 332 | 7 | Marken-Daten erfassen |
+| markenname.ts | 88 | 2 | Logo-Generierung |
+| recherche.ts | 106 | 4 | Markenrecherche |
+| anmeldung.ts | 209 | 11 | Anmelder-Daten |
+| base-rules.ts | 247 | 7 | Globale Regeln |
+| index.ts | 57 | - | Zentrale Verwaltung |
+
+**Bekannte Probleme im Prompt-System:**
+
+1. **Trigger-Duplizierung:**
+   - Trigger sind in Prompts UND in page.tsx/ClaudeAssistant.tsx definiert
+   - Bei neuen Triggern müssen 3+ Dateien geändert werden
+   - **Vorschlag:** Zentrale `TRIGGERS` Konstante
+
+2. **Inkonsistente Trigger-Namen:**
+   - Beratung: `[WEITER:recherche]`
+   - Recherche: `[WEITER:checkliste]`
+   - Anmeldung: `[KOSTEN_BERECHNEN]`
+   - **Vorschlag:** Einheitliches Namensschema
+
+3. **Fehlende Trigger-Dokumentation:**
+   - Nicht alle Trigger sind in allen Prompts dokumentiert
+   - **Vorschlag:** Vollständige Trigger-Liste in jedem Prompt
+
+---
+
+#### 1.9 lib/api-logger.ts
+
+**Pfad:** `/lib/api-logger.ts`
+**Zeilen:** 448
+**Typ:** TypeScript Module
+
+**Zweck:**
+Zentrales API-Logging und Kostenberechnung. Trackt alle API-Aufrufe, berechnet Kosten basierend auf Token/Units und zieht automatisch Credits ab.
+
+**Abhängigkeiten:**
+- `@/db` - Drizzle ORM Datenbankverbindung
+- `@/db/schema` - apiUsageLogs, users, creditTransactions Tabellen
+- `drizzle-orm` - eq, sql
+
+**Exportiert:**
+
+| Export | Typ | Beschreibung |
+|--------|-----|--------------|
+| `ApiProvider` | type | "claude" \| "openai" \| "tmsearch" \| "tavily" \| "hume" \| "resend" \| "ideogram" \| "bfl" |
+| `API_PRICING` | const | Preiskonfiguration für alle APIs |
+| `LogApiUsageParams` | interface | Parameter für logApiUsage() |
+| `calculateApiCost()` | function | Kosten berechnen (USD, EUR, Credits) |
+| `logApiUsage()` | function | API-Nutzung loggen + Credits abziehen |
+| `deductCredits()` | function | Credits vom User abziehen |
+| `addCredits()` | function | Credits hinzufügen (Kauf, Bonus) |
+| `getCredits()` | function | Credit-Stand abrufen |
+| `checkCredits()` | function | Prüfen ob genug Credits |
+| `estimateCredits()` | function | Credits vor API-Call schätzen |
+
+**API-Preiskonfiguration (Januar 2026):**
+
+| Provider | Modell | Preis |
+|----------|--------|-------|
+| Claude | claude-opus-4-5-20251101 | $5/$25 per 1M tokens |
+| Claude | claude-sonnet-4-5-20251022 | $3/$15 per 1M tokens |
+| Claude | claude-haiku-4-5-20251022 | $1/$5 per 1M tokens |
+| OpenAI | gpt-4o | $2.50/$10 per 1M tokens |
+| OpenAI | whisper-1 | $0.006 per minute |
+| tmsearch | - | $0.05 per search |
+| Tavily | - | $0.01 per search |
+| Hume | - | $0.02 per minute |
+| Resend | - | $0.001 per email |
+| Ideogram | V_3 | $0.06 per image |
+| BFL | flux-kontext-pro | $0.04 per image |
+
+**Kostenberechnung:**
+```
+costUsd = API-Kosten (basierend auf Tokens/Units)
+costEur = costUsd × 0.92 (USD→EUR)
+finalCost = costEur × 3 (Markup)
+creditsCharged = ceil(finalCost / 0.03) (1 Credit = 0.03€)
+```
+
+**Bekannte Probleme:**
+
+1. **Duplizierte Funktionen:**
+   - `deductCredits()` und `addCredits()` existieren AUCH in credit-manager.ts
+   - **Vorschlag:** Nur in einer Datei definieren, andere importiert
+
+2. **Keine Retry-Logik:**
+   - Bei DB-Fehlern wird nicht wiederholt
+   - **Vorschlag:** Retry mit exponential backoff
+
+---
+
+#### 1.10 lib/credit-manager.ts
+
+**Pfad:** `/lib/credit-manager.ts`
+**Zeilen:** 368
+**Typ:** TypeScript Module
+
+**Zweck:**
+Credit-Verwaltung für das Stripe-basierte Bezahlsystem. Verwaltet Credit-Pakete, Transaktionen und Verbrauchsstatistiken.
+
+**Abhängigkeiten:**
+- `@/db` - Drizzle ORM Datenbankverbindung
+- `@/db/schema` - users, creditTransactions, apiUsageLogs Tabellen
+- `drizzle-orm` - eq, desc, sql, and, gte, lte
+
+**Exportiert:**
+
+| Export | Typ | Beschreibung |
+|--------|-----|--------------|
+| `CREDIT_PACKAGES` | const | Stripe Credit-Pakete |
+| `getUserCredits()` | function | Credit-Stand abrufen |
+| `hasEnoughCredits()` | function | Prüfen ob genug Credits |
+| `deductCredits()` | function | Credits abziehen |
+| `addCredits()` | function | Credits hinzufügen |
+| `getCreditHistory()` | function | Transaktionshistorie |
+| `getUserUsageStats()` | function | Verbrauchsstatistiken |
+| `setWarningThreshold()` | function | Warning-Schwelle setzen |
+| `processStripePayment()` | function | Stripe-Zahlung verarbeiten |
+
+**Credit-Pakete (Januar 2026):**
+
+| Paket | Credits | Preis | Rabatt |
+|-------|---------|-------|--------|
+| credits_350 | 350 | 10.00€ | 0% |
+| credits_900 | 900 | 25.00€ | ~3% |
+| credits_1900 | 1900 | 50.00€ | ~7% |
+
+**Wichtige Funktionen:**
+
+| Funktion | Beschreibung |
+|----------|--------------|
+| `getUserCredits()` | Gibt credits, warningThreshold, isLow, isEmpty zurück |
+| `getCreditHistory()` | Paginierte Transaktionshistorie mit Filtern |
+| `getUserUsageStats()` | Aggregierte Statistiken nach API-Provider |
+| `processStripePayment()` | Verhindert doppelte Verarbeitung via checkoutSessionId |
+
+**Bekannte Probleme:**
+
+1. **Duplizierte Funktionen mit api-logger.ts:**
+   - `deductCredits()`, `addCredits()` sind in beiden Dateien
+   - Unterschiedliche Implementierungen können zu Inkonsistenzen führen
+   - **Vorschlag:** Zentrale credit-utils.ts mit allen Credit-Funktionen
+
+2. **Keine Transaktions-Isolation:**
+   - Credit-Updates sind nicht in DB-Transaktionen
+   - Bei Race Conditions können Credits falsch berechnet werden
+   - **Vorschlag:** `db.transaction()` verwenden
+
+3. **Stripe Price IDs aus Environment:**
+   - `STRIPE_PRICE_350_CREDITS` etc. müssen in .env definiert sein
+   - Keine Validierung ob IDs existieren
+   - **Vorschlag:** Validierung beim App-Start
+
+---
+
+### Zusammenfassung Kategorie 1 (Kern-Dateien)
+
+| # | Datei | Zeilen | Status | Probleme |
+|---|-------|--------|--------|----------|
+| 1.1 | page.tsx | 9783 | Analysiert | 4 Bugs, zu groß |
+| 1.2 | ClaudeAssistant.tsx | 1142 | Analysiert | 2 Probleme |
+| 1.3 | beratung.ts | 332 | Analysiert | - |
+| 1.4 | markenname.ts | 88 | Analysiert | - |
+| 1.5 | recherche.ts | 106 | Analysiert | - |
+| 1.6 | anmeldung.ts | 209 | Analysiert | - |
+| 1.7 | base-rules.ts | 247 | Analysiert | - |
+| 1.8 | index.ts | 57 | Analysiert | - |
+| 1.9 | api-logger.ts | 448 | Analysiert | 2 Probleme |
+| 1.10 | credit-manager.ts | 368 | Analysiert | 3 Probleme |
+
+**Gesamtzeilen Kategorie 1:** ~12.780 Zeilen
+
+**Identifizierte Bugs (HOCH Priorität):**
+1. `triggerChangeInProgressRef` fehlt in Recherche-Trigger-Handler
+2. `lastNotifiedStateRef` nicht aktualisiert in Recherche
+
+**Identifizierte Verbesserungen:**
+1. Zentrale Trigger-Definition erstellen
+2. page.tsx in kleinere Komponenten aufteilen
+3. Duplizierte Credit-Funktionen konsolidieren
+4. DB-Transaktionen für Credit-Updates
+
+---
+
+*(Kategorie 2: API-Routen - Analyse folgt...)*
+
+---
+
 ## Letzte Änderungen (Januar 2026)
 
 - Credit & API Monitoring System implementiert
@@ -1366,3 +2231,4 @@ export const processMarkennameTriggers = (content: string, ctx: TriggerContext) 
 - Bidirektionale Synchronisation für Anmeldung-Akkordeon
 - "Weiter zur Anmeldung" Button im Recherche-Akkordeon
 - Detaillierte KI-Chatbot-System Dokumentation hinzugefügt
+- Systematische Code-Analyse Roadmap erstellt
