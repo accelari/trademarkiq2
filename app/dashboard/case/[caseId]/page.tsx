@@ -2901,7 +2901,7 @@ WICHTIG - Befolge diese Schritte:
       }
 
       // Mark previous pending steps as skipped
-      const stepOrder: WorkflowStepId[] = ["beratung", "markenname", "recherche", "ueberpruefung", "anmeldung", "kommunikation", "ueberwachung", "fristen"];
+      const stepOrder: WorkflowStepId[] = ["beratung", "markenname", "recherche", "anmeldung", "kommunikation", "ueberwachung", "fristen"];
       const currentIndex = stepOrder.indexOf(next);
       if (currentIndex > 0) {
         for (let i = 0; i < currentIndex; i++) {
