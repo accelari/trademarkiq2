@@ -573,3 +573,28 @@ export type ApplicantProfile = typeof applicantProfiles.$inferSelect;
 export type NewApplicantProfile = typeof applicantProfiles.$inferInsert;
 export type RegistrationOrder = typeof registrationOrders.$inferSelect;
 export type NewRegistrationOrder = typeof registrationOrders.$inferInsert;
+
+// API-Preise Tabelle (für dynamische Preiskonfiguration)
+export const apiPricing = pgTable("api_pricing", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  provider: varchar("provider", { length: 50 }).notNull(), // claude, openai, tmsearch, tavily, hume, resend, ideogram, bfl
+  model: varchar("model", { length: 100 }).notNull(), // z.B. "claude-opus-4-5-20251101", "gpt-4o"
+  pricingType: varchar("pricing_type", { length: 20 }).notNull(), // "token", "unit", "minute", "image", "email", "search"
+  inputPer1M: decimal("input_per_1m", { precision: 10, scale: 6 }), // USD pro 1M Input Tokens
+  outputPer1M: decimal("output_per_1m", { precision: 10, scale: 6 }), // USD pro 1M Output Tokens
+  perUnit: decimal("per_unit", { precision: 10, scale: 6 }), // USD pro Einheit (Bild, Suche, E-Mail, Minute)
+  currency: varchar("currency", { length: 3 }).default("USD").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  validFrom: timestamp("valid_from").defaultNow().notNull(),
+  validUntil: timestamp("valid_until"),
+  notes: text("notes"), // z.B. "Quelle: https://www.anthropic.com/news/claude-opus-4-5"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  providerIdx: index("api_pricing_provider_idx").on(table.provider),
+  modelIdx: index("api_pricing_model_idx").on(table.model),
+  activeIdx: index("api_pricing_active_idx").on(table.isActive),
+}));
+
+export type ApiPricing = typeof apiPricing.$inferSelect;
+export type NewApiPricing = typeof apiPricing.$inferInsert;

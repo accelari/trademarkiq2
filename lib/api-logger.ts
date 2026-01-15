@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { apiUsageLogs, users, creditTransactions } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { apiUsageLogs, users, creditTransactions, apiPricing } from "@/db/schema";
+import { eq, and, isNull, lte, or, gte, sql } from "drizzle-orm";
 
 // API Provider Typen
 export type ApiProvider = "claude" | "openai" | "tmsearch" | "tavily" | "hume" | "resend" | "ideogram" | "bfl";
@@ -444,4 +444,276 @@ export function estimateCredits(params: {
   });
 
   return costs.creditsCharged;
+}
+
+// Cache für DB-Preise (5 Minuten TTL)
+let pricingCache: { data: Map<string, { inputPer1M?: number; outputPer1M?: number; perUnit?: number }>; timestamp: number } | null = null;
+const PRICING_CACHE_TTL = 5 * 60 * 1000; // 5 Minuten
+
+// Preise aus der Datenbank laden (mit Cache)
+export async function loadPricingFromDb(): Promise<Map<string, { inputPer1M?: number; outputPer1M?: number; perUnit?: number }>> {
+  const now = Date.now();
+  
+  // Cache prüfen
+  if (pricingCache && (now - pricingCache.timestamp) < PRICING_CACHE_TTL) {
+    return pricingCache.data;
+  }
+  
+  try {
+    const dbPricing = await db
+      .select()
+      .from(apiPricing)
+      .where(
+        and(
+          eq(apiPricing.isActive, true),
+          lte(apiPricing.validFrom, new Date()),
+          or(
+            isNull(apiPricing.validUntil),
+            gte(apiPricing.validUntil, new Date())
+          )
+        )
+      );
+    
+    const priceMap = new Map<string, { inputPer1M?: number; outputPer1M?: number; perUnit?: number }>();
+    
+    for (const price of dbPricing) {
+      const key = `${price.provider}:${price.model}`;
+      priceMap.set(key, {
+        inputPer1M: price.inputPer1M ? parseFloat(price.inputPer1M) : undefined,
+        outputPer1M: price.outputPer1M ? parseFloat(price.outputPer1M) : undefined,
+        perUnit: price.perUnit ? parseFloat(price.perUnit) : undefined,
+      });
+    }
+    
+    // Cache aktualisieren
+    pricingCache = { data: priceMap, timestamp: now };
+    
+    return priceMap;
+  } catch (error) {
+    console.warn("[loadPricingFromDb] Fehler beim Laden der Preise aus DB, verwende Fallback:", error);
+    return new Map();
+  }
+}
+
+// Preis für ein bestimmtes Modell abrufen (DB mit Fallback auf hardcoded)
+export async function getPricing(provider: ApiProvider, model: string): Promise<{
+  inputPer1M?: number;
+  outputPer1M?: number;
+  perUnit?: number;
+} | null> {
+  const dbPricing = await loadPricingFromDb();
+  const key = `${provider}:${model}`;
+  
+  if (dbPricing.has(key)) {
+    return dbPricing.get(key)!;
+  }
+  
+  // Fallback auf hardcoded Preise
+  return null;
+}
+
+// Alle Preise aus der Datenbank abrufen (für Admin-Seite)
+export async function getAllPricing(): Promise<Array<{
+  id: string;
+  provider: string;
+  model: string;
+  pricingType: string;
+  inputPer1M: number | null;
+  outputPer1M: number | null;
+  perUnit: number | null;
+  isActive: boolean;
+  validFrom: Date;
+  validUntil: Date | null;
+  notes: string | null;
+}>> {
+  const dbPricing = await db
+    .select()
+    .from(apiPricing)
+    .orderBy(apiPricing.provider, apiPricing.model);
+  
+  return dbPricing.map(p => ({
+    id: p.id,
+    provider: p.provider,
+    model: p.model,
+    pricingType: p.pricingType,
+    inputPer1M: p.inputPer1M ? parseFloat(p.inputPer1M) : null,
+    outputPer1M: p.outputPer1M ? parseFloat(p.outputPer1M) : null,
+    perUnit: p.perUnit ? parseFloat(p.perUnit) : null,
+    isActive: p.isActive,
+    validFrom: p.validFrom,
+    validUntil: p.validUntil,
+    notes: p.notes,
+  }));
+}
+
+// Preis in der Datenbank aktualisieren oder erstellen
+export async function upsertPricing(params: {
+  provider: string;
+  model: string;
+  pricingType: string;
+  inputPer1M?: number;
+  outputPer1M?: number;
+  perUnit?: number;
+  notes?: string;
+}): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    // Prüfen ob Eintrag existiert
+    const existing = await db
+      .select()
+      .from(apiPricing)
+      .where(
+        and(
+          eq(apiPricing.provider, params.provider),
+          eq(apiPricing.model, params.model)
+        )
+      );
+    
+    if (existing.length > 0) {
+      // Update
+      await db
+        .update(apiPricing)
+        .set({
+          pricingType: params.pricingType,
+          inputPer1M: params.inputPer1M?.toFixed(6),
+          outputPer1M: params.outputPer1M?.toFixed(6),
+          perUnit: params.perUnit?.toFixed(6),
+          notes: params.notes,
+          updatedAt: new Date(),
+        })
+        .where(eq(apiPricing.id, existing[0].id));
+      
+      // Cache invalidieren
+      pricingCache = null;
+      
+      return { success: true, id: existing[0].id };
+    } else {
+      // Insert
+      const [newEntry] = await db
+        .insert(apiPricing)
+        .values({
+          provider: params.provider,
+          model: params.model,
+          pricingType: params.pricingType,
+          inputPer1M: params.inputPer1M?.toFixed(6),
+          outputPer1M: params.outputPer1M?.toFixed(6),
+          perUnit: params.perUnit?.toFixed(6),
+          notes: params.notes,
+        })
+        .returning({ id: apiPricing.id });
+      
+      // Cache invalidieren
+      pricingCache = null;
+      
+      return { success: true, id: newEntry.id };
+    }
+  } catch (error) {
+    console.error("[upsertPricing] Error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+// Seed-Funktion: Hardcoded Preise in die Datenbank übertragen
+export async function seedPricingFromHardcoded(): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    let count = 0;
+    
+    // Claude Modelle
+    for (const [model, pricing] of Object.entries(API_PRICING.claude)) {
+      await upsertPricing({
+        provider: "claude",
+        model,
+        pricingType: "token",
+        inputPer1M: pricing.inputPer1M,
+        outputPer1M: pricing.outputPer1M,
+        notes: "Quelle: https://www.anthropic.com/news/claude-opus-4-5",
+      });
+      count++;
+    }
+    
+    // OpenAI Modelle
+    for (const [model, pricing] of Object.entries(API_PRICING.openai)) {
+      if ("inputPer1M" in pricing) {
+        await upsertPricing({
+          provider: "openai",
+          model,
+          pricingType: "token",
+          inputPer1M: pricing.inputPer1M,
+          outputPer1M: pricing.outputPer1M,
+        });
+      } else if ("perMinute" in pricing) {
+        await upsertPricing({
+          provider: "openai",
+          model,
+          pricingType: "minute",
+          perUnit: pricing.perMinute,
+        });
+      }
+      count++;
+    }
+    
+    // tmsearch
+    await upsertPricing({
+      provider: "tmsearch",
+      model: "default",
+      pricingType: "search",
+      perUnit: API_PRICING.tmsearch.perSearch,
+    });
+    count++;
+    
+    // Tavily
+    await upsertPricing({
+      provider: "tavily",
+      model: "default",
+      pricingType: "search",
+      perUnit: API_PRICING.tavily.perSearch,
+    });
+    count++;
+    
+    // Hume
+    await upsertPricing({
+      provider: "hume",
+      model: "default",
+      pricingType: "minute",
+      perUnit: API_PRICING.hume.perMinute,
+    });
+    count++;
+    
+    // Resend
+    await upsertPricing({
+      provider: "resend",
+      model: "default",
+      pricingType: "email",
+      perUnit: API_PRICING.resend.perEmail,
+    });
+    count++;
+    
+    // Ideogram Modelle
+    for (const [model, pricing] of Object.entries(API_PRICING.ideogram)) {
+      await upsertPricing({
+        provider: "ideogram",
+        model,
+        pricingType: "image",
+        perUnit: pricing.perImage,
+        notes: "Quelle: https://about.ideogram.ai/api-pricing",
+      });
+      count++;
+    }
+    
+    // BFL Modelle
+    for (const [model, pricing] of Object.entries(API_PRICING.bfl)) {
+      await upsertPricing({
+        provider: "bfl",
+        model,
+        pricingType: "image",
+        perUnit: pricing.perImage,
+        notes: "Quelle: https://docs.bfl.ai/",
+      });
+      count++;
+    }
+    
+    return { success: true, count };
+  } catch (error) {
+    console.error("[seedPricingFromHardcoded] Error:", error);
+    return { success: false, count: 0, error: error instanceof Error ? error.message : "Unknown error" };
+  }
 }
