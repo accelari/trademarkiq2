@@ -2863,7 +2863,7 @@ WICHTIG - Befolge diese Schritte:
         markenname: "markenname",
         markenpruefung: "recherche",
         recherche: "recherche",
-        ueberpruefung: "ueberpruefung",
+        ueberpruefung: "recherche", // "ueberpruefung" maps to "recherche" as it's part of the research workflow
         anmeldung: "anmeldung",
         kommunikation: "kommunikation",
         ueberwachung: "ueberwachung",
