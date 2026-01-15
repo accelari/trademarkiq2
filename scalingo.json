@@ -1,0 +1,74 @@
+{
+  "name": "trademarkiq",
+  "description": "KI-gestutzte Markenrecherche-Plattform",
+  "repository": "https://github.com/accelari/trademarkiq2",
+  "formation": {
+    "web": {
+      "amount": 1,
+      "size": "M"
+    }
+  },
+  "addons": [
+    "postgresql:postgresql-starter-512"
+  ],
+  "env": {
+    "NODE_ENV": {
+      "value": "production"
+    },
+    "NEXTAUTH_URL": {
+      "description": "Die URL deiner App (z.B. https://trademarkiq.osc-fr1.scalingo.io)",
+      "required": true
+    },
+    "NEXTAUTH_SECRET": {
+      "description": "Geheimer Schlussel fur NextAuth (generieren mit: openssl rand -base64 32)",
+      "required": true
+    },
+    "ANTHROPIC_API_KEY": {
+      "description": "API-Key fur Claude (Anthropic)",
+      "required": true
+    },
+    "OPENAI_API_KEY": {
+      "description": "API-Key fur OpenAI (GPT-4, Whisper)",
+      "required": true
+    },
+    "TMSEARCH_API_KEY": {
+      "description": "API-Key fur TMSearch.ai (Markensuche)",
+      "required": true
+    },
+    "TAVILY_API_KEY": {
+      "description": "API-Key fur Tavily (Web-Suche)",
+      "required": true
+    },
+    "IDEOGRAM_API_KEY": {
+      "description": "API-Key fur Ideogram (Logo-Generierung)",
+      "required": true
+    },
+    "BFL_API_KEY": {
+      "description": "API-Key fur Black Forest Labs (Logo-Bearbeitung)",
+      "required": true
+    },
+    "RESEND_API_KEY": {
+      "description": "API-Key fur Resend (E-Mail-Versand)",
+      "required": true
+    },
+    "HUME_API_KEY": {
+      "description": "API-Key fur Hume (Voice, optional)",
+      "required": false
+    },
+    "HUME_SECRET_KEY": {
+      "description": "Secret-Key fur Hume (Voice, optional)",
+      "required": false
+    },
+    "STRIPE_SECRET_KEY": {
+      "description": "Stripe Secret Key (Zahlungen, optional)",
+      "required": false
+    },
+    "STRIPE_PUBLISHABLE_KEY": {
+      "description": "Stripe Publishable Key (Zahlungen, optional)",
+      "required": false
+    }
+  },
+  "scripts": {
+    "postdeploy": "npm run db:push"
+  }
+}
