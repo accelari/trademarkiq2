@@ -91,6 +91,136 @@ export const TRIGGER_PATTERNS = {
 export const ALL_TRIGGER_REGEX = Object.values(TRIGGER_PATTERNS);
 
 // ============================================
+// Validierung
+// ============================================
+
+/**
+ * Gültige Ländercodes für Markenanmeldungen
+ * Enthält ISO-Codes und regionale Codes (EU, WIPO, BX, OA)
+ */
+export const VALID_COUNTRY_CODES = [
+  // Europa
+  "DE", "AT", "CH", "EU", "FR", "IT", "ES", "PT", "NL", "BE", "LU", "UK", "GB", "IE", "DK", "SE", "NO", "FI", "PL", "CZ", "SK", "HU", "RO", "BG", "HR", "SI", "GR", "CY", "MT", "EE", "LV", "LT",
+  // Benelux
+  "BX",
+  // Amerika
+  "US", "CA", "MX", "BR", "AR", "CL", "CO", "PE",
+  // Asien
+  "CN", "JP", "KR", "IN", "SG", "HK", "TW", "TH", "VN", "MY", "ID", "PH",
+  // Ozeanien
+  "AU", "NZ",
+  // Afrika
+  "ZA", "EG", "MA", "OA",
+  // Naher Osten
+  "AE", "SA", "IL", "TR",
+  // International
+  "WIPO",
+];
+
+/**
+ * Validiert einen Trigger-Wert
+ * 
+ * @param trigger - Der Trigger-Typ (KLASSEN, LAENDER, ANMELDER_EMAIL, etc.)
+ * @param value - Der zu validierende Wert
+ * @returns { valid: boolean, error?: string } - Validierungsergebnis
+ */
+export function validateTriggerValue(trigger: string, value: string): { valid: boolean; error?: string } {
+  switch (trigger.toUpperCase()) {
+    case "KLASSEN": {
+      const classes = value.split(",").map(c => parseInt(c.trim(), 10));
+      const invalidClasses = classes.filter(n => isNaN(n) || n < 1 || n > 45);
+      if (invalidClasses.length > 0) {
+        return { valid: false, error: `Ungültige Klassen: ${invalidClasses.join(", ")}. Nur Klassen 1-45 sind gültig.` };
+      }
+      return { valid: true };
+    }
+    
+    case "LAENDER": {
+      const codes = value.split(",").map(c => c.trim().toUpperCase());
+      const invalidCodes = codes.filter(c => !VALID_COUNTRY_CODES.includes(c));
+      if (invalidCodes.length > 0) {
+        return { valid: false, error: `Ungültige Ländercodes: ${invalidCodes.join(", ")}` };
+      }
+      return { valid: true };
+    }
+    
+    case "ANMELDER_EMAIL": {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        return { valid: false, error: `Ungültige E-Mail-Adresse: ${value}` };
+      }
+      return { valid: true };
+    }
+    
+    case "ANMELDER_PLZ": {
+      // PLZ sollte mindestens 3 Zeichen haben und nur alphanumerisch sein
+      if (value.length < 3 || !/^[a-zA-Z0-9\s-]+$/.test(value)) {
+        return { valid: false, error: `Ungültige PLZ: ${value}` };
+      }
+      return { valid: true };
+    }
+    
+    case "ANMELDER_LAND": {
+      const code = value.trim().toUpperCase();
+      if (!VALID_COUNTRY_CODES.includes(code)) {
+        return { valid: false, error: `Ungültiger Ländercode: ${code}` };
+      }
+      return { valid: true };
+    }
+    
+    case "MARKE": {
+      // Markenname sollte nicht leer sein und keine problematischen Sonderzeichen enthalten
+      if (!value.trim()) {
+        return { valid: false, error: "Markenname darf nicht leer sein" };
+      }
+      if (value.length > 100) {
+        return { valid: false, error: "Markenname ist zu lang (max. 100 Zeichen)" };
+      }
+      return { valid: true };
+    }
+    
+    default:
+      return { valid: true };
+  }
+}
+
+/**
+ * Validiert alle Trigger in einem Text und gibt Warnungen zurück
+ */
+export function validateAllTriggers(content: string): { trigger: string; value: string; error: string }[] {
+  const errors: { trigger: string; value: string; error: string }[] = [];
+  
+  // KLASSEN validieren
+  const klassenMatch = content.match(TRIGGER_PATTERNS.KLASSEN);
+  if (klassenMatch?.[1]) {
+    const result = validateTriggerValue("KLASSEN", klassenMatch[1]);
+    if (!result.valid) {
+      errors.push({ trigger: "KLASSEN", value: klassenMatch[1], error: result.error! });
+    }
+  }
+  
+  // LAENDER validieren
+  const laenderMatch = content.match(TRIGGER_PATTERNS.LAENDER);
+  if (laenderMatch?.[1]) {
+    const result = validateTriggerValue("LAENDER", laenderMatch[1]);
+    if (!result.valid) {
+      errors.push({ trigger: "LAENDER", value: laenderMatch[1], error: result.error! });
+    }
+  }
+  
+  // MARKE validieren
+  const markeMatch = content.match(TRIGGER_PATTERNS.MARKE);
+  if (markeMatch?.[1]) {
+    const result = validateTriggerValue("MARKE", markeMatch[1]);
+    if (!result.valid) {
+      errors.push({ trigger: "MARKE", value: markeMatch[1], error: result.error! });
+    }
+  }
+  
+  return errors;
+}
+
+// ============================================
 // Hilfsfunktionen
 // ============================================
 

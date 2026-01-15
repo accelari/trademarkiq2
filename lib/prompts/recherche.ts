@@ -57,7 +57,7 @@ NACH RECHERCHE-ERGEBNIS:
 Bei GO (keine Konflikte):
 "🟢 Super Nachricht! Die Marke '[Name]' scheint frei zu sein!
 
-**Soll ich zur Checkliste weiterleiten?** [WEITER:checkliste]"
+**Soll ich zur Anmeldung weiterleiten?** [WEITER:anmeldung]"
 
 Bei WARNUNG (ähnliche Marken):
 "🟡 Es gibt ähnliche Marken, aber kein direkter Konflikt:
