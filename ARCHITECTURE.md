@@ -964,13 +964,207 @@ if (lastAccordionRef.current !== openAccordion) {
 }
 ```
 
-### Unterschiede je nach Akkordeon
+### Unterschiede je nach Akkordeon (Übersicht)
 
-| Akkordeon | Erforderliche Felder | KI-Nachricht bei Vollständigkeit |
-|-----------|---------------------|----------------------------------|
-| Beratung | Name, Klassen, Länder, Art | Web-Suche + Navigation zu Markenname/Recherche |
-| Markenname | Name, Art, Logo (bei Bildmarke) | Frag ob zur Recherche weitergehen |
-| Recherche | Name, Klassen, Länder | Bestätige und biete Recherche-Start an |
+| Akkordeon | Erforderliche Felder | Logo erforderlich? | Web-Suche? | Navigation |
+|-----------|---------------------|-------------------|------------|------------|
+| Beratung | Name, Klassen, Länder, Art | Nein | JA | → Markenname oder Recherche |
+| Markenname | Name, Art, (Logo) | Nur bei Bild/Wort-Bild | Nein | → Recherche |
+| Recherche | Name, Klassen, Länder | Nein | Nein | Recherche starten |
+
+---
+
+## Detaillierte Analyse: Markenname-Akkordeon
+
+### Erforderliche Felder (Zeile 2069-2081)
+
+```typescript
+if (openAccordion === "markenname") {
+  // 1. Markenname
+  if (!currentName) missing.push("Markenname");
+  
+  // 2. Markenart bestätigt
+  if (!isTrademarkTypeConfirmed) missing.push("Markenart");
+  
+  // 3. Logo (NUR bei Bildmarke oder Wort-Bildmarke)
+  const needsLogo = trademarkType === "bildmarke" || trademarkType === "wort-bildmarke";
+  if (needsLogo && !trademarkImageUrl) missing.push("Logo");
+}
+```
+
+### Feldprüfung
+
+| Feld | Variable | Bedingung |
+|------|----------|-----------|
+| Markenname | `currentName` (= `manualNameInput`) | Muss vorhanden sein |
+| Markenart | `isTrademarkTypeConfirmed` | Muss `true` sein |
+| Logo | `trademarkImageUrl` | Nur wenn `trademarkType === "bildmarke"` oder `"wort-bildmarke"` |
+
+### KI-Nachricht bei Vollständigkeit (Zeile 2105-2108)
+
+```typescript
+targetRef.current?.sendQuestion(
+  `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. ${needsLogo ? "Logo ist bereit!" : ""} Frag ob der Benutzer zur Recherche weitergehen möchte.]`
+);
+```
+
+**Beispiel-Nachricht:**
+```
+[SYSTEM: Alle Angaben komplett! Marke: "Accelari", Art: Wort-/Bildmarke, Logo vorhanden. Logo ist bereit! Frag ob der Benutzer zur Recherche weitergehen möchte.]
+```
+
+**Was die KI dann macht:**
+1. Bestätigt dass alle Angaben komplett sind
+2. Erwähnt das Logo (wenn vorhanden)
+3. Fragt: "Möchtest du jetzt zur Recherche weitergehen?"
+4. Bei JA: Navigiert zu Recherche
+
+---
+
+## Detaillierte Analyse: Recherche-Akkordeon
+
+### Erforderliche Felder (Zeile 2082-2096)
+
+```typescript
+// Recherche: Name, Klassen, Länder (KEINE Markenart!)
+if (!currentName) missing.push("Markenname");
+if (rechercheForm.niceClasses.length === 0) missing.push("Nizza-Klassen");
+if (rechercheForm.countries.length === 0) missing.push("Länder");
+// WICHTIG: Markenart wird in Recherche NICHT geprüft!
+// if (openAccordion === "beratung" && !isTrademarkTypeConfirmed) missing.push("Markenart");
+```
+
+### Feldprüfung
+
+| Feld | Variable | Bedingung |
+|------|----------|-----------|
+| Markenname | `rechercheForm.trademarkName` | Muss vorhanden sein |
+| Nizza-Klassen | `rechercheForm.niceClasses` | Array muss mindestens 1 Element haben |
+| Länder | `rechercheForm.countries` | Array muss mindestens 1 Element haben |
+| Markenart | - | **NICHT geprüft** (nur in Beratung) |
+
+### KI-Nachricht bei Vollständigkeit (Zeile 2109-2112)
+
+```typescript
+targetRef.current?.sendQuestion(
+  `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. Alles bereit für die Recherche! Bestätige kurz.]`
+);
+```
+
+**Beispiel-Nachricht:**
+```
+[SYSTEM: Alle Angaben komplett! Marke: "Accelari", Klassen: 9, 42, Länder: DE, EU. Alles bereit für die Recherche! Bestätige kurz.]
+```
+
+**Was die KI dann macht:**
+1. Bestätigt dass alle Angaben für die Recherche bereit sind
+2. Fasst die Angaben zusammen
+3. Bietet an, die Recherche zu starten
+4. Wartet auf Benutzer-Bestätigung
+
+---
+
+## Detaillierte Analyse: Beratung-Akkordeon
+
+### Erforderliche Felder (Zeile 2082-2096)
+
+```typescript
+// Beratung: Name, Klassen, Länder, Art (ALLE 4!)
+if (!currentName) missing.push("Markenname");
+if (rechercheForm.niceClasses.length === 0) missing.push("Nizza-Klassen");
+if (rechercheForm.countries.length === 0) missing.push("Länder");
+if (openAccordion === "beratung" && !isTrademarkTypeConfirmed) missing.push("Markenart");
+```
+
+### Feldprüfung
+
+| Feld | Variable | Bedingung |
+|------|----------|-----------|
+| Markenname | `manualNameInput` | Muss vorhanden sein |
+| Nizza-Klassen | `rechercheForm.niceClasses` | Array muss mindestens 1 Element haben |
+| Länder | `rechercheForm.countries` | Array muss mindestens 1 Element haben |
+| Markenart | `isTrademarkTypeConfirmed` | Muss `true` sein |
+
+### KI-Nachricht bei Vollständigkeit (Zeile 2113-2122)
+
+```typescript
+targetRef.current?.sendQuestion(
+  `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. 
+  WICHTIG - Befolge diese Schritte:
+  1) Führe ZUERST eine Web-Suche durch: [WEB_SUCHE:${currentName} trademark brand company]
+  2) Warne bei Konflikten und erkläre was du gefunden hast
+  3) ${needsLogo ? 'Bei Bildmarke/Wort-Bildmarke: Frag "Möchtest du jetzt dein Logo erstellen?" - bei JA dann [GOTO:markenname]' : 'Bei Wortmarke: Frag "Sollen wir zur Recherche gehen?" - bei JA dann [GOTO:recherche]'}
+  4) Warte auf User-Antwort bevor du navigierst!]`
+);
+```
+
+**Beispiel-Nachricht (Wortmarke):**
+```
+[SYSTEM: Alle Angaben komplett! Marke: "Accelari", Klassen: 9, 42, Länder: DE, EU, Art: Wortmarke. 
+WICHTIG - Befolge diese Schritte:
+1) Führe ZUERST eine Web-Suche durch: [WEB_SUCHE:Accelari trademark brand company]
+2) Warne bei Konflikten und erkläre was du gefunden hast
+3) Bei Wortmarke: Frag "Sollen wir zur Recherche gehen?" - bei JA dann [GOTO:recherche]
+4) Warte auf User-Antwort bevor du navigierst!]
+```
+
+**Beispiel-Nachricht (Bildmarke):**
+```
+[SYSTEM: Alle Angaben komplett! Marke: "Accelari", Klassen: 9, 42, Länder: DE, EU, Art: Bildmarke. 
+WICHTIG - Befolge diese Schritte:
+1) Führe ZUERST eine Web-Suche durch: [WEB_SUCHE:Accelari trademark brand company]
+2) Warne bei Konflikten und erkläre was du gefunden hast
+3) Bei Bildmarke/Wort-Bildmarke: Frag "Möchtest du jetzt dein Logo erstellen?" - bei JA dann [GOTO:markenname]
+4) Warte auf User-Antwort bevor du navigierst!]
+```
+
+**Was die KI dann macht:**
+1. Führt Web-Suche durch mit `[WEB_SUCHE:Name trademark brand company]`
+2. Analysiert Suchergebnisse auf Konflikte (ähnliche Marken, Unternehmen)
+3. Erklärt dem Benutzer was gefunden wurde
+4. Fragt nach nächstem Schritt:
+   - Bei Wortmarke: "Sollen wir zur Recherche gehen?"
+   - Bei Bildmarke: "Möchtest du jetzt dein Logo erstellen?"
+5. Wartet auf Benutzer-Antwort
+6. Navigiert erst nach Bestätigung
+
+---
+
+## Gemeinsame Logik für alle Akkordeons
+
+### Derselbe useEffect (Zeile 2004-2134)
+
+Alle drei Akkordeons verwenden denselben useEffect mit:
+- Gleicher 10s Debounce
+- Gleiche Refs (`hasNotifiedCompleteRef`, `lastNotifiedStateRef`)
+- Gleicher Reset bei Akkordeon-Wechsel
+- Unterschiedliche Feldprüfung je nach `openAccordion`
+- Unterschiedliche KI-Nachricht je nach `openAccordion`
+
+### Ablaufdiagramm
+
+```
+Benutzer ändert Feld manuell
+        ↓
+useEffect erkennt Änderung
+        ↓
+Prüfung: triggerChangeInProgressRef === false?
+        ↓ JA
+Zustand still aktualisieren (lastNotifiedStateRef)
+        ↓
+10 Sekunden warten (Debounce)
+        ↓
+Prüfe erforderliche Felder (je nach Akkordeon)
+        ↓
+┌─────────────────────────────────────────┐
+│ Alle Felder komplett?                   │
+├─────────────────────────────────────────┤
+│ NEIN → Keine Aktion (stilles Warten)    │
+│ JA   → hasNotifiedCompleteRef === false?│
+│        ├─ NEIN → Keine Aktion           │
+│        └─ JA   → KI-Nachricht senden    │
+└─────────────────────────────────────────┘
+```
 
 ### Timing-Zusammenfassung
 
