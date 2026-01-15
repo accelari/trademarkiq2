@@ -2455,7 +2455,142 @@ Die API-Routen sind in `/app/api/` organisiert und folgen dem Next.js App Router
 
 ---
 
-*(Kategorie 3: Komponenten - Analyse folgt...)*
+### Kategorie 3: Komponenten (17 Dateien)
+
+Die Komponenten sind in `/app/components/` und `/components/` organisiert.
+
+#### 3.1 Chat & Voice Komponenten
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/app/components/ClaudeAssistant.tsx` | 1142 | Haupt-Chat-Komponente für Claude. Trigger-Filterung, Streaming, Voice-Input. |
+| `/app/components/OpenAIVoiceAssistant.tsx` | 722 | OpenAI Realtime Voice-Chat. WebRTC, Spracheingabe/-ausgabe. |
+| `/app/components/Messages.tsx` | 108 | Hume AI Voice-Nachrichten-Anzeige. |
+
+**Wichtige Details zu ClaudeAssistant:**
+- Props: systemPrompt, onTrigger, onMessage, previousMessages
+- Handle-Interface für Refs: sendQuestion(), isConnected()
+- Trigger-Filterung: Entfernt [MARKE:], [KLASSEN:] etc. aus Anzeige
+- Streaming via ReadableStream
+
+**Wichtige Details zu OpenAIVoiceAssistant:**
+- WebRTC-basierte Echtzeit-Kommunikation
+- Unterstützt Voice und Text-Modus
+- Auto-Connect bei vorherigen Nachrichten
+- Bild-Upload für Logo-Analyse
+
+---
+
+#### 3.2 Recherche-Komponenten
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/app/components/RechercheSteps.tsx` | 639 | Recherche-Workflow-Visualisierung. 5 Schritte mit Erklärungen. |
+| `/app/components/RechercheHistoryBanner.tsx` | ~100 | Banner für vorherige Recherchen |
+| `/app/components/cases/ConflictCard.tsx` | 325 | Konflikt-Marken-Karte mit Detail-Modal |
+| `/app/components/cases/AnimatedRiskScore.tsx` | ~80 | Animierter Risiko-Score |
+
+**Wichtige Details zu RechercheSteps:**
+- 5 Schritte: search, filter, details, ai-analysis, summary
+- Detaillierte Erklärungen für jeden Schritt
+- ResultSummary-Komponente für Schritt-Ergebnisse
+- StepDetailModal für erweiterte Ansicht
+
+**Wichtige Details zu ConflictCard:**
+- ConflictMark Interface mit allen Marken-Details
+- ConflictDetailModal für vollständige Ansicht
+- Risiko-Level-Styling (high/medium/low)
+- Datum-Formatierung für deutsche Locale
+
+---
+
+#### 3.3 Report & Export
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/app/components/ReportGenerator.tsx` | 313 | Markengutachten-Generator. PDF/Word-Export. |
+
+**Wichtige Details:**
+- Generiert professionelle Markengutachten via API
+- Editierbarer Report-Content (contentEditable)
+- Export zu PDF und Word via /api/report/export
+- Risiko-Zusammenfassung im Header
+
+---
+
+#### 3.4 Credit & UI Komponenten
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/components/CreditDisplay.tsx` | 150 | Credit-Anzeige mit Auto-Refresh. useCredits() Hook. |
+| `/app/components/CaseTimeline.tsx` | ~200 | Case-Workflow-Timeline |
+| `/app/components/Header.tsx` | ~150 | App-Header mit Navigation |
+| `/app/components/Footer.tsx` | ~80 | App-Footer |
+| `/app/components/ErrorBoundary.tsx` | ~60 | React Error Boundary |
+
+**Wichtige Details zu CreditDisplay:**
+- Zeigt Credits mit Farb-Coding (grün/gelb/rot)
+- Auto-Refresh alle 60 Sekunden
+- useCredits() Hook für programmatischen Zugriff
+- Compact-Modus für Header-Anzeige
+
+---
+
+#### 3.5 UI-Primitives
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/app/components/ui/tooltip.tsx` | ~50 | Tooltip-Komponente |
+| `/app/components/ui/progress-bar.tsx` | ~40 | Progress-Bar |
+| `/components/ui/dropdown-menu.tsx` | ~100 | Dropdown-Menü |
+| `/components/analytics-provider.tsx` | ~80 | Analytics-Context-Provider |
+
+---
+
+### Zusammenfassung Kategorie 3 (Komponenten)
+
+**Gesamtanzahl:** 17 Komponenten-Dateien
+
+**Nach Funktionsbereich:**
+| Bereich | Anzahl | Wichtigste Dateien |
+|---------|--------|-------------------|
+| Chat & Voice | 3 | ClaudeAssistant, OpenAIVoiceAssistant |
+| Recherche | 4 | RechercheSteps, ConflictCard |
+| Report | 1 | ReportGenerator |
+| Credit & UI | 5 | CreditDisplay, Header |
+| UI-Primitives | 4 | tooltip, dropdown-menu |
+
+**Identifizierte Muster:**
+
+1. **Konsistente Ref-Pattern:**
+   - forwardRef + useImperativeHandle für externe Steuerung
+   - Handle-Interfaces für typsichere Refs
+
+2. **Callback-Memoization:**
+   - useCallback für Event-Handler
+   - Vermeidung unnötiger Re-Renders
+
+3. **Locale-Awareness:**
+   - Deutsche Datum-Formatierung
+   - Deutsche UI-Texte
+
+**Bekannte Probleme:**
+
+1. **Duplizierte Datum-Formatierung:**
+   - formatGermanDate() in mehreren Komponenten
+   - **Vorschlag:** Zentrale utils/date.ts erstellen
+
+2. **Inkonsistente Komponenten-Struktur:**
+   - Manche in /app/components/, manche in /components/
+   - **Vorschlag:** Alle in /components/ konsolidieren
+
+3. **Fehlende Prop-Validierung:**
+   - Keine Runtime-Validierung von Props
+   - **Vorschlag:** Zod-Schemas für kritische Props
+
+---
+
+*(Kategorie 4: Lib-Module - Analyse folgt...)*
 
 ---
 
