@@ -1,3 +1,13 @@
+import { 
+  EU_COUNTRIES as _EU_COUNTRIES, 
+  BENELUX_COUNTRIES as _BENELUX_COUNTRIES, 
+  OAPI_COUNTRIES as _OAPI_COUNTRIES 
+} from "@/lib/country-mapping";
+
+export const EU_COUNTRIES = _EU_COUNTRIES;
+export const BENELUX_COUNTRIES = _BENELUX_COUNTRIES;
+export const OAPI_COUNTRIES = _OAPI_COUNTRIES;
+
 export interface TMSearchResult {
   mid: number;
   verbal: string;
@@ -101,12 +111,6 @@ export const OFFICE_NAMES: Record<string, string> = {
   IN: "CGPDTM",
 };
 
-export const EU_COUNTRIES = [
-  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
-  "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
-  "PL", "PT", "RO", "SK", "SI", "ES", "SE"
-];
-
 export const WIPO_MEMBERS = [
   "AL", "AM", "AT", "AU", "AZ", "BA", "BE", "BG", "BH", "BN", "BT", "BW", "BY", "CA",
   "CH", "CN", "CU", "CY", "CZ", "DE", "DK", "DZ", "EE", "EG", "ES", "FI", "FR", "GB",
@@ -117,30 +121,7 @@ export const WIPO_MEMBERS = [
   "SM", "ST", "SY", "SZ", "TH", "TJ", "TM", "TN", "TR", "UA", "US", "UZ", "VN", "ZM", "ZW"
 ];
 
-// Benelux-Länder (bei WIPO als "BX" bezeichnet)
-export const BENELUX_COUNTRIES = ["BE", "NL", "LU"];
-
-// OAPI-Mitgliedsländer (African Intellectual Property Organization)
-// Bei WIPO Madrid als "OA" bezeichnet - 17 afrikanische Länder
-export const OAPI_COUNTRIES = [
-  "BJ",  // Benin
-  "BF",  // Burkina Faso
-  "CM",  // Kamerun
-  "CF",  // Zentralafrikanische Republik
-  "KM",  // Komoren
-  "CG",  // Kongo (Republik)
-  "CI",  // Elfenbeinküste (Côte d'Ivoire)
-  "GA",  // Gabun
-  "GN",  // Guinea
-  "GW",  // Guinea-Bissau
-  "GQ",  // Äquatorialguinea
-  "ML",  // Mali
-  "MR",  // Mauretanien
-  "NE",  // Niger
-  "SN",  // Senegal
-  "TD",  // Tschad
-  "TG",  // Togo
-];
+// BENELUX_COUNTRIES und OAPI_COUNTRIES werden aus @/lib/country-mapping importiert (siehe oben)
 
 // WIPO Designation Mapping: Ländercode → WIPO-Designationscode
 // Für regionale Organisationen, die bei WIPO einen eigenen Code haben

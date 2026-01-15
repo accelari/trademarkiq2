@@ -1,32 +1,34 @@
 /**
  * Länder-Mapping für Markenregister
+ * ZENTRALE QUELLE für alle Länder-Konstanten im Projekt
+ * 
  * Berechnet relevante Länder für Konflikte basierend auf Register und Protection
  */
 
 // EU-Mitgliedsstaaten (27 Länder)
-const EU_COUNTRIES = [
+export const EU_COUNTRIES: string[] = [
   "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
   "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
   "PL", "PT", "RO", "SK", "SI", "ES", "SE"
 ];
 
 // Benelux-Länder
-const BENELUX_COUNTRIES = ["BE", "NL", "LU"];
+export const BENELUX_COUNTRIES: string[] = ["BE", "NL", "LU"];
 
 // OAPI (Organisation Africaine de la Propriété Intellectuelle) - 17 Länder
-const OAPI_COUNTRIES = [
+export const OAPI_COUNTRIES: string[] = [
   "BF", "BJ", "CF", "CG", "CI", "CM", "GA", "GN", "GQ", "GW",
   "KM", "ML", "MR", "NE", "SN", "TD", "TG"
 ];
 
 // ARIPO (African Regional Intellectual Property Organization) - 22 Länder
-const ARIPO_COUNTRIES = [
+export const ARIPO_COUNTRIES: string[] = [
   "BW", "GM", "GH", "KE", "LS", "LR", "MW", "MZ", "NA", "RW",
   "ST", "SL", "SO", "SD", "SZ", "TZ", "UG", "ZM", "ZW"
 ];
 
 // Regionale Register zu Ländern
-const REGIONAL_REGISTERS: Record<string, string[]> = {
+export const REGIONAL_REGISTERS: Record<string, string[]> = {
   "EU": EU_COUNTRIES,
   "EM": EU_COUNTRIES, // EUIPO Alias
   "BX": BENELUX_COUNTRIES,

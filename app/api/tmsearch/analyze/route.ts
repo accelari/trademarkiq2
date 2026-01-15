@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import { logApiUsage } from "@/lib/api-logger";
+import { EU_COUNTRIES } from "@/lib/country-mapping";
 
 const TMSEARCH_SEARCH_URL = "https://tmsearch.ai/api/search/";
 const TMSEARCH_INFO_URL = "https://tmsearch.ai/api/info/";
@@ -75,11 +76,7 @@ async function searchTrademarkRequirements(country: string, niceClasses: number[
   }
 }
 
-const EU_COUNTRIES = [
-  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
-  "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
-  "PL", "PT", "RO", "SK", "SI", "ES", "SE"
-];
+// EU_COUNTRIES wird aus @/lib/country-mapping importiert (siehe oben)
 
 // Helper function to extract JSON from Claude's response (handles markdown code blocks)
 function extractJSON(text: string): string {

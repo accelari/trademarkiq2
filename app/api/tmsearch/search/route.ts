@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { logApiUsage } from "@/lib/api-logger";
 import { 
+  EU_COUNTRIES,
   BENELUX_COUNTRIES, 
   OAPI_COUNTRIES, 
   getWIPODesignation 
@@ -9,12 +10,6 @@ import {
 
 const TMSEARCH_SEARCH_URL = "https://tmsearch.ai/api/search/";
 const TEST_API_KEY = "TESTAPIKEY";
-
-const EU_COUNTRIES = [
-  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
-  "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
-  "PL", "PT", "RO", "SK", "SI", "ES", "SE"
-];
 
 // Erweitert die ausgewählten Länder um regionale WIPO-Codes
 // z.B. BE → BX (Benelux), CM → OA (OAPI)
