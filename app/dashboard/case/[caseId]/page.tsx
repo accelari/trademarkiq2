@@ -2316,27 +2316,33 @@ WICHTIG - Befolge diese Schritte:
     if (markeMatch?.[1]) {
       hasAction = true;
       const name = markeMatch[1].trim();
+      triggerChangeInProgressRef.current = true; // Bug #1 Fix: Flag setzen
       setManualNameInput(name);
       setRechercheForm(prev => ({ ...prev, trademarkName: name }));
+      setTimeout(() => { triggerChangeInProgressRef.current = false; }, 100);
     }
     
     // [KLASSEN:01,03,09] - Klassen ändern
     const klassenMatch = content.match(/\[KLASSEN:([^\]]+)\]/);
     if (klassenMatch?.[1]) {
-      hasAction = true;
       const classes = klassenMatch[1].split(",").map((c: string) => parseInt(c.trim(), 10)).filter((n: number) => !isNaN(n) && n >= 1 && n <= 45);
       if (classes.length > 0) {
+        hasAction = true;
+        triggerChangeInProgressRef.current = true; // Bug #1 Fix: Flag setzen
         setRechercheForm(prev => ({ ...prev, niceClasses: [...new Set(classes)] as number[] }));
+        setTimeout(() => { triggerChangeInProgressRef.current = false; }, 100);
       }
     }
     
     // [LAENDER:DE,US,EU] - Länder ändern
     const laenderMatch = content.match(/\[LAENDER:([^\]]+)\]/);
     if (laenderMatch?.[1]) {
-      hasAction = true;
       const codes = laenderMatch[1].split(",").map((c: string) => c.trim().toUpperCase()).filter((c: string) => c.length >= 2);
       if (codes.length > 0) {
+        hasAction = true;
+        triggerChangeInProgressRef.current = true; // Bug #1 Fix: Flag setzen
         setRechercheForm(prev => ({ ...prev, countries: [...new Set(codes)] as string[] }));
+        setTimeout(() => { triggerChangeInProgressRef.current = false; }, 100);
       }
     }
     
@@ -2457,16 +2463,25 @@ WICHTIG - Befolge diese Schritte:
     
     if (hasAction) {
       lastProcessedRechercheMsgIdRef.current = lastMsg.id;
+      // Bug #2 Fix: lastNotifiedStateRef aktualisieren (wie in Beratung)
+      lastNotifiedStateRef.current = JSON.stringify({
+        name: markeMatch?.[1]?.trim() || manualNameInput,
+        classes: klassenMatch?.[1] ? klassenMatch[1].split(",").map((c: string) => parseInt(c.trim(), 10)).filter((n: number) => !isNaN(n) && n >= 1 && n <= 45) : rechercheForm.niceClasses,
+        countries: laenderMatch?.[1] ? laenderMatch[1].split(",").map((c: string) => c.trim().toUpperCase()).filter((c: string) => c.length >= 2) : rechercheForm.countries,
+        type: trademarkType,
+        typeConfirmed: isTrademarkTypeConfirmed
+      });
     }
-  }, [sessionMessages]);
+  }, [sessionMessages, manualNameInput, rechercheForm.niceClasses, rechercheForm.countries, trademarkType, isTrademarkTypeConfirmed]);
 
   // Trigger-Erkennung für MARKENNAME (jetzt auch sessionMessages)
-  const lastProcessedMsgIdRef = useRef<string | null>(null);
+  // Bug #4 Fix: Konsistente Benennung (wie lastProcessedBeratungMsgIdRef, lastProcessedRechercheMsgIdRef)
+  const lastProcessedMarkennameMsgIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (sessionMessages.length === 0) return;
     const lastMsg = sessionMessages[sessionMessages.length - 1];
     if (lastMsg?.role !== "assistant") return;
-    if (lastMsg.id === lastProcessedMsgIdRef.current) return; // Bereits verarbeitet
+    if (lastMsg.id === lastProcessedMarkennameMsgIdRef.current) return; // Bereits verarbeitet
     
     const content = lastMsg.content || "";
     let hasAction = false;
@@ -2639,7 +2654,7 @@ WICHTIG - Befolge diese Schritte:
     }
     
     if (hasAction) {
-      lastProcessedMsgIdRef.current = lastMsg.id;
+      lastProcessedMarkennameMsgIdRef.current = lastMsg.id;
     }
   }, [sessionMessages, manualNameInput, trademarkType]);
 
