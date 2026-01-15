@@ -3188,8 +3188,133 @@ Die Agents sind spezialisierte KI-Module für automatisierte Aufgaben.
 
 ---
 
+## i18n-System (Internationalisierung)
+
+### Übersicht
+
+Die App ist für Mehrsprachigkeit vorbereitet mit einem einfachen, aber erweiterbaren i18n-System.
+
+**Unterstützte Sprachen:**
+- `de` - Deutsch (Standard)
+- `en` - Englisch
+
+### Dateistruktur
+
+```
+messages/
+├── de.json          # Deutsche Übersetzungen
+└── en.json          # Englische Übersetzungen
+
+lib/
+└── i18n.ts          # i18n-Utilities und Hooks
+
+app/components/
+└── LanguageSwitcher.tsx  # Sprachauswahl-Komponente
+```
+
+### Verwendung
+
+**In Client-Komponenten:**
+```tsx
+import { useTranslations } from '@/lib/i18n';
+
+function MyComponent() {
+  const { t, locale, setLocale } = useTranslations();
+  
+  return (
+    <div>
+      <h1>{t('credits.title')}</h1>
+      <p>{t('time.minutesAgo', { count: 5 })}</p>
+    </div>
+  );
+}
+```
+
+**Direkte Verwendung (Server-Komponenten):**
+```tsx
+import { t } from '@/lib/i18n';
+
+function ServerComponent() {
+  return <h1>{t('credits.title')}</h1>;
+}
+```
+
+**Language Switcher einbinden:**
+```tsx
+import { LanguageSwitcher } from '@/app/components/LanguageSwitcher';
+
+// Dropdown-Variante (Standard)
+<LanguageSwitcher />
+
+// Button-Variante
+<LanguageSwitcher variant="buttons" />
+
+// Minimal-Variante (nur Icon)
+<LanguageSwitcher variant="minimal" />
+```
+
+### Übersetzungsschlüssel
+
+Die Übersetzungen sind hierarchisch organisiert:
+
+| Kategorie | Beispiel-Schlüssel | Beschreibung |
+|-----------|-------------------|--------------|
+| `common` | `common.loading`, `common.save` | Allgemeine UI-Elemente |
+| `navigation` | `navigation.dashboard` | Navigationsmenü |
+| `auth` | `auth.login`, `auth.password` | Authentifizierung |
+| `credits` | `credits.title`, `credits.buyCredits` | Credit-System |
+| `cases` | `cases.title`, `cases.newCase` | Markenfälle |
+| `case` | `case.steps.beratung`, `case.advisor.title` | Einzelner Fall |
+| `admin` | `admin.costs.title`, `admin.users.title` | Admin-Bereich |
+| `errors` | `errors.generic`, `errors.notFound` | Fehlermeldungen |
+| `time` | `time.minutesAgo`, `time.hoursAgo` | Zeitformatierung |
+
+### Parameter-Interpolation
+
+Übersetzungen können Parameter enthalten:
+```json
+{
+  "time": {
+    "minutesAgo": "{count} min ago"
+  }
+}
+```
+
+Verwendung:
+```tsx
+t('time.minutesAgo', { count: 5 }) // "5 min ago"
+```
+
+### Lokalisierte Formatierung
+
+```tsx
+import { 
+  formatLocalizedDate, 
+  formatLocalizedNumber, 
+  formatLocalizedCurrency 
+} from '@/lib/i18n';
+
+formatLocalizedDate(new Date())     // "15.01.2026" (de) / "01/15/2026" (en)
+formatLocalizedNumber(1234.56)      // "1.234,56" (de) / "1,234.56" (en)
+formatLocalizedCurrency(99.99)      // "99,99 €" (de) / "€99.99" (en)
+```
+
+### Erweiterung
+
+**Neue Sprache hinzufügen:**
+1. Neue Datei `messages/{locale}.json` erstellen
+2. In `lib/i18n.ts` die Sprache zu `locales` hinzufügen
+3. Import und Mapping in `messages` hinzufügen
+4. In `getAvailableLocales()` Label hinzufügen
+
+---
+
 ## Letzte Änderungen (Januar 2026)
 
+- **Phase 2.4:** i18n-System für Mehrsprachigkeit vorbereitet
+- **Phase 2.3:** Loading-Skeletons für bessere UX implementiert
+- **Phase 2.2:** Trigger-Processing vereinheitlicht und Bugs behoben
+- **Phase 2.1:** Zentrale formatDate() Utility erstellt
 - Credit & API Monitoring System implementiert
 - Logo-Persistenz mit Base64-Speicherung
 - Regionale WIPO-Codes (BX, OA) Unterstützung
