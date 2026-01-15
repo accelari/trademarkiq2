@@ -2905,7 +2905,286 @@ Die Frontend-Seiten sind in `/app/` organisiert nach Next.js App Router Konventi
 
 ---
 
-*(Kategorie 6: Agents - Analyse folgt...)*
+### Kategorie 6: Agents (2 Dateien)
+
+Die Agents sind spezialisierte KI-Module für automatisierte Aufgaben.
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/lib/ai/extract-decisions.ts` | 329 | Extrahiert Entscheidungen aus Beratungs-Zusammenfassungen. |
+| `/lib/tmview-agent.ts` | 267 | Browser-Agent für TMview-Suche mit Playwright. |
+
+---
+
+#### 6.1 extract-decisions.ts (329 Zeilen)
+
+**Zweck:** Extrahiert strukturierte Entscheidungen (Markennamen, Länder, NICE-Klassen) aus Beratungs-Zusammenfassungen mittels Claude AI.
+
+**Wichtige Funktionen:**
+- `extractDecisionsFromSummary()`: Hauptfunktion für KI-Extraktion
+- `normalizeCountry()`: Konvertiert Ländernamen zu ISO-Codes
+- `normalizeClass()`: Konvertiert Branchen-Keywords zu NICE-Klassen
+
+**Mappings:**
+- `COUNTRY_MAPPING`: 30+ Länder (DE, AT, CH, EU, US, etc.)
+- `CLASS_KEYWORD_MAPPING`: 40+ Keywords → NICE-Klassen (software→9, beratung→35, etc.)
+
+**KI-Prompt:**
+- Extrahiert: trademarkNames, countries, niceClasses
+- Bewertet: completenessScore (0-100), confidenceScore (0-100)
+- Setzt needsConfirmation wenn confidenceScore < 70
+
+**Bekannte Probleme:**
+1. Verwendet claude-opus-4-1 (teuer) für einfache Extraktion
+2. Keine Caching für wiederholte Anfragen
+3. Hardcoded Mappings statt Datenbank
+
+---
+
+#### 6.2 tmview-agent.ts (267 Zeilen)
+
+**Zweck:** Browser-Agent für automatisierte TMview-Suche mit Playwright.
+
+**Wichtige Funktionen:**
+- `init()`: Startet Chromium-Browser
+- `search()`: Führt Suche auf tmdn.org/tmview durch
+- `extractResults()`: Extrahiert Ergebnisse aus HTML/JSON
+- `takeScreenshot()`: Erstellt Screenshots für Debugging
+
+**Features:**
+- Headless Chromium mit System-Executable
+- Cookie-Banner-Handling
+- JSON-Pattern-Matching für Ergebnisse
+- Fallback auf Table-Parsing
+- Screenshot-Dokumentation der Schritte
+
+**Bekannte Probleme:**
+1. Hardcoded Chromium-Pfad (Nix-spezifisch)
+2. Keine Retry-Logik bei Fehlern
+3. Timeout-Werte nicht konfigurierbar
+4. Screenshots werden nicht automatisch gelöscht
+
+---
+
+### Kategorie 7: Datenbank & Tests (10 Dateien)
+
+#### 7.1 Datenbank-Dateien
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/db/schema.ts` | 576 | Drizzle ORM Schema mit 18 Tabellen. |
+| `/db/index.ts` | 27 | Datenbank-Verbindung mit Lazy-Loading. |
+
+**Datenbank-Tabellen (18):**
+
+| Tabelle | Beschreibung |
+|---------|--------------|
+| `users` | Benutzer mit Credits, Admin-Flag |
+| `accounts` | OAuth-Accounts |
+| `sessions` | NextAuth Sessions |
+| `verification_tokens` | Email-Verifizierung |
+| `trademark_cases` | Markenfälle |
+| `case_steps` | Workflow-Schritte pro Fall |
+| `case_decisions` | Extrahierte Entscheidungen |
+| `case_events` | Event-Log pro Fall |
+| `case_analyses` | Recherche-Analysen |
+| `consultations` | Beratungs-Sessions |
+| `recherche_history` | Recherche-Historie |
+| `chat_logs` | Chat-Nachrichten mit Tokens |
+| `user_events` | Analytics-Events |
+| `user_sessions` | Analytics-Sessions |
+| `api_usage_logs` | API-Nutzung mit Kosten |
+| `credit_transactions` | Credit-Transaktionen |
+| `case_logos` | Gespeicherte Logos |
+| `applicant_profiles` | Anmelder-Profile |
+| `registration_orders` | Anmeldungs-Aufträge |
+
+**Wichtige Features:**
+- Drizzle ORM mit PostgreSQL
+- Relations für alle Tabellen
+- Indizes für häufige Queries
+- JSONB für flexible Daten (conflicts, aiAnalysis, etc.)
+- Type-Exports für alle Tabellen
+
+---
+
+#### 7.2 Test-Dateien
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/tests/unit/similarity.test.ts` | 158 | Tests für Ähnlichkeits-Berechnung. |
+| `/tests/unit/content-validation.test.ts` | 78 | Tests für Content-Validierung. |
+| `/tests/unit/api-logger.test.ts` | 204 | Tests für API-Kosten-Berechnung. |
+| `/tests/unit/credit-manager.test.ts` | ~100 | Tests für Credit-System. |
+| `/tests/unit/country-mapping.test.ts` | ~80 | Tests für Länder-Mapping. |
+| `/tests/integration/api-cases.test.ts` | ~150 | Integration-Tests für Cases API. |
+| `/tests/integration/api-consultations.test.ts` | ~100 | Integration-Tests für Consultations API. |
+
+**Test-Framework:** Vitest
+
+**Getestete Module:**
+- `levenshteinDistance`, `levenshteinSimilarity`
+- `toPhonetic`, `phoneticSimilarity`, `visualSimilarity`
+- `extractCoreWords`, `calculateSimilarity`, `isLikelyConflict`
+- `hasSubstantiveContent`, `formatDuration`
+- `calculateApiCost`, `API_PRICING`
+
+**Test-Abdeckung:**
+- Unit-Tests: 5 Dateien
+- Integration-Tests: 2 Dateien
+- Keine E2E-Tests vorhanden
+
+---
+
+### Kategorie 8: Konfiguration (4 Dateien)
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/next.config.ts` | 27 | Next.js Konfiguration. |
+| `/tailwind.config.ts` | 189 | Tailwind CSS Konfiguration. |
+| `/drizzle.config.ts` | 11 | Drizzle ORM Konfiguration. |
+| `/vitest.config.ts` | ~20 | Vitest Test-Konfiguration. |
+
+---
+
+#### 8.1 next.config.ts (27 Zeilen)
+
+**Konfiguration:**
+- `reactStrictMode: true`
+- `output: "standalone"` (für Docker)
+- `turbopack` aktiviert
+- `allowedDevOrigins`: replit.dev, devinapps.com
+- `images.remotePatterns`: Alle HTTPS-Hosts erlaubt
+- `serverExternalPackages`: adm-zip, basic-ftp
+
+---
+
+#### 8.2 tailwind.config.ts (189 Zeilen)
+
+**Design-System:**
+- Primary: Teal (#0F766E, #14B8A6)
+- Secondary: Blue (#005293, #0078d4)
+- Accent: Yellow, Green, Red, Orange, Sky, Purple
+- Gray: 9 Abstufungen (#F9F9F9 - #2f2f2f)
+
+**Typografie:**
+- Font: Open Sans, Montserrat, Segoe UI
+- Sizes: xs (11px) bis 5xl (62px)
+
+**Animationen:**
+- fade-in, slide-up, pulse-slow, blob
+
+---
+
+#### 8.3 drizzle.config.ts (11 Zeilen)
+
+**Konfiguration:**
+- Schema: `./db/schema.ts`
+- Output: `./drizzle`
+- Dialect: PostgreSQL
+- Credentials: DATABASE_URL
+
+---
+
+### Zusammenfassung Kategorien 6-8
+
+**Gesamtanzahl:** 16 Dateien
+
+| Kategorie | Anzahl | Wichtigste Dateien |
+|-----------|--------|-------------------|
+| Agents | 2 | extract-decisions.ts, tmview-agent.ts |
+| Datenbank | 2 | schema.ts, index.ts |
+| Tests | 7 | similarity.test.ts, api-logger.test.ts |
+| Konfiguration | 4 | next.config.ts, tailwind.config.ts |
+
+**Identifizierte Muster:**
+
+1. **Lazy-Loading:**
+   - Datenbank-Verbindung wird erst bei Bedarf erstellt
+   - Singleton-Pattern für TMViewAgent
+
+2. **Type-Safety:**
+   - Drizzle ORM mit TypeScript-Types
+   - Vitest für Type-sichere Tests
+
+3. **Konfiguration als Code:**
+   - Alle Configs in TypeScript
+   - Keine JSON/YAML-Dateien
+
+**Bekannte Probleme:**
+
+1. **Fehlende E2E-Tests:**
+   - Keine Playwright/Cypress Tests
+   - **Vorschlag:** E2E-Tests für kritische Flows
+
+2. **Hardcoded Pfade:**
+   - Chromium-Pfad in tmview-agent.ts
+   - **Vorschlag:** Umgebungsvariable verwenden
+
+3. **Keine Migration-Dateien:**
+   - Drizzle-Migrationen nicht im Repo
+   - **Vorschlag:** Migrationen versionieren
+
+4. **Test-Abdeckung:**
+   - Nur ~30% der Module getestet
+   - **Vorschlag:** Test-Coverage erhöhen
+
+---
+
+## Gesamtübersicht: 147 TypeScript-Dateien
+
+| Kategorie | Anzahl | Status |
+|-----------|--------|--------|
+| 1. Kern-Dateien | 10 | Analysiert |
+| 2. API-Routen | 58 | Analysiert |
+| 3. Komponenten | 17 | Analysiert |
+| 4. Lib-Module | 35 | Analysiert |
+| 5. Frontend-Seiten | 18 | Analysiert |
+| 6. Agents | 2 | Analysiert |
+| 7. Datenbank & Tests | 10 | Analysiert |
+| 8. Konfiguration | 4 | Analysiert |
+| **Gesamt** | **147** | **Vollständig** |
+
+---
+
+## Roadmap: Priorisierte Verbesserungen
+
+### Phase 1: Kritische Fixes (1-2 Wochen)
+
+| Priorität | Aufgabe | Aufwand | Dateien |
+|-----------|---------|---------|---------|
+| P0 | Duplizierte EU_COUNTRIES konsolidieren | 2h | country-mapping.ts, tmsearch/types.ts |
+| P0 | In-Memory Rate-Limiting durch Redis ersetzen | 4h | rate-limit.ts |
+| P0 | Error-Boundaries für Frontend-Seiten | 4h | Alle page.tsx |
+| P1 | Hardcoded Chromium-Pfad konfigurierbar machen | 1h | tmview-agent.ts |
+| P1 | API-Preise in Datenbank verschieben | 4h | api-logger.ts |
+
+### Phase 2: Code-Qualität (2-4 Wochen)
+
+| Priorität | Aufgabe | Aufwand | Dateien |
+|-----------|---------|---------|---------|
+| P1 | Zentrale formatDate() Utility | 2h | Neue utils/format.ts |
+| P1 | Trigger-Processing vereinheitlichen | 8h | ClaudeAssistant.tsx, page.tsx |
+| P2 | Loading-Skeletons implementieren | 4h | Alle page.tsx |
+| P2 | i18n-System für Mehrsprachigkeit | 16h | Alle Dateien mit deutschen Texten |
+| P2 | Test-Coverage auf 60% erhöhen | 16h | Neue Test-Dateien |
+
+### Phase 3: Architektur (4-8 Wochen)
+
+| Priorität | Aufgabe | Aufwand | Dateien |
+|-----------|---------|---------|---------|
+| P2 | page.tsx aufteilen (9800 Zeilen) | 24h | page.tsx → 4+ Dateien |
+| P2 | Akkordeon-Komponenten extrahieren | 16h | page.tsx → components/ |
+| P3 | E2E-Tests mit Playwright | 16h | Neue tests/e2e/ |
+| P3 | Drizzle-Migrationen versionieren | 4h | drizzle/ |
+
+### Phase 4: Features (Optional)
+
+| Priorität | Aufgabe | Aufwand | Dateien |
+|-----------|---------|---------|---------|
+| P3 | OpenRouter-Integration | 8h | Neue lib/openrouter.ts |
+| P3 | Webhook für Stripe-Events | 4h | Neue api/webhooks/stripe |
+| P3 | Admin-Dashboard erweitern | 16h | admin/ Seiten |
 
 ---
 
