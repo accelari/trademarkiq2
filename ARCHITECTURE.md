@@ -2217,7 +2217,245 @@ Credit-Verwaltung für das Stripe-basierte Bezahlsystem. Verwaltet Credit-Pakete
 
 ---
 
-*(Kategorie 2: API-Routen - Analyse folgt...)*
+### Kategorie 2: API-Routen (58 Dateien)
+
+Die API-Routen sind in `/app/api/` organisiert und folgen dem Next.js App Router Pattern.
+
+#### 2.1 KI-Chat & Suche
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/claude-chat/route.ts` | 680 | POST | Haupt-Chat-Endpoint für Claude. Enthält BASE_SYSTEM_PROMPT mit allen Regeln. Streaming-Antworten. |
+| `/api/openai/chat/route.ts` | ~150 | POST | OpenAI GPT-4o Chat-Endpoint (Alternative zu Claude) |
+| `/api/web-search/route.ts` | 110 | POST | Tavily Web-Suche. Loggt API-Nutzung, zieht Credits ab. |
+| `/api/whisper/route.ts` | ~80 | POST | OpenAI Whisper Speech-to-Text |
+
+**Wichtige Details zu claude-chat:**
+- Enthält umfangreichen BASE_SYSTEM_PROMPT (~500 Zeilen)
+- Definiert alle Trigger: [MARKE:], [KLASSEN:], [LAENDER:], [ART:], [GOTO:], [WEB_SUCHE:]
+- Streaming via ReadableStream
+- Loggt Chat-Nachrichten via logChatMessage()
+
+---
+
+#### 2.2 Markenrecherche (tmsearch)
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/tmsearch/search/route.ts` | 264 | POST | Markensuche via tmsearch.ai. Filter nach Ländern, Klassen, Status. |
+| `/api/tmsearch/analyze/route.ts` | ~200 | POST | Analyse der Suchergebnisse |
+| `/api/tmsearch/analyze-stream/route.ts` | ~300 | POST | Streaming-Analyse mit Claude |
+| `/api/tmsearch/info/route.ts` | ~50 | GET | API-Info und Status |
+
+**Wichtige Details zu tmsearch/search:**
+- Unterstützt regionale WIPO-Codes (BX für Benelux, OA für OAPI)
+- Filter: countries, liveOnly, classes, minAccuracy
+- expandCountriesWithRegionalCodes() für automatische Erweiterung
+- Loggt API-Nutzung und Credits
+
+---
+
+#### 2.3 Logo-Generierung & Bearbeitung
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/generate-logo/route.ts` | 110 | POST | Logo-Generierung via Ideogram API |
+| `/api/edit-logo/route.ts` | 126 | POST | Logo-Bearbeitung via BFL Flux Kontext Pro |
+| `/api/generate-logo-prompt/route.ts` | ~80 | POST | Prompt-Generierung für Logos |
+| `/api/case-logos/route.ts` | ~150 | GET, POST | Logo-Persistenz (Base64 in DB) |
+
+**Wichtige Details:**
+- generate-logo: Ideogram V_2_TURBO ($0.05/Bild)
+- edit-logo: BFL Flux Kontext Pro ($0.04/Bild) mit Polling
+- case-logos: Speichert Logos als Base64 in der Datenbank
+
+---
+
+#### 2.4 Credit-System
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/credits/route.ts` | 124 | GET, POST | Credit-Stand, Historie, Statistiken, Pakete |
+
+**GET Parameter:**
+- `type=balance` - Aktueller Credit-Stand
+- `type=history` - Transaktionshistorie (paginiert)
+- `type=usage` - Verbrauchsstatistiken nach Provider
+- `type=packages` - Verfügbare Credit-Pakete
+
+**POST Actions:**
+- `action=setWarningThreshold` - Warning-Schwelle setzen
+
+---
+
+#### 2.5 Case-Management
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/cases/route.ts` | ~100 | GET, POST | Alle Cases eines Users |
+| `/api/cases/start/route.ts` | ~80 | POST | Neuen Case starten |
+| `/api/cases/active/route.ts` | ~50 | GET | Aktiven Case abrufen |
+| `/api/cases/[caseId]/route.ts` | ~150 | GET, PUT, DELETE | Einzelner Case CRUD |
+| `/api/cases/[caseId]/full/route.ts` | ~100 | GET | Case mit allen Relationen |
+| `/api/cases/[caseId]/prefill/route.ts` | ~80 | POST | Case vorausfüllen |
+| `/api/cases/[caseId]/steps/route.ts` | ~100 | GET, PUT | Workflow-Schritte |
+| `/api/cases/[caseId]/skip/route.ts` | ~50 | POST | Schritt überspringen |
+| `/api/cases/[caseId]/reset-steps/route.ts` | ~50 | POST | Schritte zurücksetzen |
+| `/api/cases/[caseId]/update-status/route.ts` | ~50 | POST | Status aktualisieren |
+| `/api/cases/[caseId]/visited-accordions/route.ts` | ~80 | GET, POST | Besuchte Akkordeons |
+| `/api/cases/[caseId]/memory/route.ts` | ~100 | GET, POST | Case-Memory (Kontext) |
+| `/api/cases/[caseId]/session-events/route.ts` | ~80 | GET, POST | Session-Events |
+
+---
+
+#### 2.6 Recherche & Analyse
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/cases/[caseId]/analysis/route.ts` | ~100 | GET, POST | Analyse-Ergebnisse |
+| `/api/cases/[caseId]/analyses/route.ts` | ~80 | GET | Alle Analysen eines Cases |
+| `/api/cases/[caseId]/run-recherche-analyse/route.ts` | ~200 | POST | Recherche-Analyse starten |
+| `/api/cases/[caseId]/recherche-history/route.ts` | ~100 | GET, POST | Recherche-Historie |
+| `/api/cases/[caseId]/catch-up-beratung/route.ts` | ~80 | POST | Beratung nachholen |
+| `/api/recherche/quick-check/route.ts` | ~150 | POST | Schnell-Check |
+| `/api/recherche/generate-alternatives/route.ts` | ~100 | POST | Alternativen generieren |
+
+---
+
+#### 2.7 Consultation (Chat-Nachrichten)
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/cases/[caseId]/consultation/route.ts` | ~100 | GET, POST | Consultation-Session |
+| `/api/cases/[caseId]/consultation/messages/route.ts` | ~80 | GET, POST | Chat-Nachrichten |
+
+---
+
+#### 2.8 Anmeldung
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/anmeldung/applicant-profile/route.ts` | ~150 | GET, POST | Anmelder-Profil |
+| `/api/anmeldung/registration-order/route.ts` | ~200 | POST | Anmeldung bestellen |
+| `/api/anmeldung/generate-strategy/route.ts` | ~100 | POST | Anmelde-Strategie generieren |
+
+---
+
+#### 2.9 Authentifizierung
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/auth/[...nextauth]/route.ts` | ~50 | GET, POST | NextAuth.js Handler |
+| `/api/auth/register/route.ts` | ~100 | POST | Benutzer registrieren |
+| `/api/auth/forgot-password/route.ts` | ~80 | POST | Passwort vergessen |
+| `/api/auth/reset-password/route.ts` | ~80 | POST | Passwort zurücksetzen |
+| `/api/auth/verify-email/route.ts` | ~60 | POST | E-Mail verifizieren |
+| `/api/auth/check-verification/route.ts` | ~50 | GET | Verifizierung prüfen |
+| `/api/auth/resend-verification/route.ts` | ~60 | POST | Verifizierung erneut senden |
+
+---
+
+#### 2.10 User-Management
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/user/delete/route.ts` | ~80 | DELETE | Benutzer löschen |
+| `/api/user/tour-status/route.ts` | ~60 | GET, POST | Tour-Status (Onboarding) |
+
+---
+
+#### 2.11 Admin
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/admin/api-costs/route.ts` | ~200 | GET | API-Kosten Übersicht |
+| `/api/admin/chat-logs/route.ts` | ~100 | GET | Chat-Logs |
+| `/api/admin/analytics/route.ts` | ~150 | GET | Analytics-Daten |
+| `/api/admin/test-api/route.ts` | ~80 | POST | API-Tests |
+
+---
+
+#### 2.12 Reports & Analytics
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/report/generate/route.ts` | ~150 | POST | Report generieren |
+| `/api/report/export/route.ts` | ~100 | POST | Report exportieren (PDF) |
+| `/api/analytics/track/route.ts` | ~80 | POST | Analytics-Events tracken |
+
+---
+
+#### 2.13 Decisions & Alternatives
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/cases/save-decisions/route.ts` | ~80 | POST | Entscheidungen speichern |
+| `/api/cases/extract-decisions/route.ts` | ~100 | POST | Entscheidungen extrahieren |
+| `/api/cases/select-alternative/route.ts` | ~60 | POST | Alternative auswählen |
+
+---
+
+#### 2.14 OpenAI Realtime
+
+| Datei | Zeilen | Methoden | Beschreibung |
+|-------|--------|----------|--------------|
+| `/api/openai-realtime/session/route.ts` | ~80 | POST | Realtime-Session erstellen |
+
+---
+
+### Zusammenfassung Kategorie 2 (API-Routen)
+
+**Gesamtanzahl:** 58 API-Route-Dateien
+
+**Nach Funktionsbereich:**
+| Bereich | Anzahl | Wichtigste Dateien |
+|---------|--------|-------------------|
+| KI-Chat & Suche | 4 | claude-chat, web-search |
+| Markenrecherche | 4 | tmsearch/search, analyze-stream |
+| Logo | 4 | generate-logo, edit-logo |
+| Credits | 1 | credits |
+| Case-Management | 13 | cases/[caseId]/* |
+| Recherche | 7 | run-recherche-analyse |
+| Consultation | 2 | consultation/messages |
+| Anmeldung | 3 | applicant-profile |
+| Auth | 7 | register, reset-password |
+| User | 2 | delete, tour-status |
+| Admin | 4 | api-costs, chat-logs |
+| Reports | 3 | generate, export |
+| Decisions | 3 | save-decisions |
+| Realtime | 1 | session |
+
+**Identifizierte Muster:**
+
+1. **Konsistentes Auth-Pattern:**
+   - Alle geschützten Routen nutzen `const session = await auth()`
+   - Prüfung auf `session?.user?.id`
+
+2. **API-Logging:**
+   - Alle kostenpflichtigen APIs nutzen `logApiUsage()`
+   - Credits werden automatisch abgezogen
+
+3. **Error-Handling:**
+   - Try-catch mit console.error
+   - NextResponse.json mit status codes
+
+**Bekannte Probleme:**
+
+1. **Inkonsistente Error-Messages:**
+   - Manche deutsch ("Nicht autorisiert"), manche englisch ("Unauthorized")
+   - **Vorschlag:** Einheitliche Sprache (deutsch für User-facing)
+
+2. **Fehlende Rate-Limiting:**
+   - Keine Rate-Limits auf API-Routen
+   - **Vorschlag:** Rate-Limiting Middleware hinzufügen
+
+3. **Duplizierter Auth-Code:**
+   - `const session = await auth()` in jeder Route
+   - **Vorschlag:** Auth-Middleware für geschützte Routen
+
+---
+
+*(Kategorie 3: Komponenten - Analyse folgt...)*
 
 ---
 
