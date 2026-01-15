@@ -305,15 +305,15 @@ function Sidebar({
             </div>
             <div className="space-y-1">
               <Link
-                href="/dashboard/admin/costs"
+                href="/dashboard/admin/overview"
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  pathname.startsWith('/dashboard/admin/costs') 
+                  pathname === '/dashboard/admin/overview' 
                     ? 'bg-amber-100 text-amber-800' 
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                <DollarSign className="w-4 h-4" />
-                API-Kosten
+                <LayoutDashboard className="w-4 h-4" />
+                Dashboard
               </Link>
               <Link
                 href="/dashboard/admin/users"
@@ -325,6 +325,17 @@ function Sidebar({
               >
                 <Users className="w-4 h-4" />
                 Benutzer
+              </Link>
+              <Link
+                href="/dashboard/admin/costs"
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  pathname.startsWith('/dashboard/admin/costs') 
+                    ? 'bg-amber-100 text-amber-800' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <DollarSign className="w-4 h-4" />
+                API-Kosten
               </Link>
               <Link
                 href="/dashboard/admin/chat-monitor"
