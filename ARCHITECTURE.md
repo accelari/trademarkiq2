@@ -1192,6 +1192,170 @@ Prüfe erforderliche Felder (je nach Akkordeon)
 
 ---
 
+## Bekannte Probleme & Verbesserungen (TODO)
+
+### KRITISCH - Bugs die behoben werden müssen
+
+#### 1. triggerChangeInProgressRef fehlt in Recherche-Trigger
+
+**Status:** OFFEN
+**Datei:** `page.tsx`, Zeile 2314-2341
+**Problem:** Recherche-Trigger setzen `triggerChangeInProgressRef` nicht, was zu falschen "manuellen Änderungs"-Erkennungen führt.
+
+**Aktueller Code (fehlerhaft):**
+```typescript
+// Recherche-Trigger (Zeile 2314-2321)
+const markeMatch = content.match(/\[MARKE:([^\]]+)\]/);
+if (markeMatch?.[1]) {
+  // KEIN FLAG GESETZT!
+  setManualNameInput(name);
+  setRechercheForm(prev => ({ ...prev, trademarkName: name }));
+}
+```
+
+**Korrekter Code:**
+```typescript
+const markeMatch = content.match(/\[MARKE:([^\]]+)\]/);
+if (markeMatch?.[1]) {
+  triggerChangeInProgressRef.current = true;  // HINZUFÜGEN
+  setManualNameInput(name);
+  setRechercheForm(prev => ({ ...prev, trademarkName: name }));
+  setTimeout(() => { triggerChangeInProgressRef.current = false; }, 100);  // HINZUFÜGEN
+}
+```
+
+**Auswirkung:** Wenn KI in Recherche `[MARKE:Name]` setzt, denkt das System es sei eine manuelle Änderung und sendet nach 10s fälschlicherweise eine "Alles komplett" Nachricht.
+
+**Aufwand:** 5 Minuten
+
+---
+
+#### 2. lastNotifiedStateRef wird in Recherche nicht aktualisiert
+
+**Status:** OFFEN
+**Datei:** `page.tsx`, Zeile 2458-2461
+**Problem:** Nach Trigger-Verarbeitung in Recherche wird `lastNotifiedStateRef` nicht aktualisiert, was zu Race Conditions führen kann.
+
+**Vergleich:**
+- Beratung (Zeile 1987-1993): Aktualisiert `lastNotifiedStateRef` nach Trigger ✓
+- Recherche: Aktualisiert NICHT ✗
+
+**Lösung:** Nach `if (hasAction)` in Recherche-useEffect auch `lastNotifiedStateRef` aktualisieren.
+
+**Aufwand:** 5 Minuten
+
+---
+
+### HOCH - Code-Qualität
+
+#### 3. Duplizierter Trigger-Code
+
+**Status:** OFFEN
+**Dateien:** `page.tsx`, Zeile 1922-1954 und 2314-2341
+**Problem:** Die Trigger `[MARKE:]`, `[KLASSEN:]`, `[LAENDER:]` werden in BEIDEN useEffects (Beratung UND Recherche) verarbeitet.
+
+**Betroffene Trigger:**
+| Trigger | Beratung (Zeile) | Recherche (Zeile) |
+|---------|------------------|-------------------|
+| [MARKE:] | 1922-1930 | 2314-2321 |
+| [KLASSEN:] | 1933-1943 | 2323-2331 |
+| [LAENDER:] | 1945-1954 | 2333-2341 |
+
+**Empfehlung:** Gemeinsame Funktion `processCommonTriggers()` erstellen.
+
+**Aufwand:** 30 Minuten
+
+---
+
+#### 4. Inkonsistente Ref-Benennung
+
+**Status:** OFFEN
+**Datei:** `page.tsx`
+**Problem:** Inkonsistente Benennung der lastProcessedMsgId Refs.
+
+| Akkordeon | Aktuelle Ref | Empfohlene Ref |
+|-----------|--------------|----------------|
+| Beratung | `lastProcessedBeratungMsgIdRef` | (OK) |
+| Recherche | `lastProcessedRechercheMsgIdRef` | (OK) |
+| Markenname | `lastProcessedMsgIdRef` | `lastProcessedMarkennameMsgIdRef` |
+
+**Aufwand:** 2 Minuten
+
+---
+
+### MITTEL - Architektur-Verbesserungen
+
+#### 5. Zentrales Trigger-System
+
+**Status:** VORSCHLAG
+**Problem:** Jedes Akkordeon hat eigene Trigger-Verarbeitung mit unterschiedlichem Verhalten.
+
+**Empfehlung:** Ein zentrales Trigger-System in `lib/triggers.ts` erstellen:
+
+```typescript
+// lib/triggers.ts
+interface TriggerContext {
+  setManualNameInput: (name: string) => void;
+  setRechercheForm: (fn: (prev: RechercheForm) => RechercheForm) => void;
+  setTrademarkType: (type: TrademarkType) => void;
+  triggerChangeInProgressRef: RefObject<boolean>;
+  lastNotifiedStateRef: RefObject<string>;
+}
+
+export const processCommonTriggers = (content: string, ctx: TriggerContext) => {
+  // [MARKE:], [KLASSEN:], [LAENDER:], [ART:]
+  // Mit einheitlichem Flag-Management
+};
+
+export const processBeratungTriggers = (content: string, ctx: TriggerContext) => {
+  processCommonTriggers(content, ctx);
+  // [GOTO:], [WEB_SUCHE:]
+};
+
+export const processRechercheTriggers = (content: string, ctx: TriggerContext) => {
+  processCommonTriggers(content, ctx);
+  // [RECHERCHE_STARTEN], [WEITERE_RECHERCHE]
+};
+
+export const processMarkennameTriggers = (content: string, ctx: TriggerContext) => {
+  // [LOGO_GENERIEREN:], [LOGO_BEARBEITEN:]
+};
+```
+
+**Vorteile:**
+- Einheitliches Verhalten
+- Keine Code-Duplizierung
+- Einfachere Wartung
+- Bessere Testbarkeit
+
+**Aufwand:** 2-3 Stunden
+
+---
+
+### NIEDRIG - Dokumentation
+
+#### 6. Zeilennummern in Dokumentation aktualisieren
+
+**Status:** LAUFEND
+**Problem:** Zeilennummern in ARCHITECTURE.md können nach Code-Änderungen veraltet sein.
+
+**Empfehlung:** Bei größeren Refactorings Zeilennummern prüfen und aktualisieren.
+
+---
+
+## Prioritäten-Übersicht
+
+| # | Priorität | Problem | Status | Aufwand |
+|---|-----------|---------|--------|---------|
+| 1 | KRITISCH | triggerChangeInProgressRef in Recherche | OFFEN | 5 min |
+| 2 | KRITISCH | lastNotifiedStateRef in Recherche | OFFEN | 5 min |
+| 3 | HOCH | Duplizierter Trigger-Code | OFFEN | 30 min |
+| 4 | HOCH | Inkonsistente Ref-Benennung | OFFEN | 2 min |
+| 5 | MITTEL | Zentrales Trigger-System | VORSCHLAG | 2-3 h |
+| 6 | NIEDRIG | Zeilennummern aktualisieren | LAUFEND | - |
+
+---
+
 ## Letzte Änderungen (Januar 2026)
 
 - Credit & API Monitoring System implementiert
@@ -1201,3 +1365,4 @@ Prüfe erforderliche Felder (je nach Akkordeon)
 - Search Coverage Reporting für nicht-durchsuchte Register
 - Bidirektionale Synchronisation für Anmeldung-Akkordeon
 - "Weiter zur Anmeldung" Button im Recherche-Akkordeon
+- Detaillierte KI-Chatbot-System Dokumentation hinzugefügt
