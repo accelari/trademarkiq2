@@ -12,7 +12,7 @@ const anthropic = new Anthropic({
 async function generateSmartTitle(summary: string): Promise<string> {
   try {
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-1",
+      model: "claude-opus-4-5-20251101",
       max_tokens: 100,
       messages: [{
         role: "user",
@@ -32,7 +32,7 @@ async function generateSmartTitle(summary: string): Promise<string> {
 
 async function generateSummary(conversation: string): Promise<string> {
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-1",
+    model: "claude-opus-4-5-20251101",
     max_tokens: 2048,
     messages: [{
       role: "user",
