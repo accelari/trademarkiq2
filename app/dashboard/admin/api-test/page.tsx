@@ -27,10 +27,10 @@ interface TestResult {
   request?: {
     endpoint: string;
     method: string;
-    payload: unknown;
+    payload: Record<string, unknown>;
   };
-  response: unknown;
-  rawResponse?: unknown;
+  response: Record<string, unknown>;
+  rawResponse?: Record<string, unknown>;
   usage: TokenUsage;
   costs: CostBreakdown;
   duration: number;
