@@ -536,6 +536,244 @@ const kostenMatch = content.includes("[KOSTEN_BERECHNEN]");
 
 ---
 
+## Detaillierter Workflow: Benutzer-Journey
+
+### Phase 1: Session-Start (Beratung)
+
+```
+1. Benutzer öffnet Fall
+   └── openAccordion = "beratung" (default, Zeile 845)
+   
+2. ClaudeAssistant wird geladen
+   └── systemPromptAddition = getBeratungRules(context)
+   └── previousMessages = sessionMessages
+   
+3. Auto-Start Begrüßung (ClaudeAssistant.tsx, Zeile 431-447)
+   └── Wenn keine Nachrichten: requestGreeting() wird aufgerufen
+   └── KI sendet Begrüßung mit Streaming-Effekt
+   └── Nachricht wird zu sessionMessages hinzugefügt
+```
+
+### Phase 2: Beratungs-Dialog
+
+```
+1. Benutzer tippt/spricht Nachricht
+   └── sendMessage() in ClaudeAssistant.tsx
+   └── POST /api/claude-chat mit systemPromptAddition
+   
+2. KI-Antwort wird gestreamt
+   └── Streaming via Server-Sent Events
+   └── setStreamingResponse(fullResponse)
+   
+3. Nachricht wird gespeichert
+   └── onMessageSent?.(assistantMessage)
+   └── setSessionMessages(prev => [...prev, msg])
+   
+4. Trigger-Erkennung (page.tsx, Zeile 1912-1995)
+   └── useEffect überwacht sessionMessages
+   └── Wenn lastMsg.role === "assistant"
+   └── Regex-Matching für Trigger
+```
+
+### Phase 3: Trigger-Verarbeitung
+
+```
+Wenn KI "[MARKE:Accelari]" setzt:
+
+1. Trigger wird erkannt (Zeile 1923)
+   └── const markeMatch = content.match(/\[MARKE:([^\]]+)\]/)
+   
+2. Flag wird gesetzt (Zeile 1927)
+   └── triggerChangeInProgressRef.current = true
+   
+3. Formular wird aktualisiert (Zeile 1928-1929)
+   └── setManualNameInput(name)
+   └── setRechercheForm(prev => ({ ...prev, trademarkName: name }))
+   
+4. Flag wird zurückgesetzt (Zeile 1930)
+   └── setTimeout(() => { triggerChangeInProgressRef.current = false }, 100)
+   
+5. lastNotifiedState wird aktualisiert (Zeile 1987-1993)
+   └── Verhindert dass manuelle Änderungs-Erkennung auslöst
+```
+
+### Phase 4: Akkordeon-Wechsel
+
+```
+Automatisch via [WEITER:markenname] Trigger:
+
+1. Trigger wird erkannt (Zeile 1533)
+   └── const weiterMatch = content.match(/\[WEITER:(\w+)\]/i)
+   
+2. Validierung (Zeile 1538)
+   └── VALID_ACCORDIONS.includes(target)
+   
+3. Verzögerung (Zeile 1546-1554)
+   └── setTimeout(() => { ... }, 1500)  // 1.5s damit User Nachricht lesen kann
+   
+4. Navigation
+   └── setOpenAccordion(target)
+   └── window.location.hash = `#${target}`
+   └── el?.scrollIntoView({ behavior: "smooth", block: "start" })
+```
+
+### Phase 5: Begrüßung im neuen Akkordeon
+
+```
+1. useEffect erkennt Akkordeon-Wechsel (Zeile 1702-1817)
+   └── openAccordion !== lastVisitedAccordionRef.current
+   
+2. Prüfung ob bereits besucht (Zeile 1735)
+   └── greetedAccordionsRef.current.has(openAccordion)
+   
+3. Kontext-Nachricht auswählen (Zeile 1741-1792)
+   └── contextMessages[openAccordion]
+   └── Dynamisch basierend auf aktuellem Status
+   
+4. Streaming-Effekt (Zeile 1805)
+   └── targetRef.current?.simulateStreaming(contextMsg)
+   
+5. Als besucht markieren (Zeile 1811-1812)
+   └── greetedAccordionsRef.current.add(openAccordion)
+   └── saveVisitedAccordion(openAccordion)  // In DB speichern
+```
+
+---
+
+## Nachrichten-System
+
+### sessionMessages (Globaler Chat-Verlauf)
+
+```typescript
+// Definition (Zeile 1343)
+const [sessionMessages, setSessionMessages] = useState<any[]>([]);
+
+// Struktur einer Nachricht
+interface Message {
+  id: string;           // crypto.randomUUID()
+  role: "user" | "assistant";
+  content: string;      // Enthält Trigger wie [MARKE:Name]
+  timestamp: Date;
+  imageUrl?: string;    // Optional für Bild-Uploads
+}
+```
+
+### Nachrichten-Weitergabe an ClaudeAssistant
+
+```typescript
+<ClaudeAssistant
+  ref={voiceAssistantRef}
+  caseId={caseId}
+  onMessageSent={(msg) => setSessionMessages(prev => [...prev, msg])}
+  previousMessages={sessionMessages}
+  systemPromptAddition={getBeratungRules(context)}
+/>
+```
+
+### Trigger-Entfernung für Anzeige (ClaudeAssistant.tsx, Zeile 249-266)
+
+```typescript
+const cleanMessageForDisplay = (content: string) => {
+  return content
+    .replace(/\[MARKE:[^\]]+\]/g, "")
+    .replace(/\[KLASSEN:[^\]]+\]/g, "")
+    .replace(/\[LAENDER:[^\]]+\]/g, "")
+    .replace(/\[ART:[^\]]+\]/g, "")
+    .replace(/\[GOTO:[^\]]+\]/g, "")
+    .replace(/\[SYSTEM:[^\]]+\]/g, "")
+    .replace(/\[LOGO_GENERIEREN:[^\]]+\]/g, "")
+    .replace(/\[LOGO_BEARBEITEN:[^\]]+\]/g, "")
+    .replace(/\[RECHERCHE_STARTEN\]/g, "")
+    .replace(/\[WEITERE_RECHERCHE\]/g, "")
+    .replace(/\[WEITER:[^\]]+\]/g, "")
+    .replace(/\[WEB_SUCHE:[^\]]+\]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+};
+```
+
+### System-Nachrichten (nicht anzeigen)
+
+```typescript
+const isSystemMessage = (content: string) => {
+  return content.trim().startsWith("[SYSTEM:");
+};
+```
+
+---
+
+## Bidirektionale Synchronisation
+
+### Refs für Synchronisation (page.tsx, Zeile 1820-1843)
+
+```typescript
+// Beratung/Markenname/Recherche
+triggerChangeInProgressRef          // Flag: Änderung durch KI-Trigger
+lastNotifiedStateRef                // Letzter bekannter Zustand (JSON)
+manualChangeTimeoutRef              // 10s Debounce für Chat-Benachrichtigung
+lastProcessedBeratungMsgIdRef       // Verhindert doppelte Trigger-Verarbeitung
+isFirstManualCheckRef               // Ersten Render überspringen
+
+// Anmeldung (zusätzlich)
+anmeldungTriggerChangeInProgressRef
+lastLoggedAnmeldungFieldsRef        // Letzte geloggte Feldwerte
+anmeldungFieldChangeLogTimeoutRef   // 1.5s Debounce für Feld-Logging
+anmeldungManualChangeTimeoutRef     // 10s Debounce für Chat-Benachrichtigung
+```
+
+### Chat → Formular (Trigger-Verarbeitung)
+
+```
+1. KI setzt Trigger: "[MARKE:Accelari]"
+2. useEffect erkennt Trigger
+3. triggerChangeInProgressRef.current = true
+4. Formularfeld wird aktualisiert
+5. Nach 100ms: Flag zurücksetzen
+```
+
+### Formular → Chat (Manuelle Änderungen)
+
+```
+1. Benutzer ändert Feld manuell
+2. useEffect erkennt Änderung (wenn Flag NICHT gesetzt)
+3. 1.5s Debounce → Event-Log Eintrag
+4. Wenn ALLE Felder komplett → 10s warten
+5. Chat-Nachricht an KI: "[SYSTEM: Alle Angaben komplett! ...]"
+6. KI bestätigt und bietet nächsten Schritt an
+```
+
+### Hybrid-Ansatz (Zeile 1997-2126)
+
+```typescript
+// Einzelne Änderungen: Still protokollieren (kein Chat)
+// Alle Felder komplett: EINMAL Chat-Nachricht senden
+
+if (missing.length === 0 && !hasNotifiedCompleteRef.current) {
+  hasNotifiedCompleteRef.current = true;
+  targetRef.current?.sendQuestion(
+    `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. ...]`
+  );
+}
+```
+
+---
+
+## Timing-Werte
+
+| Wert | Verwendung | Zeile |
+|------|------------|-------|
+| 100ms | Flag zurücksetzen nach Trigger-Änderung | 1930 |
+| 300ms | Auto-connect Verzögerung | 444 |
+| 500ms | Verzögerung vor Auto-Start Recherche | 1601 |
+| 500ms | Verzögerung vor GOTO Navigation | 1976 |
+| 1.5s | Debounce für Feld-Logging | 1903 |
+| 1.5s | Verzögerung vor WEITER Navigation | 1554 |
+| 2s | Verzögerung vor Phrase-basiertem Wechsel | 2000 (Fallback) |
+| 10s | Debounce für "Alles komplett" Chat-Nachricht | 2056 |
+| 30ms | Streaming-Effekt pro Wort | 800 (ClaudeAssistant) |
+
+---
+
 ## Letzte Änderungen (Januar 2026)
 
 - Credit & API Monitoring System implementiert
