@@ -2773,7 +2773,139 @@ Die Lib-Module sind in `/lib/` organisiert und enthalten wiederverwendbare Logik
 
 ---
 
-*(Kategorie 5: Frontend-Seiten - Analyse folgt...)*
+### Kategorie 5: Frontend-Seiten (18 Dateien)
+
+Die Frontend-Seiten sind in `/app/` organisiert nach Next.js App Router Konventionen.
+
+#### 5.1 Haupt-Seiten
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/app/page.tsx` | 35 | Root-Redirect. Authentifiziert → /dashboard/cases, sonst → /login. |
+| `/app/dashboard/page.tsx` | 20 | Dashboard-Redirect zu /dashboard/cases. |
+| `/app/dashboard/cases/page.tsx` | 726 | Case-Übersicht. Liste, Suche, Filter, Bulk-Delete. |
+| `/app/dashboard/case/[caseId]/page.tsx` | ~9800 | Haupt-Case-Seite. 4 Akkordeons, KI-Berater. |
+
+**Wichtige Details zu cases/page.tsx:**
+- CaseCard-Komponente mit StepProgress
+- SelectionToolbar für Bulk-Aktionen
+- NewCaseModal für Case-Erstellung
+- DeleteConfirmDialog für Löschbestätigung
+- 9 Workflow-Steps: beratung, markenname, recherche, analyse, ueberpruefung, anmeldung, kommunikation, ueberwachung, fristen
+
+---
+
+#### 5.2 User-Seiten
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/app/dashboard/profile/page.tsx` | 90 | Profil-Anzeige. Name, Email, Status. |
+| `/app/dashboard/credits/page.tsx` | 633 | Credit-Verwaltung. Balance, Pakete, Transaktionen, Nutzung. |
+| `/app/dashboard/subscription/page.tsx` | ~200 | Subscription-Verwaltung (Placeholder). |
+
+**Wichtige Details zu credits/page.tsx:**
+- 3 Tabs: Übersicht, Transaktionen, Nutzung
+- Filter & Sort für Transaktionen
+- Credit-Pakete mit Stripe-Links
+- Rabatt-Anzeige (3% bei 900, 7% bei 1900 Credits)
+
+---
+
+#### 5.3 Admin-Seiten
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/app/dashboard/admin/costs/page.tsx` | 387 | API-Kosten-Monitor. Provider, User, Recent Calls. |
+| `/app/dashboard/admin/users/page.tsx` | 283 | Benutzerverwaltung. Liste, Filter, Statistiken. |
+| `/app/dashboard/admin/users/[userId]/page.tsx` | ~300 | User-Detail-Seite. |
+| `/app/dashboard/admin/chat-monitor/page.tsx` | ~400 | Chat-Überwachung. |
+| `/app/dashboard/admin/api-test/page.tsx` | ~200 | API-Test-Seite. |
+
+**Wichtige Details zu admin/costs/page.tsx:**
+- 4 Summary-Cards: API-Aufrufe, Kosten, Credits, Gewinn
+- 3 Tabs: Nach Provider, Nach Benutzer, Letzte Aufrufe
+- Zeitraum-Filter: 7, 30, 90 Tage
+- Profit-Berechnung mit Marge
+
+**Wichtige Details zu admin/users/page.tsx:**
+- User-Tabelle mit Sessions, Events, Chats, Fälle
+- Filter: Alle, Aktiv (7 Tage), Inaktiv
+- Relative Zeitanzeige für "Zuletzt aktiv"
+
+---
+
+#### 5.4 Auth-Seiten
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|--------------|
+| `/app/(auth)/login/page.tsx` | 234 | Login-Formular. Email-Verifizierung, Resend. |
+| `/app/(auth)/register/page.tsx` | 307 | Registrierung. Passwort-Stärke-Anzeige. |
+| `/app/(auth)/forgot-password/page.tsx` | ~150 | Passwort-Reset-Anfrage. |
+| `/app/(auth)/reset-password/page.tsx` | ~200 | Passwort-Reset-Formular. |
+| `/app/(auth)/verify-email/page.tsx` | ~100 | Email-Verifizierung. |
+| `/app/(auth)/check-email/page.tsx` | ~80 | "Prüfen Sie Ihre Email" Seite. |
+
+**Wichtige Details zu login/page.tsx:**
+- Email-Verifizierung-Check bei Login-Fehler
+- "Bestätigungs-E-Mail erneut senden" Button
+- Suspense-Boundary für SearchParams
+
+**Wichtige Details zu register/page.tsx:**
+- Passwort-Stärke: weak, fair, good, strong
+- 4 Requirements: Länge, Buchstaben, Zahlen, Sonderzeichen
+- Redirect zu /check-email nach Registrierung
+
+---
+
+### Zusammenfassung Kategorie 5 (Frontend-Seiten)
+
+**Gesamtanzahl:** 18 Frontend-Seiten
+
+**Nach Funktionsbereich:**
+| Bereich | Anzahl | Wichtigste Dateien |
+|---------|--------|-------------------|
+| Haupt-Seiten | 4 | case/[caseId]/page.tsx, cases/page.tsx |
+| User-Seiten | 3 | credits/page.tsx, profile/page.tsx |
+| Admin-Seiten | 5 | costs/page.tsx, users/page.tsx |
+| Auth-Seiten | 6 | login/page.tsx, register/page.tsx |
+
+**Identifizierte Muster:**
+
+1. **Konsistentes Layout:**
+   - Alle Seiten nutzen max-w-* Container
+   - Einheitliche Card-Styles mit rounded-xl border
+   - Teal als Primary-Farbe
+
+2. **State-Management:**
+   - useState für lokalen State
+   - useSWR für API-Daten
+   - useSession für Auth-State
+
+3. **Loading-States:**
+   - Loader2 Spinner von Lucide
+   - Skeleton-Placeholder (teilweise)
+
+**Bekannte Probleme:**
+
+1. **Keine Error-Boundaries:**
+   - Seiten haben keine Error-Boundaries
+   - **Vorschlag:** Error-Boundaries für bessere UX
+
+2. **Duplizierte Formatierungs-Funktionen:**
+   - formatDate() in mehreren Seiten definiert
+   - **Vorschlag:** Zentrale utils/format.ts
+
+3. **Fehlende Loading-Skeletons:**
+   - Nur Spinner, keine Content-Skeletons
+   - **Vorschlag:** Skeleton-Komponenten für bessere UX
+
+4. **Hardcoded Strings:**
+   - Deutsche Texte direkt im Code
+   - **Vorschlag:** i18n-System für Mehrsprachigkeit
+
+---
+
+*(Kategorie 6: Agents - Analyse folgt...)*
 
 ---
 
