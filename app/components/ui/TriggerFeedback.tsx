@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Check, Undo2, X } from "lucide-react";
+import { TRIGGER_FEEDBACK } from "@/lib/config";
 
 /**
  * TriggerFeedback - Zeigt visuelles Feedback wenn KI-Trigger Felder ändern
@@ -10,7 +11,7 @@ import { Check, Undo2, X } from "lucide-react";
  * - Animierte Einblendung bei Trigger-Verarbeitung
  * - Zeigt welches Feld geändert wurde und den neuen Wert
  * - Undo-Button zum Rückgängigmachen der Änderung
- * - Auto-Hide nach 5 Sekunden
+ * - Auto-Hide nach konfigurierbarer Zeit (default: 5 Sekunden)
  */
 
 export interface TriggerChange {
@@ -59,18 +60,18 @@ function TriggerFeedbackItem({ change, onUndo, onDismiss }: TriggerFeedbackItemP
     // Einblenden
     requestAnimationFrame(() => setIsVisible(true));
 
-    // Auto-Hide nach 5 Sekunden
+    // Auto-Hide nach konfigurierbarer Zeit
     const timer = setTimeout(() => {
       setIsExiting(true);
-      setTimeout(() => onDismiss(change.id), 300);
-    }, 5000);
+      setTimeout(() => onDismiss(change.id), TRIGGER_FEEDBACK.ANIMATION_DURATION);
+    }, TRIGGER_FEEDBACK.AUTO_DISMISS_DELAY);
 
     return () => clearTimeout(timer);
   }, [change.id, onDismiss]);
 
   const handleDismiss = useCallback(() => {
     setIsExiting(true);
-    setTimeout(() => onDismiss(change.id), 300);
+    setTimeout(() => onDismiss(change.id), TRIGGER_FEEDBACK.ANIMATION_DURATION);
   }, [change.id, onDismiss]);
 
   const handleUndo = useCallback(() => {

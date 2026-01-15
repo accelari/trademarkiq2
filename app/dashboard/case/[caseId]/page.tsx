@@ -62,6 +62,7 @@ import { ReportGenerator } from "@/app/components/ReportGenerator";
 import { AccordionSkeleton } from "@/app/components/Skeleton";
 import { AccordionSection } from "@/app/components/ui/AccordionSection";
 import { TriggerFeedback, useTriggerFeedback, TriggerChange } from "@/app/components/ui/TriggerFeedback";
+import { DEBOUNCE_TIMES, CHAT_CONFIG } from "@/lib/config";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface AnalysisSummary{
@@ -1814,7 +1815,7 @@ Für die Anmeldung brauche ich noch ein paar Angaben zu dir als Anmelder.
         lastLoggedFieldsRef.current.countries = countriesStr;
         logEvent("field_change", `Länder → ${rechercheForm.countries?.join(", ")}`, `${rechercheForm.countries?.length} Länder`);
       }
-    }, 1500);
+    }, DEBOUNCE_TIMES.FIELD_CHANGE_LOG);
     
     return () => {
       if (fieldChangeLogTimeoutRef.current) {
