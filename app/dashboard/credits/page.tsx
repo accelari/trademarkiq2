@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Search
 } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 interface CreditBalance {
   credits: number;
@@ -128,15 +129,6 @@ export default function CreditsPage() {
     return <CheckCircle className="w-8 h-8 text-green-500" />;
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("de-DE", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
     const getTransactionIcon = (type: string) => {
       switch (type) {
@@ -565,7 +557,7 @@ export default function CreditsPage() {
                                   <div>
                                     <p className="text-sm font-medium text-gray-900">{tx.description}</p>
                                     <div className="flex items-center gap-2">
-                                      <p className="text-xs text-gray-500">{formatDate(tx.createdAt)}</p>
+                                      <p className="text-xs text-gray-500">{formatDate(tx.createdAt, { includeTime: true })}</p>
                                       {tx.type === "usage" && (
                                         <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded capitalize">
                                           {getProviderFromDescription(tx.description)}

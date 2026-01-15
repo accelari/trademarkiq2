@@ -16,6 +16,7 @@ import {
   Clock,
   Server
 } from "lucide-react";
+import { formatDate, formatCurrency } from "@/lib/utils";
 
 interface CostOverview {
   period: {
@@ -118,22 +119,6 @@ export default function AdminCostsPage() {
     }
   }, [status, days]);
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("de-DE", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString("de-DE", {
-      style: "currency",
-      currency: "EUR",
-    });
-  };
 
   const getProviderColor = (provider: string) => {
     const colors: Record<string, string> = {
@@ -359,7 +344,7 @@ export default function AdminCostsPage() {
                         </span>
                         <span className="text-xs text-gray-500">{call.model}</span>
                       </div>
-                      <span className="text-xs text-gray-400">{formatDate(call.createdAt)}</span>
+                      <span className="text-xs text-gray-400">{formatDate(call.createdAt, { includeTime: true })}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 text-xs text-gray-500">

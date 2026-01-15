@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { MessageSquare, User, Bot, Clock, Hash, DollarSign, Calendar, Filter, RefreshCw } from "lucide-react";
+import { formatDate, formatTime } from "@/lib/utils";
 
 interface ChatMessage {
   id: string;
@@ -93,15 +94,6 @@ export default function ChatMonitorPage() {
     credits: sessions.reduce((acc, s) => acc + s.totalCredits, 0),
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  };
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-  };
 
   return (
     <div className="max-w-6xl mx-auto p-6">

@@ -6,6 +6,7 @@ import {
   Users, Search, Filter, RefreshCw, Eye, MessageSquare, 
   MousePointer, Briefcase, Calendar, Clock
 } from "lucide-react";
+import { formatDate, formatRelativeTime } from "@/lib/utils";
 
 interface UserData {
   id: string;
@@ -65,29 +66,6 @@ export default function AdminUsersPage() {
     return matchesSearch;
   });
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("de-DE", { 
-      day: "2-digit", 
-      month: "2-digit", 
-      year: "numeric" 
-    });
-  };
-
-  const formatRelativeTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Gerade eben";
-    if (diffMins < 60) return `Vor ${diffMins} Min`;
-    if (diffHours < 24) return `Vor ${diffHours} Std`;
-    if (diffDays < 7) return `Vor ${diffDays} Tagen`;
-    return formatDate(dateStr);
-  };
 
   return (
     <div className="max-w-7xl mx-auto p-6">

@@ -18,6 +18,7 @@ import {
   CheckSquare,
   Minus,
 } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -58,18 +59,6 @@ const STEPS = [
   { key: "fristen", label: "Fristen" },
 ];
 
-function formatGermanDate(dateStr: string): string {
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("de-DE", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  } catch {
-    return "-";
-  }
-}
 
 function getStatusBadge(status: string) {
   switch (status) {
@@ -198,10 +187,10 @@ function CaseCard({
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-2">
-            <span>Erstellt: {formatGermanDate(caseData.createdAt)}</span>
-            <span>Aktualisiert: {formatGermanDate(caseData.updatedAt)}</span>
-          </div>
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-2">
+                      <span>Erstellt: {formatDate(caseData.createdAt)}</span>
+                      <span>Aktualisiert: {formatDate(caseData.updatedAt)}</span>
+                    </div>
 
           <StepProgress steps={caseData.steps || []} />
         </div>

@@ -7,6 +7,7 @@ import {
   MessageSquare, Briefcase, RefreshCw, ChevronDown, ChevronUp,
   FileText, AlertCircle, CheckCircle, XCircle
 } from "lucide-react";
+import { formatDate, formatTime } from "@/lib/utils";
 
 interface UserDetail {
   id: string;
@@ -101,23 +102,6 @@ export default function UserDetailPage() {
     if (userId) loadUserData();
   }, [userId]);
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("de-DE", { 
-      day: "2-digit", 
-      month: "2-digit", 
-      year: "numeric" 
-    });
-  };
-
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString("de-DE", { 
-      hour: "2-digit", 
-      minute: "2-digit",
-      second: "2-digit"
-    });
-  };
 
   const formatDuration = (seconds: number | null) => {
     if (!seconds) return "-";
