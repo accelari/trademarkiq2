@@ -1289,6 +1289,32 @@ if (markeMatch?.[1]) {
 
 ---
 
+#### 4b. Inkonsistente Namenskonvention in Context-Interfaces
+
+**Status:** DOKUMENTIERT (bewusste Entscheidung)
+**Dateien:** `lib/prompts/beratung.ts`, `lib/prompts/recherche.ts`, `lib/prompts/anmeldung.ts`
+
+**Problem:** Die Context-Interfaces verwenden unterschiedliche Sprachen für Feldnamen:
+
+| Interface | Sprache | Beispiel-Felder |
+|-----------|---------|-----------------|
+| `BeratungContext` | Deutsch | `markenname`, `markenart`, `klassen`, `laender` |
+| `RechercheContext` | Englisch | `trademarkName`, `niceClasses`, `countries`, `trademarkType` |
+| `AnmeldungContext` | Englisch | `trademarkName`, `trademarkType`, `niceClasses`, `countries` |
+| `MarkennameContext` | Englisch | `trademarkName`, `trademarkType`, `niceClasses`, `countries` |
+
+**Empfehlung:** Bei zukünftigen Refactorings auf einheitliche englische Feldnamen umstellen:
+- `markenname` → `trademarkName`
+- `markenart` → `trademarkType`
+- `klassen` → `niceClasses`
+- `laender` → `countries`
+
+**Hinweis:** Eine Änderung würde viele Stellen im Code betreffen (page.tsx, Prompt-Dateien, etc.) und sollte nur bei einem größeren Refactoring durchgeführt werden.
+
+**Aufwand:** 2-3 Stunden (bei vollständiger Umstellung)
+
+---
+
 ### MITTEL - Architektur-Verbesserungen
 
 #### 5. Zentrales Trigger-System
