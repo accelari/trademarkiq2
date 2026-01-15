@@ -5,9 +5,9 @@ import { trademarkCases, caseSteps, caseEvents } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 
 const RESETTABLE_STEPS: Record<string, string[]> = {
-  beratung: ["beratung", "markenname", "recherche", "analyse", "ueberpruefung", "anmeldung", "kommunikation", "ueberwachung", "fristen"],
-  markenname: ["markenname", "recherche", "analyse", "ueberpruefung", "anmeldung", "kommunikation", "ueberwachung", "fristen"],
-  recherche: ["recherche", "analyse", "ueberpruefung", "anmeldung", "kommunikation", "ueberwachung", "fristen"],
+  beratung: ["beratung", "markenname", "recherche", "analyse", "anmeldung", "kommunikation", "ueberwachung", "fristen"],
+  markenname: ["markenname", "recherche", "analyse", "anmeldung", "kommunikation", "ueberwachung", "fristen"],
+  recherche: ["recherche", "analyse", "anmeldung", "kommunikation", "ueberwachung", "fristen"],
 };
 
 function getStepsToReset(fromStep: string): string[] {

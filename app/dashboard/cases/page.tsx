@@ -53,7 +53,6 @@ const STEPS = [
   { key: "markenname", label: "Markenname" },
   { key: "recherche", label: "Recherche" },
   { key: "analyse", label: "Analyse" },
-  { key: "ueberpruefung", label: "Prüfung" },
   { key: "anmeldung", label: "Anmeldung" },
   { key: "kommunikation", label: "Komm." },
   { key: "ueberwachung", label: "Monitor" },

@@ -125,7 +125,6 @@ export async function GET(
         markenname: stepMap["markenname"] || defaultStep,
         recherche: stepMap["recherche"] || defaultStep,
         analyse: stepMap["analyse"] || defaultStep,
-        ueberpruefung: stepMap["ueberpruefung"] || defaultStep,
         anmeldung: stepMap["anmeldung"] || defaultStep,
         kommunikation: stepMap["kommunikation"] || defaultStep,
         ueberwachung: stepMap["ueberwachung"] || defaultStep,
