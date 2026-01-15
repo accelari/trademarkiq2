@@ -6,7 +6,7 @@
 export interface AnmeldungContext {
   trademarkName: string;
   trademarkType: string;
-  niceClasses: string[];
+  niceClasses: number[];
   countries: string[];
   applicantType?: string;
   applicantName?: string;
