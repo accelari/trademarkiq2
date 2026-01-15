@@ -828,6 +828,8 @@ lastNotifiedStateRef                // Letzter bekannter Zustand (JSON)
 manualChangeTimeoutRef              // 10s Debounce für Chat-Benachrichtigung
 lastProcessedBeratungMsgIdRef       // Verhindert doppelte Trigger-Verarbeitung
 isFirstManualCheckRef               // Ersten Render überspringen
+hasNotifiedCompleteRef              // Verhindert mehrfache "Alles komplett" Nachrichten
+lastAccordionRef                    // Letztes Akkordeon (für Reset)
 
 // Anmeldung (zusätzlich)
 anmeldungTriggerChangeInProgressRef
@@ -870,6 +872,113 @@ if (missing.length === 0 && !hasNotifiedCompleteRef.current) {
   );
 }
 ```
+
+---
+
+## Manuelle Feldausfüllung in Beratung (Detaillierte Analyse)
+
+### Übersicht: Hybrid-Ansatz
+
+Der Code verwendet einen **"Hybrid-Ansatz"** für die Reaktion auf manuelle Feldänderungen:
+
+| Situation | Reaktion |
+|-----------|----------|
+| Einzelne Felder geändert | STILL protokollieren (nur Event-Log, kein Chat) |
+| ALLE Felder komplett | EINMAL Chat-Nachricht an KI senden |
+
+### Schritt 1: Event-Logging (Zeile 1863-1910)
+
+Wenn der Benutzer ein Feld manuell ändert:
+
+```
+1. useEffect überwacht: manualNameInput, trademarkType, niceClasses, countries
+2. Prüfung: triggerChangeInProgressRef.current === false (nicht durch KI-Trigger)
+3. Prüfung: lastLoggedFieldsRef.current.initialized === true
+4. 1.5s Debounce warten
+5. Für jedes geänderte Feld:
+   └── logEvent("field_change", "Markenname → 'Name'")
+```
+
+**Wichtig:** Das ist NUR für das Event-Log (Protokollierung), KEINE Chat-Nachricht!
+
+### Schritt 2: Prüfung auf Vollständigkeit (Zeile 2004-2134)
+
+```
+1. Bedingungen prüfen:
+   └── sessionMessages.length > 0 (Session aktiv)
+   └── triggerChangeInProgressRef.current === false (nicht durch KI)
+   └── openAccordion === "beratung" (oder markenname/recherche)
+   └── Zustand hat sich geändert (currentState !== lastNotifiedStateRef.current)
+   
+2. Zustand still aktualisieren:
+   └── lastNotifiedStateRef.current = currentState
+   
+3. 10 Sekunden warten (Debounce)
+
+4. Prüfe was fehlt (für Beratung):
+   └── Markenname vorhanden? → if (!currentName) missing.push("Markenname")
+   └── Nizza-Klassen vorhanden? → if (niceClasses.length === 0) missing.push("Nizza-Klassen")
+   └── Länder vorhanden? → if (countries.length === 0) missing.push("Länder")
+   └── Markenart bestätigt? → if (!isTrademarkTypeConfirmed) missing.push("Markenart")
+```
+
+### Schritt 3: KI-Reaktion (nur wenn ALLES komplett)
+
+Wenn `missing.length === 0` UND `hasNotifiedCompleteRef.current === false`:
+
+```typescript
+// Zeile 2113-2122
+targetRef.current?.sendQuestion(
+  `[SYSTEM: Alle Angaben komplett! ${present.join(", ")}. 
+  WICHTIG - Befolge diese Schritte:
+  1) Führe ZUERST eine Web-Suche durch um den Markennamen zu prüfen: [WEB_SUCHE:${currentName} trademark brand company]
+  2) Warne bei Konflikten und erkläre was du gefunden hast
+  3) ${needsLogo ? 'Bei Bildmarke/Wort-Bildmarke: Frag "Möchtest du jetzt dein Logo erstellen?" - bei JA dann [GOTO:markenname]' : 'Bei Wortmarke: Frag "Sollen wir zur Recherche gehen?" - bei JA dann [GOTO:recherche]'}
+  4) Warte auf User-Antwort bevor du navigierst!]`
+);
+```
+
+**Was die KI dann macht:**
+1. Führt Web-Suche durch mit `[WEB_SUCHE:Name trademark brand company]`
+2. Erklärt die Suchergebnisse (Konflikte, ähnliche Marken)
+3. Fragt nach nächstem Schritt (Logo erstellen oder Recherche)
+4. Wartet auf Benutzer-Antwort bevor Navigation
+
+### Schritt 4: Wenn NICHT alles komplett
+
+```
+- KEINE Chat-Nachricht wird gesendet
+- Nur stilles Protokollieren im Event-Log
+- Benutzer kann weiter Felder ausfüllen
+- System wartet bis ALLE Felder komplett sind
+```
+
+### Reset bei Akkordeon-Wechsel (Zeile 2011-2024)
+
+```typescript
+if (lastAccordionRef.current !== openAccordion) {
+  lastAccordionRef.current = openAccordion;
+  hasNotifiedCompleteRef.current = false; // Reset!
+  lastNotifiedStateRef.current = JSON.stringify({ ... });
+  return; // Keine Benachrichtigung beim Wechsel
+}
+```
+
+### Unterschiede je nach Akkordeon
+
+| Akkordeon | Erforderliche Felder | KI-Nachricht bei Vollständigkeit |
+|-----------|---------------------|----------------------------------|
+| Beratung | Name, Klassen, Länder, Art | Web-Suche + Navigation zu Markenname/Recherche |
+| Markenname | Name, Art, Logo (bei Bildmarke) | Frag ob zur Recherche weitergehen |
+| Recherche | Name, Klassen, Länder | Bestätige und biete Recherche-Start an |
+
+### Timing-Zusammenfassung
+
+| Timing | Verwendung |
+|--------|------------|
+| 1.5s | Debounce für Event-Log Einträge |
+| 10s | Debounce für "Alles komplett" Chat-Nachricht |
+| 100ms | Flag zurücksetzen nach KI-Trigger |
 
 ---
 
