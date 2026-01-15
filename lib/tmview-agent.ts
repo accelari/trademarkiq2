@@ -38,9 +38,11 @@ export class TMViewAgent {
         fs.unlinkSync(path.join(this.screenshotDir, file));
       }
 
-      const executablePath = "/nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium";
+      const executablePath = process.env.CHROMIUM_PATH || 
+        process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
+        "/nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium";
 
-      console.log(`[TMView Agent] Using System Chromium at: ${executablePath}`);
+      console.log(`[TMView Agent] Using Chromium at: ${executablePath}`);
 
       this.browser = await chromium.launch({
         headless: true,
