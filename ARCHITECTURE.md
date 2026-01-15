@@ -295,6 +295,247 @@ RESEND_API_KEY=...
 
 ---
 
+## KI-Chatbot-System (Akkordeon-Berater)
+
+Die Hauptseite (`/dashboard/case/[caseId]/page.tsx`) enthält mehrere KI-Berater, die in verschiedenen Akkordeons arbeiten. Jeder Berater hat einen eigenen Kontext und spezifische Trigger.
+
+### Architektur-Übersicht
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ClaudeAssistant Component                     │
+│  (app/components/ClaudeAssistant.tsx)                           │
+├─────────────────────────────────────────────────────────────────┤
+│  - Verwaltet Chat-UI und Nachrichten                            │
+│  - Sendet Anfragen an /api/claude-chat                          │
+│  - Verarbeitet Trigger aus KI-Antworten                         │
+│  - Unterstützt Spracheingabe (Hume AI) und Bildupload           │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Prompt-System (lib/prompts/)                  │
+├─────────────────────────────────────────────────────────────────┤
+│  beratung.ts    → getBeratungRules(context)                     │
+│  markenname.ts  → getMarkennameRules(context)                   │
+│  recherche.ts   → getRechercheRules(context)                    │
+│  anmeldung.ts   → getAnmeldungRules(context)                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Akkordeon 1: Beratung
+
+**Datei:** `lib/prompts/beratung.ts`
+
+**Rolle:** Markenrechts-Experte mit 40 Jahren Erfahrung
+
+**Kontext-Daten:**
+- `markenname` - Der Markenname (oder "❌ fehlt")
+- `markenart` - Wortmarke/Bildmarke/Wort-Bildmarke
+- `klassen` - Nizza-Klassen (01-45)
+- `laender` - Zielländer (DE, EU, US, etc.)
+
+**Trigger (Chat → Formular):**
+| Trigger | Funktion |
+|---------|----------|
+| `[MARKE:Name]` | Setzt den Markennamen |
+| `[ART:wortmarke]` | Setzt Markenart (wortmarke/bildmarke/wort-bildmarke) |
+| `[KLASSEN:09,42]` | Setzt Nizza-Klassen |
+| `[LAENDER:DE,EU,US]` | Setzt Zielländer |
+| `[WEB_SUCHE:query]` | Startet Tavily Web-Suche |
+| `[WEITERE_RECHERCHE]` | Setzt Formular zurück für neue Recherche |
+| `[WEITER:markenname]` | Navigiert zu Markenname-Akkordeon |
+| `[WEITER:recherche]` | Navigiert zu Recherche-Akkordeon |
+
+**Wichtige Verhaltensregeln:**
+1. Web-Suche proaktiv bei jedem neuen Markennamen
+2. Bei Konflikten WARTEN auf Benutzer-Bestätigung (keine Trigger setzen!)
+3. Verwandte Klassen vorschlagen (z.B. Software Kl.9 → auch Kl.42)
+4. Berühmte Marken warnen (Apple, Nike, etc. auch in anderen Klassen)
+
+**Abschluss-Flow:**
+1. Alle 4 Felder ausgefüllt → Zusammenfassung zeigen
+2. Benutzer bestätigt → Bei Bildmarke: `[WEITER:markenname]`, Bei Wortmarke: `[WEITER:recherche]`
+
+---
+
+### Akkordeon 2: Markenname (Logo)
+
+**Datei:** `lib/prompts/markenname.ts`
+
+**Rolle:** Logo-Designer und Markenrechts-Experte
+
+**Kontext-Daten:**
+- `trademarkName` - Der Markenname
+- `trademarkType` - Die Markenart
+- `hasLogo` - Ob bereits ein Logo vorhanden ist
+- `niceClasses` - Die gewählten Klassen
+- `countries` - Die gewählten Länder
+
+**Trigger:**
+| Trigger | Funktion |
+|---------|----------|
+| `[MARKE:Name]` | Ändert den Markennamen |
+| `[ART:bildmarke]` | Ändert die Markenart |
+| `[LOGO_GENERIEREN:prompt]` | Generiert neues Logo (Ideogram API) |
+| `[LOGO_BEARBEITEN:änderung]` | Bearbeitet bestehendes Logo (BFL FLUX API) |
+| `[KLASSEN:01,02]` | Ändert Klassen |
+| `[LAENDER:DE,EU]` | Ändert Länder |
+| `[GOTO:recherche]` | Navigiert zur Recherche |
+
+**Logo-Prompt Format (englisch, für KI-Bildgenerator):**
+```
+[LOGO_GENERIEREN:Logo for "Markenname", modern minimalist, blue and white colors, abstract geometric shape, vector style, clean design]
+```
+
+**Wann BEARBEITEN vs. NEU GENERIEREN:**
+- Kleine Änderung (Farbe, Element entfernen) → `[LOGO_BEARBEITEN:...]`
+- Komplett neues Design → `[LOGO_GENERIEREN:...]`
+
+---
+
+### Akkordeon 3: Recherche
+
+**Datei:** `lib/prompts/recherche.ts`
+
+**Rolle:** Markenrechts-Experte für Recherche-Ergebnisse
+
+**Kontext-Daten:**
+- `trademarkName` - Der Markenname
+- `niceClasses` - Die gewählten Klassen
+- `countries` - Die gewählten Länder
+- `trademarkType` - Die Markenart
+- `isRunningAnalysis` - Ob gerade eine Recherche läuft
+
+**Trigger:**
+| Trigger | Funktion |
+|---------|----------|
+| `[RECHERCHE_STARTEN]` | Startet TMSearch API-Suche |
+| `[WEB_SUCHE:query]` | Sucht allgemeine Infos im Internet |
+| `[WEITER:checkliste]` | Navigiert zur Checkliste |
+| `[WEITER:beratung]` | Zurück zur Beratung (bei Namensänderung) |
+
+**Recherche-Ablauf:**
+1. Validierung: Name, Klassen, Länder vorhanden?
+2. API-Call: `/api/tmsearch/analyze-stream` (Server-Sent Events)
+3. 5 Schritte: TMSearch API → Filter → Details → AI Analyse → Zusammenfassung
+4. Ergebnis: Risiko-Score, Konflikte, Empfehlung (GO/WARNUNG/NO-GO)
+5. KI erklärt Ergebnisse automatisch
+
+**Nach Recherche-Ergebnis:**
+- GO (keine Konflikte): Weiterleitung zur Anmeldung
+- WARNUNG (ähnliche Marken): Risiko erklären, Entscheidung dem Benutzer überlassen
+- NO-GO (Konflikt): Alternativen vorschlagen
+
+---
+
+### Akkordeon 4: Anmeldung
+
+**Datei:** `lib/prompts/anmeldung.ts`
+
+**Rolle:** Anmeldungs-Berater für Markenregistrierung
+
+**Kontext-Daten:**
+- `trademarkName`, `trademarkType`, `niceClasses`, `countries`
+- `applicantType` - Privatperson oder Firma
+- `applicantName`, `applicantStreet`, `applicantZip`, `applicantCity`
+- `applicantCountry`, `applicantEmail`, `applicantPhone`, `applicantLegalForm`
+
+**Trigger:**
+| Trigger | Funktion |
+|---------|----------|
+| `[ANMELDER_TYP:privat]` | Setzt Anmeldertyp (privat/firma) |
+| `[ANMELDER_NAME:...]` | Setzt Anmeldername |
+| `[ANMELDER_STRASSE:...]` | Setzt Straße |
+| `[ANMELDER_PLZ:...]` | Setzt PLZ |
+| `[ANMELDER_ORT:...]` | Setzt Ort |
+| `[ANMELDER_LAND:...]` | Setzt Land |
+| `[ANMELDER_EMAIL:...]` | Setzt E-Mail |
+| `[ANMELDER_TELEFON:...]` | Setzt Telefon |
+| `[ANMELDER_RECHTSFORM:...]` | Setzt Rechtsform (bei Firma) |
+| `[KOSTEN_BERECHNEN]` | Berechnet Anmeldekosten |
+
+**Bidirektionale Synchronisation (Formular ↔ Chat):**
+
+Das Anmeldung-Akkordeon unterstützt bidirektionale Synchronisation:
+
+1. **Chat → Formular:** KI-Trigger füllen Formularfelder automatisch
+2. **Formular → Chat:** Manuelle Änderungen werden erkannt und dem KI mitgeteilt
+
+**Technische Implementierung:**
+```typescript
+// Refs für Synchronisation
+anmeldungTriggerChangeInProgressRef  // Flag: Änderung durch KI-Trigger
+lastLoggedAnmeldungFieldsRef         // Letzte geloggte Feldwerte
+anmeldungFieldChangeLogTimeoutRef    // 1.5s Debounce für Feld-Logging
+anmeldungManualChangeTimeoutRef      // 10s Debounce für Chat-Benachrichtigung
+```
+
+**Ablauf bei manueller Formular-Änderung:**
+1. Benutzer ändert Feld im Formular
+2. 1.5s Debounce → Änderung wird im Event-Log protokolliert
+3. Wenn ALLE Felder ausgefüllt → 10s warten
+4. Chat-Nachricht an KI: "Benutzer hat alle Daten manuell eingegeben"
+5. KI bestätigt und bietet Kostenberechnung an
+
+---
+
+### Datenfluss zwischen Akkordeons
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Beratung   │ ──▶ │  Markenname  │ ──▶ │  Recherche   │ ──▶ │  Anmeldung   │
+└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+       │                    │                    │                    │
+       ▼                    ▼                    ▼                    ▼
+   markenname          trademarkName        rechercheForm        applicantData
+   markenart           trademarkType        niceClasses          calculatedCosts
+   klassen             logoGallery          countries
+   laender             trademarkImageUrl    liveAnalysisResult
+```
+
+**Gemeinsame State-Variablen:**
+- `sessionMessages` - Chat-Verlauf (wird zwischen Akkordeons geteilt)
+- `rechercheForm` - Enthält Name, Klassen, Länder
+- `trademarkType` - Markenart
+- `applicantData` - Anmelder-Daten
+
+**Navigation:**
+- `handleToggleAccordion(stepId)` - Öffnet/schließt Akkordeon
+- `setOpenAccordion(stepId)` - Setzt aktives Akkordeon direkt
+
+---
+
+### Trigger-Verarbeitung (page.tsx)
+
+Die Trigger werden in der Hauptseite verarbeitet:
+
+```typescript
+// Beratung-Trigger (processBeratungTriggers)
+const markeMatch = content.match(/\[MARKE:([^\]]+)\]/i);
+const artMatch = content.match(/\[ART:(wortmarke|bildmarke|wort-bildmarke)\]/i);
+const klassenMatch = content.match(/\[KLASSEN:([^\]]+)\]/i);
+const laenderMatch = content.match(/\[LAENDER:([^\]]+)\]/i);
+const webSucheMatch = content.match(/\[WEB_SUCHE:([^\]]+)\]/i);
+const weitereRechercheMatch = content.includes("[WEITERE_RECHERCHE]");
+const weiterMatch = content.match(/\[WEITER:(beratung|markenname|recherche|anmeldung)\]/i);
+
+// Markenname-Trigger (processMarkennameTriggers)
+const logoGenMatch = content.match(/\[LOGO_GENERIEREN:([^\]]+)\]/i);
+const logoEditMatch = content.match(/\[LOGO_BEARBEITEN:([^\]]+)\]/i);
+
+// Recherche-Trigger (processRechercheTriggers)
+const rechercheStartMatch = content.includes("[RECHERCHE_STARTEN]");
+
+// Anmeldung-Trigger (processAnmeldungTriggers)
+const typMatch = content.match(/\[ANMELDER_TYP:(privat|firma)\]/i);
+const nameMatch = content.match(/\[ANMELDER_NAME:([^\]]+)\]/i);
+// ... weitere Anmelder-Felder
+const kostenMatch = content.includes("[KOSTEN_BERECHNEN]");
+```
+
+---
+
 ## Letzte Änderungen (Januar 2026)
 
 - Credit & API Monitoring System implementiert
@@ -302,3 +543,5 @@ RESEND_API_KEY=...
 - Regionale WIPO-Codes (BX, OA) Unterstützung
 - 194 WIPO-Mitgliedsstaaten in Länderauswahl
 - Search Coverage Reporting für nicht-durchsuchte Register
+- Bidirektionale Synchronisation für Anmeldung-Akkordeon
+- "Weiter zur Anmeldung" Button im Recherche-Akkordeon
