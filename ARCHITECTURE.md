@@ -495,10 +495,16 @@ anmeldungManualChangeTimeoutRef      // 10s Debounce für Chat-Benachrichtigung
 ```
 
 **Gemeinsame State-Variablen:**
-- `sessionMessages` - Chat-Verlauf (wird zwischen Akkordeons geteilt)
+- `sessionMessages` - Chat-Verlauf (wird zwischen ALLEN Akkordeons geteilt: Beratung, Markenname, Recherche, Anmeldung)
 - `rechercheForm` - Enthält Name, Klassen, Länder
 - `trademarkType` - Markenart
 - `applicantData` - Anmelder-Daten
+
+**Akkordeons mit KI-Berater:**
+- `accordionsWithAI = ["beratung", "markenname", "recherche", "anmeldung"]`
+- Alle nutzen `sessionMessages` für gemeinsamen Chat-Verlauf
+- Alle haben `alwaysShowMessages={sessionMessages.length > 0}` für konsistente Anzeige
+- Alle bekommen automatische Begrüßung beim Akkordeon-Wechsel
 
 **Navigation:**
 - `handleToggleAccordion(stepId)` - Öffnet/schließt Akkordeon

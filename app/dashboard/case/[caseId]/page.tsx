@@ -1265,7 +1265,7 @@ export default function CasePage() {
 
   // Anmeldung Voice Assistant
   const anmeldungVoiceRef = useRef<ClaudeAssistantHandle>(null);
-  const [anmeldungMessages, setAnmeldungMessages] = useState<any[]>([]);
+  // sessionMessages entfernt - nutzt jetzt sessionMessages wie andere Akkordeons
   const [anmeldungSummary, setAnmeldungSummary] = useState<string | null>(null);
   
   // Event-Protokoll System
@@ -1369,19 +1369,19 @@ export default function CasePage() {
 
   // Generiere Strategie aus Anmeldungs-Nachrichten
   const generateAnmeldungStrategy = useCallback(async () => {
-    if (anmeldungMessages.length < 4) return; // Mindestens 2 Austausche
+    if (sessionMessages.length < 4) return; // Mindestens 2 Austausche
     if (isGeneratingStrategy) return;
-    if (anmeldungMessages.length === lastStrategyMessageCountRef.current) return;
+    if (sessionMessages.length === lastStrategyMessageCountRef.current) return;
 
     setIsGeneratingStrategy(true);
-    lastStrategyMessageCountRef.current = anmeldungMessages.length;
+    lastStrategyMessageCountRef.current = sessionMessages.length;
 
     try {
       const response = await fetch("/api/anmeldung/generate-strategy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: anmeldungMessages,
+          messages: sessionMessages,
           context: {
             trademarkName: data?.case?.trademarkName || manualNameInput || "",
             trademarkType: trademarkType,
@@ -1402,18 +1402,18 @@ export default function CasePage() {
     } finally {
       setIsGeneratingStrategy(false);
     }
-  }, [anmeldungMessages, data?.case?.trademarkName, manualNameInput, trademarkType, rechercheForm.niceClasses, rechercheForm.countries, isGeneratingStrategy]);
+  }, [sessionMessages, data?.case?.trademarkName, manualNameInput, trademarkType, rechercheForm.niceClasses, rechercheForm.countries, isGeneratingStrategy]);
 
   // Automatisch Strategie generieren wenn neue Nachrichten kommen
   useEffect(() => {
-    if (anmeldungMessages.length >= 4 && anmeldungMessages.length > lastStrategyMessageCountRef.current) {
+    if (sessionMessages.length >= 4 && sessionMessages.length > lastStrategyMessageCountRef.current) {
       // Debounce: Warte 2 Sekunden nach der letzten Nachricht
       const timer = setTimeout(() => {
         generateAnmeldungStrategy();
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [anmeldungMessages.length, generateAnmeldungStrategy]);
+  }, [sessionMessages.length, generateAnmeldungStrategy]);
 
   // Automatischer Akkordeon-Wechsel via [WEITER:ziel] Trigger
   const lastRedirectMsgIdRef = useRef<string | null>(null);
@@ -1588,7 +1588,7 @@ export default function CasePage() {
     if (sessionMessages.length === 0) return;
     if (!openAccordion) return;
     
-    const accordionsWithAI = ["beratung", "markenname", "recherche"];
+    const accordionsWithAI = ["beratung", "markenname", "recherche", "anmeldung"];
     if (!accordionsWithAI.includes(openAccordion)) return;
     
     // Erste Nachricht erscheint → Start-Akkordeon als besucht markieren
@@ -1619,8 +1619,8 @@ export default function CasePage() {
       logEvent("accordion_change", `Wechsel zu "${allAccordionNames[openAccordion] || openAccordion}"`, `Von: ${lastVisitedAccordionRef.current || "Start"}`);
     }
     
-    // Nur bei Akkordeons mit KI-Berater (Beratung, Markenname, Recherche)
-    const accordionsWithAI = ["beratung", "markenname", "recherche"];
+    // Nur bei Akkordeons mit KI-Berater (Beratung, Markenname, Recherche, Anmeldung)
+    const accordionsWithAI = ["beratung", "markenname", "recherche", "anmeldung"];
     if (!accordionsWithAI.includes(openAccordion)) {
       lastVisitedAccordionRef.current = openAccordion;
       return;
@@ -1689,7 +1689,14 @@ ${rechercheForm.trademarkName ? `Markenname: "${rechercheForm.trademarkName}"` :
 ${(rechercheForm.niceClasses?.length ?? 0) > 0 ? `Klassen: ${rechercheForm.niceClasses?.join(", ")}` : ""}
 ${(rechercheForm.countries?.length ?? 0) > 0 ? `Länder: ${rechercheForm.countries?.join(", ")}` : ""}
 
-Soll ich die Recherche starten?`
+Soll ich die Recherche starten?`,
+      anmeldung: `Wir sind jetzt im Bereich **Anmeldung**! 🎉
+
+Ich sehe, du möchtest "${manualNameInput || rechercheForm.trademarkName || "[Markenname]"}" als ${trademarkType === "wortmarke" ? "Wortmarke" : trademarkType === "bildmarke" ? "Bildmarke" : "Wort-/Bildmarke"} anmelden.
+
+Für die Anmeldung brauche ich noch ein paar Angaben zu dir als Anmelder.
+
+**Meldest du als Privatperson oder als Firma an?**`
     };
     
     const contextMsg = contextMessages[openAccordion];
@@ -1700,7 +1707,9 @@ Soll ich die Recherche starten?`
         ? voiceAssistantRef 
         : openAccordion === "markenname" 
           ? markennameVoiceRef 
-          : rechercheVoiceRef;
+          : openAccordion === "anmeldung"
+            ? anmeldungVoiceRef
+            : rechercheVoiceRef;
       
       // Streaming-Effekt wie bei Begrüßung
       targetRef.current?.simulateStreaming(contextMsg);
@@ -2133,7 +2142,7 @@ WICHTIG - Befolge diese Schritte:
   // ANMELDUNG: Chat-Benachrichtigung bei manuellen Änderungen (10s Debounce)
   useEffect(() => {
     // Nicht wenn keine Anmeldung-Session aktiv oder wenn Änderung durch KI-Trigger kam
-    if (anmeldungMessages.length === 0) return;
+    if (sessionMessages.length === 0) return;
     if (anmeldungTriggerChangeInProgressRef.current) return;
     // Nur im Anmeldung-Akkordeon aktiv
     if (openAccordion !== "anmeldung") return;
@@ -2199,7 +2208,7 @@ WICHTIG - Befolge diese Schritte:
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applicantData, anmeldungMessages.length, openAccordion]);
+  }, [applicantData, sessionMessages.length, openAccordion]);
 
   // Trigger-Erkennung für RECHERCHE (jetzt auch sessionMessages)
   const lastProcessedRechercheMsgIdRef = useRef<string | null>(null);
@@ -4070,12 +4079,12 @@ WICHTIG - Befolge diese Schritte:
 
     // Anmeldung: Trigger-Verarbeitung bei neuen Nachrichten
     useEffect(() => {
-      if (anmeldungMessages.length === 0) return;
-      const lastMsg = anmeldungMessages[anmeldungMessages.length - 1];
+      if (sessionMessages.length === 0) return;
+      const lastMsg = sessionMessages[sessionMessages.length - 1];
       if (lastMsg?.role === "assistant" && lastMsg.content) {
         processAnmeldungTriggers(lastMsg.content);
       }
-    }, [anmeldungMessages, processAnmeldungTriggers]);
+    }, [sessionMessages, processAnmeldungTriggers]);
 
     // Anmeldung: Profil laden wenn Akkordeon geöffnet wird
     useEffect(() => {
@@ -7914,10 +7923,11 @@ Antworte kurz und prägnant. Per DU.
           <ClaudeAssistant
             ref={anmeldungVoiceRef}
             caseId={caseId}
-            onMessageSent={(msg) => setAnmeldungMessages((prev) => [...prev, msg])}
-            previousMessages={anmeldungMessages}
+            onMessageSent={(msg) => setSessionMessages((prev) => [...prev, msg])}
+            previousMessages={sessionMessages}
             title="KI-Anmeldungsberater"
             subtitle="Hilft bei Anmelder-Daten & Kosten"
+            alwaysShowMessages={sessionMessages.length > 0}
             systemPromptAddition={getAnmeldungRules(anmeldungContext)}
           />
 
