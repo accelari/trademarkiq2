@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import { logApiUsage } from "@/lib/api-logger";
 import { EU_COUNTRIES } from "@/lib/country-mapping";
+import { generateDeterministicVariants } from "@/lib/search-variants";
 
 const TMSEARCH_SEARCH_URL = "https://tmsearch.ai/api/search/";
 const TMSEARCH_INFO_URL = "https://tmsearch.ai/api/info/";
@@ -397,36 +398,69 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Anthropic API Key nicht konfiguriert" }, { status: 500 });
     }
 
-    // Step 1: Search for trademarks
-    const searchUrl = new URL(TMSEARCH_SEARCH_URL);
-    searchUrl.searchParams.set("keyword", keyword.trim());
-    searchUrl.searchParams.set("api_key", apiKey);
-
-    const searchRes = await fetch(searchUrl.toString(), {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    });
-
-    if (!searchRes.ok) {
-      return NextResponse.json(
-        { error: "tmsearch.ai Suche fehlgeschlagen", status: searchRes.status },
-        { status: searchRes.status }
-      );
-    }
-
-    let searchData: { total?: number; result?: TMSearchResult[] } | null = null;
-    const contentType = searchRes.headers.get("content-type") || "";
+    // Step 1: Search for trademarks with phonetic variants
+    // Generate phonetic variants to catch similar-sounding marks (e.g., "Atolino" should find "ATTOLINI")
+    const variants = generateDeterministicVariants(keyword.trim(), 5);
+    const searchTerms = variants.variants.map(v => v.term);
+    console.log(`[TMSearch] Searching with variants: ${searchTerms.join(", ")}`);
     
-    if (contentType.includes("application/json")) {
-      searchData = await searchRes.json().catch(() => null);
-    } else {
-      const text = await searchRes.text();
-      try { searchData = JSON.parse(text); } catch { /* ignore */ }
-    }
+    // Search for each variant and merge results
+    const allResults: TMSearchResult[] = [];
+    const seenMids = new Set<string | number>();
+    let totalRaw = 0;
+    
+    for (const searchTerm of searchTerms) {
+      const searchUrl = new URL(TMSEARCH_SEARCH_URL);
+      searchUrl.searchParams.set("keyword", searchTerm);
+      searchUrl.searchParams.set("api_key", apiKey);
 
-    const allResults = searchData?.result || [];
-    const totalRaw = searchData?.total || allResults.length;
+      try {
+        const searchRes = await fetch(searchUrl.toString(), {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
+
+        if (!searchRes.ok) {
+          console.log(`[TMSearch] Search failed for variant "${searchTerm}": HTTP ${searchRes.status}`);
+          continue;
+        }
+
+        let searchData: { total?: number; result?: TMSearchResult[] } | null = null;
+        const contentType = searchRes.headers.get("content-type") || "";
+        
+        if (contentType.includes("application/json")) {
+          searchData = await searchRes.json().catch(() => null);
+        } else {
+          const text = await searchRes.text();
+          try { searchData = JSON.parse(text); } catch { /* ignore */ }
+        }
+
+        const variantResults = searchData?.result || [];
+        totalRaw += searchData?.total || variantResults.length;
+        
+        // Add unique results (deduplicate by mid)
+        for (const result of variantResults) {
+          if (result.mid && !seenMids.has(result.mid)) {
+            seenMids.add(result.mid);
+            allResults.push(result);
+          } else if (!result.mid) {
+            // No mid, add anyway but check by name
+            const key = `${result.verbal}_${result.submition}`;
+            if (!seenMids.has(key)) {
+              seenMids.add(key);
+              allResults.push(result);
+            }
+          }
+        }
+        
+        console.log(`[TMSearch] Variant "${searchTerm}": ${variantResults.length} results, ${allResults.length} total unique`);
+      } catch (err) {
+        console.error(`[TMSearch] Error searching variant "${searchTerm}":`, err);
+      }
+    }
+    
+    console.log(`[TMSearch] Total unique results after variant search: ${allResults.length}`);
 
     // Step 2: Filter results
     const effectiveClasses = includeRelatedClasses && relatedClasses.length > 0
