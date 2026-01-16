@@ -3341,8 +3341,294 @@ formatLocalizedCurrency(99.99)      // "99,99 €" (de) / "€99.99" (en)
 
 ---
 
+## Deployment (Scalingo)
+
+### Übersicht
+
+Die Anwendung wird auf **Scalingo** gehostet (DSGVO-konform, Rechenzentrum in Frankreich).
+
+**App-URL:** https://trademarkiq.osc-fr1.scalingo.io
+**Region:** osc-fr1 (Frankreich)
+
+### Konfigurationsdateien
+
+**`scalingo.json`** - Deployment-Konfiguration:
+```json
+{
+  "name": "trademarkiq",
+  "formation": { "web": { "amount": 1, "size": "M" } },
+  "addons": ["postgresql:postgresql-starter-512"],
+  "scripts": {
+    "postdeploy": "npm run db:push"
+  }
+}
+```
+
+**`Procfile`** - Startbefehl:
+```
+web: PORT=$PORT node .next/standalone/server.js
+```
+
+### Automatisches Deployment
+
+1. **Code-Änderungen:** Werden automatisch deployed wenn auf GitHub gepusht wird
+2. **Datenbankstruktur:** Wird automatisch via `postdeploy: npm run db:push` angewendet
+3. **Dauer:** 3-5 Minuten pro Deployment
+
+### Umgebungsvariablen auf Scalingo
+
+Alle API-Keys und Secrets werden als Umgebungsvariablen auf Scalingo konfiguriert:
+- `DATABASE_URL` - PostgreSQL-Verbindung (automatisch von Scalingo)
+- `NEXTAUTH_URL` - https://trademarkiq.osc-fr1.scalingo.io
+- `NEXTAUTH_SECRET` - Auth-Secret
+- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.
+
+### Standalone Next.js Build
+
+Next.js wird mit `output: "standalone"` gebaut. Der Build-Prozess kopiert automatisch statische Dateien:
+```json
+// package.json
+"build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/"
+```
+
+---
+
+## Devin KI-Assistent Anweisungen
+
+### Präfix-System (`.devin/instructions.md`)
+
+Für schnellere Kommunikation mit Devin gibt es ein Präfix-System:
+
+| Präfix | Bedeutung | Beispiel |
+|--------|-----------|----------|
+| `a ` | Schnelle Antwort (Answer) | `a was ist der Port?` |
+| `d ` | Deep - lies zuerst ARCHITECTURE.md | `d implementiere Feature X` |
+
+**Datei:** `.devin/instructions.md`
+
+### Wichtige Anweisungen für Devin
+
+- Lokale App starten: `npm run dev` (Port 5000)
+- DATABASE_URL zeigt auf Scalingo-Datenbank (Produktion)
+- Deployment erfolgt automatisch bei GitHub-Push
+
+---
+
+## Zentrale Konfiguration (`lib/config.ts`)
+
+Alle konfigurierbaren Werte sind zentral in `lib/config.ts` definiert:
+
+```typescript
+export const CONFIG = {
+  // Debounce-Zeiten (in Millisekunden)
+  debounce: {
+    fieldChangeLog: 1500,      // Event-Log für Feldänderungen
+    manualChangeNotify: 10000, // Chat-Benachrichtigung bei manuellen Änderungen
+    accordionSwitch: 1500,     // Verzögerung bei Akkordeon-Wechsel
+  },
+  
+  // Trigger-Verarbeitung
+  triggers: {
+    flagResetDelay: 100,       // Reset von triggerChangeInProgressRef
+  },
+  
+  // UI
+  ui: {
+    streamingWordDelay: 30,    // Millisekunden pro Wort beim Streaming
+    scrollDelay: 100,          // Verzögerung vor Scroll zu neuer Nachricht
+  }
+};
+```
+
+**Verwendung:**
+```typescript
+import { CONFIG } from '@/lib/config';
+
+setTimeout(() => { ... }, CONFIG.debounce.fieldChangeLog);
+```
+
+---
+
+## Visuelles Trigger-Feedback (`TriggerFeedback.tsx`)
+
+### Übersicht
+
+Wenn die KI ein Formularfeld via Trigger ändert, wird dem Benutzer visuelles Feedback angezeigt mit Undo-Möglichkeit.
+
+**Datei:** `app/components/ui/TriggerFeedback.tsx`
+
+### Funktionsweise
+
+```
+1. KI setzt Trigger: [MARKE:Accelari]
+2. Formularfeld wird aktualisiert
+3. TriggerFeedback-Toast erscheint:
+   ┌─────────────────────────────────────┐
+   │ ✓ Markenname auf "Accelari" gesetzt │
+   │                          [Rückgängig]│
+   └─────────────────────────────────────┘
+4. Nach 5 Sekunden verschwindet der Toast
+5. Bei Klick auf "Rückgängig": Wert wird zurückgesetzt
+```
+
+### Props
+
+```typescript
+interface TriggerFeedbackProps {
+  fieldName: string;      // "Markenname", "Klassen", etc.
+  newValue: string;       // Der neue Wert
+  previousValue: string;  // Der vorherige Wert (für Undo)
+  onUndo: () => void;     // Callback für Rückgängig
+  onDismiss: () => void;  // Callback wenn Toast verschwindet
+}
+```
+
+---
+
+## Rate-Limiting (`lib/rate-limit.ts`)
+
+### Übersicht
+
+API-Endpunkte sind durch Rate-Limiting geschützt. Das System verwendet Redis wenn verfügbar, sonst einen In-Memory-Fallback.
+
+**Datei:** `lib/rate-limit.ts`
+
+### Konfiguration
+
+```typescript
+const rateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,  // 1 Minute Fenster
+  maxRequests: 100,     // Max 100 Anfragen pro Fenster
+  keyPrefix: 'api:',    // Redis-Key-Präfix
+});
+```
+
+### Verwendung in API-Routen
+
+```typescript
+import { rateLimiter } from '@/lib/rate-limit';
+
+export async function POST(request: Request) {
+  const ip = request.headers.get('x-forwarded-for') || 'unknown';
+  const { success, remaining } = await rateLimiter.check(ip);
+  
+  if (!success) {
+    return new Response('Too Many Requests', { status: 429 });
+  }
+  
+  // ... API-Logik
+}
+```
+
+---
+
+## Error-Boundaries (Next.js App Router)
+
+### Übersicht
+
+Die Anwendung verwendet Next.js App Router Error-Boundaries für besseres Fehler-Handling.
+
+### Dateien
+
+| Datei | Zweck |
+|-------|-------|
+| `app/error.tsx` | Globaler Error-Handler |
+| `app/dashboard/error.tsx` | Dashboard-spezifischer Error-Handler |
+| `app/not-found.tsx` | 404-Seite |
+
+### Beispiel Error-Boundary
+
+```typescript
+// app/error.tsx
+'use client';
+
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  return (
+    <div>
+      <h2>Etwas ist schiefgelaufen!</h2>
+      <button onClick={() => reset()}>Erneut versuchen</button>
+    </div>
+  );
+}
+```
+
+---
+
+## Credit-Pakete
+
+### Aktuelle Preisstruktur
+
+| Paket | Credits | Preis | Pro Credit |
+|-------|---------|-------|------------|
+| Starter | 50 | 10 € | 0,20 € |
+| Standard | 150 | 25 € | 0,17 € (-15%) |
+| Professional | 500 | 50 € | 0,10 € (-50%) |
+
+### Stripe Price IDs
+
+```env
+STRIPE_CREDITS_50_PRICE_ID=price_1SooadFBCgAxIZrBGdh8oUDb
+STRIPE_CREDITS_150_PRICE_ID=price_1SoocOFBCgAxIZrBMKKQvXPw
+STRIPE_CREDITS_500_PRICE_ID=price_1SoodpFBCgAxIZrBy1adjMAC
+```
+
+### UI-Darstellung
+
+Die Credit-Pakete werden mit Rabatt-Badges angezeigt:
+- Standard: "-15%" Badge
+- Professional: "-50%" Badge (hervorgehoben als "Beliebteste Option")
+
+---
+
+## Admin-Dashboard
+
+### Übersicht
+
+Das Admin-Dashboard (`/dashboard/admin/overview`) zeigt wichtige KPIs und Statistiken.
+
+### Zugriffskontrolle
+
+Nur Benutzer mit `isAdmin = true` haben Zugriff auf Admin-Seiten. Die Prüfung erfolgt in:
+- `app/dashboard/admin/layout.tsx` - Client-seitige Weiterleitung
+- `app/api/admin/*/route.ts` - Server-seitige Prüfung
+
+### Admin-Seiten
+
+| Pfad | Beschreibung |
+|------|--------------|
+| `/dashboard/admin/overview` | KPI-Dashboard mit Statistiken |
+| `/dashboard/admin/costs` | API-Kosten Übersicht |
+| `/dashboard/admin/users` | Benutzerverwaltung |
+| `/dashboard/admin/chat-monitor` | Chat-Logs einsehen |
+| `/dashboard/admin/api-test` | API-Tests durchführen |
+
+### KPIs im Overview-Dashboard
+
+- Gesamtanzahl Benutzer
+- Aktive Fälle
+- API-Kosten (heute/Monat)
+- Credit-Verbrauch
+- Beliebteste Nizza-Klassen
+- Länder-Verteilung
+
+---
+
 ## Letzte Änderungen (Januar 2026)
 
+- **Scalingo Deployment:** DSGVO-konforme Hosting-Lösung implementiert
+- **Devin Präfix-System:** `a` für schnelle Antworten, `d` für tiefe Analyse
+- **Zentrale Konfiguration:** `lib/config.ts` für alle Debounce-Zeiten
+- **Visuelles Trigger-Feedback:** Toast mit Undo-Funktion bei KI-Änderungen
+- **Rate-Limiting:** Redis-basiert mit In-Memory-Fallback
+- **Error-Boundaries:** Next.js App Router Error-Handling
+- **Credit-Pakete:** Neue Preisstruktur (10/25/50 EUR)
+- **Admin-Dashboard:** KPI-Übersicht für Administratoren
 - **Phase 2.4:** i18n-System für Mehrsprachigkeit vorbereitet
 - **Phase 2.3:** Loading-Skeletons für bessere UX implementiert
 - **Phase 2.2:** Trigger-Processing vereinheitlicht und Bugs behoben
