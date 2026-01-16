@@ -203,8 +203,15 @@ function LoginForm() {
   );
 }
 
-// Build-Datum wird bei jedem Deployment aktualisiert
-const BUILD_DATE = "16.01.2026, 13:08";
+// Build-Datum wird automatisch bei jedem Deployment generiert
+const BUILD_DATE = new Date().toLocaleString("de-DE", {
+  day: "2-digit",
+  month: "2-digit", 
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/Berlin"
+});
 
 export default function LoginPage() {
   return (
