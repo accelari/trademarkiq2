@@ -5231,7 +5231,7 @@ WICHTIG - Befolge diese Schritte:
             classes,
             includeRelatedClasses: rechercheForm.includeRelatedNiceClasses,
             relatedClasses: relatedClassesForAnalysis,
-            trademarkType: "word",
+            trademarkType: trademarkType === "wortmarke" ? "word" : trademarkType === "bildmarke" ? "image" : "word_image",
             fetchDetailsTopN: 15,
           }),
         });
