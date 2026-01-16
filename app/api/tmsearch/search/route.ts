@@ -1,138 +1,258 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getTMSearchClient } from "@/lib/tmsearch/client";
+import { logApiUsage } from "@/lib/api-logger";
+import { 
+  EU_COUNTRIES,
+  BENELUX_COUNTRIES, 
+  OAPI_COUNTRIES, 
+  getWIPODesignation 
+} from "@/lib/tmsearch/types";
 
-const searchCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000;
+const TMSEARCH_SEARCH_URL = "https://tmsearch.ai/api/search/";
+const TEST_API_KEY = "TESTAPIKEY";
 
-function getCacheKey(keyword: string, filters: any): string {
-  return `${keyword.toLowerCase()}-${JSON.stringify(filters)}`;
+// Erweitert die ausgewählten Länder um regionale WIPO-Codes
+// z.B. BE → BX (Benelux), CM → OA (OAPI)
+function expandCountriesWithRegionalCodes(countries: string[]): string[] {
+  const expanded = new Set(countries.map(c => c.toUpperCase()));
+  
+  for (const country of countries) {
+    const code = country.toUpperCase();
+    
+    // Füge regionalen WIPO-Code hinzu (BE → BX, CM → OA)
+    const wipoDesignation = getWIPODesignation(code);
+    if (wipoDesignation !== code) {
+      expanded.add(wipoDesignation);
+    }
+    
+    // Umgekehrt: Wenn BX gewählt, füge BE, NL, LU hinzu
+    if (code === "BX") {
+      BENELUX_COUNTRIES.forEach(c => expanded.add(c));
+    }
+    
+    // Umgekehrt: Wenn OA gewählt, füge alle OAPI-Länder hinzu
+    if (code === "OA") {
+      OAPI_COUNTRIES.forEach(c => expanded.add(c));
+    }
+  }
+  
+  return Array.from(expanded);
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
-    }
+interface TMSearchResult {
+  mid?: string | number;
+  verbal?: string;
+  status?: string;
+  submition?: string;
+  protection?: string[];
+  class?: string[];
+  accuracy?: string | number;
+  app?: string;
+  reg?: string;
+  img?: string;
+  date?: { applied?: string; granted?: string; expiration?: string };
+}
 
-    const searchParams = request.nextUrl.searchParams;
-    const keyword = searchParams.get("q") || searchParams.get("keyword") || "";
-    const statusFilter = searchParams.get("status") || "active";
-    const classesParam = searchParams.get("classes");
-    const officeParam = searchParams.get("office");
-    const countryParam = searchParams.get("country");
-    const minAccuracy = parseInt(searchParams.get("minAccuracy") || "80");
-    const limit = parseInt(searchParams.get("limit") || "20");
-    const offset = parseInt(searchParams.get("offset") || "0");
+function sanitizeKeyword(input: string): string {
+  return input
+    .replace(/[^a-zA-Z0-9\u00C0-\u024F\u0400-\u04FF\u0590-\u05FF\s]/g, "")
+    .trim();
+}
 
-    if (!keyword.trim()) {
-      return NextResponse.json({
-        total: 0,
-        results: [],
-        totalPages: 0,
-        currentPage: 1,
-      });
-    }
-
-    const filters = {
-      status: statusFilter as "active" | "expired" | "all",
-      classes: classesParam ? classesParam.split(",").map(Number).filter(Boolean) : undefined,
-      offices: officeParam && officeParam !== "all" ? [officeParam] : undefined,
-      countries: countryParam && countryParam !== "all" ? [countryParam] : undefined,
-      minAccuracy,
-    };
-
-    const cacheKey = getCacheKey(keyword, filters);
-    const cached = searchCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      const paginatedResults = cached.data.results.slice(offset, offset + limit);
-      return NextResponse.json({
-        total: cached.data.total,
-        results: paginatedResults,
-        totalPages: Math.ceil(cached.data.results.length / limit),
-        currentPage: Math.floor(offset / limit) + 1,
-        filtered: cached.data.filtered,
-        cached: true,
-      });
-    }
-
-    const client = getTMSearchClient();
-    const isTestMode = client.isTestMode();
-    const response = await client.searchWithFilters(keyword, filters);
-
-    searchCache.set(cacheKey, { data: response, timestamp: Date.now() });
-
-    if (searchCache.size > 100) {
-      const oldestKey = searchCache.keys().next().value;
-      if (oldestKey) searchCache.delete(oldestKey);
-    }
-
-    const paginatedResults = response.results.slice(offset, offset + limit);
-
-    return NextResponse.json({
-      total: response.total,
-      results: paginatedResults,
-      totalPages: Math.ceil(response.results.length / limit),
-      currentPage: Math.floor(offset / limit) + 1,
-      filtered: response.filtered,
-      isTestMode,
-    });
-  } catch (error) {
-    console.error("TMSearch API error:", error);
-    return NextResponse.json(
-      { error: "Fehler bei der Markensuche. Bitte versuchen Sie es später erneut." },
-      { status: 500 }
-    );
+function filterResults(
+  results: TMSearchResult[],
+  filters: {
+    countries?: string[];
+    liveOnly?: boolean;
+    classes?: number[];
+    includeRelatedClasses?: boolean;
+    minAccuracy?: number;
   }
+): { filtered: TMSearchResult[]; excluded: number } {
+  let filtered = results;
+  const originalCount = results.length;
+
+  // Filter by countries/offices (including WIPO designations and EUIPO for EU countries)
+  // Erweitere die Länder um regionale Codes (BE → BX, CM → OA, etc.)
+  if (filters.countries && filters.countries.length > 0) {
+    const originalCountries = filters.countries.map(c => c.toUpperCase());
+    // Erweitere um regionale WIPO-Codes (BE → BX, CM → OA)
+    const selectedCountries = expandCountriesWithRegionalCodes(originalCountries);
+    const hasEuCountry = selectedCountries.some(c => EU_COUNTRIES.includes(c));
+    const includeEuipo = hasEuCountry && !selectedCountries.includes("EU");
+
+    filtered = filtered.filter((r) => {
+      const office = (r.submition || "").toUpperCase();
+      const protection = (r.protection || []).map(p => String(p).toUpperCase());
+
+      // Direct office match (inkl. regionale Codes wie BX, OA)
+      if (selectedCountries.includes(office)) return true;
+
+      // EUIPO marks apply to all EU member countries
+      if (includeEuipo && office === "EU") return true;
+
+      // Protection array match (inkl. regionale Codes wie BX, OA)
+      if (protection.some(p => selectedCountries.includes(p))) return true;
+
+      // WIPO marks with matching designation
+      if (office === "WO" && protection.length > 0) {
+        if (protection.some(p => selectedCountries.includes(p))) return true;
+        // WIPO marks designating EU also apply to EU countries
+        if (hasEuCountry && protection.includes("EU")) return true;
+      }
+
+      return false;
+    });
+  }
+
+  // Filter by status (LIVE only)
+  if (filters.liveOnly) {
+    filtered = filtered.filter((r) => r.status === "LIVE");
+  }
+
+  // Filter by Nizza classes
+  if (filters.classes && filters.classes.length > 0) {
+    const classStrings = filters.classes.map(c => String(c).padStart(2, "0"));
+    filtered = filtered.filter((r) => {
+      const resultClasses = (r.class || []).map(c => String(c).padStart(2, "0"));
+      return resultClasses.some(c => classStrings.includes(c));
+    });
+  }
+
+  // Filter by minimum accuracy
+  if (filters.minAccuracy && filters.minAccuracy > 0) {
+    filtered = filtered.filter((r) => Number(r.accuracy || 0) >= filters.minAccuracy!);
+  }
+
+  return {
+    filtered,
+    excluded: originalCount - filtered.length,
+  };
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
     }
+    
+    const userId = session.user.id;
 
-    const body = await request.json();
-    const { keyword, status = "active", classes, office, country, minAccuracy, limit = 20, offset = 0 } = body;
+    const body = await request.json().catch(() => null);
+    const keywordRaw = typeof body?.keyword === "string" ? body.keyword : "";
+    const keyword = sanitizeKeyword(keywordRaw);
 
-    if (!keyword?.trim()) {
-      return NextResponse.json({
-        total: 0,
-        results: [],
-        totalPages: 0,
-        currentPage: 1,
-      });
+    // Optional filter parameters
+    const countries: string[] = Array.isArray(body?.countries) ? body.countries : [];
+    const liveOnly: boolean = body?.liveOnly === true;
+    const classes: number[] = Array.isArray(body?.classes) ? body.classes.map(Number).filter((n: number) => !isNaN(n)) : [];
+    const minAccuracy: number = typeof body?.minAccuracy === "number" ? body.minAccuracy : 0;
+    const applyFilters: boolean = body?.applyFilters === true;
+
+    if (!keyword) {
+      return NextResponse.json({ error: "keyword ist erforderlich" }, { status: 400 });
     }
 
-    const filters = {
-      status: (status || "active") as "active" | "expired" | "all",
-      classes: classes?.length ? classes : undefined,
-      offices: office && office !== "all" ? [office] : undefined,
-      countries: country && country !== "all" ? [country] : undefined,
-      minAccuracy: minAccuracy || 80,
-    };
+    const apiKey = process.env.TMSEARCH_API_KEY || TEST_API_KEY;
+    const isTestMode = !process.env.TMSEARCH_API_KEY;
 
-    const client = getTMSearchClient();
-    const isTestMode = client.isTestMode();
-    const response = await client.searchWithFilters(keyword, filters);
+    const url = new URL(TMSEARCH_SEARCH_URL);
+    url.searchParams.set("keyword", keyword);
+    url.searchParams.set("api_key", apiKey);
 
-    const paginatedResults = response.results.slice(offset, offset + limit);
+    const res = await fetch(url.toString(), {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+
+    const contentType = res.headers.get("content-type") || "";
+    let rawData: { total?: number; result?: TMSearchResult[]; timestamp?: string } | string | null = null;
+
+    if (contentType.includes("application/json")) {
+      rawData = await res.json().catch(() => null);
+    } else {
+      const textData = await res.text().catch(() => "");
+      // Try to parse as JSON anyway (tmsearch sometimes returns text/json)
+      try {
+        rawData = JSON.parse(textData);
+      } catch {
+        rawData = textData;
+      }
+    }
+
+    if (!res.ok) {
+      return NextResponse.json(
+        {
+          error: "tmsearch.ai Anfrage fehlgeschlagen",
+          status: res.status,
+          statusText: res.statusText,
+          keyword,
+          raw: rawData,
+        },
+        { status: res.status }
+      );
+    }
+
+    // Parse results
+    let results: TMSearchResult[] = [];
+    let total = 0;
+
+    if (rawData && typeof rawData === "object" && "result" in rawData) {
+      results = rawData.result || [];
+      total = rawData.total || results.length;
+    }
+
+    // Apply filters if requested
+    let filtered: TMSearchResult[] = results;
+    let excludedCount = 0;
+
+    if (applyFilters && (countries.length > 0 || liveOnly || classes.length > 0 || minAccuracy > 0)) {
+      const filterResult = filterResults(results, {
+        countries,
+        liveOnly,
+        classes,
+        minAccuracy,
+      });
+      filtered = filterResult.filtered;
+      excludedCount = filterResult.excluded;
+    }
+
+    const durationMs = Date.now() - startTime;
+    
+    // API-Nutzung loggen und Credits abziehen
+    await logApiUsage({
+      userId,
+      apiProvider: "tmsearch",
+      apiEndpoint: "/api/tmsearch/search",
+      units: 1, // 1 Suche
+      unitType: "searches",
+      durationMs,
+      statusCode: 200,
+      metadata: {
+        keyword,
+        totalResults: total,
+        filteredResults: filtered.length,
+        isTestMode,
+      },
+    });
 
     return NextResponse.json({
-      total: response.total,
-      results: paginatedResults,
-      totalPages: Math.ceil(response.results.length / limit),
-      currentPage: Math.floor(offset / limit) + 1,
-      filtered: response.filtered,
+      success: true,
+      keyword,
       isTestMode,
+      total,
+      totalFiltered: filtered.length,
+      excluded: excludedCount,
+      filters: applyFilters ? { countries, liveOnly, classes, minAccuracy } : null,
+      results: filtered,
+      raw: rawData,
     });
   } catch (error) {
-    console.error("TMSearch API error:", error);
-    return NextResponse.json(
-      { error: "Fehler bei der Markensuche. Bitte versuchen Sie es später erneut." },
-      { status: 500 }
-    );
+    console.error("Error in tmsearch/search:", error);
+    return NextResponse.json({ error: "Fehler bei tmsearch Anfrage" }, { status: 500 });
   }
 }

@@ -1,0 +1,6 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "diff",
+  "localEndpoint": "http://localhost:5000/dashboard/case"
+}

@@ -2,6 +2,7 @@
 
 import { SessionProvider } from "next-auth/react";
 import { SWRConfig } from "swr";
+import { AnalyticsProvider } from "@/components/analytics-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -12,7 +13,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           revalidateOnReconnect: false,
         }}
       >
-        {children}
+        <AnalyticsProvider>
+          {children}
+        </AnalyticsProvider>
       </SWRConfig>
     </SessionProvider>
   );

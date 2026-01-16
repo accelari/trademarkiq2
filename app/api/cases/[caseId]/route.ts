@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth, isAdminSession } from "@/lib/auth";
 import { db } from "@/db";
 import { trademarkCases, caseEvents, consultations } from "@/db/schema";
 import { eq, and, or } from "drizzle-orm";
@@ -25,6 +25,7 @@ export async function GET(
     }
 
     const { caseId } = await params;
+    const isAdmin = isAdminSession(session);
 
     let caseData;
     
@@ -41,31 +42,41 @@ export async function GET(
       },
     };
 
+    // Admins können alle Fälle sehen, normale User nur ihre eigenen
     if (isUUID(caseId)) {
       caseData = await db.query.trademarkCases.findFirst({
-        where: and(
-          eq(trademarkCases.id, caseId),
-          eq(trademarkCases.userId, session.user.id)
-        ),
+        where: isAdmin
+          ? eq(trademarkCases.id, caseId)
+          : and(
+              eq(trademarkCases.id, caseId),
+              eq(trademarkCases.userId, session.user.id)
+            ),
         ...queryOptions,
       });
     } else if (isCaseNumber(caseId)) {
       caseData = await db.query.trademarkCases.findFirst({
-        where: and(
-          eq(trademarkCases.caseNumber, caseId),
-          eq(trademarkCases.userId, session.user.id)
-        ),
+        where: isAdmin
+          ? eq(trademarkCases.caseNumber, caseId)
+          : and(
+              eq(trademarkCases.caseNumber, caseId),
+              eq(trademarkCases.userId, session.user.id)
+            ),
         ...queryOptions,
       });
     } else {
       caseData = await db.query.trademarkCases.findFirst({
-        where: and(
-          or(
-            eq(trademarkCases.id, caseId),
-            eq(trademarkCases.caseNumber, caseId)
-          ),
-          eq(trademarkCases.userId, session.user.id)
-        ),
+        where: isAdmin
+          ? or(
+              eq(trademarkCases.id, caseId),
+              eq(trademarkCases.caseNumber, caseId)
+            )
+          : and(
+              or(
+                eq(trademarkCases.id, caseId),
+                eq(trademarkCases.caseNumber, caseId)
+              ),
+              eq(trademarkCases.userId, session.user.id)
+            ),
         ...queryOptions,
       });
     }

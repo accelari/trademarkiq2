@@ -5,8 +5,9 @@ import { trademarkCases, caseSteps, caseEvents } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 
 const RESETTABLE_STEPS: Record<string, string[]> = {
-  beratung: ["beratung", "recherche", "risikoanalyse"],
-  recherche: ["recherche", "risikoanalyse"],
+  beratung: ["beratung", "markenname", "recherche", "analyse", "anmeldung", "kommunikation", "ueberwachung", "fristen"],
+  markenname: ["markenname", "recherche", "analyse", "anmeldung", "kommunikation", "ueberwachung", "fristen"],
+  recherche: ["recherche", "analyse", "anmeldung", "kommunikation", "ueberwachung", "fristen"],
 };
 
 function getStepsToReset(fromStep: string): string[] {
@@ -29,7 +30,7 @@ export async function POST(
 
     if (!fromStep || !RESETTABLE_STEPS[fromStep]) {
       return NextResponse.json(
-        { error: "Gültiger Step erforderlich (beratung oder recherche)" },
+        { error: "Gültiger Step erforderlich (beratung, markenname oder recherche)" },
         { status: 400 }
       );
     }

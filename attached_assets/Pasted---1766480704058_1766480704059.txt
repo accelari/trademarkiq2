@@ -1,0 +1,197 @@
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   BENUTZER startet auf:  /dashboard/copilot  (Markenberatung)              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ Benutzer spricht mit Klaus (Voice/Text)
+                                    │ über seine Markenidee
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   COPILOT CLIENT                                                            │
+│   Datei: app/dashboard/copilot/CopilotClient.tsx                           │
+│                                                                             │
+│   Was passiert hier?                                                        │
+│   ─────────────────                                                         │
+│   1. Benutzer tippt oder spricht: "Ich möchte 'adidas' in den USA          │
+│      für Sportbekleidung schützen"                                          │
+│                                                                             │
+│   2. Klaus (KI) antwortet und stellt Fragen                                 │
+│                                                                             │
+│   3. Am Ende: KI erstellt eine ZUSAMMENFASSUNG (meetingSummary)             │
+│      → "Der Kunde möchte die Marke 'adidas' in den USA in der              │
+│         Klasse 25 (Bekleidung) anmelden..."                                 │
+│                                                                             │
+│   4. Benutzer klickt "BERICHT ERSTELLEN"          meine frage:     Haben wir diese funktion?                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ handleSaveConsultation() wird aufgerufen
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   SCHRITT A: Daten extrahieren                                              │
+│   API: POST /api/ai/analyze-consultation                                    │
+│   Datei: app/api/ai/analyze-consultation/route.ts                          │
+│                                                                             │
+│   Was passiert hier?                                                        │
+│   ─────────────────                                                         │
+│   Die Zusammenfassung wird an Claude (KI) geschickt.                        │
+│   Claude liest den Text und extrahiert:                                     │
+│                                                                             │
+│   INPUT:  "Der Kunde möchte 'adidas' in USA für Sportbekleidung..."        │
+│                          ▼                                                  │
+│   OUTPUT: {                                                                 │
+│             trademarkName: "adidas",     ← Markenname                       │
+│             countries: ["US"],            ← Länder                          │
+│             niceClasses: [25]             ← Nizza-Klassen                   │
+│           }                                                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ extractedData geht zurück zum CopilotClient
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   SCHRITT B: Beratung in Datenbank speichern              meine frage:               (wenn wir zu jede beratung den markenfall anlegen muss die berautung nicht in dem fall abgespeichert weren. Dann barucht man das nicht weparat zu speichern   │
+│   API: POST /api/consultations                                              │
+│   Datei: app/api/consultations/route.ts                                    │
+│                                                                             │
+│   Was passiert hier?                                                        │
+│   ─────────────────                                                         │
+│   Die komplette Beratung wird gespeichert:                                  │
+│                                                                             │
+│   INSERT INTO consultations:                                                │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │ id: "abc123"                                                        │   │
+│   │ userId: "user-456"                                                  │   │
+│   │ title: "Marke adidas - USA"                                        │   │
+│   │ summary: "Der Kunde möchte..."                                     │   │
+│   │ transcript: "Frage: ... Antwort: ..."                              │   │
+│   │ duration: 180 (Sekunden)                                           │   │
+│   │ mode: "voice"                                                       │   │
+│   │ extractedData: { trademarkName, countries, niceClasses }           │   │
+│   │ status: "ready_for_research"                                       │   │
+│   └────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ consultationId wird zurückgegeben
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   SCHRITT C: Neuen FALL (Case) erstellen                                    │
+│   API: POST /api/cases                                                      │
+│   Datei: app/api/cases/route.ts                                            │
+│                                                                             │
+│   Was passiert hier?                                                        │
+│   ─────────────────                                                         │
+│   Ein neuer "Markenfall" wird angelegt:          Meine frage:  kann man zuerts den fall anlegen und dann die beratung dort speichern?                         │
+│                                                                             │
+│   INSERT INTO trademarkCases:                                               │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │ id: "case-789"                                                      │   │
+│   │ userId: "user-456"                                                  │   │
+│   │ caseNumber: "TM-20251223-143052"  ← Automatisch generiert          │   │
+│   │ trademarkName: "adidas"                                            │   │
+│   │ status: "draft"                                                     │   │
+│   │ createdAt: 2025-12-23                                              │   │
+│   └────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│   Gleichzeitig werden die STEPS initialisiert:                              │
+│                                                                             │
+│   INSERT INTO caseSteps:                                                    │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │ caseId: "case-789"                                                  │   │
+│   │ step: "beratung"      → status: "completed" ✓                      │   │
+│   │ step: "recherche"     → status: "pending"                          │   │
+│   │ step: "risikoanalyse" → status: "pending"                          │   │
+│   │ step: "anmeldung"     → status: "pending"                          │   │
+│   │ step: "watchlist"     → status: "pending"                          │   │
+│   └────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ caseId wird zurückgegeben
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   SCHRITT D: Entscheidungen (Decisions) speichern                           │
+│   API: POST /api/cases/extract-decisions                                    │
+│   Datei: app/api/cases/extract-decisions/route.ts                          │
+│                                                                             │
+│   Was passiert hier?                                                        │
+│   ─────────────────                                                         │
+│   Die extrahierten Daten werden SEPARAT gespeichert,           Meine Frage: in den anglegtan fall?            │
+│   damit sie später für die Recherche verfügbar sind:                        │
+│                                                                             │
+│   INSERT INTO caseDecisions:                                                │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │ id: "decision-001"                                                  │   │
+│   │ caseId: "case-789"                                                  │   │
+│   │ consultationId: "abc123"                                           │   │
+│   │ trademarkNames: ["adidas"]       ← Für Recherche                   │   │
+│   │ countries: ["US"]                 ← Für Recherche                   │   │
+│   │ niceClasses: [25]                 ← Für Recherche                   │   │
+│   │ completenessScore: 100                                             │   │
+│   │ extractedAt: 2025-12-23                                            │   │
+│   └────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│   WARUM SEPARAT?              Meine frage: ich dacht es wird immer markenfall nurmmer angeleget und dort wird dann alles gepeicher                                              │
+│   → Benutzer kann mehrere Beratungen machen                                 │
+│   → Jede Beratung fügt neue Entscheidungen hinzu                           │
+│   → Recherche liest immer die NEUESTEN Entscheidungen                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ WEITERLEITUNG zur Recherche-Seite
+                                    │ router.push("/dashboard/recherche?caseId=case-789")
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   BENUTZER landet auf:  /dashboard/recherche?caseId=case-789               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ useEffect erkennt caseId in der URL
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   SCHRITT E: Prefill-Daten laden                                            │
+│   API: GET /api/cases/case-789/prefill                                      │
+│   Datei: app/api/cases/[caseId]/prefill/route.ts                           │
+│                                                                             │
+│   Was passiert hier?                                                        │
+│   ─────────────────                                                         │
+│   Die Recherche-Seite fragt: "Was weiß ich schon über diesen Fall?"        │
+│                                                                             │
+│   SELECT FROM caseDecisions WHERE caseId = "case-789"                       │
+│                          ▼                                                  │
+│   RESPONSE: {                                                               │
+│     prefill: {                                                              │
+│       trademarkName: "adidas",                                             │
+│       trademarkNames: ["adidas"],                                          │
+│       countries: ["US"],                                                    │
+│       niceClasses: [25]                                                     │
+│     }                                                                       │
+│   }                                                                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ Formular wird automatisch ausgefüllt
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   RECHERCHE-SEITE (aktuell: page.tsx mit 4.400 Zeilen!)                    │
+│   Datei: app/dashboard/recherche/page.tsx                                  │
+│                                                                             │
+│   Was zeigt die Seite?                                                      │
+│   ────────────────────                                                      │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │  ┌─────────────┐ ┌──────────────┐ ┌─────────────┐                  │   │
+│   │  │ Markenname  │ │ Länder       │ │ Klassen     │                  │   │
+│   │  │ [adidas   ] │ │ [✓] USA      │ │ [✓] 25      │                  │   │
+│   │  └─────────────┘ │ [ ] EU       │ │ [ ] 9       │                  │   │
+│   │                  │ [ ] DE

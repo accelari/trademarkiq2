@@ -224,7 +224,6 @@ export async function extractDecisionsFromSummary(
     
     await db.insert(caseDecisions).values({
       caseId,
-      consultationId,
       trademarkNames: [],
       countries: [],
       niceClasses: [],
@@ -309,12 +308,11 @@ export async function extractDecisionsFromSummary(
 
   await db.insert(caseDecisions).values({
     caseId,
-    consultationId,
     trademarkNames,
     countries,
     niceClasses,
     completenessScore,
-    confidenceScore,
+    confidenceScore: parsed.confidenceScore || 75,
     needsConfirmation,
     rawSummary: summary,
   });

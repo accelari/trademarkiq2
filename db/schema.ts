@@ -1,4 +1,4 @@
-import { pgTable, varchar, text, timestamp, integer, boolean, jsonb, index, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, timestamp, integer, boolean, jsonb, index, primaryKey, decimal } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
 export const users = pgTable("users", {
@@ -10,6 +10,9 @@ export const users = pgTable("users", {
   emailVerified: timestamp("email_verified"),
   isAdmin: boolean("is_admin").default(false),
   tourCompleted: boolean("tour_completed").default(false),
+  // Credit System
+  credits: decimal("credits", { precision: 10, scale: 2 }).default("0.00").notNull(), // Aktuelles Guthaben
+  creditWarningThreshold: integer("credit_warning_threshold").default(10), // Warnung bei X Credits
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -44,181 +47,6 @@ export const verificationTokens = pgTable("verification_tokens", {
   pk: primaryKey({ columns: [table.identifier, table.token] }),
 }));
 
-export const trademarkSearches = pgTable("trademark_searches", {
-  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
-  name: varchar("name", { length: 255 }).notNull(),
-  classes: jsonb("classes").$type<string[]>().default([]),
-  riskScore: integer("risk_score").default(0),
-  riskLevel: varchar("risk_level", { length: 50 }).default("low"),
-  conflicts: integer("conflicts").default(0),
-  similarMarks: integer("similar_marks").default(0),
-  recommendation: text("recommendation"),
-  status: varchar("status", { length: 50 }).default("pending"),
-  riskCompleted: boolean("risk_completed").default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => ({
-  userIdx: index("search_user_idx").on(table.userId),
-  createdAtIdx: index("search_created_at_idx").on(table.createdAt),
-}));
-
-export const playbooks = pgTable("playbooks", {
-  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
-  jurisdiction: varchar("jurisdiction", { length: 50 }).notNull(),
-  markName: varchar("mark_name", { length: 255 }),
-  currentStep: integer("current_step").default(1),
-  completedItems: jsonb("completed_items").$type<string[]>().default([]),
-  status: varchar("status", { length: 50 }).default("in_progress"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => ({
-  userIdx: index("playbook_user_idx").on(table.userId),
-}));
-
-export const watchlistItems = pgTable("watchlist_items", {
-  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
-  name: varchar("name", { length: 255 }).notNull(),
-  registrationNumber: varchar("registration_number", { length: 100 }),
-  jurisdiction: varchar("jurisdiction", { length: 50 }).notNull(),
-  classes: jsonb("classes").$type<string[]>().default([]),
-  expiryDate: timestamp("expiry_date"),
-  status: varchar("status", { length: 50 }).default("active"),
-  alertCount: integer("alert_count").default(0),
-  lastChecked: timestamp("last_checked").defaultNow(),
-  notificationSettings: jsonb("notification_settings").$type<{
-    emailEnabled: boolean;
-    email: string;
-    frequency: "sofort" | "täglich" | "wöchentlich";
-    alertTypes: {
-      newConflicts: boolean;
-      statusChanges: boolean;
-      expiryWarnings: boolean;
-    };
-  }>(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => ({
-  userIdx: index("watchlist_user_idx").on(table.userId),
-}));
-
-export const alerts = pgTable("alerts", {
-  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
-  watchlistItemId: varchar("watchlist_item_id", { length: 255 }).notNull().references(() => watchlistItems.id, { onDelete: "cascade" }),
-  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
-  type: varchar("type", { length: 50 }).notNull(),
-  severity: varchar("severity", { length: 50 }).notNull(),
-  message: text("message").notNull(),
-  acknowledged: boolean("acknowledged").default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const teamMembers = pgTable("team_members", {
-  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
-  ownerId: varchar("owner_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
-  role: varchar("role", { length: 50 }).default("member"),
-  status: varchar("status", { length: 50 }).default("active"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const teamInvitations = pgTable("team_invitations", {
-  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email", { length: 255 }).notNull(),
-  ownerId: varchar("owner_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
-  role: varchar("role", { length: 50 }).default("member"),
-  token: varchar("token", { length: 255 }).unique().notNull(),
-  status: varchar("status", { length: 50 }).default("pending"),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const experts = pgTable("experts", {
-  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
-  name: varchar("name", { length: 255 }).notNull(),
-  title: varchar("title", { length: 255 }),
-  company: varchar("company", { length: 255 }),
-  location: varchar("location", { length: 255 }),
-  rating: integer("rating").default(0),
-  reviewCount: integer("review_count").default(0),
-  specialties: jsonb("specialties").$type<string[]>().default([]),
-  languages: jsonb("languages").$type<string[]>().default([]),
-  experience: varchar("experience", { length: 100 }),
-  price: varchar("price", { length: 100 }),
-  verified: boolean("verified").default(false),
-  available: boolean("available").default(true),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const contactRequests = pgTable("contact_requests", {
-  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
-  expertId: varchar("expert_id", { length: 255 }).notNull().references(() => experts.id, { onDelete: "cascade" }),
-  message: text("message"),
-  status: varchar("status", { length: 50 }).default("pending"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const voiceSessions = pgTable("voice_sessions", {
-  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
-  mode: varchar("mode", { length: 50 }).default("standard"),
-  duration: integer("duration").default(0),
-  notes: text("notes"),
-  extractedMarks: jsonb("extracted_marks").$type<string[]>().default([]),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const trademarkApplications = pgTable("trademark_applications", {
-  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
-  markName: varchar("mark_name", { length: 255 }).notNull(),
-  markType: varchar("mark_type", { length: 50 }),
-  description: text("description"),
-  jurisdiction: varchar("jurisdiction", { length: 50 }),
-  niceClasses: jsonb("nice_classes").$type<number[]>().default([]),
-  goodsServices: text("goods_services"),
-  currentStep: integer("current_step").default(1),
-  status: varchar("status", { length: 50 }).default("draft"),
-  expertId: varchar("expert_id", { length: 255 }).references(() => experts.id),
-  searchId: varchar("search_id", { length: 255 }).references(() => trademarkSearches.id),
-  estimatedCost: integer("estimated_cost"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => ({
-  userIdx: index("application_user_idx").on(table.userId),
-  userStatusIdx: index("application_user_status_idx").on(table.userId, table.status),
-}));
-
-export const consultations = pgTable("consultations", {
-  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
-  title: varchar("title", { length: 255 }).notNull(),
-  summary: text("summary").notNull(),
-  transcript: text("transcript"),
-  sessionProtocol: text("session_protocol"),
-  duration: integer("duration"),
-  mode: varchar("mode", { length: 50 }).default("text"),
-  status: varchar("status", { length: 50 }).default("draft"),
-  extractedData: jsonb("extracted_data").$type<{
-    trademarkName?: string;
-    countries?: string[];
-    niceClasses?: number[];
-    isComplete?: boolean;
-  }>().default({}),
-  emailSent: boolean("email_sent").default(false),
-  emailSentAt: timestamp("email_sent_at"),
-  caseId: varchar("case_id", { length: 255 }).references(() => trademarkCases.id),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => ({
-  userIdx: index("consultation_user_idx").on(table.userId),
-  createdAtIdx: index("consultation_created_at_idx").on(table.createdAt),
-  statusIdx: index("consultation_status_idx").on(table.status),
-}));
-
 export const trademarkCases = pgTable("trademark_cases", {
   id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
   caseNumber: varchar("case_number", { length: 50 }).unique().notNull(),
@@ -251,8 +79,9 @@ export const caseSteps = pgTable("case_steps", {
 export const caseDecisions = pgTable("case_decisions", {
   id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
   caseId: varchar("case_id", { length: 255 }).notNull().references(() => trademarkCases.id, { onDelete: "cascade" }),
-  consultationId: varchar("consultation_id", { length: 255 }).references(() => consultations.id),
   trademarkNames: jsonb("trademark_names").$type<string[]>().default([]),
+  trademarkType: varchar("trademark_type", { length: 50 }), // wortmarke, bildmarke, wort-bildmarke
+  visitedAccordions: jsonb("visited_accordions").$type<string[]>().default([]), // Besuchte Akkordeons (für Begrüßungen)
   countries: jsonb("countries").$type<string[]>().default([]),
   niceClasses: jsonb("nice_classes").$type<number[]>().default([]),
   completenessScore: integer("completeness_score").default(0),
@@ -278,35 +107,98 @@ export const caseEvents = pgTable("case_events", {
   createdAtIdx: index("case_event_created_at_idx").on(table.createdAt),
 }));
 
+export const caseAnalyses = pgTable("case_analyses", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id", { length: 255 }).notNull().references(() => trademarkCases.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  searchQuery: jsonb("search_query").$type<{
+    trademarkName: string;
+    countries: string[];
+    niceClasses: number[];
+  }>().notNull(),
+  searchTermsUsed: jsonb("search_terms_used").$type<string[]>().default([]),
+  conflicts: jsonb("conflicts").$type<{
+    id: string;
+    name: string;
+    register: string;
+    holder: string;
+    classes: number[];
+    accuracy: number;
+    riskLevel: "high" | "medium" | "low";
+    reasoning: string;
+    status: string;
+    applicationNumber: string;
+    applicationDate: string | null;
+    registrationNumber: string;
+    registrationDate: string | null;
+    isFamousMark: boolean;
+  }[]>().default([]),
+  aiAnalysis: jsonb("ai_analysis").$type<{
+    nameAnalysis: string;
+    searchStrategy: string;
+    riskAssessment: string;
+    overallRisk: "high" | "medium" | "low";
+    recommendation: string;
+    famousMarkDetected: boolean;
+    famousMarkNames: string[];
+  }>(),
+  riskScore: integer("risk_score").default(0),
+  riskLevel: varchar("risk_level", { length: 50 }).default("low"),
+  totalResultsAnalyzed: integer("total_results_analyzed").default(0),
+  alternativeNames: jsonb("alternative_names").$type<{
+    name: string;
+    riskScore: number;
+    riskLevel: "low" | "medium" | "high" | "unknown";
+    conflictCount: number;
+    explanation?: string;
+  }[]>().default([]),
+  expertStrategy: jsonb("expert_strategy").$type<{
+    originalName: string;
+    rootExtraction: string;
+    searchVariants: string[];
+    phoneticsEnglish: string[];
+    phoneticsGerman: string[];
+    visualSimilar: string[];
+    misspellings: string[];
+  }>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  caseIdx: index("case_analysis_case_idx").on(table.caseId),
+  userIdx: index("case_analysis_user_idx").on(table.userId),
+}));
+
+export const consultations = pgTable("consultations", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 255 }).notNull(),
+  summary: text("summary").notNull(),
+  transcript: text("transcript"),
+  sessionProtocol: text("session_protocol"),
+  duration: integer("duration"),
+  mode: varchar("mode", { length: 50 }).default("text"),
+  status: varchar("status", { length: 50 }).default("draft"),
+  extractedData: jsonb("extracted_data").$type<{
+    trademarkName?: string;
+    countries?: string[];
+    niceClasses?: number[];
+    isComplete?: boolean;
+  }>().default({}),
+  emailSent: boolean("email_sent").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+  caseId: varchar("case_id", { length: 255 }).references(() => trademarkCases.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("consultation_user_idx").on(table.userId),
+  createdAtIdx: index("consultation_created_at_idx").on(table.createdAt),
+  statusIdx: index("consultation_status_idx").on(table.status),
+}));
+
 export const usersRelations = relations(users, ({ many }) => ({
   accounts: many(accounts),
   sessions: many(sessions),
-  searches: many(trademarkSearches),
-  playbooks: many(playbooks),
-  watchlistItems: many(watchlistItems),
-  alerts: many(alerts),
-  voiceSessions: many(voiceSessions),
-  trademarkApplications: many(trademarkApplications),
   consultations: many(consultations),
-}));
-
-export const trademarkApplicationsRelations = relations(trademarkApplications, ({ one }) => ({
-  user: one(users, { fields: [trademarkApplications.userId], references: [users.id] }),
-  expert: one(experts, { fields: [trademarkApplications.expertId], references: [experts.id] }),
-}));
-
-export const searchesRelations = relations(trademarkSearches, ({ one }) => ({
-  user: one(users, { fields: [trademarkSearches.userId], references: [users.id] }),
-}));
-
-export const watchlistRelations = relations(watchlistItems, ({ one, many }) => ({
-  user: one(users, { fields: [watchlistItems.userId], references: [users.id] }),
-  alerts: many(alerts),
-}));
-
-export const alertsRelations = relations(alerts, ({ one }) => ({
-  watchlistItem: one(watchlistItems, { fields: [alerts.watchlistItemId], references: [watchlistItems.id] }),
-  user: one(users, { fields: [alerts.userId], references: [users.id] }),
 }));
 
 export const consultationsRelations = relations(consultations, ({ one }) => ({
@@ -320,6 +212,8 @@ export const trademarkCasesRelations = relations(trademarkCases, ({ one, many })
   decisions: many(caseDecisions),
   events: many(caseEvents),
   consultations: many(consultations),
+  analyses: many(caseAnalyses),
+  rechercheHistories: many(rechercheHistory),
 }));
 
 export const caseStepsRelations = relations(caseSteps, ({ one }) => ({
@@ -328,7 +222,6 @@ export const caseStepsRelations = relations(caseSteps, ({ one }) => ({
 
 export const caseDecisionsRelations = relations(caseDecisions, ({ one }) => ({
   case: one(trademarkCases, { fields: [caseDecisions.caseId], references: [trademarkCases.id] }),
-  consultation: one(consultations, { fields: [caseDecisions.consultationId], references: [consultations.id] }),
 }));
 
 export const caseEventsRelations = relations(caseEvents, ({ one }) => ({
@@ -336,21 +229,320 @@ export const caseEventsRelations = relations(caseEvents, ({ one }) => ({
   user: one(users, { fields: [caseEvents.userId], references: [users.id] }),
 }));
 
+export const caseAnalysesRelations = relations(caseAnalyses, ({ one }) => ({
+  case: one(trademarkCases, { fields: [caseAnalyses.caseId], references: [trademarkCases.id] }),
+  user: one(users, { fields: [caseAnalyses.userId], references: [users.id] }),
+}));
+
+// Recherche-Historie: Speichert durchgeführte Markenrecherchen pro Case
+export const rechercheHistory = pgTable("recherche_history", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id", { length: 255 }).notNull().references(() => trademarkCases.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  keyword: varchar("keyword", { length: 255 }).notNull(),
+  trademarkType: varchar("trademark_type", { length: 50 }),
+  countries: jsonb("countries").$type<string[]>().default([]),
+  niceClasses: jsonb("nice_classes").$type<number[]>().default([]),
+  riskScore: integer("risk_score").default(0),
+  riskLevel: varchar("risk_level", { length: 20 }).default("low"),
+  decision: varchar("decision", { length: 50 }),
+  result: jsonb("result").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  caseIdx: index("recherche_history_case_idx").on(table.caseId),
+  userIdx: index("recherche_history_user_idx").on(table.userId),
+  createdAtIdx: index("recherche_history_created_at_idx").on(table.createdAt),
+}));
+
+export const rechercheHistoryRelations = relations(rechercheHistory, ({ one }) => ({
+  case: one(trademarkCases, { fields: [rechercheHistory.caseId], references: [trademarkCases.id] }),
+  user: one(users, { fields: [rechercheHistory.userId], references: [users.id] }),
+}));
+
+// Chat-Logs für Berater-Monitor (Token-Tracking)
+export const chatLogs = pgTable("chat_logs", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  caseId: varchar("case_id", { length: 255 }).references(() => trademarkCases.id, { onDelete: "set null" }),
+  sessionId: varchar("session_id", { length: 255 }), // Gruppierung von Nachrichten
+  role: varchar("role", { length: 20 }).notNull(), // "user" | "assistant" | "system"
+  content: text("content").notNull(),
+  inputTokens: integer("input_tokens").default(0),
+  outputTokens: integer("output_tokens").default(0),
+  totalTokens: integer("total_tokens").default(0),
+  costEur: text("cost_eur"), // Kosten in Euro (als String für Präzision)
+  credits: integer("credits").default(0),
+  model: varchar("model", { length: 100 }), // z.B. "claude-sonnet-4-20250514"
+  durationMs: integer("duration_ms"), // Antwortzeit in Millisekunden
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("chat_logs_user_idx").on(table.userId),
+  caseIdx: index("chat_logs_case_idx").on(table.caseId),
+  sessionIdx: index("chat_logs_session_idx").on(table.sessionId),
+  createdAtIdx: index("chat_logs_created_at_idx").on(table.createdAt),
+}));
+
+export const chatLogsRelations = relations(chatLogs, ({ one }) => ({
+  user: one(users, { fields: [chatLogs.userId], references: [users.id] }),
+  case: one(trademarkCases, { fields: [chatLogs.caseId], references: [trademarkCases.id] }),
+}));
+
+// User Events für Analytics (Klicks, Seitenaufrufe, Abbrüche)
+export const userEvents = pgTable("user_events", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id, { onDelete: "cascade" }),
+  sessionId: varchar("session_id", { length: 255 }).notNull(),
+  eventType: varchar("event_type", { length: 50 }).notNull(), // page_view, click, form_submit, error, conversion
+  eventName: varchar("event_name", { length: 100 }).notNull(), // z.B. "beratung_started", "recherche_abgebrochen"
+  pagePath: varchar("page_path", { length: 500 }),
+  elementId: varchar("element_id", { length: 100 }),
+  elementText: varchar("element_text", { length: 255 }),
+  metadata: jsonb("metadata"), // Zusätzliche Daten als JSON
+  referrer: varchar("referrer", { length: 500 }),
+  userAgent: varchar("user_agent", { length: 500 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("user_events_user_idx").on(table.userId),
+  sessionIdx: index("user_events_session_idx").on(table.sessionId),
+  eventTypeIdx: index("user_events_event_type_idx").on(table.eventType),
+  createdAtIdx: index("user_events_created_at_idx").on(table.createdAt),
+}));
+
+export const userEventsRelations = relations(userEvents, ({ one }) => ({
+  user: one(users, { fields: [userEvents.userId], references: [users.id] }),
+}));
+
+// User Sessions für Sitzungsverwaltung
+export const userSessions = pgTable("user_sessions_analytics", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id, { onDelete: "cascade" }),
+  sessionId: varchar("session_id", { length: 255 }).unique().notNull(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at"),
+  duration: integer("duration"), // Dauer in Sekunden
+  pageViews: integer("page_views").default(0),
+  events: integer("events").default(0),
+  entryPage: varchar("entry_page", { length: 500 }),
+  exitPage: varchar("exit_page", { length: 500 }),
+  device: varchar("device", { length: 50 }), // desktop, mobile, tablet
+  browser: varchar("browser", { length: 100 }),
+  country: varchar("country", { length: 100 }),
+}, (table) => ({
+  userIdx: index("user_sessions_analytics_user_idx").on(table.userId),
+  startedAtIdx: index("user_sessions_analytics_started_at_idx").on(table.startedAt),
+}));
+
+export const userSessionsRelations = relations(userSessions, ({ one }) => ({
+  user: one(users, { fields: [userSessions.userId], references: [users.id] }),
+}));
+
+// API Usage Logs - Zentrale Tabelle für ALLE API-Aufrufe (Claude, OpenAI, tmsearch, etc.)
+export const apiUsageLogs = pgTable("api_usage_logs", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id, { onDelete: "cascade" }),
+  
+  // API Provider Info
+  apiProvider: varchar("api_provider", { length: 50 }).notNull(), // claude, openai, tmsearch, tavily, hume, resend
+  apiEndpoint: varchar("api_endpoint", { length: 255 }).notNull(), // z.B. /api/claude-chat, /api/whisper
+  model: varchar("model", { length: 100 }), // z.B. claude-opus-4, gpt-4o, whisper-1
+  
+  // Token/Usage Metrics
+  inputTokens: integer("input_tokens").default(0),
+  outputTokens: integer("output_tokens").default(0),
+  totalTokens: integer("total_tokens").default(0),
+  units: decimal("units", { precision: 10, scale: 4 }), // Für APIs ohne Tokens (z.B. Minuten für Whisper, Suchen für tmsearch)
+  unitType: varchar("unit_type", { length: 50 }), // tokens, minutes, searches, emails
+  
+  // Kosten
+  costUsd: decimal("cost_usd", { precision: 10, scale: 6 }).default("0.000000"), // Echte API-Kosten in USD
+  costEur: decimal("cost_eur", { precision: 10, scale: 6 }).default("0.000000"), // Echte API-Kosten in EUR
+  creditsCharged: decimal("credits_charged", { precision: 10, scale: 2 }).default("0.00"), // Dem User berechnete Credits
+  
+  // Request Info
+  requestId: varchar("request_id", { length: 255 }), // Für Debugging/Tracking
+  durationMs: integer("duration_ms"), // Antwortzeit
+  statusCode: integer("status_code"), // HTTP Status Code
+  errorMessage: text("error_message"), // Falls Fehler aufgetreten
+  
+  // Kontext
+  caseId: varchar("case_id", { length: 255 }).references(() => trademarkCases.id, { onDelete: "set null" }),
+  sessionId: varchar("session_id", { length: 255 }), // Browser-Session
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(), // Zusätzliche Daten
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("api_usage_logs_user_idx").on(table.userId),
+  providerIdx: index("api_usage_logs_provider_idx").on(table.apiProvider),
+  endpointIdx: index("api_usage_logs_endpoint_idx").on(table.apiEndpoint),
+  createdAtIdx: index("api_usage_logs_created_at_idx").on(table.createdAt),
+  caseIdx: index("api_usage_logs_case_idx").on(table.caseId),
+}));
+
+export const apiUsageLogsRelations = relations(apiUsageLogs, ({ one }) => ({
+  user: one(users, { fields: [apiUsageLogs.userId], references: [users.id] }),
+  case: one(trademarkCases, { fields: [apiUsageLogs.caseId], references: [trademarkCases.id] }),
+}));
+
+// Credit Transactions - Historie aller Guthaben-Änderungen
+export const creditTransactions = pgTable("credit_transactions", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Transaktionstyp
+  type: varchar("type", { length: 50 }).notNull(), // purchase, usage, refund, bonus, adjustment
+  
+  // Beträge
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Positiv für Gutschrift, negativ für Abbuchung
+  balanceBefore: decimal("balance_before", { precision: 10, scale: 2 }).notNull(),
+  balanceAfter: decimal("balance_after", { precision: 10, scale: 2 }).notNull(),
+  
+  // Beschreibung
+  description: text("description").notNull(), // z.B. "100 Credits gekauft", "Claude Chat Anfrage"
+  
+  // Referenzen
+  apiUsageLogId: varchar("api_usage_log_id", { length: 255 }).references(() => apiUsageLogs.id, { onDelete: "set null" }),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  stripeCheckoutSessionId: varchar("stripe_checkout_session_id", { length: 255 }),
+  
+  // Admin-Info
+  createdBy: varchar("created_by", { length: 255 }), // Admin-ID bei manuellen Anpassungen
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("credit_transactions_user_idx").on(table.userId),
+  typeIdx: index("credit_transactions_type_idx").on(table.type),
+  createdAtIdx: index("credit_transactions_created_at_idx").on(table.createdAt),
+  stripePaymentIdx: index("credit_transactions_stripe_payment_idx").on(table.stripePaymentIntentId),
+}));
+
+export const creditTransactionsRelations = relations(creditTransactions, ({ one }) => ({
+  user: one(users, { fields: [creditTransactions.userId], references: [users.id] }),
+  apiUsageLog: one(apiUsageLogs, { fields: [creditTransactions.apiUsageLogId], references: [apiUsageLogs.id] }),
+}));
+
+// Case Logos - Gespeicherte Logos pro Markenfall
+export const caseLogos = pgTable("case_logos", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id", { length: 255 }).notNull().references(() => trademarkCases.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Logo-Daten
+  url: text("url"), // Original URL zum Bild (kann ablaufen)
+  imageData: text("image_data"), // Base64-kodiertes Bild (dauerhaft gespeichert)
+  thumbnailUrl: text("thumbnail_url"), // Optional: Kleinere Version
+  
+  // Metadaten
+  source: varchar("source", { length: 50 }).notNull(), // "generated" | "uploaded" | "edited"
+  prompt: text("prompt"), // Der verwendete Prompt (bei generierten Logos)
+  model: varchar("model", { length: 100 }), // z.B. "V_2_TURBO", "flux-kontext-pro"
+  
+  // Auswahl-Status
+  isSelected: boolean("is_selected").default(false), // Vom User als Favorit markiert
+  
+  // Sortierung
+  sortOrder: integer("sort_order").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  caseIdx: index("case_logos_case_idx").on(table.caseId),
+  userIdx: index("case_logos_user_idx").on(table.userId),
+  createdAtIdx: index("case_logos_created_at_idx").on(table.createdAt),
+}));
+
+export const caseLogosRelations = relations(caseLogos, ({ one }) => ({
+  case: one(trademarkCases, { fields: [caseLogos.caseId], references: [trademarkCases.id] }),
+  user: one(users, { fields: [caseLogos.userId], references: [users.id] }),
+}));
+
+// Anmelder-Daten - Gespeicherte Anmelderdaten pro User (wiederverwendbar)
+export const applicantProfiles = pgTable("applicant_profiles", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Anmelder-Typ
+  applicantType: varchar("applicant_type", { length: 20 }).notNull(), // "privat" | "firma"
+  
+  // Basis-Daten
+  name: varchar("name", { length: 255 }).notNull(), // Vollständiger Name oder Firmenname
+  street: varchar("street", { length: 255 }).notNull(),
+  zip: varchar("zip", { length: 20 }).notNull(),
+  city: varchar("city", { length: 100 }).notNull(),
+  country: varchar("country", { length: 5 }).notNull(), // ISO-Code (DE, AT, CH, etc.)
+  
+  // Kontakt
+  email: varchar("email", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
+  
+  // Firma-spezifisch
+  legalForm: varchar("legal_form", { length: 50 }), // GmbH, UG, AG, etc.
+  registrationNumber: varchar("registration_number", { length: 100 }), // Handelsregisternummer
+  
+  // Status
+  isDefault: boolean("is_default").default(false), // Standard-Profil für neue Anmeldungen
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("applicant_profiles_user_idx").on(table.userId),
+}));
+
+export const applicantProfilesRelations = relations(applicantProfiles, ({ one }) => ({
+  user: one(users, { fields: [applicantProfiles.userId], references: [users.id] }),
+}));
+
+// Anmeldung-Aufträge - Aufträge für Vertreter-Anmeldungen
+export const registrationOrders = pgTable("registration_orders", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id", { length: 255 }).notNull().references(() => trademarkCases.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Marken-Daten
+  trademarkName: varchar("trademark_name", { length: 255 }).notNull(),
+  trademarkType: varchar("trademark_type", { length: 50 }).notNull(),
+  niceClasses: jsonb("nice_classes").$type<number[]>().default([]),
+  countries: jsonb("countries").$type<string[]>().default([]),
+  
+  // Anmelder-Daten (Snapshot zum Zeitpunkt der Bestellung)
+  applicantData: jsonb("applicant_data").$type<{
+    type: string;
+    name: string;
+    street: string;
+    zip: string;
+    city: string;
+    country: string;
+    email: string;
+    phone?: string;
+    legalForm?: string;
+  }>().notNull(),
+  
+  // Kosten
+  officeFees: decimal("office_fees", { precision: 10, scale: 2 }).notNull(), // Amtsgebühren
+  serviceFee: decimal("service_fee", { precision: 10, scale: 2 }).notNull(), // Vertreterkosten
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }).notNull(),
+  
+  // Status
+  status: varchar("status", { length: 50 }).default("pending"), // pending, confirmed, in_progress, completed, cancelled
+  emailSent: boolean("email_sent").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+  
+  // Notizen
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  caseIdx: index("registration_orders_case_idx").on(table.caseId),
+  userIdx: index("registration_orders_user_idx").on(table.userId),
+  statusIdx: index("registration_orders_status_idx").on(table.status),
+}));
+
+export const registrationOrdersRelations = relations(registrationOrders, ({ one }) => ({
+  case: one(trademarkCases, { fields: [registrationOrders.caseId], references: [trademarkCases.id] }),
+  user: one(users, { fields: [registrationOrders.userId], references: [users.id] }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
-export type TrademarkSearch = typeof trademarkSearches.$inferSelect;
-export type NewTrademarkSearch = typeof trademarkSearches.$inferInsert;
-export type Playbook = typeof playbooks.$inferSelect;
-export type NewPlaybook = typeof playbooks.$inferInsert;
-export type WatchlistItem = typeof watchlistItems.$inferSelect;
-export type NewWatchlistItem = typeof watchlistItems.$inferInsert;
-export type Alert = typeof alerts.$inferSelect;
-export type TeamMember = typeof teamMembers.$inferSelect;
-export type TeamInvitation = typeof teamInvitations.$inferSelect;
-export type Expert = typeof experts.$inferSelect;
-export type VoiceSession = typeof voiceSessions.$inferSelect;
-export type TrademarkApplication = typeof trademarkApplications.$inferSelect;
-export type NewTrademarkApplication = typeof trademarkApplications.$inferInsert;
 export type Consultation = typeof consultations.$inferSelect;
 export type NewConsultation = typeof consultations.$inferInsert;
 export type TrademarkCase = typeof trademarkCases.$inferSelect;
@@ -361,3 +553,48 @@ export type CaseDecision = typeof caseDecisions.$inferSelect;
 export type NewCaseDecision = typeof caseDecisions.$inferInsert;
 export type CaseEvent = typeof caseEvents.$inferSelect;
 export type NewCaseEvent = typeof caseEvents.$inferInsert;
+export type CaseAnalysis = typeof caseAnalyses.$inferSelect;
+export type NewCaseAnalysis = typeof caseAnalyses.$inferInsert;
+export type RechercheHistory = typeof rechercheHistory.$inferSelect;
+export type NewRechercheHistory = typeof rechercheHistory.$inferInsert;
+export type ChatLog = typeof chatLogs.$inferSelect;
+export type NewChatLog = typeof chatLogs.$inferInsert;
+export type UserEvent = typeof userEvents.$inferSelect;
+export type NewUserEvent = typeof userEvents.$inferInsert;
+export type UserSession = typeof userSessions.$inferSelect;
+export type NewUserSession = typeof userSessions.$inferInsert;
+export type ApiUsageLog = typeof apiUsageLogs.$inferSelect;
+export type NewApiUsageLog = typeof apiUsageLogs.$inferInsert;
+export type CreditTransaction = typeof creditTransactions.$inferSelect;
+export type NewCreditTransaction = typeof creditTransactions.$inferInsert;
+export type CaseLogo = typeof caseLogos.$inferSelect;
+export type NewCaseLogo = typeof caseLogos.$inferInsert;
+export type ApplicantProfile = typeof applicantProfiles.$inferSelect;
+export type NewApplicantProfile = typeof applicantProfiles.$inferInsert;
+export type RegistrationOrder = typeof registrationOrders.$inferSelect;
+export type NewRegistrationOrder = typeof registrationOrders.$inferInsert;
+
+// API-Preise Tabelle (für dynamische Preiskonfiguration)
+export const apiPricing = pgTable("api_pricing", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  provider: varchar("provider", { length: 50 }).notNull(), // claude, openai, tmsearch, tavily, hume, resend, ideogram, bfl
+  model: varchar("model", { length: 100 }).notNull(), // z.B. "claude-opus-4-5-20251101", "gpt-4o"
+  pricingType: varchar("pricing_type", { length: 20 }).notNull(), // "token", "unit", "minute", "image", "email", "search"
+  inputPer1M: decimal("input_per_1m", { precision: 10, scale: 6 }), // USD pro 1M Input Tokens
+  outputPer1M: decimal("output_per_1m", { precision: 10, scale: 6 }), // USD pro 1M Output Tokens
+  perUnit: decimal("per_unit", { precision: 10, scale: 6 }), // USD pro Einheit (Bild, Suche, E-Mail, Minute)
+  currency: varchar("currency", { length: 3 }).default("USD").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  validFrom: timestamp("valid_from").defaultNow().notNull(),
+  validUntil: timestamp("valid_until"),
+  notes: text("notes"), // z.B. "Quelle: https://www.anthropic.com/news/claude-opus-4-5"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  providerIdx: index("api_pricing_provider_idx").on(table.provider),
+  modelIdx: index("api_pricing_model_idx").on(table.model),
+  activeIdx: index("api_pricing_active_idx").on(table.isActive),
+}));
+
+export type ApiPricing = typeof apiPricing.$inferSelect;
+export type NewApiPricing = typeof apiPricing.$inferInsert;

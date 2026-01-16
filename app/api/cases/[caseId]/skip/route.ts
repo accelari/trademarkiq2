@@ -43,25 +43,40 @@ export async function POST(
       ),
     });
 
-    if (!existingStep) {
-      return NextResponse.json({ error: "Step nicht gefunden" }, { status: 404 });
-    }
+    const now = new Date();
 
-    const [updatedStep] = await db
-      .update(caseSteps)
-      .set({
-        status: "skipped",
-        skippedAt: new Date(),
-        skipReason: reason || null,
-      })
-      .where(eq(caseSteps.id, existingStep.id))
-      .returning();
+    let updatedStep;
+    if (!existingStep) {
+      [updatedStep] = await db
+        .insert(caseSteps)
+        .values({
+          caseId,
+          step,
+          status: "skipped",
+          startedAt: now,
+          completedAt: null,
+          skippedAt: now,
+          skipReason: reason || null,
+          metadata: {},
+        })
+        .returning();
+    } else {
+      [updatedStep] = await db
+        .update(caseSteps)
+        .set({
+          status: "skipped",
+          skippedAt: now,
+          skipReason: reason || null,
+        })
+        .where(eq(caseSteps.id, existingStep.id))
+        .returning();
+    }
 
     await db.insert(caseEvents).values({
       caseId,
       userId: session.user.id,
       eventType: "step_skipped",
-      eventData: { step, reason: reason || null, previousStatus: existingStep.status },
+      eventData: { step, reason: reason || null, previousStatus: existingStep?.status || "pending" },
     });
 
     await db

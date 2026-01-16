@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { caseId, consultationId, trademarkName, countries, niceClasses } = body;
+    const { caseId, trademarkName, trademarkType, countries, niceClasses } = body;
 
     if (!caseId) {
       return NextResponse.json(
@@ -54,11 +54,13 @@ export async function POST(request: NextRequest) {
         ? niceClasses 
         : existingDecision.niceClasses || [];
 
+      const updatedTrademarkType = trademarkType || existingDecision.trademarkType || null;
+
       [decision] = await db
         .update(caseDecisions)
         .set({
-          consultationId: consultationId || existingDecision.consultationId,
           trademarkNames: updatedTrademarkNames,
+          trademarkType: updatedTrademarkType,
           countries: updatedCountries,
           niceClasses: updatedNiceClasses,
           completenessScore: 100,
@@ -76,8 +78,8 @@ export async function POST(request: NextRequest) {
         .insert(caseDecisions)
         .values({
           caseId,
-          consultationId: consultationId || null,
           trademarkNames: trademarkName ? [trademarkName] : [],
+          trademarkType: trademarkType || null,
           countries: countries || [],
           niceClasses: niceClasses || [],
           completenessScore: 100,

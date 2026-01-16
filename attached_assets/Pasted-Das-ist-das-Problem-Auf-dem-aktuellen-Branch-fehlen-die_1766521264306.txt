@@ -1,0 +1,116 @@
+Das ist das Problem! Auf dem aktuellen Branch fehlen die fallbezogenen API-Routen:
+
+Aktueller Branch vs. develop251223falltemlate:
+Datei	Aktueller Branch	develop251223falltemlate
+app/api/cases/[caseId]/consultation/route.ts	❌ GELÖSCHT	✅ Vorhanden
+app/api/cases/[caseId]/consultation/messages/route.ts	❌ GELÖSCHT	✅ Vorhanden
+Lassen Sie mich prüfen, wie der Chat aktuell gespeichert wird:
+
+Read
+/home/user/trademarkiq2/app/dashboard/copilot/CopilotClient.tsx
+Read 80 lines
+Glob
+app/api/consultations/**/*.ts
+Read
+/home/user/trademarkiq2/app/api/consultations/route.ts
+Read 302 lines
+Grep
+GET.*consultation|fetch.*consultation|load.*message
+Das Problem gefunden!
+Aktueller Branch - Wie es gespeichert wird:
+Datei: app/api/consultations/route.ts
+
+POST /api/consultations
+
+Format im transcript Feld:
+
+[10:15] BENUTZER: Yeah
+[10:15] BERATER: Gut, ich helfe Ihnen gerne weiter...
+
+→ Plain Text, kein JSON!
+
+Das Problem:
+Funktion	Status
+Chat speichern beim Verlassen	✅ Funktioniert
+Chat laden beim Öffnen	❌ FEHLT!
+API /api/cases/[caseId]/consultation/messages	❌ GELÖSCHT
+Was passiert:
+1. Sie chatten mit Klaus         ✅
+2. Sie klicken "Speichern"       ✅ → transcript in DB gespeichert
+3. Sie verlassen den Fall        ✅
+4. Sie öffnen das Akkordeon      ❌ → KEIN Code lädt den Chat!
+
+Der Chat wird in consultations.transcript gespeichert, aber niemand liest ihn beim Öffnen wieder aus!
+
+Lösung:
+Die fehlenden Routen von develop251223falltemlate müssen übernommen werden:
+
+app/api/cases/[caseId]/consultation/route.ts - GET zum Laden
+app/api/cases/[caseId]/consultation/messages/route.ts - GET/POST für Messages
+Frontend muss beim Öffnen GET /api/cases/[caseId]/consultation aufrufen
+Soll ich diese Dateien vom Branch develop251223falltemlate übernehmen?
+
+kannst du einfach hier schreiben was und wo geändert werden soll
+
+Änderungen für fallbezogene Chat-Speicherung
+1. Neue API-Routen erstellen
+Datei: app/api/cases/[caseId]/consultation/route.ts
+
+GET  → Lädt gespeicherte Consultation für einen Fall
+POST → Speichert gesamtes Gespräch mit Summary
+PUT  → Aktualisiert extractedData/Summary
+
+Datei: app/api/cases/[caseId]/consultation/messages/route.ts
+
+GET  → Lädt alle Nachrichten für einen Fall
+POST → Speichert einzelne Nachricht (Echtzeit)
+
+2. Datenbank-Format ändern
+Tabelle: consultations
+Feld: transcript
+
+Aktuell (Plain Text)	Neu (JSON Array)
+[10:15] BENUTZER: Hallo	[{"id":"uuid","role":"user","content":"Hallo","timestamp":"..."}]
+3. Frontend ändern
+Datei: app/dashboard/copilot/CopilotClient.tsx
+
+Hinzufügen:
+
+// Beim Laden der Seite (wenn caseId vorhanden):
+useEffect(() => {
+  if (caseId) {
+    fetch(`/api/cases/${caseId}/consultation/messages`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.messages?.length > 0) {
+          // Messages in Chat laden
+          setMeetingNotes(data.messages);
+        }
+      });
+  }
+}, [caseId]);
+
+Ändern:
+
+// Jede Nachricht sofort speichern (nicht nur am Ende):
+const saveMessage = async (role: string, content: string) => {
+  await fetch(`/api/cases/${caseId}/consultation/messages`, {
+    method: "POST",
+    body: JSON.stringify({ role, content })
+  });
+};
+
+4. Beratungs-Akkordeon ändern
+Datei: app/components/CaseAccordion.tsx (oder wo das Akkordeon ist)
+
+Hinzufügen:
+
+Beim Öffnen des Beratungs-Akkordeons: GET /api/cases/[caseId]/consultation
+Vorherige Nachrichten im Chat anzeigen
+Zusammenfassung:
+Was	Wo	Aktion
+Consultation API	app/api/cases/[caseId]/consultation/route.ts	Neu erstellen
+Messages API	app/api/cases/[caseId]/consultation/messages/route.ts	Neu erstellen
+Chat laden	CopilotClient.tsx	useEffect hinzufügen
+Echtzeit-Speicherung	CopilotClient.tsx	saveMessage() hinzufügen
+Akkordeon	Akkordeon-Komponente	GET beim Öffnen

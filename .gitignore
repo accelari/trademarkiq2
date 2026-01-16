@@ -38,3 +38,4 @@ data/wipo/downloads/
 data/wipo/extracted/
 *.zip
 *.xml
+.auth/
