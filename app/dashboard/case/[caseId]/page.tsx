@@ -2279,24 +2279,48 @@ WICHTIG - Befolge diese Schritte:
       setAutoStartRecherche(true);
     }
     
-    // [WEITERE_RECHERCHE] - Neue Recherche starten (Formular zurücksetzen)
-    if (content.includes("[WEITERE_RECHERCHE]")) {
-      hasAction = true;
-      // Navigiere zum Recherche-Akkordeon
-      setOpenAccordion("recherche");
-      // Formular zurücksetzen (nur Markenname leeren, Rest beibehalten)
-      setRechercheForm(prev => ({
-        ...prev,
-        trademarkName: "", // Nur Markenname leeren
-      }));
-      setManualNameInput("");
-      // Analyse-Ansicht ausblenden, Formular zeigen
-      setShowRechercheAnalysis(false);
-      setActiveRechercheId(null);
-      setRechercheFormValidationAttempted(false);
-      setLiveAnalysisError(null);
-      console.log("[WEITERE_RECHERCHE] Formular zurückgesetzt für neue Recherche");
-    }
+        // [WEITERE_RECHERCHE:Markenname] - Neue Recherche mit neuem Namen automatisch starten
+        const weitereRechercheMatch = content.match(/\[WEITERE_RECHERCHE:([^\]]+)\]/);
+        if (weitereRechercheMatch?.[1]) {
+          hasAction = true;
+          const newName = weitereRechercheMatch[1].trim();
+          console.log("[WEITERE_RECHERCHE] Mit neuem Namen:", newName);
+      
+          // Navigiere zum Recherche-Akkordeon
+          setOpenAccordion("recherche");
+          // Neuen Markennamen setzen (Rest beibehalten - Klassen, Länder)
+          setRechercheForm(prev => ({
+            ...prev,
+            trademarkName: newName,
+          }));
+          setManualNameInput(newName);
+          // Analyse-Ansicht ausblenden, Formular zeigen
+          setShowRechercheAnalysis(false);
+          setActiveRechercheId(null);
+          setRechercheFormValidationAttempted(false);
+          setLiveAnalysisError(null);
+          // Recherche automatisch starten
+          setAutoStartRecherche(true);
+          console.log("[WEITERE_RECHERCHE] Recherche wird automatisch gestartet für:", newName);
+        }
+        // [WEITERE_RECHERCHE] ohne Namen - Nur Formular zurücksetzen
+        else if (content.includes("[WEITERE_RECHERCHE]")) {
+          hasAction = true;
+          // Navigiere zum Recherche-Akkordeon
+          setOpenAccordion("recherche");
+          // Formular zurücksetzen (nur Markenname leeren, Rest beibehalten)
+          setRechercheForm(prev => ({
+            ...prev,
+            trademarkName: "", // Nur Markenname leeren
+          }));
+          setManualNameInput("");
+          // Analyse-Ansicht ausblenden, Formular zeigen
+          setShowRechercheAnalysis(false);
+          setActiveRechercheId(null);
+          setRechercheFormValidationAttempted(false);
+          setLiveAnalysisError(null);
+          console.log("[WEITERE_RECHERCHE] Formular zurückgesetzt für neue Recherche");
+        }
 
     // [WEB_SUCHE:query] - Web-Suche über Tavily ausführen
     const webSearchMatch = content.match(/\[WEB_SUCHE:([^\]]+)\]/);
@@ -5786,22 +5810,31 @@ Du: "Ich starte die Recherche für '${rechercheForm.trademarkName}' in ${recherc
 ═══════════════════════════════════════════════════════════
 UNTERSCHIED WICHTIG:
 - [RECHERCHE_STARTEN] → Sucht Konflikte in Markendatenbanken
-- [WEITERE_RECHERCHE] → Setzt Formular zurück für neue Recherche (nach Ergebnis)
+- [WEITERE_RECHERCHE:Name] → Setzt neuen Namen UND startet Recherche automatisch!
+- [WEITERE_RECHERCHE] → Setzt nur Formular zurück (ohne automatischen Start)
 - [WEB_SUCHE:...] → Sucht Infos im Internet (Anforderungen, Gebühren, etc.)
 ═══════════════════════════════════════════════════════════
 
 WEITERE RECHERCHE (nach Ergebnis):
-⚠️ WICHTIG: Wenn der Kunde "weitere recherche", "nochmal", "anderen namen", "neuen namen" sagt:
-1. SOFORT den Trigger setzen: [WEITERE_RECHERCHE]
-2. Dann nach dem neuen Namen fragen
-3. OHNE Trigger funktioniert das Formular-Reset NICHT!
+⚠️ WICHTIG: Wenn der Kunde einen NEUEN NAMEN recherchieren will:
 
-❌ FALSCH: "Für welchen Namen soll ich recherchieren?" (ohne Trigger - Formular bleibt!)
-✅ RICHTIG: "Klar! Welchen Namen möchtest du prüfen? [WEITERE_RECHERCHE]" (Formular wird zurückgesetzt!)
+OPTION 1 - User nennt direkt den neuen Namen:
+User: "Recherchiere mal Accelari"
+Du: "Alles klar! Ich starte die Recherche für Accelari... [WEITERE_RECHERCHE:Accelari]"
+→ Setzt Namen UND startet Recherche automatisch!
 
-BEISPIEL:
-User: "weitere recherche"
-Du: "Alles klar! Ich setze das Formular zurück. Welchen Namen möchtest du recherchieren? [WEITERE_RECHERCHE]"
+OPTION 2 - User will weitere Recherche ohne Namen:
+User: "weitere recherche" / "anderen namen prüfen"
+Du: "Klar! Welchen Namen möchtest du prüfen? [WEITERE_RECHERCHE]"
+→ Setzt nur Formular zurück, User muss Namen eingeben
+
+❌ FALSCH: "Ich recherchiere Accelari..." (ohne Trigger - nichts passiert!)
+✅ RICHTIG: "Ich starte die Recherche für Accelari... [WEITERE_RECHERCHE:Accelari]"
+
+BEISPIEL - User sagt "ja" zu weiterer Recherche:
+Du: "Möchtest du einen anderen Namen recherchieren?"
+User: "Ja, prüfe mal Nexchem"
+Du: "Alles klar! Ich starte die Recherche für Nexchem... [WEITERE_RECHERCHE:Nexchem]"
 
 ═══════════════════════════════════════════════════════════
 
@@ -6330,48 +6363,60 @@ WORKFLOW:
                   </div>
                 ) : (
                 <div className="text-center">
-                  {trademarkType === "wortmarke" && (
-                    <div className="text-3xl font-bold text-gray-900">
-                      {manualNameInput || "Markenname"}
-                    </div>
-                  )}
-
-                  {trademarkType === "bildmarke" && (
-                    <>
-                      {trademarkImageUrl ? (
-                        <img
-                          src={trademarkImageUrl}
-                          alt="Bildmarke preview"
-                          className="max-w-full max-h-64 object-contain mx-auto"
-                        />
-                      ) : (
-                        <div className="text-gray-400 text-sm">
-                          Bild hochladen um Vorschau zu sehen
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {trademarkType === "wort-bildmarke" && (
-                    <div className="flex flex-col items-center gap-2">
-                      {trademarkImageUrl ? (
-                        <img
-                          src={trademarkImageUrl}
-                          alt="Logo preview"
-                          className="max-w-full max-h-64 object-contain"
-                        />
-                      ) : (
-                        <>
-                          <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-300">
-                            Logo
-                          </div>
-                          <div className="text-2xl font-bold text-gray-900">
+                    {trademarkType === "wortmarke" && (
+                      <>
+                        {trademarkImageUrl ? (
+                          // Bei Wortmarke mit generiertem Logo: Nur Logo zeigen (Name ist IM Bild)
+                          <img
+                            src={trademarkImageUrl}
+                            alt="Wortmarke Logo"
+                            className="max-w-full max-h-40 object-contain mx-auto"
+                          />
+                        ) : (
+                          // Ohne Logo: Name als Text anzeigen
+                          <div className="text-3xl font-bold text-gray-900">
                             {manualNameInput || "Markenname"}
                           </div>
-                        </>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </>
+                    )}
+
+                                    {trademarkType === "bildmarke" && (
+                                      <>
+                                        {trademarkImageUrl ? (
+                                          <img
+                                            src={trademarkImageUrl}
+                                            alt="Bildmarke preview"
+                                            className="max-w-full max-h-40 object-contain mx-auto"
+                                          />
+                                        ) : (
+                                          <div className="text-gray-400 text-sm">
+                                            Bild hochladen um Vorschau zu sehen
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+
+                                    {trademarkType === "wort-bildmarke" && (
+                                      <div className="flex flex-col items-center gap-2">
+                                        {trademarkImageUrl ? (
+                                          <img
+                                            src={trademarkImageUrl}
+                                            alt="Logo preview"
+                                            className="max-w-full max-h-40 object-contain"
+                                          />
+                                        ) : (
+                                          <>
+                                            <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-300">
+                                              Logo
+                                            </div>
+                                            <div className="text-2xl font-bold text-gray-900">
+                                              {manualNameInput || "Markenname"}
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
                 </div>
                 )}
               </div>
