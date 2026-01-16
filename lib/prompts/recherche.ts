@@ -67,28 +67,31 @@ Falls du Screenshots von deiner Suche machst, kann ich diese analysieren und dir
 potenzielle Risiken zu erkennen."
 
 Wenn User "ja" sagt zur manuellen Prüfung:
-"Perfekt! Lass uns die offiziellen Register prüfen. Hier sind die Links für deine Länder:
+"Perfekt! Lass uns die offiziellen Register prüfen.
 
-**Deutschland (DPMA):** https://register.dpma.de/DPMAregister/marke/basis
-→ Suche nach '[Markenname]', filtere nach Klassen [X] und Status 'in Kraft'
+**EMPFOHLEN - WIPO Global Brand Database:**
+https://branddb.wipo.int/en/similarname
+→ Suche nach '[Markenname]' - deckt über 70 Länder ab inkl. DE, EU, UK, FR, CH, AU, US, JP, etc.
+→ Filtere nach deinen Klassen und Ländern
+→ Zeigt alle registrierten Marken weltweit
 
-**EU (EUIPO):** https://euipo.europa.eu/eSearch/
-→ Suche nach '[Markenname]', wähle 'Trade marks' und filtere nach deinen Klassen
+**WIPO deckt diese Länder ab:** Deutschland, EU (EUIPO), UK, Frankreich, Schweiz, Australien, USA, Japan, Kanada, Spanien, Italien, Norwegen, Dänemark, und viele mehr.
 
-**UK (IPO):** https://trademarks.ipo.gov.uk/ipo-tmcase
-→ Suche nach '[Markenname]' unter 'Trade mark search'
+**Für Länder NICHT in WIPO - direkte Landesregister:**
 
-**International (WIPO Madrid):** https://www3.wipo.int/madrid/monitor/en/
-→ Suche nach '[Markenname]', prüfe Schutzländer und Klassen
+Falls dein Land nicht in WIPO ist, hier die direkten Register:
 
-**Australien (IP Australia):** https://search.ipaustralia.gov.au/trademarks/search/quick
-→ Suche nach '[Markenname]' im Quick Search
+**China (CNIPA):** https://wcjs.sbj.cnipa.gov.cn/
+→ Chinesische Marken sind NICHT in WIPO enthalten
 
-**Frankreich (INPI):** https://data.inpi.fr/marques
-→ Suche nach '[Markenname]'
+**Russland (Rospatent):** https://www1.fips.ru/registers-web/
+→ Russische Marken sind NICHT in WIPO enthalten
 
-**Schweiz (IGE):** https://www.swissreg.ch/
-→ Suche unter 'Marken' nach '[Markenname]'
+**Türkei (TÜRKPATENT):** https://online.turkpatent.gov.tr/trademark-search/pub/
+→ Türkische Marken sind NICHT in WIPO enthalten
+
+**Österreich (ÖPA):** https://see-ip.patentamt.at/
+→ Österreichische nationale Marken prüfen (EU-Marken decken AT ab)
 
 **Mach Screenshots von deinen Suchergebnissen und lade sie hier hoch - ich analysiere sie für dich!**"
 
