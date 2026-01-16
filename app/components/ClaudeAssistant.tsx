@@ -261,6 +261,17 @@ const ClaudeAssistant = forwardRef<ClaudeAssistantHandle, ClaudeAssistantProps>(
         .replace(/\[WEITERE_RECHERCHE\]/g, "") // Neue Recherche starten
         .replace(/\[WEITER:[^\]]+\]/g, "") // Navigation zu anderem Akkordeon
         .replace(/\[WEB_SUCHE:[^\]]+\]/g, "") // Web-Suche Trigger
+        // Anmeldung-Trigger
+        .replace(/\[ANMELDER_TYP:[^\]]+\]/gi, "") // Anmeldertyp (privat/firma)
+        .replace(/\[ANMELDER_NAME:[^\]]+\]/gi, "") // Anmeldername
+        .replace(/\[ANMELDER_STRASSE:[^\]]+\]/gi, "") // Straße
+        .replace(/\[ANMELDER_PLZ:[^\]]+\]/gi, "") // PLZ
+        .replace(/\[ANMELDER_ORT:[^\]]+\]/gi, "") // Ort
+        .replace(/\[ANMELDER_LAND:[^\]]+\]/gi, "") // Land
+        .replace(/\[ANMELDER_EMAIL:[^\]]+\]/gi, "") // E-Mail
+        .replace(/\[ANMELDER_TELEFON:[^\]]+\]/gi, "") // Telefon
+        .replace(/\[ANMELDER_RECHTSFORM:[^\]]+\]/gi, "") // Rechtsform
+        .replace(/\[KOSTEN_BERECHNEN\]/gi, "") // Kostenberechnung
         .replace(/\s{2,}/g, " ") // Mehrfache Leerzeichen entfernen
         .trim();
     }, []);
