@@ -203,9 +203,12 @@ function LoginForm() {
   );
 }
 
+// Build-Datum wird bei jedem Deployment aktualisiert
+const BUILD_DATE = "16.01.2026, 13:08";
+
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
@@ -227,6 +230,11 @@ export default function LoginPage() {
             <LoginForm />
           </Suspense>
         </div>
+      </div>
+      
+      {/* Letzte Aktualisierung - unten rechts in hellgrau */}
+      <div className="absolute bottom-4 right-4 text-xs text-gray-400">
+        Letzte Aktualisierung: {BUILD_DATE}
       </div>
     </div>
   );
