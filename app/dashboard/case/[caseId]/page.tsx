@@ -6406,14 +6406,17 @@ WORKFLOW:
                                             className="max-w-full max-h-40 object-contain"
                                           />
                                         ) : (
-                                          <>
-                                            <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-300">
-                                              Logo
+                                          <div className="flex flex-col items-center gap-3">
+                                            <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-300">
+                                              <div className="text-center">
+                                                <ImageIcon className="w-8 h-8 mx-auto mb-1 text-gray-300" />
+                                                <span>Logo</span>
+                                              </div>
                                             </div>
-                                            <div className="text-2xl font-bold text-gray-900">
-                                              {manualNameInput || "Markenname"}
+                                            <div className="text-xs text-gray-500">
+                                              Generiere oder lade ein Logo hoch
                                             </div>
-                                          </>
+                                          </div>
                                         )}
                                       </div>
                                     )}
