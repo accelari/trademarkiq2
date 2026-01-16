@@ -203,26 +203,14 @@ function LoginForm() {
   );
 }
 
-// Komponente für das Build-Datum (nur auf Client gerendert um Hydration-Fehler zu vermeiden)
+// Build-Datum wird zur Build-Zeit generiert (nicht bei jedem Seitenaufruf)
+// NEXT_PUBLIC_BUILD_DATE wird in next.config.ts gesetzt
+const BUILD_DATE = process.env.NEXT_PUBLIC_BUILD_DATE || "16.01.2026";
+
 function BuildDate() {
-  const [date, setDate] = useState<string>("");
-  
-  useEffect(() => {
-    setDate(new Date().toLocaleString("de-DE", {
-      day: "2-digit",
-      month: "2-digit", 
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Europe/Berlin"
-    }));
-  }, []);
-  
-  if (!date) return null;
-  
   return (
     <div className="absolute bottom-4 right-4 text-xs text-gray-400">
-      Letzte Aktualisierung: {date}
+      Letzte Aktualisierung: {BUILD_DATE}
     </div>
   );
 }
