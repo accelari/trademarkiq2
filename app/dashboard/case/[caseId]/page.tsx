@@ -3365,8 +3365,65 @@ WICHTIG - Befolge diese Schritte:
     // Hole die letzte User-Nachricht für Kontext
     const lastUserMsg = [...previousMessages].reverse().find(m => m.role === "user");
     const lastUserContent = (lastUserMsg?.content || "").toLowerCase();
+    const lastUserContentOriginal = lastUserMsg?.content || "";
     
-    // Pattern 1: User sagt "weitere recherche" und KI antwortet ohne [WEITERE_RECHERCHE]
+    // Ignoriere generische Wörter bei Namensextraktion
+    const ignoreWords = ["die", "der", "das", "eine", "einen", "für", "ich", "du", "wir", "sie", "es", "gerne", "klar", "super", "okay", "ja", "nein", "gut", "wortmarke", "bildmarke", "recherche", "marke", "klasse", "land", "können", "kannst", "machen", "prüfen", "checken", "mal", "bitte", "auch", "noch", "jetzt", "gleich", "dann", "und", "oder", "mit", "bei", "von", "nach", "auf", "aus", "ein", "dem", "den", "des", "zur", "zum", "als", "wie", "was", "wer", "wen", "wem", "welche", "welcher", "welches", "diese", "dieser", "dieses", "andere", "anderen", "anderer", "anderes", "neue", "neuen", "neuer", "neues", "weitere", "weiteren", "weiterer", "weiteres", "gleiche", "gleichen", "gleicher", "gleiches", "selbe", "selben", "selber", "selbes", "alle", "allen", "aller", "alles", "einige", "einigen", "einiger", "einiges", "manche", "manchen", "mancher", "manches", "viele", "vielen", "vieler", "vieles", "wenige", "wenigen", "weniger", "weniges", "mehrere", "mehreren", "mehrerer", "mehreres", "soll", "sollte", "möchte", "will", "wollen", "würde", "könnte", "müsste", "dürfte"];
+    
+    // Hilfsfunktion: Extrahiere Namen aus Text
+    const extractNameFromText = (text: string): string | null => {
+      // Pattern für Namen: "für X recherche" oder "X recherchieren" oder "recherche für X"
+      const patterns = [
+        /(?:für|f[üu]r)\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]*)\s+(?:recherche|recherchieren|prüfen|checken|suchen)/i,
+        /(?:recherche|recherchieren|prüfen|checken|suchen)\s+(?:für\s+)?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]*)/i,
+        /([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]*)\s+(?:recherche|recherchieren|prüfen|checken)/i,
+        /(?:prüfe|recherchiere|checke)\s+(?:mal\s+)?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]*)/i,
+      ];
+      
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match?.[1]) {
+          const name = match[1].trim();
+          if (!ignoreWords.includes(name.toLowerCase()) && name.length >= 3) {
+            return name;
+          }
+        }
+      }
+      return null;
+    };
+    
+    // WICHTIG: Prüfe ob User einen Namen in seiner Nachricht genannt hat UND Recherche will
+    // z.B. "können wir für alonta recherche machen?" → [WEITERE_RECHERCHE:Alonta]
+    const userWantsRecherche = 
+      lastUserContent.includes("recherche") ||
+      lastUserContent.includes("recherchieren") ||
+      lastUserContent.includes("prüfen") ||
+      lastUserContent.includes("checken");
+    
+    const userNameFromMessage = extractNameFromText(lastUserContentOriginal);
+    
+    // Pattern 1: User nennt Namen + will Recherche → [WEITERE_RECHERCHE:Name]
+    // Das ist der wichtigste Fall für "weitere recherche" Workflow!
+    if (userWantsRecherche && userNameFromMessage && !content.includes("[WEITERE_RECHERCHE:")) {
+      // KI bestätigt die Recherche (sagt "recherchiere", "prüfe", etc.)
+      if (contentLower.includes("recherchiere") || 
+          contentLower.includes("prüfe") ||
+          contentLower.includes("suche") ||
+          contentLower.includes("starte") ||
+          contentLower.includes("gerne") ||
+          contentLower.includes("klar") ||
+          contentLower.includes("okay") ||
+          contentLower.includes("alles klar")) {
+        // Kapitalisiere ersten Buchstaben des Namens
+        const capitalizedName = userNameFromMessage.charAt(0).toUpperCase() + userNameFromMessage.slice(1).toLowerCase();
+        modifiedContent += ` [WEITERE_RECHERCHE:${capitalizedName}]`;
+        console.log(`[Auto-Inject] [WEITERE_RECHERCHE:${capitalizedName}] hinzugefügt (User nannte Namen)`);
+        // Wenn wir [WEITERE_RECHERCHE:Name] setzen, brauchen wir keine anderen Trigger
+        return modifiedContent;
+      }
+    }
+    
+    // Pattern 2: User sagt "weitere recherche" ohne Namen → [WEITERE_RECHERCHE]
     const userWantsWeitereRecherche = 
       lastUserContent.includes("weitere recherche") ||
       lastUserContent.includes("anderen namen") ||
@@ -3379,40 +3436,47 @@ WICHTIG - Befolge diese Schritte:
       if (contentLower.includes("welchen namen") || 
           contentLower.includes("wie soll") ||
           contentLower.includes("neuen namen") ||
-          contentLower.includes("anderen namen")) {
+          contentLower.includes("anderen namen") ||
+          contentLower.includes("welche marke") ||
+          contentLower.includes("was möchtest")) {
         modifiedContent += " [WEITERE_RECHERCHE]";
-        console.log("[Auto-Inject] [WEITERE_RECHERCHE] hinzugefügt");
+        console.log("[Auto-Inject] [WEITERE_RECHERCHE] hinzugefügt (User will weitere Recherche)");
       }
     }
     
-    // Pattern 2: KI nennt einen Namen und sagt "recherchiere" aber ohne [MARKE:Name]
+    // Pattern 3: KI nennt einen Namen und sagt "recherchiere" aber ohne [WEITERE_RECHERCHE:Name]
     // Suche nach Mustern wie "Alonta recherchiere ich" oder "recherchiere Alonta"
-    if (!content.includes("[MARKE:")) {
-      // Pattern: "Name" recherchiere ich / für "Name" / Name - 
+    if (!content.includes("[WEITERE_RECHERCHE:") && !content.includes("[MARKE:")) {
       const namePatterns = [
         /"([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]+)"\s*(?:recherchiere|prüfe|suche)/i,
         /(?:recherchiere|prüfe|suche)\s*(?:ich\s*)?(?:für\s*)?(?:dich\s*)?["„]?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]+)[""]?/i,
         /(?:für|starte.*für)\s*[:.]?\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]+)\s*[-–]/i,
         /(?:Marke|Name|Markenname)\s*[:.]?\s*["„]?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]+)[""]?/i,
+        /Starte.*für\s*[:.]?\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]+)/i,
       ];
       
       for (const pattern of namePatterns) {
         const match = content.match(pattern);
         if (match?.[1]) {
           const name = match[1].trim();
-          // Ignoriere generische Wörter
-          const ignoreWords = ["die", "der", "das", "eine", "einen", "für", "ich", "du", "wir", "sie", "es", "gerne", "klar", "super", "okay", "ja", "nein", "gut", "wortmarke", "bildmarke", "recherche", "marke", "klasse", "land"];
           if (!ignoreWords.includes(name.toLowerCase()) && name.length >= 3) {
-            modifiedContent += ` [MARKE:${name}]`;
-            console.log(`[Auto-Inject] [MARKE:${name}] hinzugefügt`);
+            // Wenn KI "starte" sagt, nutze [WEITERE_RECHERCHE:Name] für automatischen Start
+            if (contentLower.includes("starte")) {
+              modifiedContent += ` [WEITERE_RECHERCHE:${name}]`;
+              console.log(`[Auto-Inject] [WEITERE_RECHERCHE:${name}] hinzugefügt (KI startet Recherche)`);
+              return modifiedContent;
+            } else {
+              modifiedContent += ` [MARKE:${name}]`;
+              console.log(`[Auto-Inject] [MARKE:${name}] hinzugefügt`);
+            }
             break;
           }
         }
       }
     }
     
-    // Pattern 3: KI sagt "starte die Recherche" aber ohne [RECHERCHE_STARTEN]
-    if (!content.includes("[RECHERCHE_STARTEN]")) {
+    // Pattern 4: KI sagt "starte die Recherche" aber ohne [RECHERCHE_STARTEN]
+    if (!content.includes("[RECHERCHE_STARTEN]") && !content.includes("[WEITERE_RECHERCHE:")) {
       const startsRecherche = 
         contentLower.includes("starte die recherche") ||
         contentLower.includes("recherche starten") ||
