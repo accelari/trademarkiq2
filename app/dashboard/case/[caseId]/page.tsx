@@ -3354,20 +3354,119 @@ WICHTIG - Befolge diese Schritte:
     voiceAssistantRef.current?.sendQuestion(question);
   }, []);
 
+  // Auto-Inject fehlende Trigger in KI-Antworten
+  // Die KI vergisst oft Trigger zu setzen - diese Funktion fügt sie automatisch hinzu
+  const autoInjectMissingTriggers = useCallback((content: string, previousMessages: any[]): string => {
+    if (!content) return content;
+    
+    let modifiedContent = content;
+    const contentLower = content.toLowerCase();
+    
+    // Hole die letzte User-Nachricht für Kontext
+    const lastUserMsg = [...previousMessages].reverse().find(m => m.role === "user");
+    const lastUserContent = (lastUserMsg?.content || "").toLowerCase();
+    
+    // Pattern 1: User sagt "weitere recherche" und KI antwortet ohne [WEITERE_RECHERCHE]
+    const userWantsWeitereRecherche = 
+      lastUserContent.includes("weitere recherche") ||
+      lastUserContent.includes("anderen namen") ||
+      lastUserContent.includes("neuen namen") ||
+      lastUserContent.includes("nochmal recherche") ||
+      lastUserContent.includes("andere marke");
+    
+    if (userWantsWeitereRecherche && !content.includes("[WEITERE_RECHERCHE")) {
+      // KI fragt nach neuem Namen aber hat keinen Trigger gesetzt
+      if (contentLower.includes("welchen namen") || 
+          contentLower.includes("wie soll") ||
+          contentLower.includes("neuen namen") ||
+          contentLower.includes("anderen namen")) {
+        modifiedContent += " [WEITERE_RECHERCHE]";
+        console.log("[Auto-Inject] [WEITERE_RECHERCHE] hinzugefügt");
+      }
+    }
+    
+    // Pattern 2: KI nennt einen Namen und sagt "recherchiere" aber ohne [MARKE:Name]
+    // Suche nach Mustern wie "Alonta recherchiere ich" oder "recherchiere Alonta"
+    if (!content.includes("[MARKE:")) {
+      // Pattern: "Name" recherchiere ich / für "Name" / Name - 
+      const namePatterns = [
+        /"([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]+)"\s*(?:recherchiere|prüfe|suche)/i,
+        /(?:recherchiere|prüfe|suche)\s*(?:ich\s*)?(?:für\s*)?(?:dich\s*)?["„]?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]+)[""]?/i,
+        /(?:für|starte.*für)\s*[:.]?\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]+)\s*[-–]/i,
+        /(?:Marke|Name|Markenname)\s*[:.]?\s*["„]?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\-]+)[""]?/i,
+      ];
+      
+      for (const pattern of namePatterns) {
+        const match = content.match(pattern);
+        if (match?.[1]) {
+          const name = match[1].trim();
+          // Ignoriere generische Wörter
+          const ignoreWords = ["die", "der", "das", "eine", "einen", "für", "ich", "du", "wir", "sie", "es", "gerne", "klar", "super", "okay", "ja", "nein", "gut", "wortmarke", "bildmarke", "recherche", "marke", "klasse", "land"];
+          if (!ignoreWords.includes(name.toLowerCase()) && name.length >= 3) {
+            modifiedContent += ` [MARKE:${name}]`;
+            console.log(`[Auto-Inject] [MARKE:${name}] hinzugefügt`);
+            break;
+          }
+        }
+      }
+    }
+    
+    // Pattern 3: KI sagt "starte die Recherche" aber ohne [RECHERCHE_STARTEN]
+    if (!content.includes("[RECHERCHE_STARTEN]")) {
+      const startsRecherche = 
+        contentLower.includes("starte die recherche") ||
+        contentLower.includes("recherche starten") ||
+        contentLower.includes("recherche wird gestartet") ||
+        contentLower.includes("starte jetzt die recherche") ||
+        contentLower.includes("los geht's mit der recherche") ||
+        (contentLower.includes("perfect") && contentLower.includes("starte"));
+      
+      // User hat "ja" gesagt zur Recherche-Frage
+      const userConfirmedRecherche = 
+        lastUserContent === "ja" ||
+        lastUserContent === "ok" ||
+        lastUserContent === "okay" ||
+        lastUserContent === "mach" ||
+        lastUserContent === "los" ||
+        lastUserContent === "start" ||
+        lastUserContent.includes("ja bitte") ||
+        lastUserContent.includes("ja, bitte") ||
+        lastUserContent.includes("ja mach") ||
+        lastUserContent.includes("starte");
+      
+      if (startsRecherche || (userConfirmedRecherche && contentLower.includes("recherche"))) {
+        modifiedContent += " [RECHERCHE_STARTEN]";
+        console.log("[Auto-Inject] [RECHERCHE_STARTEN] hinzugefügt");
+      }
+    }
+    
+    return modifiedContent;
+  }, []);
+
   const handleMessageSent = useCallback((message: any) => {
+    // Auto-Inject fehlende Trigger für Assistant-Nachrichten
+    let processedMessage = message;
+    if (message.role === "assistant" && message.content) {
+      const injectedContent = autoInjectMissingTriggers(message.content, sessionMessages);
+      if (injectedContent !== message.content) {
+        processedMessage = { ...message, content: injectedContent };
+        console.log("[handleMessageSent] Trigger auto-injected:", injectedContent);
+      }
+    }
+    
     setSessionMessages(prev => {
-      const exists = prev.some(m => m.id === message.id);
+      const exists = prev.some(m => m.id === processedMessage.id);
       if (exists) return prev;
-      return [...prev, message];
+      return [...prev, processedMessage];
     });
     
     // Event-Log: User- oder AI-Nachricht (vollständiger Text)
-    if (message.role === "user") {
-      logEvent("user_message", "User-Nachricht", message.content || "");
-    } else if (message.role === "assistant") {
-      logEvent("ai_message", "KI-Antwort", message.content || "");
+    if (processedMessage.role === "user") {
+      logEvent("user_message", "User-Nachricht", processedMessage.content || "");
+    } else if (processedMessage.role === "assistant") {
+      logEvent("ai_message", "KI-Antwort", processedMessage.content || "");
     }
-  }, [logEvent]);
+  }, [logEvent, autoInjectMissingTriggers, sessionMessages]);
 
   const handleDeleteConsultation = useCallback(async () => {
     try {
