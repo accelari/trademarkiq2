@@ -1277,7 +1277,7 @@ export default function CasePage() {
   type EventLogEntry = {
     id: string;
     timestamp: Date;
-    type: "session_start" | "user_message" | "ai_message" | "ai_greeting" | "field_change" | "accordion_change" | "trigger" | "recherche_start" | "recherche_complete" | "accordion_greeting" | "logo_generate" | "logo_upload" | "logo_reference";
+    type: "session_start" | "user_message" | "ai_message" | "ai_greeting" | "field_change" | "accordion_change" | "trigger" | "recherche_start" | "recherche_complete" | "recherche_select" | "recherche_new" | "recherche_delete" | "accordion_greeting" | "logo_generate" | "logo_upload" | "logo_reference";
     icon: string;
     description: string;
     details?: string;
@@ -1301,6 +1301,9 @@ export default function CasePage() {
       trigger: "⚠️",
       recherche_start: "🔍",
       recherche_complete: "✅",
+      recherche_select: "📋",
+      recherche_new: "➕",
+      recherche_delete: "🗑️",
       accordion_greeting: "💡",
       logo_generate: "🎨",
       logo_upload: "📤",
@@ -5601,9 +5604,14 @@ Halte dich kurz (ca. 5-8 Sätze), aber erkläre die wichtigsten Punkte.`;
         } else {
           setRechercheSteps([]); // Keine Schritte vorhanden (alte Recherchen)
         }
+        // Event-Log: Recherche aus Historie ausgewählt
+        logEvent("recherche_select", `Recherche "${selected.keyword}" aus Historie geladen`, `Risiko: ${selected.riskScore}% (${selected.riskLevel})`);
       }
     };
     const handleNewRecherche = () => {
+      // Event-Log: Weitere Recherche gestartet
+      logEvent("recherche_new", "Weitere Recherche gestartet", `Klassen: ${rechercheForm.niceClasses?.join(", ") || "-"} · Länder: ${rechercheForm.countries?.join(", ") || "-"}`);
+      
       // Nur Markenname leeren, Rest beibehalten (Markenart, Klassen, Land)
       setRechercheForm(prev => ({
         ...prev,
@@ -5617,6 +5625,12 @@ Halte dich kurz (ca. 5-8 Sätze), aber erkläre die wichtigsten Punkte.`;
       setLiveAnalysisError(null);
     };
     const handleDeleteRecherche = async (id: string) => {
+      // Event-Log: Recherche gelöscht
+      const deletedRecherche = rechercheHistory.find(r => r.id === id);
+      if (deletedRecherche) {
+        logEvent("recherche_delete", `Recherche "${deletedRecherche.keyword}" gelöscht`, `Risiko war: ${deletedRecherche.riskScore}% (${deletedRecherche.riskLevel})`);
+      }
+      
       const remainingAfterDelete = rechercheHistory.filter(r => r.id !== id);
       setRechercheHistory(remainingAfterDelete);
       if (activeRechercheId === id) {
